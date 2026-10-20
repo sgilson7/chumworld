@@ -132,3 +132,5 @@ Built:
   - `crates/core/tests/popin_probe.rs` counts near pop-in (R9.97).
   - `tools/m7qa_shots.py` takes the screenshots.
   - `tools/playthrough.py` plays the published flow by keyboard and mouse (R9.102).
+
+Waiting on the person: R9.100 (item names capitalised inside a line: a lower-case form, or keep them) and R9.101 (the strings this task wrote, under "### M7 (P3, qa)" at the foot of `SECOND-ORDER.md`).
