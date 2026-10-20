@@ -887,7 +887,7 @@ mod tests {
                 .filter(|s| s.pass == crate::render::Pass::Glow)
                 .count()
         };
-        let mut w = duel(125, 10, false);
+        let mut w = duel(160, 5, false);
         let before = glows(&w);
         let mut lit = None;
         for t in 0..30 {
@@ -976,7 +976,7 @@ mod tests {
 
     #[test]
     fn a_block_stops_a_swing_and_the_blades_do_not_pass_through() {
-        let mut w = duel(125, 10, false);
+        let mut w = duel(160, 5, false);
         let (mut met, mut before, mut normal) = (None, 0, None);
         let mut ran = 0;
         for t in 0..30 {

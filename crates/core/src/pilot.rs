@@ -241,6 +241,14 @@ pub fn foe(book: &Book, kind: Kind, at: V3, yaw: i32, salt: u64) -> Foe {
     let mut f = Fighter::new(kind, held_named(&spec.held), 1, at, yaw, true);
     f.health = crate::health::Health::new(spec.health);
     f.servo_pct = spec.servo_pct;
+    // drawn at its own guard
+    let frame = f.arm.frame;
+    f.arm.shell.side = deg(GUARD.0);
+    f.arm.shell.pitch = deg(GUARD.1);
+    f.arm.shell.reach = f.arm.reach() * GUARD.2 / 100;
+    f.arm.take_in_hand(&frame);
+    f.pose = player::pose_from(&Body::new(at, yaw), &f);
+    f.prev_pose = f.pose;
     f.pouch = crate::throwables::Pouch {
         rocks: spec.rocks,
         knives: spec.knives,
@@ -366,7 +374,11 @@ pub struct Plan {
     pub fast: bool,
 }
 
-const GUARD: (i32, i32, i32) = (6, -14, 82);
+/// A foe's guard (degrees right and up, reach in percent of the arm): a
+/// middle guard, the hand low and to the right, the blade 9° up at the
+/// chest. A foe is as tall as the player or taller, and a guard at its own
+/// face height held its blade over the player's head (R3.49).
+pub const GUARD: (i32, i32, i32) = (14, -30, 80);
 
 /// One pilot's record for this tick, and its memory for the next. Reads the
 /// world; changes nothing in it (CW-3).
