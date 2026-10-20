@@ -83,6 +83,8 @@ pub const REST: Fx = 24;
 /// An elbow's and a hand's ball, millimetres on the player (M3's figure).
 pub const ELBOW_MM: i32 = 57;
 pub const HAND_MM: i32 = 64;
+/// A point on the ground loses this share of its speed along it a tick.
+pub const GROUND_DRAG_PCT: i32 = 30;
 /// No point goes nearer the ground than this.
 pub const FLOOR: Fx = ONE * 2 / 100;
 /// The shell's edges: how far right and left of straight ahead the hand's
@@ -735,6 +737,12 @@ impl Arm {
                 LIMB_DRAG_PCT
             };
             v = v.sub(mul_div(v, drag as i64, 100));
+            // a point lying on the ground drags along it: a dropped sword
+            // and a fallen arm come to rest
+            if pt.p.y <= self.frame.ground + FLOOR {
+                v.x -= v.x * GROUND_DRAG_PCT / 100;
+                v.z -= v.z * GROUND_DRAG_PCT / 100;
+            }
             v = v.add(acc[k]);
             v.y -= GRAVITY;
             if sq(v) > cap_sq {

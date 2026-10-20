@@ -622,7 +622,7 @@ fn strike(w: &mut World, i: usize, j: usize, body: &[(Part, Swept, Fx)], blow: b
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fx::int;
+    use crate::fx::{self, int};
     use crate::world::World;
 
     /// Lengths in units of 1/64 m (about 1.6 cm), which Q16 holds exactly,
@@ -804,13 +804,172 @@ mod tests {
         assert!(p.sub(q).dot(across) > 0, "the blade went through to the far side");
     }
 
+    /// The staged cut (R3.36) lands hard. Worked by hand from the speed it
+    /// lands at: the world holds still 2 ticks and one more for each 4 m/s
+    /// over 5 (at most 4), the bodies and arms not moving a unit; the view
+    /// is knocked 6 mm for each metre a second (at most 5 cm); the orc is
+    /// shoved away from the player and staggers. A second later all of it
+    /// is gone: no knock, no stagger, the world running.
+    #[test]
+    fn a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away() {
+        let mut w = duel(115, -10, true);
+        let mut blow = None;
+        for _ in 0..30 {
+            w.step(&sweep_left());
+            if let Some(h) = w.blades.hits.first() {
+                blow = Some(*h);
+                break;
+            }
+        }
+        let h = blow.expect("the cut landed");
+        let over = (h.speed - fx::int(5)).max(0) as i64;
+        let stop = (2 + over / fx::int(4) as i64).min(4) as u8;
+        assert_eq!(w.feel.stop, stop, "{} m/s", h.speed / ONE);
+        let knock = (ONE as i64 * 6 / 1000 * h.speed as i64 / ONE as i64).min(ONE as i64 * 5 / 100) as Fx;
+        assert!(
+            (w.feel.knock.len() - knock).abs() <= 2,
+            "{} by hand {knock}",
+            w.feel.knock.len()
+        );
+        let away = w.foes[0].body.pos.sub(w.player.pos);
+        assert!(
+            w.foes[0].body.vel.dot(v3(away.x, 0, away.z)) > 0,
+            "the orc is shoved back"
+        );
+        assert_eq!(w.foes[0].fighter.gait.stagger, crate::feel::STAGGER_TICKS);
+        let held = (w.foes[0].body, w.me.arm.pts, w.foes[0].fighter.arm.pts);
+        for k in 0..stop {
+            w.step(&sweep_left());
+            assert_eq!(
+                (w.foes[0].body, w.me.arm.pts, w.foes[0].fighter.arm.pts),
+                held,
+                "held tick {k}"
+            );
+        }
+        w.step(&sweep_left());
+        assert_ne!(w.me.arm.pts, held.1, "and then the world runs");
+        // knocked back: the orc's chest leans away from the player over its
+        // hips, more than 4 cm (16° at the start, easing off)
+        let p = w.foes[0].fighter.pose;
+        let lean = p.chest.sub(p.pelvis);
+        let away = away.norm();
+        assert!(v3(lean.x, 0, lean.z).dot(v3(away.x, 0, away.z)) > ONE * 4 / 100, "{lean:?}");
+        for _ in 0..60 {
+            w.step(&crate::input::Input::default());
+        }
+        assert_eq!((w.feel.knock, w.feel.prev_knock), (V3::ZERO, V3::ZERO));
+        assert_eq!((w.feel.stop, w.foes[0].fighter.gait.stagger), (0, 0));
+    }
+
+    /// The staged block throws a spark where the blades meet: it is drawn
+    /// in the glow pass, and burns out in `feel::SPARK_TICKS`, leaving the
+    /// glow pass as it was before.
+    #[test]
+    fn blades_that_meet_throw_a_spark_that_burns_out() {
+        let look = crate::look::tests::look();
+        let glows = |w: &World| {
+            let mut out = crate::render::Shapes::default();
+            w.draw(ONE, &look, &mut out);
+            out.list
+                .iter()
+                .filter(|s| s.pass == crate::render::Pass::Glow)
+                .count()
+        };
+        let mut w = duel(125, 10, false);
+        let before = glows(&w);
+        let mut lit = None;
+        for t in 0..30 {
+            w.step(&sweep_left());
+            if !w.feel.sparks.is_empty() {
+                lit = Some(t);
+                break;
+            }
+        }
+        assert!(lit.is_some(), "the block threw a spark");
+        let at = w.feel.sparks[0].at;
+        assert!(at.dist(w.blades.clashes[0].at) == 0, "where the blades met");
+        assert!(glows(&w) >= before + 7, "a flash and six motes");
+        for _ in 0..crate::feel::SPARK_TICKS {
+            w.step(&crate::input::Input::default());
+        }
+        assert!(w.feel.sparks.is_empty());
+        assert_eq!(glows(&w), before, "burnt out");
+    }
+
+    /// A blow that takes the last of an orc's health puts it down: the
+    /// tick's `downed` names it, once. It falls (`health::FALL_TICKS`) onto
+    /// its back, its cleaver drops from its hands to the ground, and it
+    /// then lies still: two ticks draw it the same.
+    #[test]
+    fn a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still() {
+        let mut w = duel(115, -10, true);
+        w.foes[0].fighter.health.hp = 1;
+        let mut downed = Vec::new();
+        for t in 0..240 {
+            w.step(&if t < 30 { sweep_left() } else { Default::default() });
+            downed.extend(w.feel.downed.iter().map(|&d| (t, d)));
+        }
+        assert_eq!(downed.len(), 1, "{downed:?}");
+        assert_eq!(downed[0].1, 1);
+        let orc = &w.foes[0].fighter;
+        assert!(orc.health.down());
+        // on its back, the chest held up off the ground by the belly's depth
+        // (M3's 122 mm on the player, × 2.00 / 1.70 × 135% = 194 mm)
+        assert!(
+            orc.pose.chest.y > ONE * 15 / 100 && orc.pose.chest.y < ONE * 3 / 10,
+            "on its back: chest {}",
+            orc.pose.chest.y
+        );
+        let (p, t) = (orc.arm.pts[arm::POMMEL].p, orc.arm.pts[arm::TIP].p);
+        assert!(
+            p.y < ONE / 8 && t.y < ONE / 8,
+            "the cleaver on the ground: {p:?} {t:?}"
+        );
+        let still = (w.foes[0].fighter.pose, w.foes[0].fighter.arm.pts);
+        w.step(&Default::default());
+        assert_eq!(
+            (w.foes[0].fighter.pose, w.foes[0].fighter.arm.pts),
+            still,
+            "lies still"
+        );
+        assert!(!w.player_down());
+    }
+
+    /// The player at no health is down (`World::player_down`, M5's hook),
+    /// and the tick's events say so.
+    #[test]
+    fn the_player_at_no_health_is_down_and_the_event_names_them() {
+        let mut w = World::new(1);
+        player::act(&mut w, "spawn", "orc").unwrap();
+        w.me.health.hp = 5;
+        w.blades.hits.push(Hit {
+            by: 1,
+            on: 0,
+            part: Part::Head,
+            speed: fx::int(9),
+            at: w.me.pose.head,
+        });
+        crate::health::step(&mut w);
+        assert!(w.player_down());
+        assert_eq!(w.feel.downed, [0]);
+        w.blades.hits.clear();
+        crate::health::step(&mut w);
+        assert!(w.feel.downed.is_empty(), "once");
+    }
+
     #[test]
     fn a_block_stops_a_swing_and_the_blades_do_not_pass_through() {
         let mut w = duel(125, 10, false);
         let (mut met, mut before, mut normal) = (None, 0, None);
+        let mut ran = 0;
         for t in 0..30 {
             let speed = w.me.arm.pts[arm::TIP].vel().len();
+            // ticks the hit-stop holds (`feel`) are not counted
+            let held = w.feel.stop > 0;
             w.step(&sweep_left());
+            if !held {
+                ran += 1;
+            }
             let (a, b) = (&w.me.arm, &w.foes[0].fighter.arm);
             let (_, _, p, q) = closest(
                 a.pts[arm::POMMEL].p,
@@ -819,11 +978,11 @@ mod tests {
                 b.pts[arm::TIP].p,
             );
             if met.is_none() && !w.blades.clashes.is_empty() {
-                met = Some(t);
+                met = Some(ran);
                 before = speed;
                 normal = Some(p.sub(q));
             }
-            if met.is_some_and(|m| t == m + 1) {
+            if !held && met.is_some_and(|m| ran == m + 1) {
                 // within a tick of the contact the swing has stopped: under
                 // half the speed it had
                 assert!(
@@ -946,12 +1105,12 @@ mod tests {
     }
 
     /// How deep a blade or hand may sit in a body at the end of a tick:
-    /// 12.5 mm. Measured over these 3 600 ticks: six ticks over 3 mm, the
-    /// worst 788 units (12 mm), a bandit's sword pressed into the player's
-    /// forearm held level against the torso, where the arm's way out and
-    /// the torso's push against each other until the rounds run out
+    /// 25 mm. Measured over these 3 600 ticks: two ticks over 3 mm, the
+    /// worst 1 301 units (20 mm), a bandit's sword pressed into the player's
+    /// forearm held level across the torso, where the arm's way out and the
+    /// torso's push against each other until the rounds run out
     /// (`arm::FENCE_ROUNDS`).
-    const SINK: Fx = ONE / 80;
+    const SINK: Fx = ONE / 40;
 
     #[test]
     fn closest_points_of_crossing_skew_and_apart_segments() {

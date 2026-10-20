@@ -77,6 +77,11 @@ pub struct Gait {
     /// how much faster the body slides than its feet step, metres a second,
     /// eased: a sliding body leans back and spreads its arms
     pub slide: Fx,
+    /// ticks left of a stagger from a blow (`feel`), and the way it was
+    /// knocked, across the ground: the feet barely answer the keys, the
+    /// body leans back along it, the arms lose half their strength
+    pub stagger: u8,
+    pub stagger_way: V3,
 }
 
 /// Grip with `n` speedster pieces: bare feet's `GRIP_BASE` times M4's
@@ -167,8 +172,13 @@ pub fn step_body(
     } else {
         wanted(input, yaw, drawn, n)
     };
+    // staggered, the feet answer the keys a quarter
+    if f.gait.stagger > 0 {
+        want = v3(want.x / 4, want.y / 4, want.z / 4);
+        f.gait.stagger -= 1;
+    }
     // the dodge-step: Space with a direction, once the last has worn off
-    let dodge = !down && f.pressed(input, input::DODGE);
+    let dodge = !down && f.gait.stagger == 0 && f.pressed(input, input::DODGE);
     let g = &mut f.gait;
     g.dodge_wait = g.dodge_wait.saturating_sub(1);
     if dodge && g.dodge_wait == 0 && want != V3::ZERO {

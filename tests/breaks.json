@@ -1580,5 +1580,110 @@
     "find": "        _ => (66, 30),",
     "replace": "        _ => (46, 9),",
     "test": "a_sheathed_sword_its_scabbard_and_the_figure_share_no_face"
+  },
+  {
+    "name": "M1b feel: a hard blow stops 2 to 4 ticks by its speed",
+    "file": "crates/core/src/feel.rs",
+    "find": "    (STOP_MIN as i32 + (speed - HARD) / STOP_PER).min(STOP_MAX as i32) as u8",
+    "replace": "    (STOP_MIN as i32 + (speed - HARD) / STOP_PER).min(STOP_MAX as i32 + 2) as u8",
+    "test": "a_hard_blow_stops_the_world_two_to_four_ticks_by_its_speed"
+  },
+  {
+    "name": "M1b feel: the knock is held to 5 cm",
+    "file": "crates/core/src/feel.rs",
+    "find": "    way.norm().scale(fx::mul(KNOCK_PER_MPS, speed).min(KNOCK_MAX))",
+    "replace": "    way.norm().scale(fx::mul(KNOCK_PER_MPS, speed))",
+    "test": "the_camera_s_knock_rings_back_through_the_middle_to_exactly_nothing"
+  },
+  {
+    "name": "M1b feel: the knock rings back through the middle",
+    "file": "crates/core/src/feel.rs",
+    "find": "        -k.x * RING_PCT / 100,",
+    "replace": "        k.x * RING_PCT / 100,",
+    "test": "the_camera_s_knock_rings_back_through_the_middle_to_exactly_nothing"
+  },
+  {
+    "name": "M1b feel: the knock comes to exactly nothing",
+    "file": "crates/core/src/feel.rs",
+    "find": "    if n.len() < QUIET {",
+    "replace": "    if n.len() < 1 {",
+    "test": "the_camera_s_knock_rings_back_through_the_middle_to_exactly_nothing"
+  },
+  {
+    "name": "M1b world: the hit-stop holds the world",
+    "file": "crates/core/src/world.rs",
+    "find": "        if self.feel.stop > 0 {",
+    "replace": "        if false && self.feel.stop > 0 {",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b feel: the struck is shoved back",
+    "file": "crates/core/src/feel.rs",
+    "find": "        b.vel = b.vel.add(way.scale(shove));",
+    "replace": "        b.vel = b.vel.add(way.scale(-shove));",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b feel: the struck staggers",
+    "file": "crates/core/src/feel.rs",
+    "find": "        f.gait.stagger = STAGGER_TICKS;",
+    "replace": "        f.gait.stagger = 0;",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b motion: the stagger wears off",
+    "file": "crates/core/src/motion.rs",
+    "find": "        f.gait.stagger -= 1;",
+    "replace": "        let _ = 1;",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b feel: blades that meet spark",
+    "file": "crates/core/src/feel.rs",
+    "find": "        if c.speed >= SPARK_MIN {",
+    "replace": "        if c.speed >= SPARK_MIN * 100 {",
+    "test": "blades_that_meet_throw_a_spark_that_burns_out"
+  },
+  {
+    "name": "M1b feel: a spark burns out",
+    "file": "crates/core/src/feel.rs",
+    "find": "    s.sparks.retain(|sp| sp.age < SPARK_TICKS);",
+    "replace": "    s.sparks.retain(|sp| sp.age < SPARK_TICKS * 3);",
+    "test": "blades_that_meet_throw_a_spark_that_burns_out"
+  },
+  {
+    "name": "M1b health: the down event fires once",
+    "file": "crates/core/src/health.rs",
+    "find": "        .filter(|&id| up[id] && player::fighter(w, id).health.down())",
+    "replace": "        .filter(|&id| up[id] || player::fighter(w, id).health.down())",
+    "test": "the_player_at_no_health_is_down_and_the_event_names_them"
+  },
+  {
+    "name": "M1b player: a fallen body lies on its back off the ground",
+    "file": "crates/core/src/player.rs",
+    "find": "        feet.add(turn.apply_dir(v3(p.x, p.y, -p.z))).add(v3(0, lift, 0))",
+    "replace": "        feet.add(turn.apply_dir(v3(p.x, p.y, -p.z))).add(v3(0, lift * 0, 0))",
+    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+  },
+  {
+    "name": "M1b player: a fallen fighter's weapon drops",
+    "file": "crates/core/src/player.rs",
+    "find": "        g.hold = [false, false];\n    }",
+    "replace": "    }",
+    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+  },
+  {
+    "name": "M1b arm: a point on the ground drags to rest",
+    "file": "crates/core/src/arm.rs",
+    "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
+    "replace": "                v.x -= v.x * 0 / 100;",
+    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+  },
+  {
+    "name": "M1b player: a staggered body leans back along the blow",
+    "file": "crates/core/src/player.rs",
+    "find": "tip(crate::geom::yaw_of(g.stagger_way), -shaken)",
+    "replace": "tip(crate::geom::yaw_of(g.stagger_way), shaken)",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
   }
 ]

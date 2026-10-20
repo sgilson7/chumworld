@@ -105,9 +105,17 @@ pub fn damage(speed: Fx, part: Part) -> i32 {
 /// weakness wearing off, the fallen falling.
 pub fn step(w: &mut World) {
     let hits = w.blades.hits.clone();
+    let up: Vec<bool> = (0..player::count(w))
+        .map(|id| !player::fighter(w, id).health.down())
+        .collect();
     for h in &hits {
         player::parts_mut(w, h.on as usize).1.health.take(h.speed, h.part);
     }
+    // who went down this tick (the story's hook, `feel::State::downed`)
+    w.feel.downed = (0..player::count(w))
+        .filter(|&id| up[id] && player::fighter(w, id).health.down())
+        .map(|id| id as u8)
+        .collect();
     for id in 0..player::count(w) {
         let h = &mut player::parts_mut(w, id).1.health;
         for s in 0..2 {

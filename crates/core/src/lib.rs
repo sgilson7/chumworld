@@ -33,6 +33,7 @@ pub mod world;
 // stubs: M1 Duel
 pub mod arm;
 pub mod blade;
+pub mod feel;
 pub mod health;
 pub mod motion;
 pub mod pilot;

@@ -72,6 +72,10 @@ pub const HOLD_PITCH_MAX: i32 = deg(10);
 pub const SPAWN_AHEAD: Fx = fx::int(6);
 /// A body sliding faster than its feet leans back by up to this.
 pub const SLIDE_LEAN: i32 = deg(14);
+/// A staggered body leans back along the blow by up to this, and its arms
+/// lose up to this share of their strength, both wearing off with it.
+pub const STAGGER_LEAN: i32 = deg(16);
+pub const STAGGER_WEAK_PCT: i32 = 50;
 /// Where the scabbard holds the hilt's grip on the left hip, in the body's
 /// frame (right, up, forward, centimetres on the player), which way its
 /// blade points hanging (down 38° and back), and tipped for a draw (down,
@@ -364,7 +368,7 @@ pub fn hold_on(w: &mut World) {
 /// The shoulders and chest for a body this tick, `fall` of the way to lying
 /// on its back (`ONE`: down), over ground at `ground`.
 pub fn frame_of(b: &Body, build: &Build, gait: &Gait, fall: Fx, ground: Fx) -> Frame {
-    let place = leaning(b, gait, fall);
+    let place = leaning(b, build, gait, fall);
     let shoulder = [-1, 1].map(|s| place(v3(s * build.shoulder_x, build.shoulder_y, 0)));
     let chest_r = (ONE as i64 * 15 / 100 * build.girth_pct as i64 / 100) as Fx;
     Frame {
@@ -383,22 +387,51 @@ pub fn frame_of(b: &Body, build: &Build, gait: &Gait, fall: Fx, ground: Fx) -> F
 }
 
 /// A point in the body's frame (right, up, forward) in the world, the body
-/// tipped `fall` of a quarter turn onto its back about its heels.
-fn local(b: &Body, fall: Fx) -> impl Fn(V3) -> V3 {
-    let turn = Affine::rot_y(b.facing).then(&Affine::rot_x(fx::mul(fall, deg(84))));
+/// tipped `fall` of a quarter turn onto its back about its heels, and
+/// raised as it goes so it comes to lie on its back and the back of its
+/// head, not in the ground: the trunk by the belly's depth (M3's 122 mm),
+/// the head by its own radius, the legs less toward the heels.
+fn local(b: &Body, build: &Build, fall: Fx) -> impl Fn(V3) -> V3 {
+    let turn = Affine::rot_y(b.facing).then(&Affine::rot_x(fx::mul(fall, deg(90))));
     let feet = b.pos;
-    move |p: V3| feet.add(turn.apply_dir(v3(p.x, p.y, -p.z)))
+    let mm = |v: i32| (v as i64 * build.height as i64 / 1700) as Fx;
+    let back = fx::mul(mm(LIE_BACK_MM) * build.girth_pct / 100, fall);
+    let head = fx::mul(mm(crate::blade::HEAD_MM), fall);
+    let (hips, neck, crown) = (build.hip_y, build.shoulder_y, build.height - build.head / 2);
+    move |p: V3| {
+        let lift = if p.y <= hips {
+            fx::mul(back, fx::div(p.y.max(0), hips.max(1)))
+        } else if p.y <= neck {
+            back
+        } else {
+            fx::lerp(
+                back,
+                head,
+                fx::div((p.y - neck).min(crown - neck), (crown - neck).max(1)),
+            )
+        };
+        feet.add(turn.apply_dir(v3(p.x, p.y, -p.z))).add(v3(0, lift, 0))
+    }
 }
 
+/// How high a body lying on its back holds its trunk off the ground, mm on
+/// the player: M3's belly is 122 mm deep.
+const LIE_BACK_MM: i32 = 122;
+
 /// The same, leaning back against a slide (`Gait::slide`): up to `SLIDE_LEAN`
-/// at 5 m/s of slide, the head away from the way the body slides.
-fn leaning(b: &Body, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
-    let base = local(b, fall);
+/// at 5 m/s of slide, the head away from the way the body slides; and
+/// staggered (`Gait::stagger`), the head knocked back along the blow by up
+/// to `STAGGER_LEAN`, easing off as the stagger wears off.
+fn leaning(b: &Body, build: &Build, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
+    let base = local(b, build, fall);
     let by = (SLIDE_LEAN as i64 * g.slide.min(fx::int(5)) as i64 / fx::int(5) as i64) as i32;
-    let way = crate::geom::yaw_of(b.vel);
-    let tilt = Affine::rot_y(way)
-        .then(&Affine::rot_x(by))
-        .then(&Affine::rot_y(-way));
+    let tip = |way: i32, by: i32| {
+        Affine::rot_y(way)
+            .then(&Affine::rot_x(by))
+            .then(&Affine::rot_y(-way))
+    };
+    let shaken = STAGGER_LEAN * g.stagger as i32 / crate::feel::STAGGER_TICKS as i32;
+    let tilt = tip(crate::geom::yaw_of(b.vel), by).then(&tip(crate::geom::yaw_of(g.stagger_way), -shaken));
     let feet = b.pos;
     move |p: V3| feet.add(tilt.apply_dir(base(p).sub(feet)))
 }
@@ -416,7 +449,7 @@ impl Scabbard {
     /// On a body's left hip, standing, sliding or fallen (`fall`), tipped
     /// `tilt` of the way toward a draw.
     pub fn of(b: &Body, build: &Build, gait: &Gait, fall: Fx, tilt: Fx, wpn: &arm::Weapon) -> Scabbard {
-        let place = leaning(b, gait, fall);
+        let place = leaning(b, build, gait, fall);
         let scale = |c: i32| c * ONE / 100;
         let tall =
             |c: i32| (scale(c) as i64 * build.height as i64 / pose::build(Kind::Player).height as i64) as Fx;
@@ -488,7 +521,7 @@ fn blank_pose(feet: V3, yaw: i32) -> Pose {
 pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
     let build = f.build();
     let fall = f.health.fall();
-    let place = leaning(b, &f.gait, fall);
+    let place = leaning(b, &build, &f.gait, fall);
     let bob = fx::mul(
         fx::cos(f.gait.phase.wrapping_mul(2)).abs(),
         fx::mul(ONE / 40, f.gait.swing.min(ONE)),
@@ -533,7 +566,7 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Fx, Goals) {
     let b = body(w, id);
     let f = fighter(w, id);
     let build = f.build();
-    let place = local(b, 0);
+    let place = local(b, &build, 0);
     let wpn = f.arm.weapon;
     let reach = build.upper_arm + build.forearm;
     // the sword's state: X toggles, the hand moves, the sword changes hands
@@ -574,7 +607,8 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Fx, Goals) {
     let blade = arm::blade_dir(b.facing, &f.arm.shell, f.arm.reach());
     let two = wpn.two_handed();
     let winding = f.throw.winding();
-    let full = [0, 1].map(|s| f.servo_pct * f.health.strength(s) / 100);
+    let shaken = 100 - STAGGER_WEAK_PCT * f.gait.stagger as i32 / crate::feel::STAGGER_TICKS as i32;
+    let full = [0, 1].map(|s| f.servo_pct * f.health.strength(s) / 100 * shaken / 100);
     let mut g = Goals {
         hand: [Some(rest(0)), Some(rest(1))],
         tip: None,
