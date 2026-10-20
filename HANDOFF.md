@@ -1,43 +1,11 @@
 # Handoff
 
-Stage 9, written by the agent. `C5 Consolidate in your own words`. A fresh session starts from this file, not from memory.
+Stage 9. Written at the end of each session.
 
-## What this is
+## 2026-10-20: stage 0 only
 
-Five sentences at most: what the tool does, for whom, and where it lives.
+Built: nothing yet. The template is copied and passes `./scripts/check.sh` untouched (9 steps, 38 core tests, 48 s). `BRIEF.md` holds the description word for word. The design journal at `../chumworld-journal/` holds the opening entry (Builder tab) and a reading of each point of the description with a picture (Your description tab).
 
-## Rules that hold it up
+Waiting on the person, by notebook row: R1.5 (proportions, CW-Q6), R1.6 (a caster in the MVP, CW-Q10), R1.7 (names, CW-Q1), R1.8 (publishing, CW-Q2), R1.9 (saves, CW-Q3), R1.10 (where the speedster pieces are, CW-Q8), R1.13 (the other defaults, CW-Q4, CW-Q5, CW-Q7, CW-Q9, CW-Q11 to CW-Q14).
 
-The rules that break silently if a later change ignores them, and the test that guards each.
-
-## Shape of the code
-
-Where each kind of thing lives, in a short table.
-
-## Commands
-
-Build, test, check, publish, and the probes, with what each prints when it passes.
-
-## What will bite within the hour
-
-What a new session gets wrong first.
-
-## The journal
-
-Where the design journal is, its link if it is published, and its newest entry.
-
-## Open for the person
-
-Every `SECOND-ORDER.md` row with status *person*, by number, with what the person has to decide or supply. `scripts/notebook_check.py` fails while one is missing.
-
-## Mistakes so far
-
-By system, from `SECOND-ORDER.md`, with the rule each one produced.
-
-## What passed
-
-The last lines of `./scripts/check.sh` and `./scripts/count-tests.sh`, with the date and commit.
-
-## The next action
-
-One action.
+Next: the person's answers, then `PLAN.md`. Nothing is pushed.
