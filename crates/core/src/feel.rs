@@ -35,9 +35,10 @@ pub const KNOCK_PER_MPS: Fx = ONE * 6 / 1000;
 pub const KNOCK_MAX: Fx = ONE * 5 / 100;
 pub const RING_PCT: i32 = 55;
 pub const QUIET: Fx = ONE / 2000;
-/// Blades meeting faster than this throw a spark that burns `SPARK_TICKS`.
+/// Blades meeting faster than this throw a spark that burns `SPARK_TICKS`
+/// (M7: a third of a second, from M1's 14, so a still can catch it).
 pub const SPARK_MIN: Fx = ONE * 3 / 2;
-pub const SPARK_TICKS: u8 = 14;
+pub const SPARK_TICKS: u8 = 20;
 /// A struck body staggers for `STAGGER_TICKS`, shoved back at 4 cm/s for
 /// each point of health taken, at most `SHOVE_MAX`.
 pub const STAGGER_TICKS: u8 = 14;
@@ -62,6 +63,13 @@ pub struct State {
     pub sparks: Vec<Spark>,
     /// the fighters who went down this tick, by number (the story's hook)
     pub downed: Vec<u8>,
+}
+
+/// M7: a spark's size for blades meeting at `speed`: 12.5 cm, and 2.5 cm
+/// more for each metre a second, at most a third of a metre (M1's was half
+/// that, and lost behind the bodies).
+pub fn spark_size(speed: Fx) -> Fx {
+    (ONE / 8 + fx::mul(speed, ONE / 40)).min(ONE / 3)
 }
 
 /// How long a blow or block at `speed` stops the world.
@@ -103,7 +111,7 @@ pub fn step(w: &mut World) {
             w.feel.sparks.push(Spark {
                 at: c.at,
                 age: 0,
-                size: (ONE / 12 + fx::mul(c.speed, ONE / 60)).min(ONE / 4),
+                size: spark_size(c.speed),
             });
         }
         stop = stop.max(stop_ticks(c.speed));
@@ -190,13 +198,18 @@ pub fn hold(w: &mut World, input: &Input) {
 
 /// Every spark: a hot flash that shrinks as it burns, and six motes thrown
 /// out from it, all through the glow pass (`Shapes::glow`), in a fixed
-/// order.
+/// order. M7: each with a white-hot core drawn solid and unlit (a star of
+/// two crossed octahedra), so it reads against a bright sky as well as a
+/// dark body; the flash stays near full for its first third.
 pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     let hot = rgb(look.palette.lamp);
+    let white = [ONE, ONE, ONE * 15 / 16];
     for sp in &w.feel.sparks {
         let age = sp.age as i32 * ONE + alpha;
         let left = (SPARK_TICKS as i32 * ONE - age).max(0) / SPARK_TICKS as i32;
-        let r = fx::mul(sp.size, left);
+        // held near full, then falling: 1 − (1 − left)²
+        let bright = ONE - fx::mul(ONE - left, ONE - left);
+        let r = fx::mul(sp.size, bright);
         if r <= 0 {
             continue;
         }
@@ -204,9 +217,22 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
             Mesh::Sphere,
             Affine::translate(sp.at).then(&Affine::scale(v3(r, r, r))),
             hot,
-            left,
+            bright,
         );
-        let flew = fx::mul(ONE / 3, age / SPARK_TICKS as i32 * 2).min(ONE / 2);
+        let c = r * 2 / 5;
+        out.solid(
+            Mesh::Octa,
+            Affine::translate(sp.at).then(&Affine::scale(v3(c, c * 5 / 2, c))),
+            white,
+            ONE,
+        );
+        out.solid(
+            Mesh::Octa,
+            Affine::translate(sp.at).then(&Affine::scale(v3(c * 5 / 2, c, c))),
+            white,
+            ONE,
+        );
+        let flew = fx::mul(ONE / 2, age / SPARK_TICKS as i32 * 2).min(ONE * 3 / 4);
         let m = r / 3;
         for k in 0..6 {
             let a = fx::TURN * k / 6 + fx::deg(15);
@@ -257,5 +283,27 @@ mod tests {
             seen.push(k.x);
         }
         assert_eq!(seen, [3276, -1801, 990, -544, 299, -164, 90, -49, 0]);
+    }
+
+    /// M7: a spark burns 20 ticks, a third of a second: there for 19 ticks
+    /// after it is thrown, gone on the 20th; 12.5 cm and 2.5 cm a metre a
+    /// second: at 6 m/s, 8 192 + 6 × 1 638 (a fortieth, truncated) = 18 020
+    /// units, 27.5 cm; from 8.4 m/s on, a third of a metre.
+    #[test]
+    fn a_spark_burns_a_third_of_a_second_and_is_sized_by_the_meeting() {
+        assert_eq!(spark_size(fx::int(6)), 18_020);
+        assert_eq!(spark_size(fx::int(9)), ONE / 3);
+        let mut w = World::new(1);
+        w.feel.sparks.push(Spark {
+            at: V3::ZERO,
+            age: 0,
+            size: ONE / 4,
+        });
+        for _ in 0..19 {
+            ring_down(&mut w);
+        }
+        assert_eq!(w.feel.sparks.len(), 1, "still burning after 19 ticks");
+        ring_down(&mut w);
+        assert!(w.feel.sparks.is_empty(), "gone on the 20th");
     }
 }

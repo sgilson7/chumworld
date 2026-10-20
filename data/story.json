@@ -8,11 +8,13 @@
       { "route": [[4, 60], [16, 72], [-10, 76]] },
       { "route": [[48, 36], [66, 36], [60, 50]] },
       { "route": [[28, -38], [18, -52], [36, -58]] },
-      { "route": [[-30, 84], [-52, 70], [-46, 92]] }
+      { "route": [[-30, 84], [-52, 70], [-46, 92]] },
+      { "route": [[-58, -12], [-62, -24], [-48, -28]], "_": "M7: in sight of the door at 28 m, by the burning house to the north-west; it sees you as you run west past it" }
     ],
     "comes_from": [[-20, 200], [60, 190], [150, 120]]
   },
   "villagers": [
+    { "at": [-26, -2], "look": 1, "flee": [[-40, -2], [-62, 2], [-130, 12], [-230, 26]], "_": "M7: runs west past the door as you get up" },
     { "at": [-20, -5], "look": 0, "flee": [[-60, -40], [-150, -120], [-215, -180]] },
     { "at": [10, 15], "look": 1, "flee": [[40, -10], [130, -90], [200, -150]] },
     { "at": [20, -20], "look": 2, "flee": [[6, -90], [2, -230]] },
@@ -44,7 +46,29 @@
     "bandit_knives": 2
   },
   "trainer": {
-    "_note": "Beside the hut's signpost, on the trail's end, facing it.",
-    "at": [5, 7]
+    "_note": "Beside the hut's signpost, on the trail's end, facing it. M7: the mark the player stands on for the practice, mark_m in front of the trainer, mark_r_cm round, its colour 0 to 255.",
+    "at": [5, 7],
+    "mark_m": 8,
+    "mark_r_cm": 110,
+    "mark": [170, 240, 255]
+  },
+  "fires": {
+    "_note": "M7: the houses burning in the raid (by their place in data/places.json, metres east and south of the village centre), in sight on either side of the door. Each has flame tongues over its roof, unlit cones that flicker by the story's own clock, and puffs of smoke drawn by the ordered dither, thinning as they rise (nothing see-through to sort, CW-18). Colours are 0 to 255; sizes in centimetres; ticks.",
+    "houses": [[-46, -10], [-44, 32]],
+    "tongues": 7,
+    "tongue_cm": [90, 210],
+    "tongue_wide_cm": [45, 80],
+    "flicker_ticks": [17, 31],
+    "puffs": 9,
+    "puff_ticks": 300,
+    "puff_rise_cm": 900,
+    "puff_cm": [90, 300],
+    "drift_cm": 260,
+    "embers": 6,
+    "ember_ticks": 70,
+    "flame": [255, 120, 30],
+    "core": [255, 214, 110],
+    "ember": [255, 170, 70],
+    "smoke": [58, 54, 58]
   }
 }

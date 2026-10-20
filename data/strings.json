@@ -192,5 +192,9 @@
   "trainer_again": "Not yet. Watch the pattern, and swing through each orb as it comes.",
   "trainer_pass_1": "That is it. You turned them yourself.",
   "trainer_pass_2": "The imbue is yours now. Press Q and your sword turns magic for a while; then it needs time before the next.",
-  "trainer_done": "Keep the blade moving. Magic does not wait for you."
+  "trainer_done": "Keep the blade moving. Magic does not wait for you.",
+  "trainer_mark": "Stand in the circle of light over there, so you see them coming. Then draw.",
+  "trainer_one": "One orb first. Hold your guard and let it meet the blade.",
+  "trainer_few": "Good. Now three at once.",
+  "trainer_volley": "Good. Now a whole pattern. Turn five in all and the imbue is yours."
 }

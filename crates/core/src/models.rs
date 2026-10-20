@@ -335,6 +335,28 @@ impl Model {
         }
     }
 
+    /// M7: every part on the pixels the ordered dither keeps at `fade`
+    /// (`Shapes::dithered`, `look::hand_over`), its outline the same, its
+    /// halo as strong as the share of pixels kept.
+    pub fn emit_faded(&self, ink: Rgb, fade: Fx, out: &mut Shapes) {
+        let kept = fade.abs().min(ONE);
+        for p in &self.parts {
+            out.dithered(p.mesh, p.at, p.rgb, fade);
+            if p.ink > 0 {
+                out.push(crate::render::Shape {
+                    mesh: p.mesh.into(),
+                    at: render::inflate_by(&p.at, ink_width(&p.at, p.ink)),
+                    rgb: ink,
+                    value: fade,
+                    pass: Pass::Ink,
+                });
+            }
+            if p.halo > 0 {
+                out.glow(Mesh::Dot, halo_of(&p.at), p.rgb, fx::mul(p.halo, kept));
+            }
+        }
+    }
+
     /// Triangles drawn, solids only (an outline draws as many again).
     pub fn triangles(&self) -> usize {
         self.parts

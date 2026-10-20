@@ -112,6 +112,10 @@ pub struct World {
     // M6: the orbs in flight and the casts under way; the imbue
     pub orbs: crate::orbs::State,
     pub imbue: crate::imbue::State,
+    // M7 (feel): the tick's sounds and what they listen for; the camera's
+    // boom, kept out of walls, houses and trunks
+    pub sound: crate::sound::State,
+    pub boom: crate::boom::State,
 }
 
 impl World {
@@ -154,8 +158,11 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
+            sound: crate::sound::State::default(), // M7
+            boom: crate::boom::State::default(),
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
+        w.boom.blocks = std::rc::Rc::new(crate::boom::blocks(&w)); // M7
         w
     }
 
@@ -167,6 +174,8 @@ impl World {
 
     /// One tick, in the order the module doc gives.
     pub fn step(&mut self, input: &Input) {
+        // M7: last tick's sounds are gone
+        crate::sound::begin(self);
         // M5: a dream gone dark wakes as the opening instead of a tick; in
         // bed or down, the keys do nothing (the mouse still looks)
         if crate::story::waking(self) {
@@ -221,6 +230,9 @@ impl World {
         crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
         crate::ui::step(self);
+        // 9. M7: what was heard this tick; the camera's boom
+        crate::sound::step(self);
+        crate::boom::step(self);
     }
 
     /// What moves, drawn `alpha` of the way from the last tick to this one.
@@ -304,13 +316,16 @@ impl World {
         } else {
             self.aim
         };
-        let mut cam = camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z));
+        let feet = self.player.feet(alpha);
+        let mut cam = camera::view_from(feet, aim, back, |x, z| self.ground(x, z));
         // M1: a hard blow knocks the view a little; held on a foe, the view
         // frames the duel from a little higher and further right
         cam.eye = cam
             .eye
             .add(crate::feel::knock_at(self, alpha))
             .add(crate::player::framing(self, alpha, aim.yaw));
+        // M7: brought in along the boom, clear of walls, houses and trees
+        cam.eye = crate::boom::clip(self, alpha, feet, cam.eye);
         cam
     }
 

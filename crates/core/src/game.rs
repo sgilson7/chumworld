@@ -100,6 +100,12 @@ pub struct Game {
     pub ui_version: u32,
     /// M4: the menu ring's turn and cursors, and where settings return to
     pub menu: crate::ui::Menu,
+    /// M7: the cues of this frame's ticks and acts, and the page's lists
+    /// heard from this frame's camera (`sound.rs`)
+    pub cues: Vec<crate::sound::Cue>,
+    pub acted: Vec<crate::sound::Cue>,
+    pub sounds: Vec<i32>,
+    pub loops: Vec<i32>,
 }
 
 impl Game {
@@ -140,6 +146,10 @@ impl Game {
             zoom_ticks: ZOOM_TICKS,
             ui_version: 1,
             menu: crate::ui::Menu::default(),
+            cues: Vec::new(),
+            acted: Vec::new(),
+            sounds: Vec::new(),
+            loops: Vec::new(),
         };
         g.draw();
         Ok(g)
@@ -172,6 +182,8 @@ impl Game {
     /// bits, and the mouse and wheel movement in hundredths of a CSS pixel.
     pub fn advance(&mut self, now_us: i64, bits: u32, dx: i32, dy: i32, wheel: i32) {
         let ticks = self.clock.frame(now_us, bits);
+        // M7: this frame's sounds: the acts' since the last frame, then the ticks'
+        self.cues = std::mem::take(&mut self.acted);
         match self.screen {
             Screen::Play => {
                 // M4: invert Y (a reader's setting)
@@ -194,6 +206,7 @@ impl Game {
                         Mouse::default()
                     };
                     self.world.step(&Input::from_page(*b, m));
+                    self.cues.extend(self.world.sound.cues.iter().copied()); // M7
                     self.play_ticks += 1;
                     self.zoom_ticks = (self.zoom_ticks + 1).min(ZOOM_TICKS);
                     // M4: a dialogue or the shop the tick opened
@@ -223,8 +236,21 @@ impl Game {
             // M4: dialogue text appears tick by tick while the world holds still
             Screen::Dialogue => {
                 self.pending.clear();
+                // M7: a blip as the letters appear
+                let before = crate::ui::shown_now(&self.world, &self.strings);
                 if crate::ui::reveal(&mut self.world, ticks.len() as u32) {
                     self.ui_version += 1;
+                }
+                let after = crate::ui::shown_now(&self.world, &self.strings);
+                if crate::sound::blips(before, after) {
+                    let who = self
+                        .world
+                        .ui
+                        .dialogue
+                        .as_ref()
+                        .map(|d| d.who.clone())
+                        .unwrap_or_default();
+                    self.cue("blip", crate::sound::voice_rate(&who));
                 }
             }
             Screen::Title | Screen::Paused | Screen::Menu | Screen::Settings | Screen::Shop => {
@@ -235,6 +261,24 @@ impl Game {
             }
         }
         self.draw();
+        // M7: what is heard from this frame's camera
+        let cam = self.camera();
+        let volume = self.world.ui.settings.volume_pct;
+        self.sounds = crate::sound::play_list(&self.cues, &cam, volume);
+        let live = matches!(self.screen, Screen::Play | Screen::Dialogue);
+        self.loops = crate::sound::loop_list(&self.world, &cam, live, volume);
+    }
+
+    /// M7: a sound from the menus (not placed; no world tick needed).
+    pub fn cue(&mut self, name: &str, rate: crate::fx::Fx) {
+        if let Some(v) = crate::sound::id(name) {
+            self.acted.push(crate::sound::Cue {
+                voice: v as u16,
+                at: None,
+                gain: ONE,
+                rate,
+            });
+        }
     }
 
     /// M4: whether the title's view shows: the title, or settings opened
@@ -324,6 +368,10 @@ impl Game {
     /// The one door for screens, settings and flags. The error is the
     /// message the page shows.
     pub fn act(&mut self, name: &str, value: &str) -> Result<(), String> {
+        // M7: a tick for every press on the menus, settings, dialogue and shop
+        if crate::sound::ticks_on(name) {
+            self.cue("tick", ONE);
+        }
         match name {
             "screen.show" => match value {
                 "title" => self.show(Screen::Title),

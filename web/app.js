@@ -12,6 +12,7 @@ import init, { Game, numbers } from "./pkg/tool_shim.js";
 import { makeRenderer } from "./gl.js";
 import { makeInput } from "./input.js";
 import { makeMenus } from "./menus/menus.js";
+import { makeSound } from "./sound.js";
 
 const el = (id) => document.getElementById(id);
 const make = (tag, text, className) => {
@@ -82,6 +83,10 @@ async function main() {
   renderer.setUniforms(game.uniforms(), game.clear_color(), game.water_uniforms());
 
   let ui = null;
+  // M7: sound, set up on the reader's first press (web/sound.js)
+  const sound = makeSound(game);
+  window.addEventListener("pointerdown", () => sound.wake(), true);
+  window.addEventListener("keydown", () => sound.wake(), true);
   const input = makeInput(canvas, controls, N.actions, () => {});
   // a reader's look speed from the address (?look=<percent>), as any setting,
   // and a place to start at (?go=<place> [yaw] [pitch], for views of the world)
@@ -222,6 +227,8 @@ async function main() {
       renderer.setStatic(game.static_values());
     }
     renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame());
+    sound.frame();
+    if (sound.started() && body.dataset.sound !== "on") body.dataset.sound = "on";
     if (game.ui_version() !== uiVersion) {
       uiVersion = game.ui_version();
       show(JSON.parse(game.ui()).ok);
