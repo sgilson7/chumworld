@@ -118,3 +118,17 @@ Waiting on the person: R7.8 (what death after the opening does), R7.14 (where th
 For the coordinator: R7.2 and R7.3 changed M2's `places.rs` (a `moving` flag) and `places.json` (the bed's place); R7.9 the browser check's first view and new test acts (with R6.7); R7.12 the practice depends on standing in front of the trainer (M6's guard rule, R8.3); R7.13 the lookout's gloves are not drawn on it; R7.11 the cart's box; R7.4 throwables and orbs still pass through buildings (R8.13).
 
 Check, 2026-10-20 after merging main at a205e91 (M1 polish and M6): `./scripts/check.sh` steps 1 to 7 pass (format, lint, 344 core tests by `./scripts/count-tests.sh` with 10 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R7.8, R7.14 and R7.22 have status *person* and the journal, which M5 does not edit, does not name them yet; step 9, the browser check run on its own, passes in Chromium, Firefox and WebKit (Chromium's slow pan on the green at 23 of 230 400 pixels, at the bound's edge: R7.9). Breaks: `python3 scripts/break_tests.py M5`, 41 of 41 caught. Screenshots in `shots/m5/` (not committed).
+
+## 2026-10-20: M7 polish, menus, shop, models, flicker audit and a playthrough (task P3, qa)
+
+Built:
+- **Menus.** The Equipment screen draws the player's own model, lit, dressed in what is worn and holding the sword in hand, turning once in 16 s on a canvas of its own (`stage.rs`, R9.82). The ring's side names change when the turn ends (R9.83). Map marks stand as pins clear of the arrow (R9.85). Quick keys in the ring are described on hover and focus (R9.99). The title and the pause are laid out to fit 1280 × 720, with the keys in two columns and the pause as one card; the ring leaves room for its turn buttons (R9.86).
+- **Shop and items.** The merchant does not buy key items, the sword in hand, worn pieces or quest items. Each is listed with the reason and a refusal line. Only what the merchant sold goes back on the cart (R9.80, CW-6). The purse holds 999 coins, and coins never go below none (R9.81). A bandage's key now heals (R9.84; it did nothing before).
+- **Models.** The trainer carries its own sword (R9.89). The lookout wears the gloves until it drops them (R9.90, R7.13). The cart's wheels roll (R9.96, R5.14). Thin things keep a width edge-on (R9.91). Pickups float, bob and turn over a ring of light; the jacket and the trousers stand up, and the wings are thicker (R9.87). Bodies are drawn 8% broader (R9.88; the capsules are unchanged, open). The flicker scan's window is the worst step short of its far plane (R9.95, R5.2).
+- **Earlier milestones' open rows.** R2.19 (value hash, R9.92), R6.13 (a glossary slip no longer stops the game, and the check names it; R9.93), R3.50 (tested, R9.94).
+- **Checks and tools.**
+  - `tests/browser/layout.py` checks every screen at three sizes for words and focus. Chromium, on its software renderer, checks 1280 × 720 only.
+  - The browser check's flicker audit stages a still view and a slow pan at the bed, the village street, the bridge, the river, the camp, the hut, the horizon and the merchant's cart. It also covers the menus open (the figure's canvas included) and dialogue open (R9.98).
+  - `crates/core/tests/popin_probe.rs` counts near pop-in (R9.97).
+  - `tools/m7qa_shots.py` takes the screenshots.
+  - `tools/playthrough.py` plays the published flow by keyboard and mouse (R9.102).

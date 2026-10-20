@@ -125,3 +125,11 @@ What the leader's whole pattern takes from a player at full health, by how it is
 | imbued, defending (`orbs::defend`) | not measured | 10 (23 of 41 turned, 56%) |
 
 Thrown: 66 orbs before, 62 after (41 turnable). The tick through the pattern, the player imbued and swinging: 0.11 ms mean, 0.24 ms worst, native release. WebAssembly 1 531 KB.
+
+## M7 polish, menus, shop, models and the flicker audit (task P3, qa)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Near pop-in (T8), before P2's fix: frames of 480 in which a lit shape within 25 m, in view in both frames, appears or disappears without a dither hand-over; the story held still | `cargo test --release -p tool_core --test popin_probe -- --ignored --nocapture` | the village: walking straight 2, running 4, a whole turn on the spot 0; the meadow: 2, 4, 0; the camp's edge: 2, 4, 0. Every pop is a whole grass chunk coming in 6 to 9 m ahead (one instance, a mesh the detail levels built); nothing near goes (R9.97) | 2026-10-20, P3 |
+| What the Equipment figure costs | the browser check's figure canvas; `stage::frame` | one more WebGL context, drawn only while the ring is open at Equipment (the world behind holds still); its canvas about 230 × 430 CSS pixels; the static meshes uploaded to it once | 2026-10-20, P3 |
+| The screens' layout at 1280 × 720, 1920 × 1080 and 2560 × 1440 (words off the window, cut, hidden or overlapping; key caps over words; the keyboard's focus ring) | `.venv/bin/python tools/m7qa_shots.py shots/m7qa/sizes` (Chromium on Metal); the browser check's `menus_m7` | before: 251 findings (title and pause off the window at 1280 × 720, "Mouse, sword drawn" over its label, the imbue ring's words touching, the turn button over the Equipment set panel); after: 0 in Chromium, Firefox and WebKit | 2026-10-20, P3 |

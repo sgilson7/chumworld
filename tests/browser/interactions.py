@@ -18,6 +18,10 @@ code is not changed for it.
 
 import json
 import pathlib
+import sys
+
+# M7: the layout checks beside this file (tests/browser/layout.py)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 STRINGS = json.loads((ROOT / "data" / "strings.json").read_text())
@@ -291,3 +295,185 @@ def menus(page, check, engine, base):
     a, b = volley["frames"]
     check(a["hash"] == b["hash"], f"a frozen volley of orbs in sight draws the same pixels on consecutive frames ({volley['w']}x{volley['h']})")
     check(page.inner_text("#message") == "", "the magic acts on the address are taken without an error")
+    flicker_audit(page, check, engine, base)
+    menus_m7(page, check, engine, base)
+
+
+# ---------------------------------------------------------------- M7 (P3)
+
+# GRAB on another canvas: the same three frames and A-B-A count, read from
+# the canvas `selector` names.
+GRAB_ON = GRAB.replace(
+    "([count, px, keep]) => new Promise((done) => {\n    const gl = document.getElementById('view').getContext('webgl2');",
+    "([count, px, keep, selector]) => new Promise((done) => {\n    const gl = document.querySelector(selector).getContext('webgl2');",
+)
+assert GRAB_ON != GRAB, "GRAB's opening line moved: GRAB_ON no longer reads another canvas"
+
+# The places of the flicker audit (CW-18, T3): each opened from the address
+# as a reader could (?go=: metres east and south, yaw and pitch in degrees),
+# the story held still. `still`: two frames identical; `pan`: a slow pan
+# shows no shimmer; the river's water moves every tick, so there a still
+# view is held to the A-B-A bound instead of identity.
+#
+# `pan`: "check" fails the run on shimmer; "measure" prints the count only,
+# for a place whose shimmer is known and routed to its owner in
+# SECOND-ORDER.md (R9.98): in bed and at the camp the slow pan passes over
+# the near grass's and the forest's dithered edges (M2's scatter, P2's T8).
+AUDIT = [
+    ("the bed", "act=story.still:on", "identical", "measure"),
+    ("the village street", "go=1996,2838,18,-7&act=story.still:on", "identical", "check"),
+    ("the bridge", "go=609,2236,242,-10&act=story.still:on", "aba", "check"),
+    ("the river", "go=636,2262,20,-28&act=story.still:on", "aba", "check"),
+    ("the camp", "go=3196,1012,300,-9&act=story.still:on", "identical", "measure"),
+    ("the hut", "go=314,1774,322,-5&act=story.still:on", "identical", "check"),
+    # west from the hill the river's water is in view: the A-B-A bound
+    ("the horizon", "go=352,1772,282,-1&act=story.still:on", "aba", "check"),
+    ("the merchant's cart", "act=merchant.beside&act=merchant.stop&act=story.still:on", "identical", "check"),
+]
+
+
+def flicker_audit(page, check, engine, base):
+    """M7: a still view and a slow pan at every place of the audit, with the
+    menus open over the game, with dialogue open, and the Equipment
+    screen's turning figure (CW-18)."""
+    for name, query, still_rule, pan_rule in AUDIT:
+        page.goto(base + "?pointer=free&look=25&" + query)
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+        if page.get_attribute("body", "data-webgl") == "none":
+            return
+        page.click("#title button")
+        page.wait_for_selector("body[data-screen='play']", state="attached")
+        page.evaluate(WAIT_FRAMES, [120, 2500])
+        if still_rule == "identical":
+            still = page.evaluate(GRAB, [2, 0, False])
+            a, b = still["frames"]
+            check(a["colours"] > 20 and a["hash"] == b["hash"], f"at {name}, a still view draws the same pixels on consecutive frames ({a['colours']} colours)")
+        else:
+            still = page.evaluate(GRAB, [3, 0, True])
+            share = still["flips"] / still["pixels"]
+            check(share < 0.0001, f"at {name} (moving water), a still view shows no shimmer: {still['flips']} of {still['pixels']} pixels flipped and back")
+        pan = page.evaluate(GRAB, [3, 1, True])
+        share = pan["flips"] / pan["pixels"]
+        check(pan["frames"][0]["hash"] != pan["frames"][2]["hash"], f"at {name}, the slow pan moves the picture")
+        # on a software renderer (Chromium here) the page draws at half the
+        # pixels, so a thin grass blade is a larger share of the picture
+        # (R2.9, R7.9): these places' pans are measured there, and the green's
+        # and the hill's, above, stay held to the bound in every engine
+        software = page.get_attribute("body", "data-software") == "true"
+        if pan_rule == "check" and not software:
+            check(share < 0.0001, f"at {name}, a slow pan shows no shimmer: {pan['flips']} of {pan['pixels']} pixels flipped and back")
+        print(f"  ({engine}: {name}, slow pan {pan['flips']} A-B-A pixels of {pan['pixels']})")
+        check(page.inner_text("#message") == "", f"at {name}, no error message")
+
+    # the menus over the game: each face still; the figure turning slowly
+    # shows no shimmer on its own canvas
+    page.goto(base + "?pointer=free&act=test.give_all&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.evaluate(WAIT_FRAMES, [60, 1500])
+    page.keyboard.press("Tab")
+    page.wait_for_selector("#menu.shown")
+    for face in ["select", "map", "quest", "equipment"]:
+        page.wait_for_selector(f"#menu[data-face='{face}']")
+        page.evaluate(WAIT_FRAMES, [40, 800])
+        held = page.evaluate(GRAB, [2, 0, False])["frames"]
+        check(held[0]["hash"] == held[1]["hash"], f"with the menu open at {face}, the world behind draws the same pixels on consecutive frames")
+        if face == "equipment":
+            fig = page.evaluate(GRAB_ON, [3, 0, True, "#menu .equip-figure canvas.figure"])
+            share = fig["flips"] / fig["pixels"]
+            check(fig["frames"][0]["colours"] > 8, f"the Equipment screen draws the player's figure on its canvas ({fig['frames'][0]['colours']} colours)")
+            check(fig["frames"][0]["hash"] != fig["frames"][2]["hash"], "the figure turns")
+            check(share < 0.0005, f"the turning figure shows no shimmer: {fig['flips']} of {fig['pixels']} pixels flipped and back")
+            print(f"  ({engine}: the Equipment figure, {fig['flips']} A-B-A pixels of {fig['pixels']})")
+        page.keyboard.press("KeyE")
+    page.keyboard.press("Tab")
+
+    # dialogue open over the game
+    page.goto(base + "?pointer=free&act=test.dialogue&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("#talk.shown")
+    page.wait_for_function("() => document.querySelector('#talk .talk-next.done')")
+    talk = page.evaluate(GRAB, [2, 0, False])["frames"]
+    check(talk[0]["hash"] == talk[1]["hash"], "with dialogue open, the world behind draws the same pixels on consecutive frames")
+
+
+def menus_m7(page, check, engine, base):
+    """M7: the ring's side names change when it stops turning; the map's
+    marks stand clear of the arrow; a quick key pointed at is described; the
+    shop refuses the sword in hand with its line; every screen at three
+    window sizes keeps its words inside it and apart, and the keyboard's
+    focus shows."""
+    import layout
+
+    page.set_viewport_size({"width": 1920, "height": 1080})
+    page.goto(base + "?pointer=free&act=test.give_all&act=test.explore&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.keyboard.press("Tab")
+    page.wait_for_selector("#menu[data-face='select']")
+    layout.settle(page)
+    right = "#menu .turn-right span"
+    check(page.text_content(right) == STRINGS["map"], "at Select Item the right turn names the map")
+    page.keyboard.press("KeyE")
+    page.wait_for_selector("#menu[data-face='map']")
+    turning = page.evaluate("() => [document.querySelector('#menu').classList.contains('turning'), document.querySelector('#menu .turn-right span').textContent]")
+    check(turning == [True, STRINGS["map"]], f"as the ring starts to turn, the side name stays and fades: {turning}")
+    page.wait_for_selector("#menu:not(.turning)")
+    check(page.text_content(right) == STRINGS["quest"], "once the ring stops at the map, the right turn names Quest")
+
+    # the map: the village's mark stands clear of the arrow at the player
+    layout.settle(page)
+    boxes = page.evaluate("""() => {
+        const r = (el) => { const b = el.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
+        const you = document.querySelector('#menu .face-map .you .you-arrow');
+        const marks = [...document.querySelectorAll('#menu .face-map .marks .mark')];
+        return {you: r(you), marks: marks.map((m) => [r(m.querySelector('img')), r(m.querySelector('.mark-label'))])};
+    }""")
+    meet = lambda a, b: max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
+    check(len(boxes["marks"]) > 0, "the explored map shows marks")
+    covered = [m for m in boxes["marks"] if meet(boxes["you"], m[0]) > 0 or meet(boxes["you"], m[1]) > 0]
+    check(not covered, f"the arrow covers no mark's icon or name ({len(covered)} covered)")
+
+    # a quick key pointed at is described over the keys, and not otherwise
+    page.keyboard.press("KeyQ")
+    page.wait_for_selector("#menu[data-face='select']")
+    check(page.locator("#menu .quick-info").is_hidden(), "no quick key is described until one is pointed at")
+    page.hover("#menu .menu-foot .quick-row .quick >> nth=1")
+    page.wait_for_selector("#menu .quick-info:not([hidden])")
+    check(page.text_content("#menu .quick-info .info-name") == STRINGS["item_rock"], "pointing at key 2 describes the rock on it")
+    page.mouse.move(2, 2)
+    page.wait_for_selector("#menu .quick-info", state="hidden")
+    check(True, "moving off the keys puts the description away")
+    page.keyboard.press("Tab")
+
+    # the shop: the sword in hand is kept, with the refusal line
+    page.goto(base + "?pointer=free&act=test.shop&act=inventory.give:sword&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("#shop.shown")
+    row = "#shop .shop-row[data-key='short_sword']"
+    check(page.text_content(row + " .row-price") == STRINGS["kept_hand"], "the short sword in hand is listed as in your hand")
+    coins = page.text_content("#shop .shop-head .count-value")
+    page.click(row + " .row-button")
+    page.wait_for_selector("#shop .shop-note:not(:empty)")
+    line = STRINGS["refuse_sell_hand"].replace("{item}", STRINGS["item_short_sword"])
+    check(page.text_content("#shop .shop-note") == line, f"selling the sword in hand is refused with its line: {page.text_content('#shop .shop-note')!r}")
+    check(page.text_content("#shop .shop-head .count-value") == coins, "no coin moved")
+
+    # every screen at three sizes; on a software renderer (Chromium here,
+    # SwiftShader) at the smallest only, the hardest to fit, since each
+    # screen's page draws the world with the CPU (R9.86); Firefox and WebKit
+    # draw with the GPU and take all three
+    software = page.get_attribute("body", "data-software") == "true"
+    for w, h in layout.SIZES[:1] if software else layout.SIZES:
+        page.set_viewport_size({"width": w, "height": h})
+        for name, roots, tab in layout.screens(page, base):
+            found = layout.problems(page, roots)
+            check(not found, f"{name} at {w}x{h}: its words stay inside the window and apart {found[:4]}")
+            if tab:
+                bad = [f["what"] for f in layout.tab_focus(page, roots) if not f["ring"]]
+                check(not bad, f"{name} at {w}x{h}: the keyboard's focus shows on every control {bad[:4]}")
+    page.set_viewport_size({"width": 1280, "height": 720})
