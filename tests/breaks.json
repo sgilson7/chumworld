@@ -296,8 +296,8 @@
   {
     "name": "the shoulder turns with the view",
     "file": "crates/core/src/camera.rs",
-    "find": "    let pivot = head.add(v3(0, ABOVE, 0)).add(right_of(look.yaw).scale(RIGHT));",
-    "replace": "    let pivot = head.add(v3(RIGHT, ABOVE, 0));",
+    "find": "    head.add(v3(0, ABOVE, 0)).add(right_of(look.yaw).scale(RIGHT))",
+    "replace": "    head.add(v3(RIGHT, ABOVE, 0))",
     "test": "turned_a_quarter_left_the_shoulder_turns_with_the_view"
   },
   {
