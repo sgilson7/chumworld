@@ -853,7 +853,10 @@ mod tests {
         let p = w.foes[0].fighter.pose;
         let lean = p.chest.sub(p.pelvis);
         let away = away.norm();
-        assert!(v3(lean.x, 0, lean.z).dot(v3(away.x, 0, away.z)) > ONE * 4 / 100, "{lean:?}");
+        assert!(
+            v3(lean.x, 0, lean.z).dot(v3(away.x, 0, away.z)) > ONE * 4 / 100,
+            "{lean:?}"
+        );
         for _ in 0..60 {
             w.step(&crate::input::Input::default());
         }
@@ -1104,13 +1107,11 @@ mod tests {
         assert!(worst.0 <= SINK, "{} units: {}", worst.0, worst.1);
     }
 
-    /// How deep a blade or hand may sit in a body at the end of a tick:
-    /// 25 mm. Measured over these 3 600 ticks: two ticks over 3 mm, the
-    /// worst 1 301 units (20 mm), a bandit's sword pressed into the player's
-    /// forearm held level across the torso, where the arm's way out and the
-    /// torso's push against each other until the rounds run out
-    /// (`arm::FENCE_ROUNDS`).
-    const SINK: Fx = ONE / 40;
+    /// How deep a blade or hand may sit in a body at the end of a tick: 5
+    /// mm. Measured over these 3 600 ticks: 206 units (3.1 mm), a bandit's
+    /// sword against the player's forearm held level across the torso, the
+    /// fences' rounds (`arm::FENCE_ROUNDS`) ending a little short.
+    const SINK: Fx = ONE / 200;
 
     #[test]
     fn closest_points_of_crossing_skew_and_apart_segments() {

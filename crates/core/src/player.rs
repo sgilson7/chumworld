@@ -70,6 +70,10 @@ pub const HOLD_PITCH_MIN: i32 = -deg(24);
 pub const HOLD_PITCH_MAX: i32 = deg(10);
 /// A foe spawned for a test duel stands this far ahead of the player.
 pub const SPAWN_AHEAD: Fx = fx::int(6);
+/// The first foe of a test duel at the start turns the player to face due
+/// south: M0's test field has its lantern, a rock and the fence ahead and
+/// right of the opening view, and nothing within 20 m to the south (R3.43).
+pub const DUEL_YAW: i32 = fx::HALF_TURN;
 /// A body sliding faster than its feet leans back by up to this.
 pub const SLIDE_LEAN: i32 = deg(14);
 /// A staggered body leans back along the blow by up to this, and its arms
@@ -939,6 +943,11 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
 /// A foe of `kind` ahead of the player, facing them, sword drawn. A second
 /// and later foe stands to one side or the other of the first.
 pub fn spawn(w: &mut World, kind: Kind) {
+    if w.foes.is_empty() && w.player.pos == crate::world::START {
+        w.aim.yaw = DUEL_YAW;
+        w.player.facing = DUEL_YAW;
+        w.player.prev_facing = DUEL_YAW;
+    }
     let k = w.foes.len() as i32;
     let side = if k % 2 == 0 { 1 } else { -1 } * ((k + 1) / 2) * deg(28);
     let way = fx::wrap(w.aim.yaw + side);
@@ -1079,6 +1088,14 @@ mod tests {
         act(&mut w, "spawn", "bandit").unwrap();
         let f = &w.foes[0];
         assert_eq!(f.fighter.kind, Kind::Bandit);
+        // facing south, clear of the test field's lantern (2.2 m west and 4.5
+        // m north of the start): 6 m south, √(2.2² + 10.5²) = 10.7 m from it
+        let lantern = crate::world::START.add(v3(-ONE * 22 / 10, 0, -ONE * 45 / 10));
+        assert!(
+            f.body.pos.dist(lantern) > fx::int(10),
+            "{}",
+            f.body.pos.dist(lantern)
+        );
         let d = f.body.pos.sub(w.player.pos);
         assert!((d.len() - fx::int(6)).abs() <= 2, "{}", d.len());
         assert!(

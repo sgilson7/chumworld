@@ -1685,5 +1685,19 @@
     "find": "tip(crate::geom::yaw_of(g.stagger_way), -shaken)",
     "replace": "tip(crate::geom::yaw_of(g.stagger_way), shaken)",
     "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b arm: a part wedged against a level arm leaves over or under it",
+    "file": "crates/core/src/arm.rs",
+    "find": "        None if d.y < 0 => v3(0, -ONE, 0),",
+    "replace": "        None if d.y < ONE * 100 => side(d, d),",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M1b player: a test duel faces clear of the lantern",
+    "file": "crates/core/src/player.rs",
+    "find": "pub const DUEL_YAW: i32 = fx::HALF_TURN;",
+    "replace": "pub const DUEL_YAW: i32 = crate::world::START_YAW;",
+    "test": "a_test_duel_spawns_six_metres_ahead_facing_the_player_and_reset_clears_it"
   }
 ]

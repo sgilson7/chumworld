@@ -266,8 +266,8 @@ pub struct Fence {
     pub blade: bool,
     /// where the body it belongs to stands: the way out of its trunk across
     /// the ground, for a part pressed between two of its capsules; none for
-    /// an arm held out more level than upright, whose own way out is across
-    /// it
+    /// an arm held out more level than upright, whose way out is over it or
+    /// under it
     pub axis: Option<V3>,
 }
 
@@ -1071,8 +1071,8 @@ fn push_out(p: V3, q: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3)> {
     if sq(d) >= room as i64 * room as i64 {
         return None;
     }
-    if let (true, Some(axis)) = (away, f.axis) {
-        return Some(escape(p, d, axis, room));
+    if away {
+        return Some(escape(p, d, f.axis, room));
     }
     let c0 = nearest_on(f.a, f.b, q);
     let was = q.sub(c0);
@@ -1092,8 +1092,8 @@ fn push_rail(a: V3, b: V3, a0: V3, b0: V3, f: &Fence, r: Fx, away: bool) -> Opti
     if sq(d) >= room as i64 * room as i64 {
         return None;
     }
-    if let (true, Some(axis)) = (away, f.axis) {
-        let (m, out) = escape(pr, d, axis, room);
+    if away {
+        let (m, out) = escape(pr, d, f.axis, room);
         return Some((m, out, s));
     }
     let (_, _, pr0, pf0) = crate::blade::closest(a0, b0, f.a, f.b);
@@ -1102,12 +1102,24 @@ fn push_rail(a: V3, b: V3, a0: V3, b0: V3, f: &Fence, r: Fx, away: bool) -> Opti
 }
 
 /// A point `p`, `d` from the fence's nearest point and `room` needed, moved
-/// straight out across the ground from the fence's body's axis: by the
-/// sink, over the share of that way that leads out of this capsule (at
-/// least a third), and a unit more.
-fn escape(p: V3, d: V3, axis: V3, room: Fx) -> (V3, V3) {
-    let flat = v3(p.x - axis.x, 0, p.z - axis.z);
-    let out = if flat == V3::ZERO { side(d, d) } else { flat.norm() };
+/// straight out across the ground from the fence's body's axis, or for a
+/// level arm (no axis) straight over it or under it, whichever side it is
+/// on: two ways that do not push it back into each other. By the sink, over
+/// the share of that way that leads out of this capsule (at least a third),
+/// and a unit more.
+fn escape(p: V3, d: V3, axis: Option<V3>, room: Fx) -> (V3, V3) {
+    let out = match axis {
+        Some(axis) => {
+            let flat = v3(p.x - axis.x, 0, p.z - axis.z);
+            if flat == V3::ZERO {
+                side(d, d)
+            } else {
+                flat.norm()
+            }
+        }
+        None if d.y < 0 => v3(0, -ONE, 0),
+        None => V3::UP,
+    };
     let sink = room - d.len();
     let lead = if d == V3::ZERO {
         ONE
