@@ -332,13 +332,13 @@ fn a_refusal_in_select_item_shows_under_the_flute() {
 
 /// Arriving: 4 m in front of the waystone (400 cm, 262 144 units), facing
 /// the way it faces, on what is underfoot there, on dry ground, outside
-/// every wall. The village's waystone at (2002, 2505) m faces north (yaw 0,
-/// the front −z): the player stands at (2002, 2501).
+/// every wall. The village's waystone at (2000, 2540) m faces north (yaw 0,
+/// the front −z): the player stands at (2000, 2536).
 #[test]
 fn arrival_is_in_front_of_the_waystone_on_dry_ground_outside_any_wall() {
     let w = free_world();
     let (p, yaw) = arrival(&w, VILLAGE).unwrap();
-    assert_eq!((p.x, p.z, yaw), (2002 * ONE, 2501 * ONE, 0));
+    assert_eq!((p.x, p.z, yaw), (2000 * ONE, 2536 * ONE, 0));
     for k in 0..5 {
         let (p, yaw) = arrival(&w, k).unwrap();
         let (s, sy) = stone(&w, k).unwrap();
@@ -527,14 +527,17 @@ fn the_quest_screen_shows_the_song_and_the_line_moves_on_once_one_is_woken() {
 
 // ---- the traveller -------------------------------------------------------------
 
-/// Prices by hand: the traveller stands at the crossroads (2000, 2250) +
-/// (−9, 9) = (1991, 2259) m. To the village's waystone (2002, 2505): √(11²
-/// + 246²) = 246.2 m, 10 + 246 / 80 = 13 coins (whole coins, rounded
-/// down); the bridge's (652, 2236): √(1339² + 23²) = 1 339.2 m, 10 + 16 =
-/// 26; the hill's (324, 1764): √(1667² + 495²) = 1 738.9 m, 10 + 21 = 31;
-/// the shrine's (735, 997): √(1256² + 1262²) = 1 780.5 m, 10 + 22 = 32;
-/// the camp's (3157, 1140): √(1166² + 1119²) = 1 616.1 m, 10 + 20 = 30. All between 10 and 40, and all affordable with the 84 coins the
-/// village and the camp leave (12 + the lookout's 12 + 3 × 12 + 24).
+/// Prices by hand: the traveller stands at the crossroads (2000, 2250)
+/// and (−9, 9) from it, (1991, 2259) m. Each price is 10 coins and one a
+/// whole 80 m, rounded down:
+/// - the village's waystone (2000, 2540): √(9² + 281²) = 281.1 m, 13;
+/// - the bridge's (652, 2236): √(1339² + 23²) = 1 339.2 m, 26;
+/// - the hill's (324, 1764): √(1667² + 495²) = 1 738.9 m, 31;
+/// - the shrine's (735, 997): √(1256² + 1262²) = 1 780.5 m, 32;
+/// - the camp's (3157, 1140): √(1166² + 1119²) = 1 616.1 m, 30.
+///
+/// All between 10 and 40, and all affordable with the 84 coins the village
+/// and the camp leave (12, the lookout's 12, 3 × 12 and the leader's 24).
 #[test]
 fn each_ride_is_priced_by_its_distance() {
     let w = free_world();
@@ -656,7 +659,7 @@ fn a_woken_waystone_in_view_draws_the_same_frame_tick_after_tick() {
     g.act("story.still", "on").unwrap();
     g.act("travel.wake", "village").unwrap();
     // 8 m north of the waystone, looking back at it (yaw 180: south)
-    g.act("places.go", "2002,2497,180").unwrap();
+    g.act("places.go", "2000,2532,180").unwrap();
     g.act("screen.show", "play").unwrap();
     frames(&mut g, 120, 0, 0);
     let f1 = g.frame.clone();

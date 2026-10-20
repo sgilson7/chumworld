@@ -819,7 +819,9 @@ fn hollow_tree(k: &mut Kit) {
 /// a ring for an eye, a bar under it, a bar across, and four chevrons. No
 /// two touch, so none shares a plane with another where they meet (CW-18).
 /// Each stands `PROP_GAP` proud of the face, which is at z = −190 mm.
-const RUNES: [(Mesh, (i32, i32, i32), (i32, i32, i32), i32, bool); 8] = [
+type Rune = (Mesh, (i32, i32, i32), (i32, i32, i32), i32, bool);
+
+const RUNES: [Rune; 8] = [
     (Mesh::Tube, (0, 1640, -195), (300, 40, 300), 0, true),
     (Mesh::Cube, (0, 1400, -195), (360, 60, 40), 0, false),
     (Mesh::Cube, (0, 980, -195), (70, 640, 40), 0, false),

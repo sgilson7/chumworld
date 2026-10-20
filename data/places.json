@@ -104,8 +104,8 @@
     },
     {
       "kind": "waystone_village",
-      "_": "M7 travel (T11): the waystone on the lane north of the village, 295 m from its centre, outside the opening's 250 m boundary; it faces north, up the lane",
-      "centre": [2002, 2505],
+      "_": "M7 travel (T11): the waystone beside the lane north of the village, 260 m from its centre, just outside the opening's 250 m boundary, where most players leave (T12: P7 'roadside' leaves a 20 m gap here); it faces north, up the lane",
+      "centre": [2000, 2540],
       "clearing_m": 4,
       "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": 0 }]
     },
