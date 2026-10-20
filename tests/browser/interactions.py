@@ -139,3 +139,82 @@ def run(page, check, engine):
     resume.click()
     page.wait_for_selector("body[data-screen='play']", state="attached")
     check(page.inner_text("#message") == "", "no error message is shown")
+
+    menus(page, check, engine, base)
+
+
+ITEMS = json.loads((ROOT / "data" / "items.json").read_text())
+
+
+def menus(page, check, engine, base):
+    """M4: the menu ring opens on Tab, turns with E and Q, takes a quick
+    item onto a key, and closes on Tab; the canvas behind it is unchanged.
+    The full test inventory comes from the address (?act=test.give_all), as
+    a reader could open it."""
+    page.goto(base + "?pointer=free&look=25&act=test.give_all")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+    if page.get_attribute("body", "data-webgl") == "none":
+        return
+    check(page.locator("#title-more button").inner_text() == STRINGS["settings"], "the title screen offers Settings")
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.evaluate(WAIT_FRAMES, [30, 1500])
+    check(page.locator("#play-hud.shown").count() == 1, "the HUD shows in play")
+    health = page.text_content("#play-hud .bar-health .bar-label")
+    check(health == STRINGS["health"], f"the HUD names health in words, not colour alone: {health!r}")
+    before = page.evaluate(GRAB, [1, 0, False])["frames"][0]["hash"]
+
+    page.keyboard.press("Tab")
+    page.wait_for_selector("#menu.shown")
+    check(page.get_attribute("body", "data-screen") == "menu", "Tab opens the menu ring")
+    check(page.get_attribute("#menu", "data-face") == "select", "the ring opens at Select Item")
+    check(page.text_content("#menu .face-select .face-heading") == STRINGS["select_item"], "Select Item is headed from data/strings.json")
+    paused = page.evaluate(GRAB, [2, 0, False])["frames"]
+    check(paused[0]["hash"] == paused[1]["hash"], "the world behind the ring holds still")
+
+    page.keyboard.press("KeyE")
+    page.wait_for_selector("#menu[data-face='map']")
+    check(True, "E turns the ring to the map")
+    check(page.locator("#menu .face-map canvas").evaluate("(c) => c.width") > 0, "the map's parchment is drawn")
+    page.keyboard.press("KeyQ")
+    page.wait_for_selector("#menu[data-face='select']")
+    check(True, "Q turns it back to Select Item")
+
+    # the rock's cell in Select Item's grid, from data/items.json
+    rock = next(i for i in ITEMS["items"] if i["id"] == "rock")
+    for _ in range(rock["grid"]):
+        page.keyboard.press("ArrowRight")
+    chosen = page.locator("#menu .face-select .slot.chosen")
+    chosen.wait_for()
+    check(chosen.get_attribute("data-item") == "rock", "the arrows move the cursor to the rock")
+    page.keyboard.press("Digit3")
+    page.wait_for_selector("#menu .menu-foot .quick[data-key='3'][data-item='rock']", state="attached")
+    badge = chosen.locator(".badge").text_content()
+    check(badge == STRINGS["key_3"], f"pressing 3 over the rock puts it on key 3, and the slot says so: {badge!r}")
+
+    page.keyboard.press("Tab")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    check(page.locator("#menu.shown").count() == 0, "Tab closes the ring")
+    check(page.locator("#play-hud .hud-quick .quick[data-key='3'][data-item='rock']").count() == 1, "the HUD shows the rock on 3")
+    page.evaluate(WAIT_FRAMES, [10, 300])
+    after = page.evaluate(GRAB, [2, 0, False])["frames"]
+    check(after[0]["hash"] == after[1]["hash"], "after the ring closes, a still view draws the same pixels on consecutive frames")
+    check(after[0]["hash"] == before, "the canvas draws as it did before the ring opened")
+
+    page.keyboard.press("Tab")
+    page.wait_for_selector("#menu.shown")
+    page.keyboard.press("Escape")
+    page.wait_for_selector("body[data-screen='paused']", state="attached")
+    check(True, "Esc closes the ring to the pause screen")
+    page.click("#paused-more button")
+    page.wait_for_selector("#settings.shown")
+    labels = page.locator("#settings .control-label").all_text_contents()
+    check(labels == [STRINGS["look_speed"], STRINGS["mouse_sensitivity"], STRINGS["invert_y"], STRINGS["volume"]], f"settings lists its four settings: {labels}")
+    focused = page.evaluate("() => document.activeElement && document.activeElement.id")
+    check(focused == "setting-look_speed", f"settings opens with its first control focused for the keyboard: {focused!r}")
+    page.keyboard.press("ArrowRight")
+    page.wait_for_function("() => document.querySelector('#setting-look_speed').value !== '25'")
+    check(page.text_content("#settings .control[data-key='look_speed'] .control-value") != "25%", "the arrow keys change the look speed")
+    page.keyboard.press("Escape")
+    page.wait_for_selector("body[data-screen='paused']", state="attached")
+    check(page.inner_text("#message") == "", "no error message is shown after the menus")

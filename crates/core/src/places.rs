@@ -341,10 +341,20 @@ pub fn road(w: &World) -> Way {
 /// comes first; the crossroads and the trail's end are signposts, not
 /// places, and the pond is the village's own.
 pub fn markers(w: &World) -> Vec<(&'static str, V3)> {
-    const MARKED: [&str; 7] = ["village", "camp", "hut", "shrine", "hollow_tree", "scarecrow", "bridge"];
+    // the place's kind in data/places.json, and its key (M4's `place_tree`
+    // for the hollow tree)
+    const MARKED: [(&str, &str); 7] = [
+        ("village", "village"),
+        ("camp", "camp"),
+        ("hut", "hut"),
+        ("shrine", "shrine"),
+        ("hollow_tree", "tree"),
+        ("scarecrow", "scarecrow"),
+        ("bridge", "bridge"),
+    ];
     MARKED
         .iter()
-        .filter_map(|&k| at(w, k).map(|p| (k, p)))
+        .filter_map(|&(kind, key)| at(w, kind).map(|p| (key, p)))
         .collect()
 }
 
@@ -461,10 +471,15 @@ mod tests {
         // the river runs 62 m west of it, where the shrine stands on an islet
         near(find("shrine"), 800, 1000, 70);
         // the trousers' (570, 247) px: the hollow tree, (3600, 1400)
-        near(find("hollow_tree"), 3600, 1400, 1);
+        near(find("tree"), 3600, 1400, 1);
         // the jacket's (240, 532) px: the scarecrow, (1400, 3300)
         near(find("scarecrow"), 1400, 3300, 1);
         assert_eq!(m[0].0, "village");
+        // every mark has its words for the map menu (M4)
+        let strings = crate::page::parse_strings(include_str!("../../../data/strings.json")).unwrap();
+        for (k, _) in &m {
+            assert!(strings.0.contains_key(&format!("place_{k}")), "no place_{k}");
+        }
     }
 
     #[test]

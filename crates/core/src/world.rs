@@ -79,6 +79,9 @@ pub struct World {
     /// where the player looks
     pub aim: Aim,
     pub player: Body,
+    // M4: what the player carries and wears; the map's fog, the toast, dialogue, the shop, settings
+    pub inventory: crate::inventory::State,
+    pub ui: crate::ui::State,
     // M3: the model lineup for review (`models.lineup`), off in play
     pub lineup: crate::models::Lineup,
     // M1: pub arms: arm::State, pub pilots: pilot::State, pub health: health::State, …
@@ -98,6 +101,9 @@ impl World {
             rng: Rng::new(seed),
             aim: Aim::new(START_YAW),
             player: Body::new(START, START_YAW),
+            // M4: the start's gear (CW-7), an unwalked map
+            inventory: crate::inventory::State::default(),
+            ui: crate::ui::State::default(),
             lineup: crate::models::Lineup::default(), // M3:
             // M2
             land: crate::terrain::shipped(),
@@ -121,6 +127,8 @@ impl World {
             dy: input.dy,
             wheel: input.wheel,
         });
+        // M4: 1, 2 and 3 ready a quick item in the free hand
+        crate::inventory::step(self, input);
         // 2. M1: let inputs = crate::pilot::step(self);
         // 3. bodies
         let ground = self.ground(self.player.pos.x, self.player.pos.z);
@@ -131,6 +139,8 @@ impl World {
         // 7. M5: crate::story::step(self); crate::merchant::step(self); …
         // 8. M2: the water
         crate::water::step(self);
+        // M4: the map fills in round the player; the toast counts down
+        crate::ui::step(self);
     }
 
     /// What moves, drawn `alpha` of the way from the last tick to this one.
@@ -158,6 +168,10 @@ impl World {
 
     /// A setting or flag named `module.name`.
     pub fn act(&mut self, name: &str, value: &str) -> Result<(), String> {
+        // M4: inventory.give, inventory.take, inventory.coins
+        if let Some(rest) = name.strip_prefix("inventory.") {
+            return crate::inventory::act(self, rest, value);
+        }
         if let Some(rest) = name.strip_prefix("models.") {
             return crate::models::act(self, rest, value); // M3:
         }
