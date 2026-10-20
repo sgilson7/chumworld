@@ -239,13 +239,12 @@ pub fn scene(w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group
         if all.is_empty() {
             continue;
         }
-        // the group's radius holds every prop and its size (12 m at the most)
+        // the group's radius holds every prop and its own radius (M3's)
         let reach = all
             .iter()
-            .map(|s| s.at.sub(c).len_xz())
+            .map(|s| s.at.sub(c).len_xz() + models::prop_radius(s.prop))
             .max()
-            .unwrap_or(0)
-            + fx::int(12);
+            .unwrap_or(0);
         let mut centre = c;
         centre.y = w.ground(c.x, c.z);
         let mut g = Group::new(&place.kind, centre, reach);

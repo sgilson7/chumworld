@@ -79,6 +79,8 @@ pub struct World {
     /// where the player looks
     pub aim: Aim,
     pub player: Body,
+    // M3: the model lineup for review (`models.lineup`), off in play
+    pub lineup: crate::models::Lineup,
     // M1: pub arms: arm::State, pub pilots: pilot::State, pub health: health::State, …
     // M2: the land (heights, layout, river), shared by every copy of the
     // world; the water's waves; a place to put the player when play starts
@@ -96,6 +98,7 @@ impl World {
             rng: Rng::new(seed),
             aim: Aim::new(START_YAW),
             player: Body::new(START, START_YAW),
+            lineup: crate::models::Lineup::default(), // M3:
             // M2
             land: crate::terrain::shipped(),
             water: crate::water::State::new(),
@@ -133,7 +136,8 @@ impl World {
     /// What moves, drawn `alpha` of the way from the last tick to this one.
     pub fn draw(&self, alpha: Fx, look: &Look, out: &mut Shapes) {
         self.player.draw(alpha, &look.palette, look.ink(), out);
-        // M1: crate::arm::draw(self, alpha, look, out); …
+        crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
+                                                     // M1: crate::arm::draw(self, alpha, look, out); …
     }
 
     /// What never moves: the static groups, and the meshes they draw.
@@ -154,6 +158,9 @@ impl World {
 
     /// A setting or flag named `module.name`.
     pub fn act(&mut self, name: &str, value: &str) -> Result<(), String> {
+        if let Some(rest) = name.strip_prefix("models.") {
+            return crate::models::act(self, rest, value); // M3:
+        }
         match name.split_once('.') {
             // M1: Some(("arm", rest)) => crate::arm::act(self, rest, value), …
             // M2
