@@ -63,6 +63,10 @@ pub struct State {
     pub sparks: Vec<Spark>,
     /// the fighters who went down this tick, by number (the story's hook)
     pub downed: Vec<u8>,
+    /// M7, test-only (`feel.freeze_spark`): the world stops still once a
+    /// spark is this many ticks old, for a picture of it; `frozen` once it has
+    pub freeze_spark: Option<u8>,
+    pub frozen: bool,
 }
 
 /// M7: a spark's size for blades meeting at `speed`: 12.5 cm, and 2.5 cm
@@ -162,6 +166,114 @@ fn ring_down(w: &mut World) {
         sp.age += 1;
     }
     s.sparks.retain(|sp| sp.age < SPARK_TICKS);
+    // M7: held still for a picture once a spark is old enough
+    if let Some(age) = s.freeze_spark {
+        if s.sparks.iter().any(|sp| sp.age >= age) {
+            s.frozen = true;
+            s.prev_knock = s.knock;
+            settle(w);
+        }
+    }
+}
+
+/// The point halfway between where fighter `a`'s blade and `b`'s come
+/// nearest, each blade taken from its pommel to its point in 16 steps.
+fn nearest_blades(w: &World, a: usize, b: usize) -> V3 {
+    let line = |id: usize| {
+        let f = player::fighter(w, id);
+        (f.arm.pts[crate::arm::POMMEL].p, f.arm.pts[crate::arm::TIP].p)
+    };
+    let ((a0, a1), (b0, b1)) = (line(a), line(b));
+    let mut best = (i32::MAX, a1);
+    for i in 0..=16 {
+        let p = a0.lerp(a1, ONE * i / 16);
+        for j in 0..=16 {
+            let q = b0.lerp(b1, ONE * j / 16);
+            let d = p.dist(q);
+            if d < best.0 {
+                best = (d, p.lerp(q, ONE / 2));
+            }
+        }
+    }
+    best.1
+}
+
+/// Every body drawn where it stands: each last tick set to this one.
+fn settle(w: &mut World) {
+    for id in 0..player::count(w) {
+        let (b, f) = player::parts_mut(w, id);
+        b.prev_pos = b.pos;
+        b.prev_facing = b.facing;
+        f.prev_pose = f.pose;
+        f.arm.prev_target = f.arm.target;
+        f.prev_framing = f.framing;
+    }
+    for t in &mut w.throwables.flying {
+        t.prev = t.p;
+    }
+}
+
+/// M7: a tick of a world frozen for a picture (`feel.freeze_spark`): nothing
+/// moves, but the mouse turns the view, so the spark can be seen from any
+/// side.
+pub fn frozen(w: &mut World, input: &Input) {
+    w.aim = w.aim.turned(crate::input::Mouse {
+        dx: input.dx,
+        dy: input.dy,
+        wheel: input.wheel,
+    });
+}
+
+/// `feel.<name>`: `freeze_spark` (test-only) stops the world still once a
+/// spark is `value` ticks old (0 to 19), for a picture; `off` lets it go.
+pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
+    match name {
+        "freeze_spark" => {
+            if value.trim() == "off" {
+                w.feel.freeze_spark = None;
+                w.feel.frozen = false;
+                return Ok(());
+            }
+            let age: u8 = value
+                .trim()
+                .parse()
+                .ok()
+                .filter(|a| *a < SPARK_TICKS)
+                .ok_or_else(|| {
+                    format!("A spark's age is a whole number of ticks under {SPARK_TICKS}, not \"{value}\".")
+                })?;
+            w.feel.freeze_spark = Some(age);
+            Ok(())
+        }
+        // test-only: a spark staged where the player's blade and the first
+        // foe's come nearest, `value` ticks old, as a meeting at 8 m/s throws
+        // it, and the world frozen there, for a picture of a spark when a
+        // driven browser cannot time a clash (R9.10)
+        "stage_spark" => {
+            let age: u8 = value
+                .trim()
+                .parse()
+                .ok()
+                .filter(|a| *a < SPARK_TICKS)
+                .ok_or_else(|| {
+                    format!("A spark's age is a whole number of ticks under {SPARK_TICKS}, not \"{value}\".")
+                })?;
+            if player::count(w) < 2 {
+                return Err("A spark needs a foe's blade to meet: start a test duel first.".into());
+            }
+            let at = nearest_blades(w, 0, 1);
+            w.feel.sparks.push(Spark {
+                at,
+                age,
+                size: spark_size(fx::int(8)),
+            });
+            w.feel.freeze_spark = Some(age);
+            w.feel.frozen = true;
+            settle(w);
+            Ok(())
+        }
+        _ => Err(format!("Unknown action \"feel.{name}\".")),
+    }
 }
 
 /// A tick of hit-stop in place of the world's: nothing moves, so every body
@@ -179,17 +291,7 @@ pub fn hold(w: &mut World, input: &Input) {
         });
     }
     crate::arm::move_shell(w, 0, input);
-    for id in 0..player::count(w) {
-        let (b, f) = player::parts_mut(w, id);
-        b.prev_pos = b.pos;
-        b.prev_facing = b.facing;
-        f.prev_pose = f.pose;
-        f.arm.prev_target = f.arm.target;
-        f.prev_framing = f.framing;
-    }
-    for t in &mut w.throwables.flying {
-        t.prev = t.p;
-    }
+    settle(w);
     w.blades.hits.clear();
     w.blades.clashes.clear();
     w.feel.downed.clear();

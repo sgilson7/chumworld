@@ -183,6 +183,11 @@ impl World {
             return;
         }
         let input = &crate::story::filter(self, input);
+        // M7: frozen for a picture of a spark (test-only), only the view turns
+        if self.feel.frozen {
+            crate::feel::frozen(self, input);
+            return;
+        }
         self.tick += 1;
         // M6: the scripted defender's hand added to the record, for a view
         // (`magic.defend`, a test act)
@@ -290,6 +295,7 @@ impl World {
             Some(("trainer", rest)) => crate::trainer::act(self, rest, value),
             Some(("merchant", rest)) => crate::merchant::act(self, rest, value),
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
+            Some(("feel", rest)) => crate::feel::act(self, rest, value),  // M7
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }
@@ -325,7 +331,8 @@ impl World {
             .add(crate::feel::knock_at(self, alpha))
             .add(crate::player::framing(self, alpha, aim.yaw));
         // M7: brought in along the boom, clear of walls, houses and trees
-        cam.eye = crate::boom::clip(self, alpha, feet, cam.eye);
+        let pivot = camera::pivot(feet, aim).add(crate::player::framing(self, alpha, aim.yaw));
+        (cam.eye, cam.fwd) = crate::boom::clip(self, alpha, feet, pivot, cam.eye, cam.fwd);
         cam
     }
 

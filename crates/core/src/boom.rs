@@ -2,7 +2,8 @@
 //! solid things, and the player's house cut away round the player.
 //!
 //! The camera stays over the right shoulder (CW-15, `camera.rs`). Its
-//! *boom* is the line from the head to where the eye would be; when a
+//! *boom* is the line from the pivot over the right shoulder to where the
+//! eye would be (`camera::pivot`); when a
 //! building, a tent, a fence or a tree's trunk or crown stands in the way,
 //! the eye comes in along that line to stand clear of it. Two clearances:
 //! each tick the boom's length eases toward the length that keeps the eye
@@ -315,7 +316,7 @@ pub fn reach(solids: &[Solid], from: V3, to: V3, margin: Fx) -> Fx {
         .iter()
         .filter_map(|s| {
             let g = s.gap(from);
-            (g > 0).then_some((*s, margin.min(g * 9 / 10)))
+            (g > 0).then_some((*s, margin.min(g)))
         })
         .collect();
     if near.is_empty() {
@@ -353,20 +354,59 @@ pub fn head(feet: V3) -> V3 {
     feet.add(v3(0, crate::camera::HEAD, 0))
 }
 
-/// The eye for this frame: `eye` (the shoulder's, as `camera` places it)
-/// brought in along the boom from the head to the eased length, and at
-/// least `HARD` clear of everything.
-pub fn clip(w: &World, alpha: Fx, feet: V3, eye: V3) -> V3 {
+/// The eye for this frame: `eye` (the shoulder's, as `camera` places it,
+/// `back` along the look from `pivot`) brought in along the boom from the
+/// pivot to the eased length, and at least `HARD` clear of everything. When
+/// the pivot itself is not clear of the head (a wall at the player's right
+/// shoulder), the eye stays between the head and the pivot. Brought in
+/// nearer the head than `SHORT`, the eye also rises (by `RISE_PER` of the
+/// shortfall, at most `RISE_MOST`, and no higher than stays clear) and
+/// looks down toward the point `FOCUS` ahead of the head along the look
+/// and `FOCUS_DOWN` under it, fully once it has risen a third of the way, so the view
+/// looks down over the shoulder rather than into the back of the head;
+/// the look `fwd` is returned with it, the same as given when the eye has
+/// not risen.
+pub fn clip(w: &World, alpha: Fx, feet: V3, pivot: V3, eye: V3, fwd: V3) -> (V3, V3) {
     let from = head(feet);
     let all = solids(w, from);
-    let hard = reach(&all, from, eye, HARD);
+    let side = reach(&all, from, pivot, HARD);
+    if side < ONE {
+        return (from.lerp(pivot, side), fwd);
+    }
+    let hard = reach(&all, pivot, eye, HARD);
     let eased = if w.boom.set {
         fx::lerp(w.boom.prev, w.boom.len, alpha)
     } else {
         ONE
     };
-    from.lerp(eye, hard.min(eased))
+    let at = pivot.lerp(eye, hard.min(eased));
+    let near = at.sub(from).len();
+    if near >= SHORT {
+        return (at, fwd);
+    }
+    let want = fx::mul(SHORT - near, RISE_PER).min(RISE_MOST);
+    let top = at.add(v3(0, want, 0));
+    let up = fx::mul(want, reach(&all, at, top, HARD));
+    if up <= 0 {
+        return (at, fwd);
+    }
+    let raised = at.add(v3(0, up, 0));
+    // the look eases from the given one to the focus as the eye rises
+    let flat = v3(fwd.x, 0, fwd.z).norm();
+    let focus = from.add(flat.scale(FOCUS)).sub(v3(0, FOCUS_DOWN, 0));
+    let k = fx::div(up * 3, RISE_MOST).min(ONE);
+    let toward = focus.sub(raised).norm();
+    return (raised, fwd.lerp(toward, k).norm());
 }
+
+/// The eye rises once the boom is shorter than this, by this share of the
+/// shortfall, at most this high, looking at the point this far ahead.
+pub const SHORT: Fx = ONE * 17 / 10;
+pub const RISE_PER: Fx = ONE;
+pub const RISE_MOST: Fx = ONE * 14 / 10;
+pub const FOCUS: Fx = ONE * 22 / 10;
+/// and that point is this far under the head: about the waist's height
+pub const FOCUS_DOWN: Fx = ONE * 4 / 10;
 
 /// Step 9b, last in the tick: the trees near the player looked up again
 /// when they have walked on; the boom eased; the house's hand-over.
@@ -378,8 +418,9 @@ pub fn step(w: &mut World) {
     }
     let cam = crate::camera::view_from(p, w.aim, crate::camera::BACK, |x, z| w.ground(x, z));
     let from = head(p);
+    let pivot = crate::camera::pivot(p, w.aim);
     let all = solids(w, from);
-    let want = reach(&all, from, cam.eye, SOFT);
+    let want = reach(&all, pivot, cam.eye, SOFT);
     let b = &mut w.boom;
     b.prev = if b.set { b.len } else { want };
     b.len = if !b.set {
@@ -390,7 +431,7 @@ pub fn step(w: &mut World) {
         (b.len + fx::mul(want - b.len, OUT_SHARE).max(OUT_MIN)).min(want)
     };
     b.set = true;
-    b.eye = from.lerp(cam.eye, b.len);
+    b.eye = pivot.lerp(cam.eye, b.len);
     // the house: cut while the player is at it or the eye is in it
     let cut = w.solid.home.is_some_and(|h| {
         h.wall.holds(p.x, p.z, crate::story::CUT_NEAR + solid::RADIUS)

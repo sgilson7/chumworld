@@ -364,6 +364,19 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             w.trainer.credited += n;
             Ok(())
         }
+        // M7, test-only: the player stood on the practice's mark, looking
+        // toward the trainer, for a view of the practice
+        "mark" => {
+            let m = mark(w).ok_or_else(|| "The trainer is not standing yet.".to_string())?;
+            let t = player::body(w, id(w).unwrap_or(0)).pos;
+            let yaw = yaw_of(t.sub(m));
+            let held = w.me.held;
+            w.player = crate::player::Body::new(m, yaw);
+            w.me = crate::player::Fighter::new(Kind::Player, held, 0, m, yaw, false);
+            w.aim.yaw = yaw;
+            w.aim.pitch = -fx::deg(8);
+            Ok(())
+        }
         _ => Err(format!("Unknown action \"trainer.{name}\".")),
     }
 }

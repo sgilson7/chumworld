@@ -163,7 +163,13 @@ body:not([data-screen="play"]) #hud { display: none; }
    the fade to dark over everything (the core says when; the page eases it) */
 #hud-story { position: fixed; top: 15vh; left: 50%; transform: translateX(-50%); max-width: 70vw; text-align: center; font-size: 19px; padding: 11px 24px; }
 #hud-prompt { position: fixed; bottom: calc(5vh + 52px); left: 50%; transform: translateX(-50%); transition: opacity 0.25s ease; }
-#hud-veil { position: fixed; inset: 0; margin: 0; padding: 0; border-radius: 0; background: #1b1530; transition: opacity 1.3s ease; }
+/* M7: the dark comes on slowly then sinks (an ease-in over the core's 80
+   ticks, 1.33 s), and lifts quickly then settles (an ease-out), as waking
+   does; the story's line drifts down a little as it comes */
+#hud-veil { position: fixed; inset: 0; margin: 0; padding: 0; border-radius: 0; background: #1b1530; transition: opacity 1.4s cubic-bezier(0.2, 0.6, 0.35, 1); }
+#hud-veil.shown { transition: opacity 1.33s cubic-bezier(0.5, 0, 0.75, 0.3); }
+#hud-story { transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); transform: translate(-50%, -10px); }
+#hud-story.shown { transform: translate(-50%, 0); }
 
 #message:empty { display: none; }
 #message {

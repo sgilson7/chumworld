@@ -181,6 +181,9 @@ pub struct TrainerSpec {
 pub struct FireSpec {
     pub houses: Vec<[i32; 2]>,
     pub tongues: i32,
+    /// the roof's ridge over the house's foot, and its slope (rise per run, %)
+    pub ridge_cm: i32,
+    pub slope_pct: i32,
     pub tongue_cm: [i32; 2],
     pub tongue_wide_cm: [i32; 2],
     pub flicker_ticks: [i32; 2],
@@ -1428,8 +1431,9 @@ fn draw_fires(w: &World, alpha: Fx, _look: &Look, out: &mut Shapes) {
         let k_n = sp.tongues.max(2);
         for k in 0..k_n {
             let id = n * 100 + k;
-            let lx = -hx * 7 / 10 + hx * 14 / 10 * k / (k_n - 1);
-            let lz = if k % 2 == 0 { hz / 4 } else { -hz / 4 } + fx::mul(pick(id, 3) - ONE / 2, hz / 3);
+            // along the ridge (the house's x), on either slope
+            let lx = -hx * 8 / 10 + hx * 16 / 10 * k / (k_n - 1);
+            let lz = if k % 2 == 0 { hz / 5 } else { -hz / 5 } + fx::mul(pick(id, 3) - ONE / 2, hz / 2);
             let period = sp.flicker_ticks[0]
                 + (fx::mul(pick(id, 5), (sp.flicker_ticks[1] - sp.flicker_ticks[0]) * ONE) / ONE);
             let phase = (clock as i64 * fx::TURN as i64 / (period.max(1) as i64 * ONE as i64)) as i32
@@ -1442,7 +1446,8 @@ fn draw_fires(w: &World, alpha: Fx, _look: &Look, out: &mut Shapes) {
             let wide = cm(sp.tongue_wide_cm[0])
                 + fx::mul(pick(id, 13), cm(sp.tongue_wide_cm[1] - sp.tongue_wide_cm[0]));
             let wide = fx::mul(wide, ONE * 9 / 10 + fx::sin(phase + fx::deg(90)) / 10);
-            let base = top * 68 / 100 + fx::mul(pick(id, 19), top / 8);
+            // on the roof's face there, a little sunk into it
+            let base = cm(sp.ridge_cm) - lz.abs() * sp.slope_pct / 100 - ONE / 5;
             let foot = place.apply(v3(lx, base + tall / 2, lz));
             out.solid(
                 Mesh::Cone,
