@@ -45,6 +45,9 @@ pub const REQUIRED: &[&str] = &[
     "control_throw",
     "key_dodge",
     "control_dodge",
+    // M6
+    "key_imbue",
+    "control_imbue",
     // M4: the menus, the HUD, dialogue, the shop and settings
     "key_menu",
     "control_menu",

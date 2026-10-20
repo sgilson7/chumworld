@@ -102,7 +102,9 @@ pub struct World {
     pub water: crate::water::State,
     pub arrival: Option<crate::places::Arrival>,
     // M5: pub story: story::State, pub merchant: merchant::State, …
-    // M6: pub orbs: orbs::State, pub imbue: imbue::State
+    // M6: the orbs in flight and the casts under way; the imbue
+    pub orbs: crate::orbs::State,
+    pub imbue: crate::imbue::State,
 }
 
 impl World {
@@ -136,6 +138,9 @@ impl World {
             land: crate::terrain::shipped(),
             water: crate::water::State::new(),
             arrival: None,
+            // M6
+            orbs: crate::orbs::State::default(),
+            imbue: crate::imbue::State::default(),
         }
     }
 
@@ -151,6 +156,7 @@ impl World {
         // M1: a hard blow holds the world still for a few ticks
         if self.feel.stop > 0 {
             crate::feel::hold(self, input);
+            crate::orbs::hold(self); // M6: the orbs hold still too
             crate::ui::step(self);
             return;
         }
@@ -174,7 +180,9 @@ impl World {
         crate::throwables::step(self, input, &inputs);
         crate::player::finish(self, input, &inputs);
         crate::pilot::remember(self);
-        // 6. M6: crate::orbs::step(self); crate::imbue::step(self, input);
+        // 6. M6: the imbue (Q), then the orbs, which the imbued edge turns
+        crate::imbue::step(self, input);
+        crate::orbs::step(self);
         // 7. M5: crate::story::step(self); crate::merchant::step(self); …
         // 8. M2: the water
         crate::water::step(self);
@@ -189,6 +197,9 @@ impl World {
         crate::throwables::draw(self, alpha, look, out);
         crate::feel::draw(self, alpha, look, out); // M1:
         crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
+                                                     // M6: the imbued blade's glow, then the orbs and their sparks
+        crate::imbue::draw(self, alpha, look, out);
+        crate::orbs::draw(self, alpha, look, out);
     }
 
     /// What never moves: the static groups, and the meshes they draw.
@@ -205,6 +216,7 @@ impl World {
     /// Lines over the game.
     pub fn hud(&self, _strings: &Strings, _out: &mut Vec<HudItem>) {
         // M4: crate::ui::hud(self, strings, out); M6: the imbue's cooldown
+        // reaches M4's ring through `ui::imbue`
         // (M1's health reaches the HUD through `ui::health` and `ui::foe`)
     }
 
@@ -218,6 +230,7 @@ impl World {
             Some(("motion", rest)) => crate::motion::act(self, rest, value),
             // M2
             Some(("places", rest)) => crate::places::act(self, rest, value),
+            Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

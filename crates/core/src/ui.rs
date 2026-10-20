@@ -306,18 +306,20 @@ pub enum Imbue {
 }
 
 /// The imbue's state, none until the trainer teaches it (T2).
-/// Placeholder; M6 replaces the body with `imbue.rs`'s state. The signature
-/// stays.
+/// M6: `imbue.rs`'s state (`imbue::status`); the test HUD's values
+/// (`test.hud`) stand in for it while they are set. The signature stays.
 pub fn imbue(w: &World) -> Option<Imbue> {
-    if !w.inventory.knows_imbue {
-        return None;
-    }
     let c = &catalogue().imbue;
-    Some(match &w.ui.demo {
-        Some(d) if d.since_cast < c.lasts_ticks => Imbue::On(c.lasts_ticks - d.since_cast),
-        Some(d) if d.since_cast < c.cooldown_ticks => Imbue::Cooling(c.cooldown_ticks - d.since_cast),
-        _ => Imbue::Ready,
-    })
+    match &w.ui.demo {
+        Some(d) if w.inventory.knows_imbue => Some(if d.since_cast < c.lasts_ticks {
+            Imbue::On(c.lasts_ticks - d.since_cast)
+        } else if d.since_cast < c.cooldown_ticks {
+            Imbue::Cooling(c.cooldown_ticks - d.since_cast)
+        } else {
+            Imbue::Ready
+        }),
+        _ => crate::imbue::status(w),
+    }
 }
 
 /// The quest screen's line. Placeholder: the opening's task; M5 replaces
@@ -1656,6 +1658,8 @@ pub fn act(g: &mut Game, name: &str, value: &str) -> Result<(), String> {
             received(&mut g.world, Item::Sword, 1);
         }
         "test.explore" => explore(&mut g.world),
+        // M6: the imbue taught, for tests and screenshots (`?act=test.imbue`)
+        "test.imbue" => crate::imbue::learn(&mut g.world),
         // these two open on the next tick of play, as M5's would
         "test.dialogue" => say(&mut g.world, "trainer", &["sample_line_1", "sample_line_2"]),
         "test.shop" => {

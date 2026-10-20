@@ -96,7 +96,8 @@ def run(page, check, engine):
     rows = page.locator("#title table.controls tr")
     # M0's four controls and M1's eight (the sword, its hand, the buttons,
     # the wheel, F and Space)
-    check(rows.count() == 12, "the title screen lists the twelve controls")
+    # M6 added Q (the imbue) to M1's twelve
+    check(rows.count() == 13, "the title screen lists the thirteen controls")
     check(rows.nth(1).inner_text().split() == [STRINGS["key_run"], STRINGS["control_run"]], "Shift runs, as the controls table says")
     term = page.get_attribute("#title td span[data-term='Run']", "title") or ""
     check("5 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
@@ -258,3 +259,18 @@ def menus(page, check, engine, base):
     check(share < 0.0001, f"a slow pan over the terrain to the horizon shows no shimmer: {pan['flips']} of {pan['pixels']} pixels flipped and back ({share:.5%})")
     print(f"  ({engine}: slow pan from the hill, {pan['flips']} A-B-A pixels of {pan['pixels']})")
     check(page.inner_text("#message") == "", "no error message is shown on the hill")
+
+    # M6: the leader's volley staged from the address (the core's
+    # magic.leader, then magic.freeze:150: frozen 150 ticks into play), the
+    # view held on the leader. Orbs are glowing, blended shapes: a frozen
+    # volley in sight draws the same pixels on consecutive frames (CW-18)
+    page.goto(base + "?pointer=free&foe=still&act=magic.leader&act=magic.freeze:150")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.keyboard.press("KeyX")
+    page.evaluate(WAIT_FRAMES, [240, 4000])
+    volley = page.evaluate(GRAB, [2, 0, False])
+    a, b = volley["frames"]
+    check(a["hash"] == b["hash"], f"a frozen volley of orbs in sight draws the same pixels on consecutive frames ({volley['w']}x{volley['h']})")
+    check(page.inner_text("#message") == "", "the magic acts on the address are taken without an error")
