@@ -17,3 +17,7 @@ The agent decided: triage rows T6 (roads out of the village, faster on a road), 
 > also there needs to be a lot more visual indicator / gameplay reaction to hitting enemies, like they / the body part should flash red, there can be some blood, if enough damage is done then they loose the limb and start crawling / moving weirdly, etc
 
 The agent decided: triage row T9. This reverses the earlier answer to CW-Q12 ("for now keep limb cutting out, we'll add it later"); the person now asks for it, so CW-16 is rewritten in `CLAUDE.md` and `AGENTS.md`. It is built by a new M7 part, "wounds" (`m7-wounds`), which also takes the hit flash over from the feel part. It applies to every body, the player's included; R9.120 records how the player loses a limb and what the dream does with it. Journal entry `2026-10-20-t9`.
+
+> also the combat should be made easier to decide between horizontal and vertical swings, right now all i do are these like limp diagonal slashes
+
+The agent decided: triage row T10, built by a fifth M7 part, "swings" (`m7-swings`), which owns how the mouse and the swing button become a cut (the hand's target and the swing's commitment in `player.rs` and `arm.rs`). Journal entry `2026-10-20-t10`.
