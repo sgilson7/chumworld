@@ -314,10 +314,10 @@ mod tests {
             .iter()
             .find(|h| h.term == "Run")
             .expect("Run is in the glossary");
-        assert!(run.definition.contains("5 metres a second"), "{}", run.definition);
+        assert!(run.definition.contains("7 metres a second"), "{}", run.definition);
         let walk = u.hints.iter().find(|h| h.term == "Walk").unwrap();
         assert!(
-            walk.definition.contains("2.2 metres a second"),
+            walk.definition.contains("3 metres a second"),
             "{}",
             walk.definition
         );

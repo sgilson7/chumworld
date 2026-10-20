@@ -1619,7 +1619,8 @@ mod tests {
             });
         }
         let gap = w.foes[k].body.pos.sub(w.player.pos).len_xz();
-        // 10 s at 5 m/s against about 4.4: some 6 m gained on the 8
+        // 10 s at 7 m/s against an orc's 4 ticks in 5 at 7 and one at 3,
+        // 6.2 m/s: some 8 m gained on the 8
         assert!(gap > fx::int(12), "{gap}");
         assert!(!w.me.health.down());
     }
