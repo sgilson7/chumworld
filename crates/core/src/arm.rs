@@ -90,8 +90,9 @@ pub const PITCH_MIN: i32 = -deg(50);
 pub const PITCH_MAX: i32 = deg(85);
 pub const REACH_MIN_PCT: i32 = 45;
 pub const REACH_MAX_PCT: i32 = 97;
-/// The guard the hand starts in: a little left of the shoulder, below it.
-pub const GUARD_SIDE: i32 = -deg(8);
+/// The guard the hand starts in: a little right of straight ahead, below
+/// the shoulder, so the blade stands clear of the body seen from behind.
+pub const GUARD_SIDE: i32 = deg(6);
 pub const GUARD_PITCH: i32 = -deg(14);
 pub const GUARD_REACH_PCT: i32 = 82;
 /// The mouse moves the target 0.15° a CSS pixel: 2 730 angle units a 100 px.
@@ -101,8 +102,8 @@ pub const REACH_PER_NOTCH: Fx = ONE * 3 / 100;
 /// The blade's line for a hand on the shell: raised this far, plus this
 /// share of the hand's pitch, and fanned this much wider than the hand's
 /// side.
-pub const BLADE_RISE: i32 = deg(16);
-pub const BLADE_FOLLOW_PCT: i32 = 60;
+pub const BLADE_RISE: i32 = deg(40);
+pub const BLADE_FOLLOW_PCT: i32 = 70;
 pub const BLADE_FAN_PCT: i32 = 125;
 /// Above this pitch the blade swings over to a high guard across the head,
 /// fully by `HIGH_FULL` above it.
@@ -483,17 +484,22 @@ impl Arm {
                     acc[k] = acc[k].add(dv);
                 }
             }
-            // and the blade is turned toward its line about the grip: the
-            // tip pushed across the blade, the pommel the other way, so the
-            // turn moves no momentum
+            // and the blade is turned toward its line about the grip, as a
+            // wrist (or two hands, one against the other) turns it: each
+            // held point moves across the blade in proportion to how far it
+            // is from the grip, the tip one way, the pommel the other
             if let Some(tt) = g.tip {
-                let pct = g.strength[1] * heft / 100;
                 let along = self.pts[TIP].p.sub(self.pts[POMMEL].p).norm();
                 let mut dt = servo(&self.pts[TIP], tt, tip_speed, tip_accel * pct / 100).sub(dv);
                 dt = dt.sub(along.scale(dt.dot(along)));
-                let (mt, mp) = (self.pts[TIP].m, self.pts[POMMEL].m);
+                let w = self.weapon;
+                let reach = (w.len - w.grip[1]).max(1) as i64;
+                let at = |s: Fx| mul_div(dt, (s - w.grip[1]) as i64, reach);
                 acc[TIP] = acc[TIP].add(dt);
-                acc[POMMEL] = acc[POMMEL].sub(mul_div(dt, mt as i64, mp as i64));
+                acc[POMMEL] = acc[POMMEL].add(at(0));
+                if held(0) {
+                    acc[HAND[0]] = acc[HAND[0]].add(at(w.grip[0]));
+                }
             }
         }
         self.integrate(&acc);
@@ -1033,9 +1039,9 @@ mod tests {
             )
         };
         let guard = at(0, -deg(14));
-        // 16° + 60% of −14° = 7.6° up: sin 7.6° = 0.132, 8 670 units
+        // 40° + 70% of −14° = 30.2° up: sin 30.2° = 0.503, 32 971 units
         assert!(
-            (guard.y - 8670).abs() < 40 && guard.z < -ONE * 9 / 10,
+            (guard.y - 32_971).abs() < 40 && guard.z < -ONE * 4 / 5,
             "ahead, a little up: {guard:?}"
         );
         let right = at(deg(70), 0);

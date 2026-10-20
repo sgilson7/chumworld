@@ -304,7 +304,8 @@ fn toward_chest(w: &World, from: V3, k: usize) -> (i32, i32) {
     let b = body(w, k);
     let chest = b.pos.add(v3(0, fighter(w, k).build().shoulder_y - ONE / 6, 0));
     let d = chest.sub(from);
-    (yaw_of(d), fx::atan2(d.y, d.len_xz()))
+    // (atan2 answers in 0 to a turn: a look down is wrapped to negative)
+    (yaw_of(d), fx::wrap(fx::atan2(d.y, d.len_xz())))
 }
 
 /// Still step 1: held on a foe, the view eases round to frame them unless
@@ -666,6 +667,13 @@ pub fn hud(w: &World, s: &Strings, out: &mut Vec<HudItem>) {
     });
 }
 
+/// What the duel's lines over the game show, in one value: the page reads
+/// the screen again when it changes (`game.rs`).
+pub fn hud_stamp(w: &World) -> (i32, Option<(u8, i32)>) {
+    let foe = w.me.engaged.filter(|&k| (k as usize) < count(w));
+    (w.me.health.hp, foe.map(|k| (k, fighter(w, k as usize).health.hp)))
+}
+
 /// The strings key that names a kind of foe.
 pub fn kind_key(k: Kind) -> &'static str {
     match k {
@@ -677,7 +685,9 @@ pub fn kind_key(k: Kind) -> &'static str {
 
 /// `act("duel.<name>", value)`: `spawn` puts an `orc`, `bandit` or `leader`
 /// 6 m ahead of the player; `reset` clears the duel; `sticks` shows the
-/// physics view (`on`, `off`).
+/// physics view (`on`, `off`); `pilot` runs every foe by its tree (`tree`)
+/// or holds it still (`still`), and `gap` stands every foe that many
+/// centimetres ahead of the player, both for tests and screenshots.
 pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
     match name {
         "spawn" => {
@@ -695,6 +705,43 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             w.sticks = matches!(value.trim(), "on" | "1" | "true");
             Ok(())
         }
+        // every foe moved to this many centimetres straight ahead of the
+        // player, facing them: staging for a test or a picture
+        "gap" => {
+            let cm: i32 = value
+                .trim()
+                .parse()
+                .ok()
+                .filter(|c| (40..=4000).contains(c))
+                .ok_or_else(|| format!("A gap is a whole number of centimetres from 40 to 4000, not \"{value}\"."))?;
+            let ahead = facing(w.aim.yaw, 0);
+            let feet = w.player.pos;
+            for k in 0..w.foes.len() {
+                let mut at = feet.add(ahead.scale(cm * ONE / 100));
+                at.y = w.ground(at.x, at.z);
+                let yaw = yaw_of(feet.sub(at));
+                let f = &mut w.foes[k];
+                f.body = Body::new(at, yaw);
+                // the arms come too, carried as the body would carry them
+                let frame = frame_of(&f.body, &f.fighter.build(), 0, at.y);
+                f.fighter.arm.carry(&frame);
+                f.fighter.arm.frame = frame;
+            }
+            Ok(())
+        }
+        // every foe's pilot on (`tree`) or off (`still`): a test, a picture
+        "pilot" => {
+            let control = match value.trim() {
+                "tree" => crate::pilot::Control::Tree,
+                "still" => crate::pilot::Control::Still,
+                other => return Err(format!("A foe's pilot is \"tree\" or \"still\", not \"{other}\".")),
+            };
+            w.pilots.control = control.clone();
+            for f in &mut w.foes {
+                f.brain.control = control.clone();
+            }
+            Ok(())
+        }
         _ => Err(format!("Unknown action \"duel.{name}\".")),
     }
 }
@@ -709,7 +756,8 @@ pub fn spawn(w: &mut World, kind: Kind) {
     at.y = w.ground(at.x, at.z);
     let yaw = yaw_of(w.player.pos.sub(at));
     let salt = w.rng.next_u64();
-    let foe = crate::pilot::foe(&w.pilots.book, kind, at, yaw, salt);
+    let mut foe = crate::pilot::foe(&w.pilots.book, kind, at, yaw, salt);
+    foe.brain.control = w.pilots.control.clone();
     w.foes.push(foe);
 }
 
@@ -802,6 +850,7 @@ mod tests {
     #[test]
     fn drawn_the_view_holds_on_the_nearest_foe_within_fifteen_metres() {
         let mut w = World::new(1);
+        act(&mut w, "pilot", "still").unwrap();
         act(&mut w, "spawn", "orc").unwrap();
         // turn away first: the foe is behind
         w.aim.yaw = fx::wrap(w.aim.yaw + fx::HALF_TURN);
@@ -820,6 +869,11 @@ mod tests {
             "{} {yaw}",
             w.aim.yaw
         );
+        // and looks down at them: from the pivot 1.9 m up to the orc's chest
+        // (its shoulders at 1.24 × 200 / 170 = 1.459 m, less 1/6 m: 1.292 m)
+        // 6.06 m off is atan(0.608 / 6.06) = 5.7° down, and 7° more: 12.7°
+        let want = -deg(127) / 10;
+        assert!((w.aim.pitch - want).abs() <= deg(1), "{} {want}", w.aim.pitch);
         // the body faces the foe too
         let to = yaw_of(w.foes[0].body.pos.sub(w.player.pos));
         assert!(fx::wrap(w.player.facing - to).abs() <= deg(2));

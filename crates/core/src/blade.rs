@@ -474,13 +474,27 @@ fn strike(w: &mut World, i: usize, j: usize, body: &[(Part, Swept, Fx)]) {
         return;
     }
     if touching {
-        // resting on the body: it may slide, and comes away when it parts
-        let still = body.iter().any(|(_, s, r)| {
+        // resting on the body: it may slide over it, never more than half
+        // its radius in (then it goes back to where it began the tick), and
+        // comes away when it parts
+        let gap = |s: &Swept| {
             let (_, _, pa, pb) = closest(edge.a1, edge.b1, s.a1, s.b1);
             let d = pa.sub(pb);
-            let r = (*r + BLADE_GAP) as i64;
-            dot(d, d) <= r * r
-        });
+            dot(d, d)
+        };
+        let deep = body.iter().any(|(_, s, r)| gap(s) < (*r as i64 / 2) * (*r as i64 / 2));
+        if deep {
+            let arm = &mut player::parts_mut(w, i).1.arm;
+            rewind(arm, 0, 1);
+            for _ in 0..REWIND_PASSES {
+                arm.relax();
+            }
+        }
+        let still = deep
+            || body.iter().any(|(_, s, r)| {
+                let r = (*r + BLADE_GAP) as i64;
+                gap(s) <= r * r
+            });
         set(&mut w.blades.touching, key, still);
         return;
     }
@@ -527,6 +541,7 @@ fn strike(w: &mut World, i: usize, j: usize, body: &[(Part, Swept, Fx)]) {
 mod tests {
     use super::*;
     use crate::fx::int;
+    use crate::world::World;
 
     /// Lengths in units of 1/64 m (about 1.6 cm), which Q16 holds exactly,
     /// so the expected points come out to the unit.
@@ -583,6 +598,105 @@ mod tests {
         assert!(sweep(&blade, &limb, GAP, 5, 1).is_none(), "five substeps miss it");
         let c = sweep(&blade, &limb, GAP, 64, 1).expect("twenty find it");
         assert_eq!(c.on_b, cm(10, 5, 0));
+    }
+
+    /// The player, sword drawn, its hand wound out to the right at `pitch`,
+    /// and a still orc `gap` centimetres ahead facing them, its own blade
+    /// held at the guard or (`high`) up out of the way.
+    fn duel(gap: i32, pitch: i32, high: bool) -> World {
+        let mut w = World::new(3);
+        player::act(&mut w, "pilot", "still").unwrap();
+        player::act(&mut w, "spawn", "orc").unwrap();
+        let ahead = crate::geom::facing(w.aim.yaw, 0).scale(gap * ONE / 100);
+        w.foes[0].body.pos = w.player.pos.add(ahead);
+        w.foes[0].body.prev_pos = w.foes[0].body.pos;
+        if high {
+            let s = &mut w.foes[0].fighter.arm.shell;
+            s.side = arm::SIDE_MAX;
+            s.pitch = arm::PITCH_MAX;
+        }
+        w.step(&crate::input::Input {
+            keys: crate::input::DRAW,
+            ..Default::default()
+        });
+        for _ in 0..30 {
+            w.step(&Default::default());
+        }
+        w.me.arm.shell.side = crate::fx::deg(70);
+        w.me.arm.shell.pitch = crate::fx::deg(pitch);
+        for _ in 0..60 {
+            w.step(&Default::default());
+        }
+        w
+    }
+
+    /// A committed sweep to the left: 150 px a tick with the left button.
+    fn sweep_left() -> crate::input::Input {
+        crate::input::Input {
+            dx: -15_000,
+            buttons: crate::input::SWING,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed() {
+        let mut w = duel(85, -30, true);
+        let most = w.foes[0].fighter.health.hp;
+        let mut blows = Vec::new();
+        let mut after = None;
+        for t in 0..30 {
+            w.step(&sweep_left());
+            blows.extend(w.blades.hits.iter().copied());
+            if !w.blades.hits.is_empty() {
+                after = Some(t);
+            }
+            if after == Some(t - 1) {
+                // the tick after the blow the tip has all but stopped
+                assert!(w.me.arm.pts[arm::TIP].vel().len() * 60 < 2 * ONE, "the blade went on");
+            }
+            // pressed on, the edge never sinks more than half into the torso
+            let torso = (ONE as i64 * 16 / 100 * 135 / 100) as Fx;
+            let f = &w.foes[0].fighter.pose;
+            let a = &w.me.arm;
+            let (_, _, p, q) = closest(a.pts[arm::POMMEL].p, a.pts[arm::TIP].p, f.pelvis, f.chest);
+            assert!(p.dist(q) >= torso / 2 - ONE / 100, "tick {t}: {} into the torso", torso - p.dist(q));
+        }
+        assert_eq!(blows.len(), 1, "one blow a contact: {blows:?}");
+        let h = blows[0];
+        assert_eq!((h.by, h.on, h.part), (0, 1, Part::Torso));
+        // the tip ran at 6 to 7 m/s across the shell before it met the orc
+        assert!(h.speed > ONE * 5 && h.speed < ONE * 9, "{}", h.speed);
+        // (speed − 1.5 m/s) × 5, worked by hand from the speed recorded
+        let taken = ((h.speed - ONE * 3 / 2) as i64 * 5 / ONE as i64) as i32;
+        assert_eq!(most - w.foes[0].fighter.health.hp, taken);
+    }
+
+    #[test]
+    fn a_block_stops_a_swing_and_the_blades_do_not_pass_through() {
+        let mut w = duel(115, 10, false);
+        let (mut met, mut before, mut normal) = (None, 0, None);
+        for t in 0..30 {
+            let speed = w.me.arm.pts[arm::TIP].vel().len();
+            w.step(&sweep_left());
+            let (a, b) = (&w.me.arm, &w.foes[0].fighter.arm);
+            let (_, _, p, q) = closest(a.pts[arm::POMMEL].p, a.pts[arm::TIP].p, b.pts[arm::POMMEL].p, b.pts[arm::TIP].p);
+            if met.is_none() && !w.blades.clashes.is_empty() {
+                met = Some(t);
+                before = speed;
+                normal = Some(p.sub(q));
+                // the blow stopped the swing: under half the speed it had
+                assert!(a.pts[arm::TIP].vel().len() < before / 2, "{} of {before}", a.pts[arm::TIP].vel().len());
+            }
+            if let Some(n) = normal {
+                // from the contact on, my blade stays on its own side of theirs
+                let d = p.sub(q);
+                assert!(dot(d, n) >= 0 || p.dist(q) > BLADE_GAP * 2, "tick {t}: the blades passed through");
+            }
+        }
+        assert!(met.is_some(), "the blades met");
+        assert!(before > ONE * 8 / 60, "the swing was under way: {before}");
+        assert_eq!(w.foes[0].fighter.health.hp, w.foes[0].fighter.health.most, "a block takes nothing");
     }
 
     #[test]

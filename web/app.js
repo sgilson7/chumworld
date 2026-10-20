@@ -167,6 +167,14 @@ async function main() {
   });
 
   if (lookSpeed) act("look.speed", lookSpeed);
+  // a test duel and test settings from the address, each through the core's
+  // door like any setting: ?duel=orc, ?foe=still, ?gap=115, ?speedster=5,
+  // ?sticks=1
+  const flags = new URLSearchParams(location.search);
+  for (const [flag, name] of [["duel", "duel.spawn"], ["foe", "duel.pilot"], ["gap", "duel.gap"], ["speedster", "motion.speedster"], ["sticks", "duel.sticks"]]) {
+    const value = flags.get(flag);
+    if (value) act(name, value);
+  }
 
   function resize() {
     const [w, h] = game.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);

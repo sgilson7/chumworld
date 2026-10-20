@@ -280,6 +280,8 @@ impl Memory {
 pub struct State {
     pub book: Book,
     pub memory: Memory,
+    /// who drives a foe spawned from now on (`act("duel.pilot", …)`)
+    pub control: Control,
 }
 
 impl State {
@@ -287,6 +289,7 @@ impl State {
         State {
             book: Book::standard(),
             memory: Memory::default(),
+            control: Control::Tree,
         }
     }
 }
@@ -351,7 +354,7 @@ pub struct Plan {
     pub fast: bool,
 }
 
-const GUARD: (i32, i32, i32) = (-8, -14, 82);
+const GUARD: (i32, i32, i32) = (6, -14, 82);
 
 /// One pilot's record for this tick, and its memory for the next. Reads the
 /// world; changes nothing in it (CW-3).
@@ -546,8 +549,8 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
             _ => return None,
         },
         Move::Thrust => match t {
-            0..=9 => plain((0, -8, 48), 0),
-            10..=21 => strike((-2, -4, 97), input::FORWARD),
+            0..=9 => plain((0, -24, 48), 0),
+            10..=21 => strike((-2, -20, 97), input::FORWARD),
             22..=30 => plain(GUARD, 0),
             _ => return None,
         },
@@ -567,7 +570,7 @@ fn block_at(v: &View) -> (i32, i32, i32) {
     let d = v.they.tip.sub(sh);
     let yaw = player::body(v.w, v.id).facing;
     let side = -fx::wrap(yaw_of(d) - yaw) * 360 / fx::TURN;
-    let pitch = fx::atan2(d.y, d.len_xz().max(1)) * 360 / fx::TURN;
+    let pitch = fx::wrap(fx::atan2(d.y, d.len_xz().max(1))) * 360 / fx::TURN;
     (side.clamp(-70, 80), pitch.clamp(-45, 80), 72)
 }
 
@@ -635,7 +638,7 @@ mod tests {
     /// and arm comes out the same: the pilot moved nothing but the record.
     #[test]
     fn a_pilot_moves_its_body_only_through_its_input_record() {
-        let player_inputs: Vec<Input> = (0..240)
+        let player_inputs: Vec<Input> = (0..360)
             .map(|k| Input {
                 keys: if k == 2 {
                     DRAW
@@ -650,7 +653,7 @@ mod tests {
                 ..Input::default()
             })
             .collect();
-        let mut a = duel("bandit");
+        let mut a = duel("orc");
         let mut kept = Vec::new();
         for i in &player_inputs {
             a.step(i);
@@ -660,7 +663,7 @@ mod tests {
             kept.iter().any(|i| i.keys != 0) && kept.iter().any(|i| i.dx != 0),
             "the pilot pressed something"
         );
-        let mut b = duel("bandit");
+        let mut b = duel("orc");
         b.foes[0].brain.control = Control::Script(kept);
         for i in &player_inputs {
             b.step(i);
@@ -720,6 +723,49 @@ mod tests {
                 assert!(gaps[id - 1] > fx::int(5), "the others ring: {gaps:?}");
             }
         }
+    }
+
+    /// CW-4: a recorded duel (a fixed list of the player's records against
+    /// an orc's tree, 600 ticks) hashes the same every run, checked every
+    /// second of it; one record changed by one hundredth of a pixel shows.
+    #[test]
+    fn a_recorded_duel_hashes_the_same_every_run() {
+        let record: Vec<Input> = (0..600)
+            .map(|k| Input {
+                keys: match k {
+                    3 => DRAW,
+                    _ if k % 120 < 30 => input::FORWARD,
+                    _ if k % 120 < 45 => input::LEFT,
+                    _ => 0,
+                },
+                buttons: if k % 90 > 70 { input::SWING } else { 0 },
+                dx: if k % 90 < 60 { 450 } else { -2_400 },
+                dy: if k % 50 < 25 { 300 } else { -300 },
+                wheel: if k % 200 == 100 { 10_000 } else { 0 },
+            })
+            .collect();
+        let run = |rec: &[Input]| {
+            let mut w = duel("orc");
+            let mut marks = Vec::new();
+            for (k, i) in rec.iter().enumerate() {
+                w.step(i);
+                if k % 60 == 59 {
+                    marks.push(w.hash());
+                }
+            }
+            (marks, w)
+        };
+        let (a, wa) = run(&record);
+        let (b, wb) = run(&record);
+        assert_eq!(a, b);
+        assert_eq!(wa, wb);
+        // the duel was a duel: blades met or a blow landed somewhere in it
+        assert!(wa.me.health.hp < wa.me.health.most || wa.foes[0].fighter.health.hp < wa.foes[0].fighter.health.most);
+        let mut other = record.clone();
+        other[300].dx += 1;
+        let (c, _) = run(&other);
+        assert_eq!(c[..5], a[..5], "the same until tick 300");
+        assert_ne!(c[9], a[9], "and then not");
     }
 
     #[test]

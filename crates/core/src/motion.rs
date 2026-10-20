@@ -213,7 +213,10 @@ pub fn step_body(
         let turn = fx::wrap(goal - b.facing).clamp(-rate, rate);
         b.facing = fx::wrap(b.facing + turn);
     }
-    stride(&mut f.gait, b.vel);
+    // feet stride as fast as they are asked to go, at most as fast as the
+    // body goes: a body sliding on ice with nothing held glides on still feet
+    let asked = if want.len() < b.vel.len() { want } else { b.vel };
+    stride(&mut f.gait, asked);
 }
 
 /// The gait follows the distance the feet cover: half a turn of phase per
