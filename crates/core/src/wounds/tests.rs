@@ -349,6 +349,7 @@ fn with_blood_off_nothing_of_blood_is_made_or_drawn() {
     w.ui.settings.blood = false;
     w.act("wounds.cut", "torso,20").unwrap();
     w.act("wounds.take_off", "forearm_r").unwrap();
+    assert!(w.wounds.drops.is_empty(), "no drop is made, not even for a tick");
     w.foes[0].fighter.health.hp = 0;
     idle(&mut w, 200);
     assert!(w.wounds.drops.is_empty() && w.wounds.splats.is_empty());
