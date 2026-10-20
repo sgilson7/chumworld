@@ -15,7 +15,7 @@
 //! - **whole** (to `full_m`): a trunk and three cones (a pine) or two
 //!   faceted crowns (a leafy tree), with the ink outline;
 //! - **one cone** (to `cone_m`): a single cone a tree, no ink;
-//! - **a cluster** (forest only, to `cluster_m`): one big cone for every few
+//! - **a cluster** (forest only, to `cluster_m`): one rounded crown for every few
 //!   trees, so the forest still stands above the plain from kilometres off;
 //! - then the forest floor's colour in the ground (`terrain.rs`).
 //!
@@ -280,25 +280,35 @@ impl Bake {
     }
 
     /// A thin blade from `foot` to `tip`, three narrow faces round it.
+    /// A blade from `foot` to `tip`: three faces round it, narrowing to a
+    /// blunt top half as wide as its foot, so no part of it is thinner than
+    /// half its width (a point would blink as the view pans, R4.25).
     fn blade(&mut self, foot: V3, tip: V3, width: Fx, c: Rgb) {
-        let corners: Vec<V3> = (0..3)
-            .map(|q| {
-                let a = fx::TURN * q / 3;
-                foot.add(v3(fx::mul(fx::cos(a), width), 0, fx::mul(fx::sin(a), width)))
-            })
-            .collect();
+        let ring = |at: V3, r: Fx| -> Vec<V3> {
+            (0..3)
+                .map(|q| {
+                    let a = fx::TURN * q / 3;
+                    at.add(v3(fx::mul(fx::cos(a), r), 0, fx::mul(fx::sin(a), r)))
+                })
+                .collect()
+        };
+        let (low, high) = (ring(foot, width), ring(tip, width / 2));
         for q in 0..3 {
-            let (a, b) = (corners[q], corners[(q + 1) % 3]);
+            let (a, b) = (low[q], low[(q + 1) % 3]);
+            let (a2, b2) = (high[q], high[(q + 1) % 3]);
             // counter-clockwise seen from outside
-            let n = crate::terrain::facet_normal(b, a, tip);
-            let tri = [self.local(b), self.local(a), self.local(tip)];
-            facet(
-                &mut self.out,
-                tri,
-                local_normal(n, self.k),
-                shade(c, 92 + 6 * q as i32),
-            );
+            let n = crate::terrain::facet_normal(b, a, a2);
+            let nl = local_normal(n, self.k);
+            let c = shade(c, 92 + 6 * q as i32);
+            let (lb, la, la2, lb2) = (self.local(b), self.local(a), self.local(a2), self.local(b2));
+            facet(&mut self.out, [lb, la, la2], nl, c);
+            facet(&mut self.out, [lb, la2, lb2], nl, c);
         }
+        // the blunt top
+        let n = crate::terrain::facet_normal(high[0], high[2], high[1]);
+        let top = [self.local(high[0]), self.local(high[2]), self.local(high[1])];
+        let nl = local_normal(n, self.k);
+        facet(&mut self.out, top, nl, shade(c, 104));
     }
 }
 
@@ -458,7 +468,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
             }
         }
         CLUSTER => {
-            // a big cone for a cluster cell of the forest, in its mean green
+            // a crown for a cluster cell of the forest, in its mean green
             let cell = sp.cluster_cell_m.max(1) * ONE;
             let n = side / cell;
             let sc = land.scope(i * side, j * side, (i + 1) * side, (j + 1) * side);
@@ -476,12 +486,14 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                     if land.forest(x, z, &sc) < ONE as i64 / 2 || !room(land, &sc, x, z, 3 * ONE) {
                         continue;
                     }
+                    // a rounded, faceted crown with no point: a point thinner
+                    // than a pixel blinks as the view pans (R4.25)
                     let size = r.between(80, 125);
-                    let (w, h) = (ONE * 9 * size / 100, ONE * 12 * size / 100);
-                    let a = Affine::translate(v3(x, land.height(x, z) + h / 2 + ONE, z))
+                    let (w, h) = (ONE * 12 * size / 100, ONE * 11 * size / 100);
+                    let a = Affine::translate(v3(x, land.height(x, z) + h / 2 + 2 * ONE, z))
                         .then(&Affine::rot_y(r.below(fx::TURN as u32) as i32))
                         .then(&Affine::scale(v3(w, h, w)));
-                    b.shape(Mesh::Cone, &a, shade(mean, 88 + r.between(0, 12)));
+                    b.shape(Mesh::Blob, &a, shade(mean, 88 + r.between(0, 12)));
                 }
             }
         }
@@ -516,16 +528,16 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                         let lean = ONE * r.between(6, 16) / 100;
                         let tall = ONE * r.between(22, 42) / 100;
                         let tip = foot.add(v3(fx::mul(fx::cos(a), lean), tall, fx::mul(fx::sin(a), lean)));
-                        b.blade(foot.add(v3(blade * ONE / 30, 0, 0)), tip, ONE * 4 / 100, c);
+                        b.blade(foot.add(v3(blade * ONE / 30, 0, 0)), tip, ONE * 5 / 100, c);
                     }
                     if flower {
                         let fc = rgb(sp.flower[r.below(sp.flower.len() as u32) as usize]);
                         let top = foot.add(v3(0, ONE * r.between(30, 44) / 100, 0));
                         b.blade(foot, top, ONE * 2 / 100, shade(c, 90));
                         let head = Affine::translate(top).then(&Affine::scale(v3(
-                            ONE * 9 / 100,
-                            ONE * 7 / 100,
-                            ONE * 9 / 100,
+                            ONE * 14 / 100,
+                            ONE * 11 / 100,
+                            ONE * 14 / 100,
                         )));
                         b.shape(Mesh::Octa, &head, fc);
                     }
@@ -676,8 +688,8 @@ mod tests {
         // between them they keep every pixel once: ½ and ½
         assert_eq!(c - w, ONE);
         // far: the cone alone, then the cluster, then nothing
-        assert_eq!(fade(sp, CONE, m(800)), Some(ONE));
-        assert_eq!(fade(sp, CLUSTER, m(800)), None);
+        assert_eq!(fade(sp, CONE, m(600)), Some(ONE));
+        assert_eq!(fade(sp, CLUSTER, m(600)), None);
         assert_eq!(fade(sp, CLUSTER, m(2000)), Some(ONE));
         assert_eq!(fade(sp, CLUSTER, m(4300)), None);
         assert_eq!(fade(sp, GRASS, m(70)), None);

@@ -237,12 +237,13 @@ def menus(page, check, engine, base):
     page.wait_for_selector("body[data-screen='paused']", state="attached")
     check(page.inner_text("#message") == "", "no error message is shown after the menus")
 
-    # M2: the world's terrain, water, trees and haze, seen from the trainer's
-    # hill over the plains to the horizon (?go=: the core's places.go). A
-    # still view draws the same pixels on consecutive frames, through every
-    # detail level's dither band in sight; a slow pan shows no shimmer on the
-    # far terrain (CW-18, PLAN.md flicker 5)
-    page.goto(base + "?pointer=free&look=25&go=352,1772,282,-1")
+    # M2: the world's terrain, trees and haze, seen from the trainer's hill
+    # west over the plains and the ridges to the horizon (?go=: the core's
+    # places.go), away from the river, whose waves move every tick. A still
+    # view draws the same pixels on consecutive frames, through every detail
+    # level's dither band in sight; a slow pan shows no shimmer on the far
+    # terrain (CW-18, PLAN.md flicker 5)
+    page.goto(base + "?pointer=free&look=25&go=352,1772,100,-1")
     page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
     page.click("#title button")
     page.wait_for_selector("body[data-screen='play']", state="attached")

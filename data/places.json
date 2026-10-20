@@ -34,7 +34,7 @@
         { "prop": "house", "at": [24, 54], "yaw_deg": 200 },
         { "prop": "house", "at": [58, 16], "yaw_deg": 260 },
         { "prop": "house", "at": [50, -26], "yaw_deg": 300 },
-        { "prop": "house", "at": [22, -50], "yaw_deg": 335 },
+        { "prop": "house", "at": [44, -44], "yaw_deg": 315 },
         { "prop": "house", "at": [-26, 62], "yaw_deg": 160 },
         { "prop": "barn", "at": [84, -6], "yaw_deg": 270 },
         { "prop": "well", "at": [7, -5], "yaw_deg": 0 },
