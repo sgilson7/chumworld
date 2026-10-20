@@ -390,13 +390,19 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
                 }
                 _ => return Err(refuse()),
             };
-            let yaw = rest.first().map(|t| num(t)).transpose()?;
-            let pitch = rest.get(1).map(|t| num(t)).transpose()?;
-            w.arrival = Some(Arrival {
-                at: spot,
-                yaw: yaw.map(fx::deg),
-                pitch: pitch.map(fx::deg),
-            });
+            let yaw = rest.first().map(|t| num(t)).transpose()?.map(fx::deg);
+            let pitch = rest.get(1).map(|t| num(t)).transpose()?.map(fx::deg);
+            // the player is moved now, a fresh body and fighter there (M1's
+            // arm holds world positions, so it is built again, not moved),
+            // so a foe asked for after this stands beside the new place
+            let mut at = spot;
+            at.y = w.ground(at.x, at.z);
+            let facing = yaw.unwrap_or(w.aim.yaw);
+            w.player = crate::player::Body::new(at, facing);
+            let me = &w.me;
+            w.me = crate::player::Fighter::new(me.kind, me.held, me.team, at, facing, false);
+            // the aim waits for play, which turns the camera to the title's
+            w.arrival = Some(Arrival { at, yaw, pitch });
             Ok(())
         }
         _ => Err(format!("Unknown action \"places.{name}\".")),
@@ -411,14 +417,11 @@ pub struct Arrival {
     pub pitch: Option<i32>,
 }
 
-/// Puts the player where `places.go` asked, once: called as play starts.
+/// Turns the view the way `places.go` asked, once: called as play starts.
 pub fn arrive(w: &mut World) {
     let Some(a) = w.arrival.take() else {
         return;
     };
-    let mut at = a.at;
-    at.y = w.ground(at.x, at.z);
-    w.player = crate::player::Body::new(at, a.yaw.unwrap_or(w.aim.yaw));
     if let Some(y) = a.yaw {
         w.aim.yaw = y;
     }
@@ -512,11 +515,11 @@ mod tests {
     fn going_to_a_place_puts_the_player_there_when_play_starts() {
         let mut w = world();
         act(&mut w, "go", "bridge 90 -10").unwrap();
-        assert_eq!(w.player.pos, crate::world::START, "nothing moves until play starts");
-        arrive(&mut w);
         let b = at(&w, "bridge").unwrap();
-        assert_eq!((w.player.pos.x, w.player.pos.z), (b.x, b.z));
+        assert_eq!((w.player.pos.x, w.player.pos.z), (b.x, b.z), "the player is moved at once");
         assert_eq!(w.player.pos.y, w.ground(b.x, b.z));
+        assert_ne!(w.aim.yaw, fx::deg(90), "the aim waits for play");
+        arrive(&mut w);
         assert_eq!((w.aim.yaw, w.aim.pitch), (fx::deg(90), -fx::deg(10)));
         assert_eq!(w.arrival, None, "once");
         act(&mut w, "go", "600,2200").unwrap();
