@@ -219,7 +219,7 @@ pub fn numbers() -> String {
         "buffers": { "static": render::STATIC_BUFFER, "dynamic": render::DYNAMIC_BUFFER },
         "passes": render::pass_states(),
         // the look's uniforms, then M2's sky's (`sky.rs`)
-        "uniforms": look::UNIFORMS.iter().chain(crate::sky::UNIFORMS).map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+        "uniforms": look::UNIFORMS.iter().chain(crate::sky::UNIFORMS).chain(crate::scatter::UNIFORMS).map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
         // the view values: each layer's matrix by layer number, then the eye
         "view": { "layers": [[0, 16], [16, 32]], "eye": [32, 35] },
         // M2: `uploads` lists each new mesh as (id, vertex count); the water

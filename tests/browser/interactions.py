@@ -106,7 +106,8 @@ def run(page, check, engine):
     check(rows.count() == 13, "the title screen lists the thirteen controls")
     check(rows.nth(1).inner_text().split() == [STRINGS["key_run"], STRINGS["control_run"]], "Shift runs, as the controls table says")
     term = page.get_attribute("#title td span[data-term='Run']", "title") or ""
-    check("5 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
+    # 7 m/s: the person asked for faster movement (SECOND-ORDER.md R9.40)
+    check("7 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
     check(page.locator("#view").is_visible(), "the canvas is shown")
 
     button.click()

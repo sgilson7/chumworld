@@ -433,10 +433,10 @@ pub fn step(w: &mut World) {
 }
 
 /// Relaxation passes each arm takes at the end of the blades' step, against
-/// the bodies as every arm has left them (M7: 6, was 2; with two a weapon
+/// the bodies as every arm has left them (M7: 5, was 2; with two a weapon
 /// was left 1.5 mm inside a torso on a recorded duel once the walk was
 /// faster, SECOND-ORDER.md R9.42).
-pub const SETTLE_PASSES: usize = 6;
+pub const SETTLE_PASSES: usize = 5;
 
 fn set(list: &mut Vec<(u8, u8)>, k: (u8, u8), on: bool) {
     list.retain(|&x| x != k);

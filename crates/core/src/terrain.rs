@@ -887,6 +887,30 @@ impl Land {
         y as Fx
     }
 
+    /// The finest drawn surface over a square of 2 m cells from cell (i0,
+    /// j0), `n` a side, its corners' heights worked out once: what grass is
+    /// stood on, many to a cell (`scatter::tufts`). The same heights and the
+    /// same triangles as `ground`.
+    pub fn patch(&self, i0: i32, j0: i32, n: i32) -> GroundPatch {
+        let c = 2 * ONE;
+        let sc = self.scope(i0 * c - c, j0 * c - c, (i0 + n + 1) * c, (j0 + n + 1) * c);
+        let w = n + 1;
+        let mut hint = None;
+        let mut hs = Vec::with_capacity((w * w) as usize);
+        for b in 0..w {
+            for a in 0..w {
+                let (x, z) = ((i0 + a) * c, (j0 + b) * c);
+                let near = if sc.river {
+                    self.river.near_from(x, z, self.reach, &mut hint)
+                } else {
+                    None
+                };
+                hs.push(self.height_near(x, z, &sc, near));
+            }
+        }
+        GroundPatch { i0, j0, n, hs }
+    }
+
     /// Whether (x, z) is under the river's or the pond's still water.
     pub fn is_water(&self, x: Fx, z: Fx) -> bool {
         self.water_depth(x, z) > 0
@@ -977,19 +1001,12 @@ impl Land {
         })
     }
 
-    /// The colour of the ground at a corner of a tile of `level`, whose cells
-    /// are `cell` wide: what a facet there is mixed from.
-    #[allow(clippy::too_many_arguments)]
-    pub fn colour_in(
-        &self,
-        x: Fx,
-        z: Fx,
-        h: Fx,
-        level: u32,
-        cell: Fx,
-        sc: &Scope,
-        near: Option<Near>,
-    ) -> Rgb {
+    /// The meadow's own colour at (x, z) on a tile of `level`: the patchwork
+    /// of grass tones (fading to their mean level by level), the sun-dried
+    /// patches and the forest floor, before any road, building, bank or
+    /// ridge. Grass is tinted by it (`scatter.rs`), so far grass is the
+    /// meadow's texture (R9.44).
+    pub fn meadow_in(&self, x: Fx, z: Fx, level: u32, sc: &Scope) -> Rgb {
         let p = &self.paint;
         let sh = &self.spec.shading;
         let seed = self.spec.seed;
@@ -1013,6 +1030,28 @@ impl Land {
             let floor = if level >= 4 { p.canopy } else { p.floor };
             c = mix(c, floor, f as Fx);
         }
+        c
+    }
+
+    /// The colour of the ground at a corner of a tile of `level`, whose cells
+    /// are `cell` wide: what a facet there is mixed from.
+    #[allow(clippy::too_many_arguments)]
+    pub fn colour_in(
+        &self,
+        x: Fx,
+        z: Fx,
+        h: Fx,
+        level: u32,
+        cell: Fx,
+        sc: &Scope,
+        near: Option<Near>,
+    ) -> Rgb {
+        let p = &self.paint;
+        let sh = &self.spec.shading;
+        let seed = self.spec.seed;
+        let lvl = (level as usize).min(sh.patchwork_pct.len() - 1);
+        let patchwork = sh.patchwork_pct[lvl] as i64 * O / 100;
+        let mut c = self.meadow_in(x, z, level, sc);
         let cell = cell as i64;
         // a thin feature covers this share of a facet `cell` wide
         let cover = |d: i64, half: i64| ((half + cell / 2 - d) * O / cell.max(1)).clamp(0, O);
@@ -1288,6 +1327,45 @@ pub fn facet(out: &mut Vec<i32>, p: [V3; 3], n: V3, rgb: Rgb) {
     }
 }
 
+/// The drawn surface over a square of 2 m cells (`Land::patch`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroundPatch {
+    i0: i32,
+    j0: i32,
+    n: i32,
+    hs: Vec<Fx>,
+}
+
+impl GroundPatch {
+    /// The height at (x, z), inside the patch's square, as `Land::ground`
+    /// gives it; `None` outside.
+    pub fn at(&self, x: Fx, z: Fx) -> Option<Fx> {
+        let c = 2 * ONE;
+        let (i, j) = (x.div_euclid(c), z.div_euclid(c));
+        let (a, b) = (i - self.i0, j - self.j0);
+        if a < 0 || b < 0 || a >= self.n || b >= self.n {
+            return None;
+        }
+        let u = (x - i * c) as i64 * O / c as i64;
+        let v = (z - j * c) as i64 * O / c as i64;
+        let w = self.n + 1;
+        let h = |p: i32, q: i32| self.hs[((b + q) * w + a + p) as usize] as i64;
+        let (ha, hb, hc, hd) = (h(0, 0), h(1, 0), h(1, 1), h(0, 1));
+        let y = if (i + j) & 1 == 0 {
+            if u >= v {
+                ha + qmul(hb - ha, u) + qmul(hc - hb, v)
+            } else {
+                ha + qmul(hc - hd, u) + qmul(hd - ha, v)
+            }
+        } else if u + v <= O {
+            ha + qmul(hb - ha, u) + qmul(hd - ha, v)
+        } else {
+            hc + qmul(hd - hc, O - u) + qmul(hb - hc, O - v)
+        };
+        Some(y as Fx)
+    }
+}
+
 /// One tile's mesh and where it is.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tile {
@@ -1411,6 +1489,21 @@ pub(crate) mod tests {
         let (c, d) = (l.height(x, z) as i64, l.height(x + int(2), z + int(2)) as i64);
         let m = l.ground(x + ONE, z + ONE) as i64;
         assert!((m - (c + d) / 2).abs() <= 2, "{m} vs {}", (c + d) / 2);
+    }
+
+    #[test]
+    fn a_patch_of_the_ground_stands_where_the_ground_does() {
+        let l = land();
+        // 12 cells of 2 m from (1500, 2600), by the lane and over a rise,
+        // and one over the river's bank by the bridge
+        for (i0, j0) in [(750, 1300), (310, 1120)] {
+            let p = l.patch(i0, j0, 12);
+            for (dx, dz) in [(0, 0), (1, 1), (7, 3), (13, 22), (23, 23), (11, 0)] {
+                let (x, z) = (int(2 * i0 + dx) + ONE / 3, int(2 * j0 + dz) + ONE / 7);
+                assert_eq!(p.at(x, z), Some(l.ground(x, z)), "({dx}, {dz})");
+            }
+            assert_eq!(p.at(int(2 * i0 + 24), int(2 * j0)), None, "outside");
+        }
     }
 
     #[test]

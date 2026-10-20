@@ -1738,8 +1738,8 @@
   {
     "name": "M2 terrain: the ground follows the drawn diagonals",
     "file": "crates/core/src/terrain.rs",
-    "find": "        let y = if (i + j) & 1 == 0 {",
-    "replace": "        let y = if (i + j) & 1 == 1 {",
+    "find": "        let y = if (i + j) & 1 == 0 {\n            // the diagonal",
+    "replace": "        let y = if (i + j) & 1 == 1 {\n            // the diagonal",
     "test": "the_ground_is_the_drawn_triangles_of_two_metre_cells"
   },
   {
@@ -1842,9 +1842,9 @@
   },
   {
     "name": "M2 lod: flicker test 3 catches a scatter pop",
-    "file": "crates/core/src/scatter.rs",
-    "find": "            _ => Some(crate::look::hand_over(s).1),\n        }",
-    "replace": "            _ => Some(ONE),\n        }",
+    "file": "crates/core/src/lod.rs",
+    "find": "                        self.draw(key, crate::scatter::band_value(part), out);",
+    "replace": "                        self.draw(key, ONE, out);",
     "test": "no_surface_changes_level_without_passing_through_the_dither_band"
   },
   {
@@ -1885,8 +1885,8 @@
   {
     "name": "M2 scatter: the cone comes in as the tree goes",
     "file": "crates/core/src/scatter.rs",
-    "find": "            Some(crate::look::hand_over(a).0)",
-    "replace": "            Some(crate::look::hand_over(a).1)",
+    "find": "        CONE => between(sp.full_m, sp.cone_m),",
+    "replace": "        CONE => near(sp.cone_m),",
     "test": "each_level_hands_over_to_the_next_through_the_dither"
   },
   {
@@ -2602,5 +2602,75 @@
     "find": "        crate::imbue::lend(w, LEND_TICKS);\n",
     "replace": "",
     "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
+  },
+  {
+    "name": "M7 land: no faster on a road",
+    "file": "crates/core/src/motion.rs",
+    "find": "pub const ROAD_PCT: i32 = 18;",
+    "replace": "pub const ROAD_PCT: i32 = 0;",
+    "test": "a_body_runs_faster_on_a_road_eased_in_over_half_a_second"
+  },
+  {
+    "name": "M7 land: the road's bonus comes at once, not eased",
+    "file": "crates/core/src/motion.rs",
+    "find": "    fx::approach(share, goal, (ONE + ROAD_EASE - 1) / ROAD_EASE)",
+    "replace": "    fx::approach(share, goal, ONE)",
+    "test": "a_body_runs_faster_on_a_road_eased_in_over_half_a_second"
+  },
+  {
+    "name": "M7 land: the run is the old 5 m/s",
+    "file": "crates/core/src/motion.rs",
+    "find": "pub const RUN: Fx = fx::int(7);",
+    "replace": "pub const RUN: Fx = fx::int(5);",
+    "test": "grip_and_speed_are_pinned_for_zero_to_five_pieces"
+  },
+  {
+    "name": "M7 land: grass whole only to 10 m",
+    "file": "crates/core/src/scatter.rs",
+    "find": "        GRASS => near(sp.grass_m),",
+    "replace": "        GRASS => near([10, 14]),",
+    "test": "every_tuft_tree_and_rock_within_25_m_is_drawn_whole_every_frame"
+  },
+  {
+    "name": "M7 land: a grass chunk drawn only once its near edge is 20 m inside the band's end",
+    "file": "crates/core/src/lod.rs",
+    "find": "                    if near < hi && far > lo {",
+    "replace": "                    if near + 20 * ONE as i64 * (part == crate::scatter::GRASS) as i64 < hi && far > lo {",
+    "test": "every_tuft_tree_and_rock_within_25_m_is_drawn_whole_every_frame"
+  },
+  {
+    "name": "M7 land: a far chunk is not built ahead",
+    "file": "crates/core/src/lod.rs",
+    "find": "                        ahead.push((slack, key));",
+    "replace": "                        let _ = slack;",
+    "test": "every_tuft_tree_and_rock_within_25_m_is_drawn_whole_every_frame"
+  },
+  {
+    "name": "M7 land: the going band keeps the coming share, no complement",
+    "file": "crates/core/src/scatter.rs",
+    "find": "    if go > 0 {\n        go - ONE\n    } else {",
+    "replace": "    if go > 0 {\n        ONE - go\n    } else {",
+    "test": "each_level_hands_over_to_the_next_through_the_dither"
+  },
+  {
+    "name": "M7 land: grass's band sent to the wrong slot",
+    "file": "crates/core/src/scatter.rs",
+    "find": "        GRASS => 4,",
+    "replace": "        GRASS => 3,",
+    "test": "the_shader_fades_each_triangle_through_the_core_s_band"
+  },
+  {
+    "name": "M7 land: the shader's band goes out as it comes in",
+    "file": "data/shaders/scene.vert",
+    "find": "  return go > 0.0 ? go - 1.0 : come;",
+    "replace": "  return go > 0.0 ? 1.0 - go : come;",
+    "test": "the_shader_fades_each_triangle_through_the_core_s_band"
+  },
+  {
+    "name": "M7 land: a ground patch on the other diagonal",
+    "file": "crates/core/src/terrain.rs",
+    "find": "        let y = if (i + j) & 1 == 0 {\n            if u >= v {\n                ha + qmul(hb - ha, u) + qmul(hc - hb, v)\n            } else {\n                ha + qmul(hc - hd, u) + qmul(hd - ha, v)\n            }\n        } else if u + v <= O {\n            ha + qmul(hb - ha, u) + qmul(hd - ha, v)\n        } else {\n            hc + qmul(hd - hc, O - u) + qmul(hb - hc, O - v)\n        };\n        Some(y as Fx)",
+    "replace": "        let y = if (i + j) & 1 == 1 {\n            if u >= v {\n                ha + qmul(hb - ha, u) + qmul(hc - hb, v)\n            } else {\n                ha + qmul(hc - hd, u) + qmul(hd - ha, v)\n            }\n        } else if u + v <= O {\n            ha + qmul(hb - ha, u) + qmul(hd - ha, v)\n        } else {\n            hc + qmul(hd - hc, O - u) + qmul(hb - hc, O - v)\n        };\n        Some(y as Fx)",
+    "test": "a_patch_of_the_ground_stands_where_the_ground_does"
   }
 ]

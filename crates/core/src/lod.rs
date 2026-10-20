@@ -145,6 +145,8 @@ pub struct Detail {
     /// the scatter's chunks with nothing in a part, and each tree chunk's things
     empty: std::collections::BTreeSet<Key>,
     things: BTreeMap<(i32, i32), Vec<crate::scatter::Item>>,
+    /// scatter frames since the start, for the sweep of the far chunks
+    sweep: u64,
 }
 
 /// A group drawn by distance: whole inside `fade.0` of its centre, handed
@@ -185,11 +187,21 @@ pub fn unit_for(radius: i64) -> Fx {
     k.min(1 << 30) as Fx
 }
 
+/// The nearest and farthest flat distances from the eye to the square from
+/// (x0, z0), `side` wide, Q16 metres.
+pub fn reach_of(eye: V3, x0: i64, z0: i64, side: i64) -> (i64, i64) {
+    let (x, z) = (eye.x as i64, eye.z as i64);
+    let near = to_square(x, z, x0, z0, side);
+    let dx = (x - x0).abs().max((x - x0 - side).abs());
+    let dz = (z - z0).abs().max((z - z0 - side).abs());
+    (near, crate::terrain::root((dx * dx + dz * dz) as u64) as i64)
+}
+
 /// The flat distance from (x, z) to the square from (x0, z0), `side` wide.
 fn to_square(x: i64, z: i64, x0: i64, z0: i64, side: i64) -> i64 {
     let dx = (x0 - x).max(x - (x0 + side)).max(0);
     let dz = (z0 - z).max(z - (z0 + side)).max(0);
-    fx::isqrt_u64((dx * dx + dz * dz) as u64) as i64
+    crate::terrain::root((dx * dx + dz * dz) as u64) as i64
 }
 
 impl Detail {
@@ -211,13 +223,17 @@ impl Detail {
             kept: BTreeMap::new(),
             empty: std::collections::BTreeSet::new(),
             things: BTreeMap::new(),
+            sweep: 0,
         }
     }
 
     /// Builds a scatter chunk's part, or notes it has nothing.
     fn build_scatter(&mut self, land: &Land, key: Key, ink: look::Rgb) {
         let (i, j) = (key.i, key.j);
-        let things = if key.level == crate::scatter::GRASS || key.level == crate::scatter::CLUSTER {
+        let things = if matches!(
+            key.level,
+            crate::scatter::GRASS | crate::scatter::CLUSTER | crate::scatter::TUFT
+        ) {
             Vec::new()
         } else {
             self.things
@@ -235,19 +251,22 @@ impl Detail {
         self.stats.total_builds += 1;
     }
 
-    /// The scatter's share of a frame: each part of each chunk in reach,
-    /// at its fade; the parts soon in reach built ahead, a few a frame; the
-    /// far ones forgotten.
+    /// The scatter's share of a frame (R9.44): each part of each chunk
+    /// whose shapes can be kept anywhere (its square, grown by how far its
+    /// shapes reach, nearer than the band's end and farther than its start),
+    /// drawn with its band's value so the shader fades each triangle by its
+    /// own distance; the parts soon in reach built ahead, a few a frame, in
+    /// every direction alike; the far ones forgotten.
     pub fn scatter_frame(&mut self, land: &Land, eye: V3, ink: look::Rgb, out: &mut Shapes) {
         let sp = land.spec.scatter.clone();
         let mut ahead: Vec<(i64, Key)> = Vec::new();
         for part in crate::scatter::PARTS {
-            let (_, _, side) = crate::scatter::chunk_middle(land, part, 0, 0);
-            let (lo, hi) = crate::scatter::interval(&sp, part);
-            let (lo, hi) = (lo as i64 * ONE as i64, hi as i64 * ONE as i64);
+            let s = crate::scatter::side_of(&sp, part) as i64;
+            let b = crate::scatter::band(&sp, part);
+            let (lo, hi) = (b[0] as i64 * ONE as i64, b[3] as i64 * ONE as i64);
             let margin = crate::scatter::margin(&sp, part);
-            let soon = hi + margin;
-            let s = side as i64;
+            let g = crate::scatter::grown(part);
+            let soon = hi + margin + g;
             // within the land the scatter covers
             let [elo, ehi] = sp.extent_m.map(|v| v as i64 * ONE as i64);
             let (c0, c1) = (elo.div_euclid(s), ehi.div_euclid(s));
@@ -259,20 +278,26 @@ impl Detail {
                 (eye.z as i64 - soon).div_euclid(s).max(c0),
                 (eye.z as i64 + soon).div_euclid(s).min(c1),
             );
-            // in 256ths of a metre, so squares fit
+            // a quick test first, in 256ths of a metre so squares fit: the
+            // chunk's middle against the band and the margin, give or take
+            // its half diagonal
             let (ex, ez) = (eye.x as i64 >> 8, eye.z as i64 >> 8);
-            let (near2, far2) = (((lo - margin).max(0) >> 8).pow(2), (soon >> 8).pow(2));
+            let half = (s * 3 / 4 + g) >> 8;
+            let outer = ((hi + margin) >> 8) + half;
+            let inner = ((lo - margin) >> 8) - half;
+            let (outer2, inner2) = (outer * outer, if inner > 0 { inner * inner } else { -1 });
             for j in j0..=j1 {
                 let cz = (j * s + s / 2) >> 8;
                 for i in i0..=i1 {
                     let cx = (i * s + s / 2) >> 8;
                     let q = (cx - ex) * (cx - ex) + (cz - ez) * (cz - ez);
-                    // neither drawn nor soon: too far, or well inside where
-                    // the level before it is drawn
-                    if q > far2 || q < near2 {
+                    if q > outer2 || q < inner2 {
                         continue;
                     }
-                    let d = (crate::terrain::root(q as u64) as i64) << 8;
+                    let (near, far) = reach_of(eye, i * s - g, j * s - g, s + 2 * g);
+                    if near > hi + margin || far < lo - margin {
+                        continue;
+                    }
                     let key = Key {
                         kind: SCATTER,
                         level: part,
@@ -280,23 +305,18 @@ impl Detail {
                         j: j as i32,
                         part: 0,
                     };
-                    match crate::scatter::fade(&sp, part, d) {
-                        Some(f) => {
-                            if !self.has(&key) && !self.empty.contains(&key) {
-                                self.build_scatter(land, key, ink);
-                                self.stats.last_sync = Some(key);
-                                self.stats.sync_builds += 1;
-                                self.stats.total_sync_builds += 1;
-                            }
-                            self.draw(key, f, out);
+                    if near < hi && far > lo {
+                        if !self.has(&key) && !self.empty.contains(&key) {
+                            self.build_scatter(land, key, ink);
+                            self.stats.last_sync = Some(key);
+                            self.stats.sync_builds += 1;
+                            self.stats.total_sync_builds += 1;
                         }
+                        self.draw(key, crate::scatter::band_value(part), out);
+                    } else if !self.has(&key) && !self.empty.contains(&key) {
                         // not drawn now, but soon: built ahead, the soonest first
-                        None => {
-                            let slack = if d < lo { lo - d } else { d - hi };
-                            if slack < margin && !self.has(&key) && !self.empty.contains(&key) {
-                                ahead.push((slack, key));
-                            }
-                        }
+                        let slack = if near >= hi { near - hi } else { lo - far };
+                        ahead.push((slack, key));
                     }
                 }
             }
@@ -310,18 +330,24 @@ impl Detail {
             self.build_scatter(land, key, ink);
             budget -= 1;
         }
-        // forget what is well out of reach
+        // forget what is well out of reach, every sixteenth frame (a scan of
+        // every chunk kept, the empty ones too, thousands far off)
+        self.sweep += 1;
+        if self.sweep % 16 != 1 {
+            return;
+        }
         let far: Vec<Key> = self
             .by_key
             .keys()
             .chain(self.empty.iter())
             .filter(|k| k.kind == SCATTER)
             .filter(|k| {
-                let (cx, cz, _) = crate::scatter::chunk_middle(land, k.level, k.i, k.j);
-                let d = to_square(eye.x as i64, eye.z as i64, cx as i64, cz as i64, 0);
-                let (lo, hi) = crate::scatter::interval(&sp, k.level);
+                let s = crate::scatter::side_of(&sp, k.level) as i64;
+                let g = crate::scatter::grown(k.level);
+                let (near, far) = reach_of(eye, k.i as i64 * s - g, k.j as i64 * s - g, s + 2 * g);
+                let b = crate::scatter::band(&sp, k.level);
                 let m = 2 * crate::scatter::margin(&sp, k.level);
-                d > hi as i64 * ONE as i64 + m || d < lo as i64 * ONE as i64 - m
+                near > b[3] as i64 * ONE as i64 + m || far < b[0] as i64 * ONE as i64 - m
             })
             .copied()
             .collect();
@@ -333,7 +359,9 @@ impl Detail {
         let keep: std::collections::BTreeSet<(i32, i32)> = self
             .by_key
             .keys()
-            .filter(|k| k.kind == SCATTER && k.level != crate::scatter::GRASS)
+            .filter(|k| {
+                k.kind == SCATTER && k.level != crate::scatter::GRASS && k.level != crate::scatter::TUFT
+            })
             .map(|k| (k.i, k.j))
             .collect();
         self.things.retain(|ij, _| keep.contains(ij));
@@ -930,7 +958,33 @@ mod tests {
                 eye.y = w.ground(eye.x, eye.z) + int(2);
                 let mut out = Shapes::default();
                 d.frame(&w, &look, eye, &mut out);
-                let now: BTreeMap<Key, Fx> = d.drawn.iter().map(|dr| (dr.key, cover(dr.fade))).collect();
+                // a scatter part fades each triangle by its own distance
+                // (R9.44): its share is the most any of its shapes keeps,
+                // over the distances its grown square spans
+                let sp = &w.land.spec.scatter;
+                let share = |dr: &Drawn| {
+                    if dr.key.kind != SCATTER || dr.fade != crate::scatter::band_value(dr.key.level) {
+                        return cover(dr.fade);
+                    }
+                    let side = crate::scatter::side_of(sp, dr.key.level) as i64;
+                    let g = crate::scatter::grown(dr.key.level);
+                    let (near, far) = reach_of(
+                        eye,
+                        dr.key.i as i64 * side - g,
+                        dr.key.j as i64 * side - g,
+                        side + 2 * g,
+                    );
+                    let b = crate::scatter::band(sp, dr.key.level);
+                    let at = |d: i64| crate::scatter::kept(crate::scatter::band_fade(b, d));
+                    if far < b[1] as i64 * ONE as i64 {
+                        at(far)
+                    } else if near > b[2] as i64 * ONE as i64 {
+                        at(near)
+                    } else {
+                        ONE
+                    }
+                };
+                let now: BTreeMap<Key, Fx> = d.drawn.iter().map(|dr| (dr.key, share(dr))).collect();
                 // a terrain tile wholly past the haze's edge (sky.rs: the land
                 // is the sky's own colour there) shows nothing of its own
                 let edge = crate::sky::SkySpec::shipped().edge_m[1] as i64 * ONE as i64;
@@ -969,6 +1023,131 @@ mod tests {
                 last = now;
             }
         }
+    }
+
+    /// The person, 2026-10-20: "theres never a moment where all the grass
+    /// within the immediate viewable area ... is rendered" (R9.44). At five
+    /// places (the green, the meadow, the forest's edge, the river's bank by
+    /// the bridge, the camp), a run of two seconds at 7 m/s and then a
+    /// whole turn on the spot (the camera 2.6 m behind, so the eye circles),
+    /// every frame: every grass tuft, tree and rock within 25 m of the
+    /// player is in a part drawn this frame, and kept whole at its distance
+    /// from the eye; the set of tufts drawn within 25 m is the full set the
+    /// land's generator gives; and after the first frame nothing waits to be
+    /// built.
+    #[test]
+    fn every_tuft_tree_and_rock_within_25_m_is_drawn_whole_every_frame() {
+        use crate::scatter::{self, GRASS, ROCK, WHOLE};
+        let w = crate::world::World::new(1);
+        let look = crate::look::tests::look();
+        let l = &w.land;
+        let sp = &l.spec.scatter;
+        let r = int(25) as i64;
+        let places = [
+            (2000, 2790, 0),
+            (1500, 2650, 80),
+            (2860, 1900, 340),
+            (640, 2300, 270),
+            (3213, 1010, 200),
+        ];
+        let mut tufts_seen = 0;
+        let mut things_seen = 0;
+        for (x, z, yaw) in places {
+            let mut d = Detail::new(&l.spec.lod, 100);
+            let mut feet = v3(int(x), 0, int(z));
+            let mut facing = fx::deg(yaw);
+            for t in 0..(120 + 120) {
+                if t < 120 {
+                    feet = feet.add(crate::geom::facing(facing, 0).scale(ONE * 7 / 60));
+                } else {
+                    facing = fx::wrap(facing + fx::TURN / 120);
+                }
+                feet.y = w.ground(feet.x, feet.z);
+                let eye = feet
+                    .sub(crate::geom::facing(facing, 0).scale(ONE * 26 / 10))
+                    .add(v3(0, int(2), 0));
+                let mut out = Shapes::default();
+                d.frame(&w, &look, eye, &mut out);
+                if t > 0 {
+                    assert_eq!(
+                        d.stats.sync_builds, 0,
+                        "{:?} waited at ({x}, {z}) frame {t}",
+                        d.stats.last_sync
+                    );
+                }
+                let drawn: std::collections::BTreeSet<Key> = d
+                    .drawn
+                    .iter()
+                    .filter(|k| k.key.kind == SCATTER)
+                    .map(|k| k.key)
+                    .collect();
+                let near = |p: V3| v3(p.x - feet.x, 0, p.z - feet.z).len_xz() as i64 <= r;
+                let kept = |part: u8, p: V3| {
+                    let e = v3(p.x - eye.x, 0, p.z - eye.z).len_xz() as i64;
+                    scatter::kept(scatter::band_fade(scatter::band(sp, part), e))
+                };
+                for part in [GRASS, WHOLE, ROCK] {
+                    let side = scatter::side_of(sp, part) as i64;
+                    let (i0, i1) = (
+                        (feet.x as i64 - r).div_euclid(side),
+                        (feet.x as i64 + r).div_euclid(side),
+                    );
+                    let (j0, j1) = (
+                        (feet.z as i64 - r).div_euclid(side),
+                        (feet.z as i64 + r).div_euclid(side),
+                    );
+                    let mut full = Vec::new();
+                    let mut shown = Vec::new();
+                    for j in j0..=j1 {
+                        for i in i0..=i1 {
+                            let at: Vec<V3> = if part == GRASS {
+                                scatter::tufts(l, GRASS, i as i32, j as i32)
+                                    .into_iter()
+                                    .map(|t| t.0)
+                                    .collect()
+                            } else {
+                                scatter::items(l, i as i32, j as i32)
+                                    .into_iter()
+                                    .filter(|it| (it.thing == scatter::Thing::Rock) == (part == ROCK))
+                                    .map(|it| it.at)
+                                    .collect()
+                            };
+                            let key = Key {
+                                kind: SCATTER,
+                                level: part,
+                                i: i as i32,
+                                j: j as i32,
+                                part: 0,
+                            };
+                            for p in at.into_iter().filter(|&p| near(p)) {
+                                assert_eq!(
+                                    kept(part, p),
+                                    ONE,
+                                    "part {part} at {:?} not whole",
+                                    (p.x / ONE, p.z / ONE)
+                                );
+                                full.push(p);
+                                if drawn.contains(&key) {
+                                    shown.push(p);
+                                }
+                            }
+                        }
+                    }
+                    if part == GRASS {
+                        tufts_seen += full.len();
+                    } else {
+                        things_seen += full.len();
+                    }
+                    assert_eq!(
+                        shown, full,
+                        "part {part} at ({x}, {z}) frame {t}: a chunk within 25 m not drawn"
+                    );
+                }
+            }
+        }
+        // the walks pass through grass and among trees and rocks
+        assert!(tufts_seen > 100_000, "{tufts_seen}");
+        assert!(things_seen > 1_000, "{things_seen}");
     }
 
     #[test]

@@ -43,6 +43,11 @@ pub struct ScatterSpec {
     pub cluster_m: [i32; 2],
     pub rock_m: [i32; 2],
     pub grass_m: [i32; 2],
+    /// the tufts: coming in over the first two distances, going over the last two
+    pub tuft_m: [i32; 4],
+    pub tuft_chunk_m: i32,
+    pub tuft_cell_cm: i32,
+    pub tuft_pct: i32,
     pub extent_m: [i32; 2],
     pub forest_cell_m: i32,
     pub forest_pct: i32,
@@ -74,7 +79,129 @@ pub const CLUSTER: u8 = 3;
 pub const ROCK: u8 = 4;
 pub const ROCK_INK: u8 = 5;
 pub const GRASS: u8 = 6;
-pub const PARTS: [u8; 7] = [WHOLE, WHOLE_INK, CONE, CLUSTER, ROCK, ROCK_INK, GRASS];
+/// M7: chunky tufts of grass, to the middle distance (R9.44)
+pub const TUFT: u8 = 7;
+pub const PARTS: [u8; 8] = [WHOLE, WHOLE_INK, CONE, CLUSTER, ROCK, ROCK_INK, GRASS, TUFT];
+
+/// Never: a distance past any the land reaches, metres.
+const NEVER: i32 = 1 << 20;
+
+/// A part's band, metres: it comes in from the first distance to the
+/// second and goes from the third to the fourth, each triangle by its own
+/// distance from the eye (the shader's `band`, after `band_fade`). A part
+/// whole from the eye out comes in from −1 m.
+pub fn band(sp: &ScatterSpec, part: u8) -> [i32; 4] {
+    let near = |go: [i32; 2]| [-1, -1, go[0], go[1]];
+    let between = |come: [i32; 2], go: [i32; 2]| [come[0], come[1], go[0], go[1]];
+    match part {
+        WHOLE | WHOLE_INK => near(sp.full_m),
+        CONE => between(sp.full_m, sp.cone_m),
+        CLUSTER => between(sp.cone_m, sp.cluster_m),
+        ROCK | ROCK_INK => near(sp.rock_m),
+        GRASS => near(sp.grass_m),
+        TUFT => sp.tuft_m,
+        _ => [NEVER, NEVER, NEVER, NEVER],
+    }
+}
+
+/// Which of the shader's bands a part takes (`uBands`, then `uBands2`).
+pub fn band_slot(part: u8) -> usize {
+    match part {
+        WHOLE | WHOLE_INK => 0,
+        CONE => 1,
+        CLUSTER => 2,
+        ROCK | ROCK_INK => 3,
+        GRASS => 4,
+        _ => 5,
+    }
+}
+
+/// How many bands the shader holds: two matrices of four.
+pub const BANDS: usize = 8;
+
+/// The value a part's shapes are drawn with: 2 + its band's slot, which the
+/// shader reads as "fade each triangle by its own distance through this
+/// band" (a hand-over fade is never above ONE).
+pub fn band_value(part: u8) -> Fx {
+    (2 + band_slot(part) as i32) * ONE
+}
+
+/// The dither fade of a triangle `d` from the eye (Q16 metres) in `b`:
+/// coming in, the share of the way through the first two distances; going
+/// out, that share of the last two less ONE, so the level going out and the
+/// one coming in at the same distance keep every pixel once
+/// (`look::hand_over`).
+pub fn band_fade(b: [i32; 4], d: i64) -> Fx {
+    let share = |a: i32, z: i32| {
+        let (a, z) = (a as i64 * ONE as i64, z as i64 * ONE as i64);
+        if z <= a {
+            if d >= a {
+                ONE
+            } else {
+                0
+            }
+        } else {
+            ((d - a) * ONE as i64 / (z - a)).clamp(0, ONE as i64) as Fx
+        }
+    };
+    let (come, go) = (share(b[0], b[1]), share(b[2], b[3]));
+    if go > 0 {
+        go - ONE
+    } else {
+        come
+    }
+}
+
+/// The share of pixels a fade keeps (`look::keeps`).
+pub fn kept(f: Fx) -> Fx {
+    if f >= 0 {
+        f
+    } else {
+        -f
+    }
+}
+
+/// The shader's bands as two matrices' columns, metres in Q16: each part's
+/// band at its slot, the slots no part takes never drawn; then how deep
+/// grass sinks. Slots 0 to 3 dither (trees, rocks: a tree sunk would read
+/// as one shrinking); 4 to 7 sink into the ground as they fade, so a band
+/// of grass leaves no stipple to crawl as the view pans (R9.44).
+pub fn uniform_values(sp: &ScatterSpec) -> Vec<i32> {
+    let mut out = vec![fx::int(NEVER); BANDS * 4];
+    for part in PARTS {
+        let k = band_slot(part);
+        for (q, v) in band(sp, part).into_iter().enumerate() {
+            out[k * 4 + q] = fx::int(v);
+        }
+    }
+    out.push(SINK);
+    out.extend([band_value(WHOLE), (BANDS as i32 / 2) * ONE]);
+    out
+}
+
+/// The uniforms they go in, after the sky's.
+pub const UNIFORMS: &[(&str, &str, usize)] = &[
+    ("uBands", "uniformMatrix4fv", 16),
+    ("uBands2", "uniformMatrix4fv", 16),
+    ("uSink", "uniform1fv", 1),
+    ("uBandKey", "uniform2fv", 2),
+];
+
+/// How deep grass and tufts sink as they fade (the second matrix's bands):
+/// deeper than the tallest blade and flower stand, 60 cm.
+pub const SINK: Fx = ONE * 60 / 100;
+
+/// How far a part's shapes reach past its chunk's square, Q16 metres (a
+/// crown's radius, a blade's lean).
+pub fn grown(part: u8) -> i64 {
+    let m: i64 = match part {
+        WHOLE | WHOLE_INK | CONE => 5,
+        CLUSTER => 16,
+        ROCK | ROCK_INK => 4,
+        _ => 1,
+    };
+    m * ONE as i64
+}
 
 /// What a chunk holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,6 +254,69 @@ fn room(land: &Land, sc: &crate::terrain::Scope, x: Fx, z: Fx, clear: Fx) -> boo
     let (hz0, hz1) = (land.height_in(x, z - ONE, sc), land.height_in(x, z + ONE, sc));
     let slope = ((hx1 - hx0).abs()).max((hz1 - hz0).abs()) / 2;
     slope * 100 < ONE * sp.steep_pct
+}
+
+/// Whether a tuft of grass may grow at (x, z): not on a road, a footprint,
+/// in water, a clearing or the field (no slope check: grass grows on banks).
+fn room_grass(land: &Land, sc: &crate::terrain::Scope, x: Fx, z: Fx) -> bool {
+    let (rd, rh) = land.road_distance(x, z, sc);
+    if rh > 0 && rd < rh + ONE / 3 {
+        return false;
+    }
+    if land.footprint_distance(x, z, sc) < ONE + ONE / 3 {
+        return false;
+    }
+    if land.cleared(x, z, sc) || land.in_field(x, z, sc) {
+        return false;
+    }
+    if let Some(n) = land.near(x, z, sc) {
+        if n.d < n.half + ONE / 2 {
+            return false;
+        }
+    }
+    !land.in_pond(x, z, ONE / 3)
+}
+
+/// The tufts of grass a grass chunk (`GRASS`, `grass_chunk_m` square) or a
+/// tuft chunk (`TUFT`) holds: each tuft's foot on the ground and its
+/// generator, seeded by its cell, so the mesh and the tests see the same.
+pub fn tufts(land: &Land, part: u8, i: i32, j: i32) -> Vec<(V3, crate::rng::Rng)> {
+    let sp = &land.spec.scatter;
+    let (side, cell_cm, pct, salt) = if part == TUFT {
+        (sp.tuft_chunk_m, sp.tuft_cell_cm, sp.tuft_pct, 0x7f7f)
+    } else {
+        (sp.grass_chunk_m, sp.grass_cell_cm, sp.grass_pct, 0x9a55)
+    };
+    let side = side * ONE;
+    let cell = (cell_cm.max(10) * ONE / 100) as Fx;
+    let n = side / cell;
+    let sc = land.scope(
+        i * side - ONE,
+        j * side - ONE,
+        (i + 1) * side + ONE,
+        (j + 1) * side + ONE,
+    );
+    let cells = side / (2 * ONE);
+    let ground = land.patch(i * cells, j * cells, cells);
+    let mut out = Vec::new();
+    for q in 0..n {
+        for p in 0..n {
+            let (ci, cj) = (i * n + p, j * n + q);
+            let mut r = cell_rng(land.spec.seed, salt, ci, cj);
+            let x = i * side + p * cell + r.below(cell as u32) as Fx;
+            let z = j * side + q * cell + r.below(cell as u32) as Fx;
+            if !r.chance(pct.max(0) as u32, 100) || !room_grass(land, &sc, x, z) {
+                continue;
+            }
+            // fewer in the forest's shade
+            if land.forest(x, z, &sc) > ONE as i64 / 2 && r.chance(2, 3) {
+                continue;
+            }
+            let y = ground.at(x, z).unwrap_or_else(|| land.ground(x, z));
+            out.push((v3(x, y - ONE / 20, z), r));
+        }
+    }
+    out
 }
 
 /// The trees and rocks of chunk (i, j).
@@ -284,6 +474,13 @@ impl Bake {
     /// blunt top half as wide as its foot, so no part of it is thinner than
     /// half its width (a point would blink as the view pans, R4.25).
     fn blade(&mut self, foot: V3, tip: V3, width: Fx, c: Rgb) {
+        self.blade_lit(foot, tip, width, c, 0);
+    }
+
+    /// The same, each face's normal turned `up` of the way toward the sky:
+    /// a far tuft lit as the ground round it is, so it reads as the
+    /// meadow's texture and not as a dark spot (R9.44).
+    fn blade_lit(&mut self, foot: V3, tip: V3, width: Fx, c: Rgb, up: Fx) {
         let ring = |at: V3, r: Fx| -> Vec<V3> {
             (0..3)
                 .map(|q| {
@@ -292,14 +489,34 @@ impl Bake {
                 })
                 .collect()
         };
-        let (low, high) = (ring(foot, width), ring(tip, width / 2));
+        let (low, mut high) = (ring(foot, width), ring(tip, width * 4 / 5));
+        // the top cut on a slant, so it lies in no plane the ground's does
+        // (a level top a few centimetres over level ground is too near it
+        // for the depth buffer far off, the flicker scan's measure)
+        for (q, h) in high.iter_mut().enumerate() {
+            h.y += width * q as i32 / 2;
+        }
+        let mut side = None;
         for q in 0..3 {
             let (a, b) = (low[q], low[(q + 1) % 3]);
             let (a2, b2) = (high[q], high[(q + 1) % 3]);
             // counter-clockwise seen from outside
             let n = crate::terrain::facet_normal(b, a, a2);
+            let n = unit([
+                fx::lerp(n.x, 0, up) as i64,
+                fx::lerp(n.y, ONE, up) as i64,
+                fx::lerp(n.z, 0, up) as i64,
+            ]);
             let nl = local_normal(n, self.k);
-            let c = shade(c, 92 + 6 * q as i32);
+            side.get_or_insert(nl);
+            // lit nearly as the ground, the faces need little shade of their
+            // own; a face seen edge-on is a sliver, and a sliver of another
+            // shade blinks as the view pans (R9.44)
+            let c = if up > ONE / 2 {
+                c
+            } else {
+                shade(c, 92 + 6 * q as i32)
+            };
             let (lb, la, la2, lb2) = (self.local(b), self.local(a), self.local(a2), self.local(b2));
             facet(&mut self.out, [lb, la, la2], nl, c);
             facet(&mut self.out, [lb, la2, lb2], nl, c);
@@ -307,9 +524,24 @@ impl Bake {
         // the blunt top
         let n = crate::terrain::facet_normal(high[0], high[2], high[1]);
         let top = [self.local(high[0]), self.local(high[2]), self.local(high[1])];
-        let nl = local_normal(n, self.k);
-        facet(&mut self.out, top, nl, shade(c, 104));
+        // lit as the faces are: the top seen edge-on from a standing eye is
+        // a sliver, and lit brighter it would blink as the view pans
+        let nl = if up > 0 {
+            side.unwrap_or(nl_up(n, self.k))
+        } else {
+            local_normal(n, self.k)
+        };
+        facet(
+            &mut self.out,
+            top,
+            nl,
+            if up > ONE / 2 { c } else { shade(c, 104) },
+        );
     }
+}
+
+fn nl_up(n: V3, k: Fx) -> V3 {
+    local_normal(n, k)
 }
 
 /// A chunk's middle, at the height of the ground there, and the power of two
@@ -408,11 +640,7 @@ fn tree_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
 /// pass; none for a part the chunk has nothing in.
 pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) -> Option<crate::lod::Built> {
     let sp = &land.spec.scatter;
-    let side = if part == GRASS {
-        sp.grass_chunk_m
-    } else {
-        sp.chunk_m
-    } * ONE;
+    let side = side_of(sp, part);
     let (centre, k) = frame_of(land, i * side, j * side, side);
     let mut b = Bake::new(centre, k);
     let mut pass = Pass::Dither;
@@ -498,49 +726,60 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
             }
         }
         GRASS => {
-            let cell = (sp.grass_cell_cm.max(10) * ONE / 100) as Fx;
-            let n = side / cell;
-            let sc = land.scope(
-                i * side - ONE,
-                j * side - ONE,
-                (i + 1) * side + ONE,
-                (j + 1) * side + ONE,
-            );
-            for q in 0..n {
-                for p in 0..n {
-                    let (ci, cj) = (i * n + p, j * n + q);
-                    let mut r = cell_rng(land.spec.seed, 0x9a55, ci, cj);
-                    let x = i * side + p * cell + r.below(cell as u32) as Fx;
-                    let z = j * side + q * cell + r.below(cell as u32) as Fx;
-                    if !r.chance(sp.grass_pct.max(0) as u32, 100) || !room(land, &sc, x, z, ONE / 3) {
-                        continue;
-                    }
-                    // fewer in the forest's shade
-                    if land.forest(x, z, &sc) > ONE as i64 / 2 && r.chance(2, 3) {
-                        continue;
-                    }
-                    let y = land.ground(x, z) - ONE / 20;
-                    let foot = v3(x, y, z);
-                    let c = rgb(sp.blade[r.below(sp.blade.len() as u32) as usize]);
-                    let flower = r.chance(sp.flower_pct.max(0) as u32, 100);
-                    for blade in 0..4 {
-                        let a = r.below(fx::TURN as u32) as i32;
-                        let lean = ONE * r.between(6, 16) / 100;
-                        let tall = ONE * r.between(22, 42) / 100;
-                        let tip = foot.add(v3(fx::mul(fx::cos(a), lean), tall, fx::mul(fx::sin(a), lean)));
-                        b.blade(foot.add(v3(blade * ONE / 30, 0, 0)), tip, ONE * 5 / 100, c);
-                    }
-                    if flower {
-                        let fc = rgb(sp.flower[r.below(sp.flower.len() as u32) as usize]);
-                        let top = foot.add(v3(0, ONE * r.between(30, 44) / 100, 0));
-                        b.blade(foot, top, ONE * 2 / 100, shade(c, 90));
-                        let head = Affine::translate(top).then(&Affine::scale(v3(
-                            ONE * 14 / 100,
-                            ONE * 11 / 100,
-                            ONE * 14 / 100,
-                        )));
-                        b.shape(Mesh::Octa, &head, fc);
-                    }
+            let sc = land.scope(i * side, j * side, (i + 1) * side, (j + 1) * side);
+            for (foot, mut r) in tufts(land, GRASS, i, j) {
+                // the blades' greens half the ground's own there, lit half as
+                // the ground is: a meadow's grass, not spikes on it, and its
+                // edges low enough in contrast not to crawl as the view pans
+                let ground = land.meadow_in(foot.x, foot.z, 0, &sc);
+                let blade = rgb(sp.blade[r.below(sp.blade.len() as u32) as usize]);
+                let c = shade(crate::look::mix(ground, blade, ONE / 2), 94);
+                let flower = r.chance(sp.flower_pct.max(0) as u32, 100);
+                for blade in 0..4 {
+                    let a = r.below(fx::TURN as u32) as i32;
+                    let lean = ONE * r.between(6, 16) / 100;
+                    let tall = ONE * r.between(22, 42) / 100;
+                    let tip = foot.add(v3(fx::mul(fx::cos(a), lean), tall, fx::mul(fx::sin(a), lean)));
+                    b.blade_lit(
+                        foot.add(v3(blade * ONE / 30, 0, 0)),
+                        tip,
+                        ONE * 5 / 100,
+                        c,
+                        ONE * 4 / 5,
+                    );
+                }
+                if flower {
+                    let fc = rgb(sp.flower[r.below(sp.flower.len() as u32) as usize]);
+                    let top = foot.add(v3(0, ONE * r.between(30, 44) / 100, 0));
+                    b.blade(foot, top, ONE * 2 / 100, shade(c, 90));
+                    let head = Affine::translate(top).then(&Affine::scale(v3(
+                        ONE * 14 / 100,
+                        ONE * 11 / 100,
+                        ONE * 14 / 100,
+                    )));
+                    b.shape(Mesh::Octa, &head, fc);
+                }
+            }
+        }
+        TUFT => {
+            // a chunky tuft: a three-sided blade 28 cm across, blunt at half
+            // that, leaning a little; a third have a second beside it
+            let sc = land.scope(i * side, j * side, (i + 1) * side, (j + 1) * side);
+            for (foot, mut r) in tufts(land, TUFT, i, j) {
+                // the ground's own colour there, a little of the blades' and
+                // darker: far off a tuft is the meadow's texture, not a spot
+                // on it (and low contrast does not shimmer, R4.25)
+                let ground = land.meadow_in(foot.x, foot.z, 0, &sc);
+                let blade = rgb(sp.blade[r.below(sp.blade.len() as u32) as usize]);
+                let c = shade(crate::look::mix(ground, blade, ONE * 25 / 100), 90);
+                let blades = if r.chance(1, 3) { 2 } else { 1 };
+                for k in 0..blades {
+                    let a = r.below(fx::TURN as u32) as i32;
+                    let lean = ONE * r.between(4, 10) / 100;
+                    let tall = ONE * r.between(24, 36) / 100;
+                    let at = foot.add(v3(k * ONE / 8, 0, 0));
+                    let tip = at.add(v3(fx::mul(fx::cos(a), lean), tall, fx::mul(fx::sin(a), lean)));
+                    b.blade_lit(at, tip, ONE * 16 / 100, c, ONE);
                 }
             }
         }
@@ -558,67 +797,29 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
 
 /// The middle of a part's chunk and its side.
 pub fn chunk_middle(land: &Land, part: u8, i: i32, j: i32) -> (Fx, Fx, Fx) {
-    let sp = &land.spec.scatter;
-    let side = if part == GRASS {
-        sp.grass_chunk_m
-    } else {
-        sp.chunk_m
-    } * ONE;
+    let side = side_of(&land.spec.scatter, part);
     (i * side + side / 2, j * side + side / 2, side)
 }
 
-/// The dither fade a part of a chunk is drawn with `d` from the eye
-/// (measured to its chunk's middle), or none when it is not drawn.
-pub fn fade(sp: &ScatterSpec, part: u8, d: i64) -> Option<Fx> {
-    // the share of the way through a band from `a` to `b` metres
-    let t = |[a, b]: [i32; 2]| {
-        let (a, b) = (a as i64 * ONE as i64, b as i64 * ONE as i64);
-        ((d - a) * ONE as i64 / (b - a).max(1)).clamp(0, ONE as i64) as Fx
+/// A part's chunk's side, Q16 metres.
+pub fn side_of(sp: &ScatterSpec, part: u8) -> Fx {
+    let m = match part {
+        GRASS => sp.grass_chunk_m,
+        TUFT => sp.tuft_chunk_m,
+        _ => sp.chunk_m,
     };
-    // the level going out over a band: whole before, gone after
-    let going = |band: [i32; 2]| {
-        let s = t(band);
-        match s {
-            0 => Some(ONE),
-            ONE => None,
-            _ => Some(crate::look::hand_over(s).1),
-        }
-    };
-    // the level coming in over one band and going out over the next
-    let between = |come: [i32; 2], go: [i32; 2]| {
-        let (a, b) = (t(come), t(go));
-        if a == 0 || b == ONE {
-            None
-        } else if b > 0 {
-            Some(crate::look::hand_over(b).1)
-        } else if a < ONE {
-            Some(crate::look::hand_over(a).0)
-        } else {
-            Some(ONE)
-        }
-    };
-    match part {
-        WHOLE | WHOLE_INK => going(sp.full_m),
-        CONE => between(sp.full_m, sp.cone_m),
-        CLUSTER => between(sp.cone_m, sp.cluster_m),
-        ROCK | ROCK_INK => going(sp.rock_m),
-        GRASS => going(sp.grass_m),
-        _ => None,
-    }
+    m * ONE
 }
 
 /// The distances a part is drawn between, metres: from where it starts to
 /// come in to where it is gone.
 pub fn interval(sp: &ScatterSpec, part: u8) -> (i32, i32) {
-    match part {
-        CONE => (sp.full_m[0], sp.cone_m[1]),
-        CLUSTER => (sp.cone_m[0], sp.cluster_m[1]),
-        _ => (0, reach(sp, part)),
-    }
+    let b = band(sp, part);
+    (b[0].max(0), b[3])
 }
 
 /// How far ahead of its interval a part is built (Q16 metres, i64): a
-/// tenth of the interval, 40 m at the least (at 6 m/s, seven seconds).
+/// tenth of the interval, 40 m at the least (at 7 m/s, nearly six seconds).
 pub fn margin(sp: &ScatterSpec, part: u8) -> i64 {
     let (lo, hi) = interval(sp, part);
     ((hi - lo) as i64 * ONE as i64 / 10).max(40 * ONE as i64)
@@ -626,13 +827,7 @@ pub fn margin(sp: &ScatterSpec, part: u8) -> i64 {
 
 /// The farthest a part is drawn, metres.
 pub fn reach(sp: &ScatterSpec, part: u8) -> i32 {
-    match part {
-        WHOLE | WHOLE_INK => sp.full_m[1],
-        CONE => sp.cone_m[1],
-        CLUSTER => sp.cluster_m[1],
-        ROCK | ROCK_INK => sp.rock_m[1],
-        _ => sp.grass_m[1],
-    }
+    band(sp, part)[3]
 }
 
 #[cfg(test)]
@@ -675,23 +870,54 @@ mod tests {
         }
     }
 
+    /// R9.44: each triangle fades by its own distance. Whole trees go from
+    /// 128 to 150 m and cones come in over the same: at 139 m, half way, the
+    /// tree's fade is ½ − 1 = −½ (keeping the half of the pixels whose
+    /// threshold is ½ or more) and the cone's ½ (the other half).
     #[test]
     fn each_level_hands_over_to_the_next_through_the_dither() {
         let sp = &land().spec.scatter;
         let m = |v: i32| int(v) as i64;
-        // near: whole alone; 139 m, half way through 128 to 150: the whole
-        // tree going out at fade −½ and the cone coming in at ½
-        assert_eq!(fade(sp, WHOLE, m(100)), Some(ONE));
-        assert_eq!(fade(sp, CONE, m(100)), None);
-        let (w, c) = (fade(sp, WHOLE, m(139)).unwrap(), fade(sp, CONE, m(139)).unwrap());
+        let at = |part: u8, d: i64| band_fade(band(sp, part), d);
+        assert_eq!(at(WHOLE, m(100)), ONE);
+        assert_eq!(at(CONE, m(100)), 0);
+        let (w, c) = (at(WHOLE, m(139)), at(CONE, m(139)));
         assert!((w + ONE / 2).abs() <= 2 && (c - ONE / 2).abs() <= 2, "{w} {c}");
         // between them they keep every pixel once: ½ and ½
         assert_eq!(c - w, ONE);
+        assert_eq!(kept(w) + kept(c), ONE);
         // far: the cone alone, then the cluster, then nothing
-        assert_eq!(fade(sp, CONE, m(600)), Some(ONE));
-        assert_eq!(fade(sp, CLUSTER, m(600)), None);
-        assert_eq!(fade(sp, CLUSTER, m(2000)), Some(ONE));
-        assert_eq!(fade(sp, CLUSTER, m(4300)), None);
-        assert_eq!(fade(sp, GRASS, m(70)), None);
+        assert_eq!(at(CONE, m(600)), ONE);
+        assert_eq!(at(CLUSTER, m(600)), 0);
+        assert_eq!(at(CLUSTER, m(2000)), ONE);
+        assert_eq!(kept(at(CLUSTER, m(4300))), 0);
+        // grass whole to 28 m, a quarter gone at 30.5 m ((30.5 − 28) / 10),
+        // gone at 38; tufts half in at 24 m, whole at 28, half gone at 70
+        assert_eq!(at(GRASS, m(28)), ONE);
+        assert_eq!(kept(at(GRASS, (int(305) / 10) as i64)), ONE * 3 / 4);
+        assert_eq!(kept(at(GRASS, m(38))), 0);
+        assert_eq!(at(TUFT, m(24)), ONE / 2);
+        assert_eq!(at(TUFT, m(28)), ONE);
+        assert_eq!(kept(at(TUFT, m(70))), ONE / 2);
+        assert_eq!(kept(at(TUFT, m(78))), 0);
+    }
+
+    #[test]
+    fn the_shader_fades_each_triangle_through_the_core_s_band() {
+        let sp = &land().spec.scatter;
+        let u = uniform_values(sp);
+        assert_eq!(u.len(), BANDS * 4 + 3);
+        // grass's band in slot 4: from −1 m (whole from the eye), 28 to 38 m
+        assert_eq!(&u[16..20], &[-ONE, -ONE, int(28), int(38)]);
+        assert_eq!(band_value(GRASS), 6 * ONE);
+        let vert = include_str!("../../../data/shaders/scene.vert");
+        assert!(vert.contains("return go > 0.0 ? go - 1.0 : come;"));
+        assert!(vert.contains("float f = k >= 0.0 ? band(length((w - uEye).xz), k) : iD.a;"));
+        // the first band's value, 2, and four bands a matrix
+        assert_eq!(&u[BANDS * 4 + 1..], &[2 * ONE, 4 * ONE]);
+        assert!(vert.contains("w.y -= (1.0 - (f >= 0.0 ? f : -f)) * uSink;"));
+        // grass and tufts take the second matrix's slots, which sink
+        assert!(band_slot(GRASS) >= 4 && band_slot(TUFT) >= 4 && band_slot(ROCK) < 4);
+        assert_eq!(u[BANDS * 4], SINK);
     }
 }

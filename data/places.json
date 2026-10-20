@@ -125,15 +125,15 @@
     },
     {
       "kind": "road",
-      "_note": "M7 (R9.41): out of the village to the west, over the meadow to the merchant's road by the bridge, for the bridge and the trainer's hill",
+      "_note": "M7 (R9.41): out of the village's west side (bearing 296°, west-north-west, where villagers flee), over the meadow to the merchant's road by the bridge, for the bridge and the trainer's hill",
       "half_cm": 225,
-      "line": [[1996, 2700], [1800, 2650], [1500, 2540], [1200, 2390], [900, 2226]]
+      "line": [[1975, 2755], [1800, 2665], [1500, 2545], [1200, 2390], [900, 2226]]
     },
     {
       "kind": "road",
-      "_note": "M7 (R9.41): out of the village to the north-east, to the trail's end on the merchant's road, for the forest and the camp",
+      "_note": "M7 (R9.41): out of the village's north-east side (bearing 45°), to the trail's end on the merchant's road, for the forest and the camp",
       "half_cm": 225,
-      "line": [[1996, 2700], [2250, 2500], [2560, 2190], [2870, 1888]]
+      "line": [[2015, 2740], [2250, 2500], [2560, 2190], [2870, 1888]]
     },
     {
       "kind": "lane",

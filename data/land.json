@@ -208,9 +208,18 @@
       300
     ],
     "grass_m": [
-      10,
-      14
+      28,
+      38
     ],
+    "tuft_m": [
+      20,
+      28,
+      62,
+      78
+    ],
+    "tuft_chunk_m": 24,
+    "tuft_cell_cm": 130,
+    "tuft_pct": 65,
     "extent_m": [
       -300,
       4300
@@ -335,6 +344,6 @@
       90,
       140
     ],
-    "_grass_m": "grass and flowers are drawn near only: a 6 cm blade is still a pixel wide 16 m off at 640 x 360, and a thinner thing blinks as the view pans (SECOND-ORDER.md R4.25)"
+    "_grass_m": "M7 (R9.44): every blade, tuft, rock and tree fades by its own distance in the shader (scatter::band, the uniforms uBands and uBands2), not its chunk's, so nothing near pops: grass whole to 28 m and gone by 38; then the chunkier tufts, coming in from 20 to 28 m and gone from 62 to 78 m; then the meadow's colour. A 9 cm blade is 0.75 px wide at 36 m at 640 x 360, a 28 cm tuft a pixel at 78 m: none thinner than about 0.4 px, which blinks as the view pans (R4.25)"
   }
 }

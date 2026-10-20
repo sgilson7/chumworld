@@ -12,6 +12,7 @@ in vec3 vWorld;
 in vec3 vNormal;
 in vec4 vColor;
 in vec3 vLocal;
+flat in float vFade;
 uniform vec3 uEye;
 uniform vec4 uModeA;
 uniform vec4 uModeB;
@@ -82,7 +83,7 @@ void main() {
     outColor = vec4(c, 1.0);
     return;
   }
-  if ((uModeA.y + uModeA.w) > 0.0 && !keep(vColor.a)) discard;
+  if ((uModeA.y + uModeA.w) > 0.0 && !keep(vFade)) discard;
   vec4 h = haze();
   if (uModeA.y > 0.0) {
     outColor = vec4(mix(vColor.rgb, h.rgb, h.a * uK.z), 1.0);
