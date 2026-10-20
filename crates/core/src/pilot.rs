@@ -57,6 +57,9 @@ pub struct KindSpec {
     pub strike_px: i32,
     pub rocks: u8,
     pub knives: u8,
+    /// the band it keeps to in a duel, centimetres outside its own reach
+    /// (`reach`): nearer, it steps back; farther, it steps in
+    pub keep_cm: [i32; 2],
     /// the tree it duels with
     pub tree: String,
 }
@@ -71,6 +74,9 @@ pub enum Cond {
     /// the one I fight stands farther than this, feet to feet
     GapAbove(i32),
     GapBelow(i32),
+    /// the one I fight stands farther than my reach and this, or nearer
+    BeyondReach(i32),
+    WithinReach(i32),
     /// I have a throwable and my last throw is over
     HasThrowable,
     /// their blade's tip is within this of my head
@@ -460,6 +466,26 @@ impl View<'_> {
     fn gap_cm(&self) -> i32 {
         (self.they.feet.sub(self.me.feet).len_xz() as i64 * 100 / ONE as i64) as i32
     }
+
+    /// My reach, centimetres.
+    fn reach_cm(&self) -> i32 {
+        (reach(self.f) as i64 * 100 / ONE as i64) as i32
+    }
+
+    /// The band I keep to, centimetres feet to feet.
+    fn band(&self) -> (i32, i32) {
+        let k = self.w.pilots.book.kinds[key_of(self.w.foes[self.id - 1].brain.kind)].keep_cm;
+        (self.reach_cm() + k[0], self.reach_cm() + k[1])
+    }
+}
+
+/// A fighter's reach: from its sword shoulder to its tip with the arm out
+/// as far as the shell goes (`arm::REACH_MAX_PCT`) and the blade along it.
+/// Short sword 1.39 m for the player, cleaver 1.44 m for an orc, sword 1.77
+/// m for the leader.
+pub fn reach(f: &Fighter) -> Fx {
+    let w = f.arm.weapon;
+    f.arm.reach() * arm::REACH_MAX_PCT / 100 + (w.len - w.grip[1])
 }
 
 fn cm(c: i32) -> Fx {
@@ -471,6 +497,8 @@ fn holds(c: &Cond, v: &View, rng: &mut Rng) -> bool {
         Cond::HurtBelow(pct) => v.f.health.pct() < *pct,
         Cond::GapAbove(c) => v.gap_cm() > *c,
         Cond::GapBelow(c) => v.gap_cm() < *c,
+        Cond::BeyondReach(c) => v.gap_cm() > v.reach_cm() + *c,
+        Cond::WithinReach(c) => v.gap_cm() < v.reach_cm() + *c,
         Cond::HasThrowable => v.f.pouch.any() && v.f.throw.recover == 0 && !v.f.throw.winding(),
         Cond::TipNearHead(c) => v.they.tip.dist(v.me.head) < cm(*c),
         Cond::SwingComing(cps) => {
@@ -487,12 +515,13 @@ fn holds(c: &Cond, v: &View, rng: &mut Rng) -> bool {
     }
 }
 
-/// Guard at `shell`, keeping the distance a duel wants.
+/// Guard at `shell`, keeping to the band a little outside its reach.
 fn hold(v: &View, shell: (i32, i32, i32), dir: i32) -> Plan {
     let gap = v.gap_cm();
-    let keys = if gap < 150 {
+    let (near, far) = v.band();
+    let keys = if gap < near {
         input::BACK
-    } else if gap > 205 {
+    } else if gap > far {
         input::FORWARD
     } else {
         0
@@ -505,6 +534,28 @@ fn hold(v: &View, shell: (i32, i32, i32), dir: i32) -> Plan {
         fast: false,
     }
 }
+
+/// An attack's footwork: in until the one it fights is `LUNGE_CM` inside
+/// its reach (their body's own width brings the blade to them).
+fn lunge(v: &View) -> u32 {
+    if v.gap_cm() > v.reach_cm() - LUNGE_CM {
+        input::FORWARD
+    } else {
+        0
+    }
+}
+
+/// And after it, back out to the band.
+fn recover(v: &View) -> u32 {
+    if v.gap_cm() < v.band().0 {
+        input::BACK
+    } else {
+        0
+    }
+}
+
+/// How far inside its reach an attack steps, centimetres.
+pub const LUNGE_CM: i32 = 10;
 
 /// One tick of a move, or `None` once it is over.
 fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
@@ -526,7 +577,7 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
         Move::Guard | Move::Cast if t <= 12 => guard,
         Move::CloseIn if t <= 18 => plain(GUARD, input::FORWARD),
         Move::Circle if t <= 24 => plain(GUARD, guard.keys | side_key),
-        Move::RaiseGuard if t <= 18 => plain((6, 62, 74), guard.keys),
+        Move::RaiseGuard if t <= 18 => plain((-30, 62, 74), guard.keys),
         Move::Block if t <= 14 => plain(block_at(v), 0),
         Move::BackOff if t <= 20 => plain(GUARD, input::BACK),
         Move::Flee if t <= 48 => plain((-20, -30, 60), input::BACK | side_key),
@@ -542,22 +593,24 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
             };
             plain(GUARD, keys)
         }
+        // each attack: wound up while stepping in, struck still stepping
+        // in, then back out to the band to recover
         Move::Overhead => match t {
-            0..=13 => plain((10, 78, 70), 0),
-            14..=29 => strike((-12, -40, 96), if t < 21 { input::FORWARD } else { 0 }),
-            30..=38 => plain(GUARD, 0),
+            0..=13 => plain((10, 78, 70), lunge(v)),
+            14..=29 => strike((-8, -36, 96), if t < 22 { lunge(v) } else { 0 }),
+            30..=44 => plain(GUARD, recover(v)),
             _ => return None,
         },
         Move::Sweep => match t {
-            0..=11 => plain((75, 8, 86), 0),
-            12..=27 => strike((-65, -8, 96), 0),
-            28..=36 => plain(GUARD, 0),
+            0..=11 => plain((75, 8, 86), lunge(v)),
+            12..=27 => strike((-65, -8, 96), if t < 20 { lunge(v) } else { 0 }),
+            28..=42 => plain(GUARD, recover(v)),
             _ => return None,
         },
         Move::Thrust => match t {
-            0..=9 => plain((0, -24, 48), 0),
-            10..=21 => strike((-2, -20, 97), input::FORWARD),
-            22..=30 => plain(GUARD, 0),
+            0..=9 => plain((0, -6, 45), lunge(v)),
+            10..=21 => strike((-2, -6, 97), lunge(v)),
+            22..=36 => plain(GUARD, recover(v)),
             _ => return None,
         },
         Move::Feint => match t {
@@ -764,6 +817,81 @@ mod tests {
         let (c, _) = run(&other);
         assert_eq!(c[..5], a[..5], "the same until tick 300");
         assert_ne!(c[9], a[9], "and then not");
+    }
+
+    /// By hand, from `pose::build` and M3's grip-to-tip lengths: the
+    /// player's arm 20 316 + 19 005 units, 97% is 38 141, and the short
+    /// sword's 806 mm (52 822): 90 963 (1.388 m). An orc's arm scaled to 2
+    /// m, 23 901 + 22 358, 97% 44 871, and the cleaver's 750 mm (49 152):
+    /// 94 023. A bandit's at 1.75 m, 20 913 + 19 563, 97% 39 261, and a
+    /// short sword: 92 083. The leader's at 1.85 m, 22 108 + 20 681, 97%
+    /// 41 505, and the sword's 1 138 mm (74 579): 116 084.
+    #[test]
+    fn a_fighter_s_reach_is_its_arm_at_full_stretch_and_its_blade() {
+        let w = World::new(1);
+        assert_eq!(reach(&w.me), 90_963);
+        let book = Book::standard();
+        for (kind, want) in [
+            (Kind::Orc, 94_023),
+            (Kind::Bandit, 92_083),
+            (Kind::Leader, 116_084),
+        ] {
+            let f = foe(&book, kind, V3::ZERO, 0, 1);
+            assert_eq!(reach(&f.fighter), want, "{kind:?}");
+        }
+    }
+
+    /// Blade Symphony's rhythm, against a player who stands drawn and does
+    /// nothing: each foe keeps to its band a little outside its own reach
+    /// (the gaps sampled while it guards or circles, half of them inside
+    /// its `keep_cm`), steps in through every attack to inside its reach,
+    /// and is back out past its reach when the attack is over.
+    #[test]
+    fn a_foe_keeps_a_little_outside_its_reach_steps_in_to_attack_and_out_to_recover() {
+        for (seed, kind) in [(3, "orc"), (3, "bandit"), (3, "leader")] {
+            let mut w = World::new(seed);
+            w.me.health = crate::health::Health::new(100_000);
+            player::act(&mut w, "spawn", kind).unwrap();
+            let r = (reach(&w.foes[0].fighter) as i64 * 100 / ONE as i64) as i32;
+            let keep = w.pilots.book.kinds[kind].keep_cm;
+            let (mut held, mut attacks, mut nearest) = (Vec::new(), 0, i32::MAX);
+            let mut was: Option<Move> = None;
+            for t in 0..1200 {
+                let keys = if t == 2 { DRAW } else { 0 };
+                w.step(&Input {
+                    keys,
+                    ..Input::default()
+                });
+                let gap = (w.foes[0].body.pos.sub(w.player.pos).len_xz() as i64 * 100 / ONE as i64) as i32;
+                let now = w.foes[0].brain.current.map(|(m, _)| m);
+                let attacking = |m: Option<Move>| m.is_some_and(Move::committed);
+                if attacking(now) {
+                    nearest = nearest.min(gap);
+                }
+                if attacking(was) && !attacking(now) {
+                    attacks += 1;
+                    assert!(
+                        nearest < r,
+                        "{kind}: an attack stepped only to {nearest} cm, reach {r}"
+                    );
+                    assert!(gap > r, "{kind}: still {gap} cm in after an attack, reach {r}");
+                    nearest = i32::MAX;
+                }
+                if t > 300 && matches!(now, None | Some(Move::Circle | Move::Guard)) {
+                    held.push(gap);
+                }
+                was = now;
+            }
+            held.sort();
+            let mid = held[held.len() / 2];
+            assert!(attacks >= 3, "{kind}: {attacks} attacks");
+            assert!(
+                (r + keep[0]..=r + keep[1]).contains(&mid),
+                "{kind}: held at {mid} cm, its band {}..{}",
+                r + keep[0],
+                r + keep[1]
+            );
+        }
     }
 
     #[test]
