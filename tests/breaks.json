@@ -1500,8 +1500,8 @@
   {
     "name": "M2 lod: flicker test 3, a level changes only through the dither",
     "file": "crates/core/src/lod.rs",
-    "find": "            let fade = if f.far { coming } else if t == 0 { ONE } else { going };",
-    "replace": "            let fade = if f.far { coming } else if t < ONE / 2 { ONE } else { going };",
+    "find": "            } else if t == 0 {\n                ONE\n            } else {\n                going\n            };",
+    "replace": "            } else if t < ONE / 2 {\n                ONE\n            } else {\n                going\n            };",
     "test": "no_surface_changes_level_without_passing_through_the_dither_band"
   },
   {
