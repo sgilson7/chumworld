@@ -971,5 +971,12 @@
     "find": "        name: s.get(&format!(\"item_{}\", i.id())),\n        icon:",
     "replace": "        name: format!(\"item_{}\", i.id()),\n        icon:",
     "test": "every_string_the_menus_show_is_written_and_filled"
+  },
+  {
+    "name": "M4 items: the boots have their own bit",
+    "file": "crates/core/src/items.rs",
+    "find": "        Item::Boots => BOOTS,",
+    "replace": "        Item::Boots => GLOVES,",
+    "test": "the_speedster_mask_has_a_bit_for_each_piece_worn"
   }
 ]

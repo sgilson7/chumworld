@@ -289,6 +289,26 @@ pub fn speedster_worn(w: &World) -> u8 {
         .count() as u8
 }
 
+/// The speedster pieces worn, one bit each, so M3 can draw the figure
+/// dressed: `HOOD`, `JACKET`, `GLOVES`, `TROUSERS`, `BOOTS`.
+pub const HOOD: u8 = 1;
+pub const JACKET: u8 = 2;
+pub const GLOVES: u8 = 4;
+pub const TROUSERS: u8 = 8;
+pub const BOOTS: u8 = 16;
+
+pub fn speedster_mask(w: &World) -> u8 {
+    let bit = |i: Item| match i {
+        Item::Hood => HOOD,
+        Item::Jacket => JACKET,
+        Item::Gloves => GLOVES,
+        Item::Trousers => TROUSERS,
+        Item::Boots => BOOTS,
+        _ => 0,
+    };
+    w.inventory.worn.iter().flatten().fold(0, |m, i| m | bit(*i))
+}
+
 /// What the player's sword hand holds.
 pub fn held(w: &World) -> Held {
     match w.inventory.weapon {
@@ -425,6 +445,20 @@ mod tests {
         // a sixth piece cannot be worn: the values stop at five
         assert_eq!(speedster_speed(6), 131_072);
         assert_eq!(speedster_grip(9), 3_298);
+    }
+
+    /// The hood (1) and the boots (16): 17. All five: 31. None at the start.
+    #[test]
+    fn the_speedster_mask_has_a_bit_for_each_piece_worn() {
+        let mut w = World::new(1);
+        assert_eq!(speedster_mask(&w), 0);
+        for i in [Item::Hood, Item::Boots] {
+            w.inventory.add(i, 1);
+            w.inventory.equip(i).unwrap();
+        }
+        assert_eq!(speedster_mask(&w), 17);
+        crate::inventory::give_all(&mut w);
+        assert_eq!(speedster_mask(&w), 31);
     }
 
     #[test]
