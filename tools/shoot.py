@@ -14,6 +14,21 @@ Views (all of them when none is named):
     run       running (Shift + W) with a gentle turn
     paused    the pause screen after Esc
 
+M4's views (the menus), opened with the test inventory and HUD values the
+core gives through `?act=test.give_all&act=test.hud&act=test.explore`:
+
+    hud            play with health, the foe's bar, the imbue's cooldown,
+                   the footing bars, quick items, coins and a toast
+    menu_select    the ring at Select Item
+    menu_turn      the ring mid-turn, Select Item to the map
+    menu_map       the ring at the map, filled in along a walk
+    menu_quest     the ring at Quest
+    menu_equipment the ring at Equipment
+    dialogue       the dialogue box, text half shown
+    shop           the merchant's shop
+    settings       the settings screen, from the title
+    pause_menu     the pause screen with its settings button
+
 The page is driven the way a reader drives it: the URL a reader can open
 (?pointer=free, the realtime kit's mode without pointer lock), clicks on the
 core's own buttons, key presses, and mouse movement dispatched as the kit's
@@ -38,6 +53,8 @@ from playwright.sync_api import sync_playwright
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 VIEWS = ["loading", "title", "standing", "turn", "run", "paused"]
+M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
+TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 SIZE = {"width": 1920, "height": 1080}
 GPU = ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"]
 SOFT = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
@@ -110,6 +127,90 @@ def renderer_name(page):
     )
 
 
+def wait_frames(page, n):
+    """`n` display frames, so a CSS transition or the core's next frame has run."""
+    page.evaluate(
+        """(n) => new Promise((done) => { let k = 0; const f = () => (++k >= n ? done() : requestAnimationFrame(f)); requestAnimationFrame(f); })""",
+        n,
+    )
+
+
+def m4_views(browser, base, out, views, logs):
+    """The menus, driven by keys and clicks as a reader drives them."""
+    page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+    page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+    page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+    page.goto(base + "/index.html?pointer=free" + TEST_ACTS, wait_until="commit")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+    page.wait_for_timeout(1200)
+    shot = lambda name: page.screenshot(path=str(out / f"{name}.png"))
+    if "settings" in views:
+        page.click("#title-more button")
+        page.wait_for_selector("#settings.shown")
+        page.wait_for_timeout(500)
+        shot("settings")
+        page.keyboard.press("Escape")
+        page.wait_for_selector("body[data-screen='title']", state="attached")
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.wait_for_timeout(1000)
+    page.keyboard.press("Digit2")
+    page.wait_for_timeout(400)
+    if "hud" in views:
+        shot("hud")
+    page.keyboard.press("Tab")
+    page.wait_for_selector("#menu.shown")
+    page.wait_for_timeout(700)
+    page.keyboard.press("ArrowRight")
+    page.wait_for_timeout(300)
+    if "menu_select" in views:
+        shot("menu_select")
+    page.keyboard.press("KeyE")
+    page.wait_for_timeout(200)
+    if "menu_turn" in views:
+        shot("menu_turn")
+    page.wait_for_timeout(700)
+    if "menu_map" in views:
+        shot("menu_map")
+    page.keyboard.press("KeyE")
+    page.wait_for_timeout(800)
+    if "menu_quest" in views:
+        shot("menu_quest")
+    page.keyboard.press("KeyE")
+    page.wait_for_timeout(500)
+    page.keyboard.press("ArrowRight")
+    page.wait_for_timeout(500)
+    if "menu_equipment" in views:
+        shot("menu_equipment")
+    page.keyboard.press("Tab")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    if "pause_menu" in views:
+        page.keyboard.press("Escape")
+        page.wait_for_selector("body[data-screen='paused']", state="attached")
+        page.wait_for_timeout(600)
+        shot("pause_menu")
+        page.click("#paused button")
+        page.wait_for_selector("body[data-screen='play']", state="attached")
+    # the test acts open these on the first tick of play, as M5's trainer
+    # and merchant will
+    for name, acts in (("dialogue", "&act=test.hud&act=test.dialogue"), ("shop", "&act=test.shop&act=inventory.give:sword")):
+        if name not in views:
+            continue
+        page.goto(base + "/index.html?pointer=free" + acts, wait_until="commit")
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+        page.wait_for_timeout(600)
+        page.click("#title button")
+        if name == "dialogue":
+            page.wait_for_selector("#talk.shown")
+            page.wait_for_timeout(1400)
+        else:
+            page.wait_for_selector("#shop.shown")
+            page.click("#shop .shop-list .row-button")
+            page.wait_for_timeout(600)
+        shot(name)
+    page.close()
+
+
 def open_game(browser, base, logs, held=None):
     """The game at its reader-openable URL. With `held` (a list), the
     WebAssembly module's request is held in it, not answered, until the
@@ -129,7 +230,7 @@ def main(argv):
         sys.exit(__doc__)
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
-    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS
+    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + M4_VIEWS
     soft = "--soft" in argv
     measure = "--measure" in argv
     if not (DIST / "index.html").exists():
@@ -192,6 +293,8 @@ def main(argv):
             page.wait_for_selector("body[data-screen='paused']", state="attached")
             page.wait_for_timeout(500)
             page.screenshot(path=str(out / "paused.png"))
+        if any(v in M4_VIEWS for v in views):
+            m4_views(browser, base, out, views, logs)
         browser.close()
     server.shutdown()
     for name in views:

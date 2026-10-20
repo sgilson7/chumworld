@@ -1,18 +1,18 @@
 {
   "_note": "Presentation numbers for the map menu's parchment, which the core draws into pixels (crates/core/src/ui.rs, map_pixels; compiled in). Colours are 0 to 255; shares are percent. The parchment and ink follow Protection of the Spheres' warm haze and plum ink (data/look.json: horizon, ink); land takes a share of the palette's far grass, water a share of the zenith blue.",
   "map": {
-    "paper": [241, 228, 196],
-    "unseen": [205, 186, 150],
-    "hatch": [188, 168, 132],
+    "paper": [248, 238, 212],
+    "unseen": [201, 183, 148],
+    "hatch": [189, 170, 135],
     "edge": [150, 116, 82],
     "ink": [92, 70, 84],
     "water": [126, 170, 204],
-    "land_tint_pct": 34,
+    "land_tint_pct": 24,
     "relief_pct": 7,
     "grain": 7,
     "edge_px": 9,
     "edge_pct": 42,
-    "hatch_every": 5
+    "hatch_every": 6
   },
   "place_icons": ["village", "camp", "hut", "shrine", "bridge", "tree", "scarecrow", "chest"]
 }

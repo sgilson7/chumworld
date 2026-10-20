@@ -11,6 +11,7 @@
 import init, { Game, numbers } from "./pkg/tool_shim.js";
 import { makeRenderer } from "./gl.js";
 import { makeInput } from "./input.js";
+import { makeMenus } from "./menus/menus.js";
 
 const el = (id) => document.getElementById(id);
 const make = (tag, text, className) => {
@@ -40,13 +41,14 @@ function ready() {
 async function main() {
   const strings = await (await fetch("data/strings.json")).text();
   el("loading-text").textContent = JSON.parse(strings).loading;
-  const [glossary, look, controls, display, vertex, fragment] = await Promise.all([
+  const [glossary, look, controls, display, vertex, fragment, keys] = await Promise.all([
     fetch("data/glossary.md").then((r) => r.text()),
     fetch("data/look.json").then((r) => r.text()),
     fetch("data/controls.json").then((r) => r.json()),
     fetch("data/display.json").then((r) => r.json()),
     fetch("data/shaders/scene.vert").then((r) => r.text()),
     fetch("data/shaders/scene.frag").then((r) => r.text()),
+    fetch("data/keys.json").then((r) => r.json()),
   ]);
   await init();
   const N = JSON.parse(numbers());
@@ -83,7 +85,9 @@ async function main() {
   const lookSpeed = new URLSearchParams(location.search).get("look");
 
   // Sends one action through the core's door and draws what comes back.
-  function act(name, value) {
+  // `gesture`: the act came from a key or click, so if the core now wants
+  // the pointer (a menu closed back to play) the page may take it again.
+  function act(name, value, gesture) {
     const result = JSON.parse(game.act(name, value));
     if (result.error) {
       el("message").textContent = result.error;
@@ -91,7 +95,11 @@ async function main() {
     }
     el("message").textContent = "";
     show(result.ok);
+    if (gesture && result.ok.capture && !input.engaged()) input.engage();
   }
+
+  // M4: the HUD, the menu ring, dialogue, the shop and settings (web/menus/)
+  const menus = makeMenus(el("menus"), { act, pixels: () => game.map_pixels(), keys });
 
   function panel(p) {
     const box = make("section", undefined, "panel");
@@ -126,6 +134,7 @@ async function main() {
 
   // Builds the screen from the core's view model.
   function show(u) {
+    const changed = !ui || ui.screen !== u.screen;
     ui = u;
     hints = u.hints;
     document.title = u.title;
@@ -144,11 +153,16 @@ async function main() {
     }
     document.querySelectorAll("#overlay h1, #overlay h2, #overlay td span").forEach(mark);
     if (!u.capture) input.release();
+    menus.show(u);
+    // a screen of buttons opens with its first one focused, for the keyboard
+    const first = el("overlay").querySelector("button");
+    if (changed && first) first.focus({ preventScroll: true });
   }
 
   // Esc, a lost pointer and a hidden tab: the core decides what they mean.
   window.addEventListener("keydown", (e) => {
     if (e.code === "Escape") act("key.escape", "");
+    else menus.key(e);
   });
   let locked = false;
   document.addEventListener("pointerlockchange", () => {
@@ -167,6 +181,12 @@ async function main() {
   });
 
   if (lookSpeed) act("look.speed", lookSpeed);
+  // acts from the address, as `?act=name` or `?act=name:value` (the test
+  // inventory and HUD the screenshots and checks use: test.give_all, …)
+  for (const asked of new URLSearchParams(location.search).getAll("act")) {
+    const [name, value] = asked.split(":");
+    act(name, value || "");
+  }
 
   function resize() {
     const [w, h] = game.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);

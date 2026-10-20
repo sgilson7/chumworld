@@ -139,5 +139,8 @@
   "back": "Back",
   "sample_line_1": "You ran from the village with a short sword and no plan. Good. The running part, anyway.",
   "sample_line_2": "Before you cross blades with the bandits, learn to turn their magic aside. Stand there and watch the pattern.",
-  "_note_m4": "M4 (task U): the menus, the HUD, dialogue, the shop and settings (crates/core/src/ui.rs). sample_line_1 and sample_line_2 are test lines for the dialogue box (act test.dialogue) until M5 writes the story's."
+  "_note_m4": "M4 (task U): the menus, the HUD, dialogue, the shop and settings (crates/core/src/ui.rs). sample_line_1 and sample_line_2 are test lines for the dialogue box (act test.dialogue) until M5 writes the story's.",
+  "price_one": "{n} coin",
+  "refuse_coins_one": "You need {n} more coin for the {item}.",
+  "sold_one": "Sold: {item}, for {n} coin."
 }

@@ -1379,6 +1379,18 @@ pub fn sale_price(i: Item) -> u32 {
     i.def().value * catalogue().merchant.buys_at_pct / 100
 }
 
+/// A string about `n` coins: `<key>_one` when there is one coin.
+fn coins_text(s: &Strings, key: &str, n: u32, more: &[(&str, String)]) -> String {
+    let key = if n == 1 {
+        format!("{key}_one")
+    } else {
+        key.to_string()
+    };
+    let mut v = vec![("n", n.to_string())];
+    v.extend(more.iter().cloned());
+    fill(&s.get(&key), &v)
+}
+
 fn sells(w: &World, i: Item) -> bool {
     let d = i.def();
     (d.sold && d.stack > 1) || w.ui.stock[i as usize] > 0
@@ -1387,13 +1399,21 @@ fn sells(w: &World, i: Item) -> bool {
 fn shop_view(g: &Game) -> ShopView {
     let (s, w) = (&g.strings, &g.world);
     let inv = &w.inventory;
-    let price = |n: u32| fill(&s.get("price"), &[("n", n.to_string())]);
+    let price = |n: u32| coins_text(s, "price", n, &[]);
     let buy = Item::ALL
         .iter()
         .copied()
         .filter(|i| sells(w, *i))
         .map(|i| ShopRow {
-            item: item_view(s, inv, i),
+            // how many are carried, beside what is for sale, once there are any
+            item: ItemView {
+                count: if inv.has(i) {
+                    item_view(s, inv, i).count
+                } else {
+                    String::new()
+                },
+                ..item_view(s, inv, i)
+            },
             price: price(i.def().value),
             action: Action {
                 enabled: inv.coins >= i.def().value && inv.count(i) < i.def().stack,
@@ -1436,8 +1456,7 @@ fn buy(g: &mut Game, id: &str) -> Result<(), String> {
     g.menu.note = Some(if !sells(w, i) {
         fill(&s.get("refuse_not_sold"), &[("item", name)])
     } else if w.inventory.coins < d.value {
-        let short = (d.value - w.inventory.coins).to_string();
-        fill(&s.get("refuse_coins"), &[("n", short), ("item", name)])
+        coins_text(s, "refuse_coins", d.value - w.inventory.coins, &[("item", name)])
     } else if w.inventory.count(i) >= d.stack {
         fill(
             &s.get("refuse_full"),
@@ -1475,10 +1494,7 @@ fn sell(g: &mut Game, id: &str) -> Result<(), String> {
                 .into_iter()
                 .find(|x| w.inventory.has(*x));
         }
-        fill(
-            &s.get("sold"),
-            &[("item", name), ("n", sale_price(i).to_string())],
-        )
+        coins_text(s, "sold", sale_price(i), &[("item", name)])
     });
     Ok(())
 }
@@ -1618,18 +1634,15 @@ pub fn act(g: &mut Game, name: &str, value: &str) -> Result<(), String> {
                 since_cast: 750,
             });
             inventory::give(&mut g.world, Item::Sword, 1);
+            received(&mut g.world, Item::Sword, 1);
         }
         "test.explore" => explore(&mut g.world),
-        "test.dialogue" if screen == Screen::Play => {
-            say(&mut g.world, "trainer", &["sample_line_1", "sample_line_2"]);
-            g.show(Screen::Dialogue);
-        }
-        "test.shop" if screen == Screen::Play => {
+        // these two open on the next tick of play, as M5's would
+        "test.dialogue" => say(&mut g.world, "trainer", &["sample_line_1", "sample_line_2"]),
+        "test.shop" => {
             g.world.inventory.coins = g.world.inventory.coins.max(75);
             open_shop(&mut g.world);
-            g.show(Screen::Shop);
         }
-        "test.dialogue" | "test.shop" => {}
         _ => return Err(format!("Unknown action \"{name}\".")),
     }
     g.ui_version += 1;
@@ -1888,6 +1901,12 @@ mod tests {
         g.act("menu.key", "turn_left").unwrap();
         g.act("menu.key", "map").unwrap();
         assert_eq!(g.menu.face(), MAP_FACE, "M on another screen turns to the map");
+        // Quest (2) to Map (1): one turn left, not three right
+        g.act("menu.key", "close").unwrap();
+        g.menu.turn = 2;
+        frames(&mut g, 1, 0, 0);
+        frames(&mut g, 1, MAP, 0);
+        assert_eq!(g.menu.turn, 1);
     }
 
     #[test]
@@ -2172,6 +2191,7 @@ mod tests {
         g.world.inventory.weapon = None;
         g.act("shop.sell", "rock").unwrap();
         assert_eq!(g.world.inventory.coins, 49, "a rock sells for half of 2");
+        assert_eq!(json(&g)["shop"]["note"], "Sold: Rock, for 1 coin.");
         assert_eq!(g.world.inventory.weapon, Some(Item::ShortSword));
         // the chest key is kept
         inventory::give(&mut g.world, Item::ChestKey, 1);
@@ -2318,10 +2338,12 @@ mod tests {
         }
         g.screen = Screen::Play;
         g.act("test.dialogue", "").unwrap();
+        frames(&mut g, 1, 0, 0);
         views.push(json(&g));
         g.world.ui.dialogue = None;
         g.screen = Screen::Play;
         g.act("test.shop", "").unwrap();
+        frames(&mut g, 1, 0, 0);
         g.act("shop.buy", "hood").unwrap();
         views.push(json(&g));
         g.screen = Screen::Title;
