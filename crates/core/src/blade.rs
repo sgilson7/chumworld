@@ -419,20 +419,14 @@ pub fn step(w: &mut World) {
     let mut caps = arm::all_capsules(w);
     for id in 0..n {
         let near = arm::fences_of(w, id, &caps, true);
+        // with no other body near, the arm's own step has settled it
+        if near.iter().all(|f| f.own) {
+            continue;
+        }
         let a = &mut player::parts_mut(w, id).1.arm;
         a.fences = near;
-        let before = a.pts;
         for _ in 0..SETTLE_PASSES {
             a.relax();
-        }
-        // what moved no point past `arm::REST` was rounding: kept as it was,
-        // so a still fighter draws the same frame tick after tick (CW-18)
-        let rounding = a.pts.iter().zip(before.iter()).all(|(n, o)| {
-            let d = n.p.sub(o.p);
-            d.x.abs() <= arm::REST && d.y.abs() <= arm::REST && d.z.abs() <= arm::REST
-        });
-        if rounding {
-            a.pts = before;
         }
         caps[id] = body(player::fighter(w, id).kind, &player::pose_of(w, id));
     }
@@ -1173,8 +1167,8 @@ mod tests {
     }
 
     /// CW-18 with a foe: a still orc and the player drawn at the guard,
-    /// three seconds on, two ticks leave every arm exactly as it was: the
-    /// final settle's rounding is not let through.
+    /// three seconds on, two ticks leave every arm exactly as it was: with
+    /// no other body near, the final settle does not run.
     #[test]
     fn a_still_duel_holds_every_arm_exactly_still() {
         let mut w = World::new(1);
@@ -1187,9 +1181,11 @@ mod tests {
         for _ in 0..180 {
             w.step(&Default::default());
         }
-        let before = (w.me.arm.pts, w.foes[0].fighter.arm.pts);
+        // where each point is drawn (its place; the last tick's is not drawn)
+        let at = |w: &World| (w.me.arm.pts.map(|p| p.p), w.foes[0].fighter.arm.pts.map(|p| p.p));
+        let before = at(&w);
         w.step(&Default::default());
-        assert_eq!((w.me.arm.pts, w.foes[0].fighter.arm.pts), before);
+        assert_eq!(at(&w), before);
     }
 
     #[test]
