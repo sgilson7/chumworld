@@ -75,7 +75,7 @@ fn probe_what_the_leader_s_pattern_takes() {
         let mut thrown = 0u32;
         while tool_core::orbs::flying(&w, 1) {
             let keys = match how {
-                1 if (k / 50) % 2 == 0 => LEFT,
+                1 if (k / 50).is_multiple_of(2) => LEFT,
                 1 => RIGHT,
                 _ => 0,
             };

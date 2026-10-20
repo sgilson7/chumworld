@@ -134,10 +134,11 @@ pub fn step(w: &mut World, input: &Input) {
 pub const RISE: u32 = 10;
 pub const WARN: u32 = 120;
 pub const BLINK: u32 = 20;
-/// The glow's widths round the blade, and its strengths.
-const CORE_W: Fx = ONE * 22 / 1000;
-const INNER_W: Fx = ONE * 75 / 1000;
-const OUTER_W: Fx = ONE * 17 / 100;
+/// The glow's widths across the blade: a white-hot core, a bright inner
+/// halo and a wide soft one.
+const CORE_W: Fx = ONE * 24 / 1000;
+const INNER_W: Fx = ONE * 9 / 100;
+const OUTER_W: Fx = ONE * 24 / 100;
 /// Sparkles that run up the edge, this many at once, a lap every `LAP`
 /// ticks.
 const MOTES: i32 = 4;
@@ -183,20 +184,18 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
         return;
     }
     let mid = guard.lerp(p.tip, ONE / 2);
-    let along = |width: Fx, extra: Fx| {
+    // a capsule `width` across (the mesh is `prim::CAPSULE_RADIUS` × 2 of
+    // its scale across) running past both ends by half its width
+    let along = |width: Fx| {
+        let across = fx::div(width, crate::prim::CAPSULE_RADIUS * 2);
         Affine::translate(mid)
             .then(&Affine::looking(dir))
             .then(&Affine::rot_x(fx::QUARTER_TURN))
-            .then(&Affine::scale(v3(width, len + extra, width)))
+            .then(&Affine::scale(v3(across, len + width, across)))
     };
-    out.solid(Mesh::Capsule, along(CORE_W, CORE_W), mix(halo, core, b), ONE);
-    out.glow(
-        Mesh::Capsule,
-        along(INNER_W, INNER_W),
-        halo,
-        fx::mul(ONE * 7 / 10, b),
-    );
-    out.glow(Mesh::Capsule, along(OUTER_W, OUTER_W), halo, fx::mul(ONE / 4, b));
+    out.solid(Mesh::Capsule, along(CORE_W), mix(halo, core, b), ONE);
+    out.glow(Mesh::Capsule, along(INNER_W), halo, fx::mul(ONE * 9 / 10, b));
+    out.glow(Mesh::Capsule, along(OUTER_W), halo, fx::mul(ONE * 45 / 100, b));
     // sparkles up the edge, evenly spaced, moving with the tick
     let phase = ((w.tick % LAP as u64) as i32 * ONE + alpha) / LAP;
     for k in 0..MOTES {
@@ -273,6 +272,21 @@ mod tests {
         assert_eq!(w.tick, t + 1200);
         assert_eq!(w.imbue.cast_at, Some(1206));
         assert!(on(&w));
+    }
+
+    /// Q held down from the cast through 1 300 ticks casts once: the press
+    /// counts, not the key being down, so it does not cast again at
+    /// T + 1 200 until it is let go and pressed again.
+    #[test]
+    fn holding_q_down_casts_once() {
+        let mut w = taught(0);
+        for _ in 0..1300 {
+            w.step(&q());
+        }
+        assert_eq!(w.imbue.cast_at, Some(1));
+        w.step(&idle());
+        w.step(&q());
+        assert_eq!(w.imbue.cast_at, Some(1302));
     }
 
     #[test]

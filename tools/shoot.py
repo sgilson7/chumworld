@@ -75,6 +75,23 @@ frames done:
               trees handing over to cones, 128 to 150 m off; grass at 44 to 58 m)
     map       the map menu filled in (?act=test.explore), the terrain shaded
 
+M6's views (magic), each on a page of its own opened with the core's test
+acts on the address (?act=magic.leader, magic.practice, test.imbue) and
+later ones through the exposed `act` (magic.lineup, magic.stage_turn):
+
+    magic-fan       the leader's first fan of spheres in flight, from behind
+                    the player, the view held on the leader (X)
+    magic-ring      its ring of darts hanging round it, about to close
+    magic-wave      its wave of wards with the hole to step into
+    magic-spiral    its spiral of spheres, and the gems after it
+    magic-lineup    one orb of each kind hung 3 m ahead, frozen
+    magic-imbued    Q: the imbued blade glowing, the HUD ring on
+    magic-cooling   the HUD ring cooling, 12 s after the cast
+    magic-turn      a sphere turned off the imbued blade, the ping (three
+                    frames: magic-turn-1 .. 3)
+    magic-practice  the trainer's practice motes (a leader stands in for
+                    the trainer), the first stream and the fan of three
+
 With --measure, M2 also measures three walks at 1920 x 1080: standing in
 the village, running across the plains (Shift + W, turning), and standing on
 the hill turning slowly toward the horizon; for each, the frames a second
@@ -111,6 +128,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 VIEWS = ["loading", "title", "standing", "turn", "run", "paused"]
 DUEL_VIEWS = ["sheathed", "drawn", "swing", "block", "hit", "rock", "orc", "slide"]
+M6_VIEWS = ["magic-fan", "magic-ring", "magic-wave", "magic-spiral", "magic-lineup", "magic-imbued", "magic-cooling", "magic-turn", "magic-practice"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 # M2: view: the place (?go=), and extra address flags
@@ -532,13 +550,84 @@ def duel_views(browser, base, out, views, logs):
         page.close()
 
 
+def m6_page(browser, base, logs, flags):
+    """The game opened with test flags and its `act` exposed, Play pressed,
+    the camera's ease done."""
+    page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+    page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+    page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+    page.route("**/app.js*", expose_act)
+    page.goto(base + "/index.html?pointer=free&" + flags, wait_until="commit")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+    frames(page, 20)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    return page
+
+
+def m6_views(browser, base, out, views, logs):
+    """M6's views (M6_VIEWS)."""
+    shot = lambda page, name: page.screenshot(path=str(out / f"{name}.png"))
+    volley = [v for v in ["magic-fan", "magic-ring", "magic-wave", "magic-spiral"] if v in views]
+    if volley:
+        page = m6_page(browser, base, logs, "act=magic.leader&foe=still")
+        # X: drawn, the view holds on the leader 9 m off
+        page.keyboard.press("KeyX")
+        # the cast's clock started with play: the fan leaves on tick 40,
+        # the ring hangs from 210, the wave leaves on 400, the spiral 590
+        done = 0
+        for name, at in [("magic-fan", 75), ("magic-ring", 245), ("magic-wave", 430), ("magic-spiral", 660)]:
+            if name in views:
+                frames(page, at - done)
+                done = at
+                shot(page, name)
+        page.close()
+    if "magic-lineup" in views:
+        page = m6_page(browser, base, logs, "")
+        frames(page, 50)
+        page.evaluate("() => window.__act('magic.lineup', '')")
+        pitch(page, 40)
+        frames(page, 10)
+        shot(page, "magic-lineup")
+        page.close()
+    if {"magic-imbued", "magic-cooling"} & set(views):
+        page = m6_page(browser, base, logs, "act=test.imbue&duel=leader&foe=still&gap=900")
+        page.keyboard.press("KeyX")
+        frames(page, 70)
+        page.keyboard.press("KeyQ")
+        frames(page, 25)
+        if "magic-imbued" in views:
+            shot(page, "magic-imbued")
+        frames(page, 700)
+        if "magic-cooling" in views:
+            shot(page, "magic-cooling")
+        page.close()
+    if "magic-turn" in views:
+        page = m6_page(browser, base, logs, "duel=leader&foe=still&gap=900")
+        page.keyboard.press("KeyX")
+        frames(page, 70)
+        page.evaluate("() => window.__act('magic.stage_turn', '')")
+        for k, n in enumerate([3, 3, 4]):
+            frames(page, n)
+            shot(page, f"magic-turn-{k + 1}")
+        page.close()
+    if "magic-practice" in views:
+        page = m6_page(browser, base, logs, "act=magic.practice&foe=still")
+        page.keyboard.press("KeyX")
+        frames(page, 130)
+        shot(page, "magic-practice")
+        frames(page, 420)
+        shot(page, "magic-practice-fan")
+        page.close()
+
+
 def main(argv):
     if not argv or argv[0].startswith("--"):
         sys.exit(__doc__)
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
     views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + M4_VIEWS + list(M2_VIEWS)
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS]
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M6_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -625,12 +714,14 @@ def main(argv):
         duel_views(browser, base, out, views, logs)
         if any(v in M4_VIEWS for v in views):
             m4_views(browser, base, out, views, logs)
+        if any(v in M6_VIEWS for v in views):
+            m6_views(browser, base, out, views, logs)
         if any(v in M2_VIEWS for v in views) or measure:
             m2_views(browser, base, out, views, logs, numbers, measure)
         browser.close()
     server.shutdown()
     for name in views:
-        for file in (f"{name}.png", f"m2_{name}.png"):
+        for file in (f"{name}.png", f"m2_{name}.png", f"{name}-1.png", f"{name}-fan.png"):
             if (out / file).exists():
                 print(f"saved {out / file}")
     if measure:

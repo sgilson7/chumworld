@@ -91,14 +91,13 @@ fn the_orbs_file_is_refused_when_two_kinds_share_a_shape() {
 // ---- turning, by hand ------------------------------------------------------
 
 /// An edge swept along +x meets an orb flying +z square: d · t = 0, so
-/// 2 (d · t) t − d = −d, straight back along −z. The blade pointing up or
-/// pointing at the caster makes no difference.
+/// 2 (d · t) t − d = −d, straight back along −z, whichever way the blade
+/// points (the rule reads the sweep alone).
 #[test]
 fn an_orb_met_square_by_a_sweep_goes_straight_back() {
-    for axis in [v3(0, ONE, 0), v3(0, 0, -ONE), v3(0, 46_341, -46_341)] {
-        let d = turned_way(v3(0, 0, ONE), axis, v3(ONE / 10, 0, 0), v3(0, 0, -ONE / 10));
-        assert_eq!(d, v3(0, 0, -ONE), "edge along {axis:?}");
-    }
+    assert_eq!(turned_way(v3(0, 0, ONE), v3(ONE / 10, 0, 0)), v3(0, 0, -ONE));
+    // swept up the other way, the same
+    assert_eq!(turned_way(v3(0, 0, ONE), v3(0, -ONE / 10, 0)), v3(0, 0, -ONE));
 }
 
 /// An edge swept along t = (1, 0, 1)/√2, an orb flying d = (0, 0, 1):
@@ -106,23 +105,24 @@ fn an_orb_met_square_by_a_sweep_goes_straight_back() {
 /// turned a quarter turn, off along the swing.
 #[test]
 fn an_orb_met_by_a_slanting_sweep_turns_by_twice_the_slant() {
-    let d = turned_way(v3(0, 0, ONE), v3(0, ONE, 0), v3(ONE / 10, 0, ONE / 10), V3::ZERO);
+    let d = turned_way(v3(0, 0, ONE), v3(ONE / 10, 0, ONE / 10));
     assert!(near(d, v3(ONE, 0, 0), R), "{d:?}");
     // swept down and across, t = (1, −1, 0)/√2, d = (0, 0, 1): d · t = 0,
     // straight back again
-    let d = turned_way(v3(0, 0, ONE), v3(0, ONE, 0), v3(ONE / 10, -ONE / 10, 0), V3::ZERO);
+    let d = turned_way(v3(0, 0, ONE), v3(ONE / 10, -ONE / 10, 0));
     assert!(near(d, v3(0, 0, -ONE), R), "{d:?}");
+    // an orb flying d = (0.6, 0, 0.8) met by a sweep along +x: d · t = 0.6,
+    // 2 (0.6)(1, 0, 0) − d = (0.6, 0, −0.8): its swing-wise part kept
+    let d = turned_way(v3(39_322, 0, 52_429), v3(ONE / 10, 0, 0));
+    assert!(near(d, v3(39_322, 0, -52_429), R), "{d:?}");
 }
 
-/// A still edge turns an orb off its flat, facing the orb: from the edge to
-/// the orb (0.1, 0.3, 0.2) less its part along the edge (the y) is
-/// (1, 0, 2)/√5. An orb flying +z: d · n = 2/√5, d − (4/5)(1, 0, 2) =
-/// (−0.8, 0, −0.6).
+/// An edge moving under 0.3 m/s (a guard held still) blocks: the orb goes
+/// back the way it came, (0.6, 0, 0.8) to (−0.6, 0, −0.8).
 #[test]
-fn a_still_edge_turns_an_orb_off_its_flat() {
-    let off = v3(ONE / 10, ONE * 3 / 10, ONE * 2 / 10);
-    let d = turned_way(v3(0, 0, ONE), v3(0, ONE, 0), v3(ONE / 1000, 0, 0), off);
-    assert!(near(d, v3(-52_429, 0, -39_322), R * 2), "{d:?}");
+fn a_still_edge_sends_an_orb_straight_back() {
+    let d = turned_way(v3(39_322, 0, 52_429), v3(ONE / 1000, 0, 0));
+    assert_eq!(d, v3(-39_322, 0, -52_429));
 }
 
 // ---- turning in the world --------------------------------------------------
@@ -161,6 +161,17 @@ fn an_imbued_edge_turns_an_orb_back_once_and_counts_it() {
     let o = w.orbs.flying[0];
     assert_eq!(o.dir, v3(0, 0, -ONE), "turned once only");
     assert_eq!(deflected(&w, 0), 1);
+    // a second orb from the same caster, turned: two
+    w.orbs.flying.push(orb(
+        "sphere",
+        0,
+        at.sub(v3(0, 0, ONE * 3 / 10)),
+        v3(0, 0, ONE),
+        ONE / 5,
+        1,
+    ));
+    advance(&mut w, Some(edge));
+    assert_eq!(deflected(&w, 0), 2);
 }
 
 /// Three orbs side by side, 60 cm apart: the edge meets the middle one
@@ -249,7 +260,9 @@ fn the_blade_turns_orbs_only_while_imbued() {
 }
 
 /// A turned orb flown at a still leader's chest lands on it for the
-/// sphere's 6 off its health. Not turned, the same orb passes it by.
+/// sphere's 6 off its health. Not turned, the same orb passes it by. (It
+/// starts 2 m behind the leader, flying toward the player, so it is never
+/// `PAST` the player and spent before it reaches the leader.)
 #[test]
 fn a_turned_orb_hits_its_caster() {
     let hit = |turned: bool| {
@@ -260,7 +273,7 @@ fn a_turned_orb_hits_its_caster() {
             w.step(&Input::default());
         }
         let chest = w.foes[0].fighter.pose.chest;
-        let from = chest.add(v3(0, 0, int(2)));
+        let from = chest.add(chest.sub(w.me.pose.chest).norm().scale(int(2)));
         let mut o = orb("sphere", 1, from, chest.sub(from).norm(), ONE / 5, 0);
         if turned {
             o.turned = Some(0);
@@ -361,7 +374,7 @@ fn a_turned_orb_near_its_caster_s_line_flies_at_it() {
     }
     let chest = w.foes[0].fighter.pose.chest;
     // an orb 6 m off the leader, flying away from it, met square by an
-    // edge sweeping across: mirrored straight back, then on the chest
+    // edge sweeping across: turned straight back, then on the chest
     let start = chest.add(v3(int(1), int(1), int(6)));
     let away = start.sub(chest).norm();
     let across = away.cross(V3::UP).norm();

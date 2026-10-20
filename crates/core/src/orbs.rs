@@ -12,7 +12,7 @@
 //!   its edge, swept from where it began the tick to where it ended it as
 //!   M1's blades are (`blade::sweep`), turns each orb it touches, one at a
 //!   time: the orb is reflected about the edge's direction of travel
-//!   (`turned_way`; a still edge is a mirror), and an orb turned to within
+//!   (`turned_way`; a still edge sends it straight back), and an orb turned to within
 //!   45° of its caster flies straight at it (`ASSIST_COS`). A turned orb never turns
 //!   again, takes the turned colour, flies faster, and hits what it meets
 //!   on the foes' side, its caster most of all. An edge that is not
@@ -289,7 +289,7 @@ pub const BODY_PCT: i32 = 90;
 /// An edge moving under this a tick (0.3 m/s) is still: it turns an orb
 /// off its flat, not off its sweep.
 pub const STILL: Fx = ONE / 200;
-/// A turned orb mirrored to within this angle of its caster's chest flies
+/// A turned orb sent to within this angle of its caster's chest flies
 /// straight at it (the cosine of 45°: 0.707 11).
 pub const ASSIST_COS: Fx = 46_341;
 /// A turned orb flies at 140% of its speed, and at least 9 m/s.
@@ -528,30 +528,19 @@ pub fn turn_y(d: V3, a: i32) -> V3 {
 
 // ---- turning ----------------------------------------------------------------
 
-/// The way an orb flying along `d` leaves an edge along `axis` that met it
-/// moving `travel` this tick: `d` reflected about the edge's direction of
-/// travel `t` (turned half a turn round it), 2 (d · t) t − d. What it
-/// carried along the swing it keeps; the rest turns back, so a swing across
-/// its line sends it back the way it came, whichever way the blade points.
-/// An edge moving under `STILL` is a mirror instead: `d` mirrored in the
-/// flat along the edge that faces the orb (`off`, from the edge to the
-/// orb, less its part along the edge). Unit.
-pub fn turned_way(d: V3, axis: V3, travel: V3, off: V3) -> V3 {
-    if travel.len() >= STILL {
-        let t = travel.norm();
-        return t.scale(2 * d.dot(t)).sub(d).norm();
-    }
-    let flat = off.sub(axis.scale(off.dot(axis))).norm();
-    if flat == V3::ZERO {
+/// The way an orb flying along `d` leaves an edge that met it moving
+/// `travel` this tick: `d` reflected about the edge's direction of travel
+/// `t` (turned half a turn round it), 2 (d · t) t − d. What it carried
+/// along the swing it keeps; the rest turns back, so a swing across its
+/// line sends it back the way it came, whichever way the blade points. An
+/// edge moving under `STILL` is a block: the orb goes back the way it
+/// came, −d. Unit.
+pub fn turned_way(d: V3, travel: V3) -> V3 {
+    if travel.len() < STILL {
         return d.neg();
     }
-    mirror(d, flat)
-}
-
-/// `d` mirrored in the face with normal `n` (either side): d − 2 (d · n) n.
-pub fn mirror(d: V3, n: V3) -> V3 {
-    let k = d.dot(n);
-    d.sub(n.scale(2 * k)).norm()
+    let t = travel.norm();
+    t.scale(2 * d.dot(t)).sub(d).norm()
 }
 
 /// The edge of the player's blade swept over this tick, guard to tip, when
@@ -589,9 +578,8 @@ fn turn(w: &mut World, o: &mut Orb, e: &Swept, c: &blade::Contact) {
     let at = c.on_a;
     let start = e.a0.lerp(e.b0, c.f);
     let end = e.a1.lerp(e.b1, c.f);
-    let axis = e.b1.sub(e.a1).norm();
     let came = o.dir;
-    let mut dir = turned_way(came, axis, end.sub(start), at.sub(c.on_b));
+    let mut dir = turned_way(came, end.sub(start));
     if (o.caster as usize) < player::count(w) && o.caster != 0 {
         let home = player::fighter(w, o.caster as usize).pose.chest.sub(at).norm();
         if dir.dot(home) >= ASSIST_COS {
@@ -829,7 +817,7 @@ pub fn advance(w: &mut World, edge: Option<Swept>) {
 /// many times its radius, and its body glows this much (`ONE` unlit).
 const SPIN: i32 = fx::TURN / 90;
 const HALO_X: i32 = 26;
-const BODY_GLOW: Fx = ONE * 55 / 100;
+const BODY_GLOW: Fx = ONE * 30 / 100;
 const HALO: Fx = ONE * 45 / 100;
 /// A turned orb takes the turned colour over this many ticks, its halo
 /// flaring for the first `FLARE`.
@@ -974,7 +962,10 @@ fn spark_shapes(sp: &Spark, alpha: Fx, turned_halo: Rgb, out: &mut Shapes) {
 /// when there is none), for tests, screenshots and the browser check;
 /// `freeze` holds every orb still (`on`, `off`, or a whole number of ticks:
 /// once the newest cast has run that long); `clear` takes every orb, cast
-/// and spark away.
+/// and spark away. For views: `lineup` hangs one orb of each kind in a row
+/// 2 m before the player, frozen; `lend` lends the imbue for that many
+/// ticks (`imbue::lend`); `stage_turn` sends one sphere from the first foe
+/// at the drawn blade, 45 cm off it, and lends the imbue if it is not on.
 pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
     match name {
         "leader" | "practice" => {
@@ -1016,8 +1007,80 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             w.orbs = State::default();
             Ok(())
         }
+        "lineup" => {
+            lineup(w);
+            Ok(())
+        }
+        "lend" => {
+            let n: u32 = value
+                .trim()
+                .parse()
+                .map_err(|_| format!("A lend is a whole number of ticks, not \"{value}\"."))?;
+            crate::imbue::lend(w, n);
+            Ok(())
+        }
+        "stage_turn" => {
+            if !w.me.arm.in_hand {
+                return Err("Draw the sword first: a turn is staged at the drawn blade.".into());
+            }
+            let caster = (1..player::count(w)).find(|&id| !player::fighter(w, id).health.down());
+            let e = edge(&w.me.arm);
+            let mid = e.a1.lerp(e.b1, ONE * 6 / 10);
+            let from = caster.map_or(mid.add(facing(w.aim.yaw, 0).scale(fx::int(9))), |id| hands(w, id));
+            let dir = mid.sub(from).norm();
+            let mut o = fire(
+                &spec().patterns.leader[0],
+                from,
+                mid,
+                1,
+                caster.unwrap_or(0) as u8,
+                &mut w.orbs.next,
+            )
+            .swap_remove(2);
+            o.pos = mid.sub(dir.scale(ONE * 45 / 100));
+            o.prev = o.pos;
+            o.from = from;
+            o.dir = dir;
+            w.orbs.flying.push(o);
+            if !crate::imbue::on(w) {
+                crate::imbue::lend(w, crate::imbue::lasts());
+            }
+            Ok(())
+        }
         _ => Err(format!("Unknown action \"magic.{name}\".")),
     }
+}
+
+/// One orb of each kind hung in a row 2 m before the player and 60 cm over
+/// its chest, 55 cm apart, each tumbled a little differently, and the orbs
+/// frozen: the lineup for a close view.
+fn lineup(w: &mut World) {
+    w.orbs = State::default();
+    let ahead = facing(w.aim.yaw, 0);
+    let across = right_of(w.aim.yaw);
+    let centre = target(w).add(ahead.scale(fx::int(2))).add(v3(0, ONE * 6 / 10, 0));
+    let n = spec().kinds.len() as i32;
+    for k in 0..n {
+        let at = centre.add(across.scale(ONE * 55 / 100 * (2 * k - (n - 1)) / 2));
+        w.orbs.flying.push(Orb {
+            id: k as u32,
+            kind: k as u8,
+            caster: 0,
+            pos: at,
+            prev: at,
+            dir: ahead.neg(),
+            speed: 0,
+            curl: 0,
+            hold: 0,
+            held: 0,
+            launch: Launch::Along,
+            age: 12 + 7 * k as u16,
+            from: at,
+            turned: None,
+        });
+    }
+    w.orbs.next = n as u32;
+    w.orbs.frozen = true;
 }
 
 #[cfg(test)]
