@@ -86,6 +86,9 @@ pub struct Ui {
     /// go of it when this is false, and takes it again on a click when true
     pub capture: bool,
     pub version: u32,
+    /// M4: the HUD, the menu ring, dialogue, the shop and settings (`ui.rs`)
+    #[serde(flatten)]
+    pub menus: crate::ui::Views,
 }
 
 fn controls(g: &Game) -> (String, Vec<Row>) {
@@ -147,8 +150,11 @@ pub fn ui(g: &Game) -> Ui {
             actions: vec![button(g, "screen.show", "play", "resume", true)],
         }),
         Screen::Play => {}
+        // M4: drawn from `ui::views` below
+        Screen::Menu | Screen::Settings | Screen::Dialogue | Screen::Shop => {}
     }
-    // M4: crate::ui::panels(g, &mut panels);
+    // M4: the settings button and the menu's keys on the title and pause
+    crate::ui::panels(g, &mut panels);
     let mut hud = vec![HudItem {
         id: "hint".into(),
         text: s.get("hint_pause"),
@@ -172,6 +178,7 @@ pub fn ui(g: &Game) -> Ui {
         no_webgl: s.get("no_webgl"),
         capture: g.screen == Screen::Play,
         version: g.ui_version,
+        menus: crate::ui::views(g),
     }
 }
 
@@ -218,6 +225,11 @@ pub fn meshes(g: &Game) -> String {
         })
         .collect();
     serde_json::Value::Array(list).to_string()
+}
+
+/// M4: the map menu's image, RGBA, `ui::MAP_PX` a side.
+pub fn map_pixels(g: &Game) -> Vec<u8> {
+    crate::ui::map_pixels(g)
 }
 
 /// One mesh's vertex values by number; none for a number past the end.

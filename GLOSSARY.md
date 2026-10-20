@@ -14,6 +14,63 @@ Where slush comes out. Each line has up to {line.spouts} spouts.
 Not: tap, dispenser, nozzle
 -->
 
+### Bandage
+
+Wraps a wound and gives back {bandage.heals} health. The merchant sells them.
+
+### Boomerang
+
+A weapon thrown from the free hand. It flies an arc up to {boomerang.reach} metres out and comes back. It lies in the chest at the bandit camp.
+
+### Chest key
+
+The key the bandit leader drops once the camp is cleared. It opens the chest at the camp.
+
+### Coins
+
+What the merchant takes and pays. Bandits carry them.
+
+Not: gold, rupees, money
+
+### Cooldown
+
+The wait after the imbue is cast before it can be cast again: {imbue.cooldown} seconds, counted from the cast.
+
+Not: recharge
+
+### Equipment
+
+The menu screen of what you wear and hold: the sword in your sword hand and the speedster's armour in its slots. Enter wears or holds the item chosen.
+
+Not: gear screen
+
+### Footing
+
+How well your feet hold the ground. Each speedster piece worn keeps {speedster.grip_pct}% of the grip before it, so footing gets icier.
+
+Not: traction, friction
+
+### Free hand
+
+The hand without the sword. It throws what a quick item readies.
+
+Not: off hand
+
+### Health
+
+How much harm a body can take. A blade takes more the faster it moves when it hits.
+
+Not: HP, hit points
+
+### Imbue
+
+An ability, not magic: Q imbues the sword for {imbue.seconds} seconds so it can deflect magic. The trainer teaches it.
+
+Not: spell, buff
+
+### Invert Y
+
+A setting: moving the mouse down looks up, and moving it up looks down.
 ### Lineup
 
 Every character and prop stood in rows in front of the player, for looking at the models. It changes nothing in play and is off until asked for.
@@ -26,13 +83,131 @@ Turning the view with the mouse. The camera stays over the player's right should
 
 Not: free look, free camera
 
+### Look speed
+
+A setting: how far the view turns for a movement of the mouse, as a percentage.
+
+### Map
+
+The menu screen with the parchment map. It fills in where you have walked. M opens it.
+
+Not: minimap
+
+### Menu
+
+The ring of four screens that Tab opens: Select Item, Map, Quest and Equipment. The world stops while it is open, and Q and E turn it.
+
+Not: inventory
+
+### Mouse sensitivity
+
+A setting: how far the sword hand moves for a movement of the mouse, as a percentage.
+
 ### Pause
 
 Stopping the world until you choose Resume. Esc, leaving the tab or letting go of the pointer pauses the game.
 
+### Quest
+
+The menu screen for the imbue, your coins and what to do next.
+
+Not: journal
+
+### Quick item
+
+An item put on a number key from Select Item. Pressing the key readies it in the free hand.
+
+Not: hotbar
+
+### Rock
+
+A throwable from the ground. One that lands on the merchant's cart stops the cart.
+
+Not: stone
+
 ### Run
 
 Moving at {run.speed} metres a second while Shift is held with a movement key.
+
+### Select Item
+
+The menu screen of what you carry for the free hand. Choose an item and press a number key to put it on that key.
+
+Not: inventory, bag
+
+### Settings
+
+Look speed, mouse sensitivity, invert Y and volume. They last until you close the page.
+
+Not: options
+
+### Shop
+
+The merchant's cart, once stopped. The merchant sells at an item's value and buys at {merchant.buys_pct}% of it.
+
+Not: store
+
+### Short sword
+
+The sword you start with: {short_sword.blade} cm of blade and no bonus.
+
+### Speedster's armour
+
+Armour in {speedster.pieces} pieces, one for each slot, each found its own way. Each piece worn adds {speedster.speed_pct}% speed and makes footing icier.
+
+Not: set bonus
+
+### Speedster's boots
+
+The speedster's armour for the feet. They wait at the river shrine.
+
+Not: shoes
+
+### Speedster's gloves
+
+The speedster's armour for the hands. The bandit lookout wears them.
+
+Not: gauntlets
+
+### Speedster's hood
+
+The speedster's armour for the head. The merchant sells it.
+
+Not: helmet, hat
+
+### Speedster's jacket
+
+The speedster's armour for the body. It hangs on a scarecrow.
+
+Not: coat, chestplate
+
+### Speedster's trousers
+
+The speedster's armour for the legs. They are hidden in a hollow tree.
+
+Not: pants, leggings
+
+### Sword
+
+The normal sword, {sword.blade} cm of blade. Its weight lets a hard blade-on-blade hit knock a foe's weapon loose. It is won from the bandit leader.
+
+Not: longsword
+
+### Sword hand
+
+The hand that holds the sword. The other is the free hand.
+
+Not: main hand
+
+### Throwing knife
+
+A small blade thrown from the free hand.
+
+Not: dagger
+
+### Volume
+
+A setting: how loud the game plays, as a percentage. No sound plays yet.
 
 ### Walk
 

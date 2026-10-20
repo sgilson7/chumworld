@@ -94,6 +94,11 @@ impl Game {
         floats(api::mesh(&self.inner, id))
     }
 
+    /// M4: the map menu's image, RGBA bytes, row by row.
+    pub fn map_pixels(&self) -> Vec<u8> {
+        api::map_pixels(&self.inner)
+    }
+
     /// The view model, as JSON.
     pub fn ui(&self) -> String {
         api::ok(&api::ui(&self.inner))
