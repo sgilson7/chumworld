@@ -26,8 +26,8 @@
       "flat_m": [90, 150],
       "_flat_m": "the plateau: level within the first radius, back to the land by the second",
       "props": [
-        { "prop": "house", "at": [-34, 6], "yaw_deg": 90, "_": "the player's house, door to the green" },
-        { "prop": "bed", "at": [-35, 8], "yaw_deg": 90, "inside": true },
+        { "prop": "house", "at": [-34, 6], "yaw_deg": 90, "moving": true, "_": "the player's house; its door faces west, onto the meadow (M5 draws it, cut away while the player is in it)" },
+        { "prop": "bed", "at": [-35, 8], "yaw_deg": 90, "inside": true, "moving": true },
         { "prop": "house", "at": [-46, -10], "yaw_deg": 70 },
         { "prop": "house", "at": [-44, 32], "yaw_deg": 125 },
         { "prop": "house", "at": [-8, 46], "yaw_deg": 180 },
@@ -60,7 +60,7 @@
         { "prop": "tent", "at": [7, -8], "yaw_deg": 30 },
         { "prop": "tent", "at": [-3, 9], "yaw_deg": 180 },
         { "prop": "campfire", "at": [0, 0], "yaw_deg": 0 },
-        { "prop": "chest", "at": [11, 5], "yaw_deg": 240 }
+        { "prop": "chest", "at": [11, 5], "yaw_deg": 240, "moving": true }
       ]
     },
     {

@@ -1,0 +1,50 @@
+{
+  "_note": "Where the story's people and things start (M5, crates/core/src/story.rs, merchant.rs, camp.rs, trainer.rs). Metres east and south of a place's centre in data/places.json (x east, z south, as there), pickups in centimetres (at_cm); 'bed' means the bed's own frame, metres to its right and toward its foot. Each route is walked in order and round again. These are the agent's first placements, read off the village's layout so no route runs through a building; tune by play.",
+  "raid": {
+    "_note": "The orcs in the village when you wake: each walks its own round, pausing at each point, until it sees you. They came from the south edge: a fallen orc is followed by another from the entry point farthest from you.",
+    "orcs": [
+      { "route": [[-12, 22], [-2, 32], [-18, 34]] },
+      { "route": [[14, 8], [20, -12], [34, 2]] },
+      { "route": [[4, 60], [16, 72], [-10, 76]] },
+      { "route": [[48, 36], [66, 36], [60, 50]] },
+      { "route": [[28, -38], [18, -52], [36, -58]] },
+      { "route": [[-30, 84], [-52, 70], [-46, 92]] }
+    ],
+    "comes_from": [[-20, 200], [60, 190], [150, 120]]
+  },
+  "villagers": [
+    { "at": [-20, -5], "look": 0, "flee": [[-60, -40], [-150, -120], [-215, -180]] },
+    { "at": [10, 15], "look": 1, "flee": [[40, -10], [130, -90], [200, -150]] },
+    { "at": [20, -20], "look": 2, "flee": [[6, -90], [2, -230]] },
+    { "at": [-15, 10], "look": 3, "flee": [[-70, 18], [-200, 40], [-240, 50]] }
+  ],
+  "pickups": [
+    { "item": "bandage", "place": "bed", "at_cm": [100, 40] },
+    { "coins": 12, "place": "village", "at_cm": [960, -560] },
+    { "item": "rock", "count": 3, "place": "village", "at_cm": [-7200, 200] },
+    { "item": "rock", "count": 3, "place": "crossroads", "at_cm": [700, 900] },
+    { "item": "rock", "count": 3, "place": "bridge", "at_cm": [2100, 700] },
+    { "item": "jacket", "place": "scarecrow", "at_cm": [0, -150] },
+    { "item": "trousers", "place": "hollow_tree", "at_cm": [50, -160] },
+    { "item": "boots", "place": "shrine", "at_cm": [0, 240] }
+  ],
+  "merchant": {
+    "_note": "The cart's beat along the road (places.json's road, west to east): it turns at these two distances east (x, metres), and starts at the third, heading west.",
+    "west_x": 470,
+    "east_x": 2040,
+    "start_x": 2000
+  },
+  "camp": {
+    "_note": "Round the camp's centre: the lookout on the trail where it enters the clearing, three bandits at the fire, the leader by the chest.",
+    "lookout": [-14, 18],
+    "bandits": [[-3, -3], [4, 2], [-5, 4]],
+    "leader": [7, 2],
+    "bandit_coins": 12,
+    "leader_coins": 24,
+    "bandit_knives": 2
+  },
+  "trainer": {
+    "_note": "Beside the hut's signpost, on the trail's end, facing it.",
+    "at": [5, 7]
+  }
+}

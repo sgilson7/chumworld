@@ -99,13 +99,20 @@ pub struct World {
     pub land: std::rc::Rc<crate::terrain::Land>,
     pub water: crate::water::State,
     pub arrival: Option<crate::places::Arrival>,
-    // M5: pub story: story::State, pub merchant: merchant::State, …
+    // M5: the walls and floors bodies meet (worked out once from the land),
+    // the opening, the merchant, the camp, the trainer, the boomerang
+    pub solid: std::rc::Rc<crate::solid::Map>,
+    pub story: crate::story::State,
+    pub merchant: crate::merchant::State,
+    pub camp: crate::camp::State,
+    pub trainer: crate::trainer::State,
+    pub boomerang: crate::boomerang::State,
     // M6: pub orbs: orbs::State, pub imbue: imbue::State
 }
 
 impl World {
     pub fn new(seed: u64) -> World {
-        World {
+        let mut w = World {
             tick: 0,
             rng: Rng::new(seed),
             aim: Aim::new(START_YAW),
@@ -133,7 +140,15 @@ impl World {
             land: crate::terrain::shipped(),
             water: crate::water::State::new(),
             arrival: None,
-        }
+            solid: std::rc::Rc::default(), // M5: below
+            story: crate::story::State::default(),
+            merchant: crate::merchant::State::default(),
+            camp: crate::camp::State::default(),
+            trainer: crate::trainer::State::default(),
+            boomerang: crate::boomerang::State::default(),
+        };
+        w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
+        w
     }
 
     /// The ground's height at (x, z): M2's terrain, the triangles of its
@@ -144,6 +159,13 @@ impl World {
 
     /// One tick, in the order the module doc gives.
     pub fn step(&mut self, input: &Input) {
+        // M5: a dream gone dark wakes as the opening instead of a tick; in
+        // bed or down, the keys do nothing (the mouse still looks)
+        if crate::story::waking(self) {
+            crate::story::wake(self);
+            return;
+        }
+        let input = &crate::story::filter(self, input);
         self.tick += 1;
         // 1. the aim (M1: drawn, the mouse moves the hand instead, and the
         // view holds on the foe)
@@ -154,18 +176,22 @@ impl World {
         crate::inventory::step(self, input);
         // 2. M1:
         let inputs = crate::pilot::step(self);
-        // 3. bodies (M1: motion)
+        let inputs = crate::story::steer(self, inputs); // M5: foes walking, running, sheathing
+                                                        // 3. bodies (M1: motion)
         crate::motion::step(self, input, &inputs);
-        // 4. M1:
+        crate::solid::step(self); // M5: walls, the bridge's deck, the house's floor
+                                  // 4. M1:
         crate::arm::step(self, input, &inputs);
         crate::blade::step(self);
         crate::health::step(self);
         // 5. M1/M5: throwables, crate::boomerang::step(self, input);
         crate::throwables::step(self, input, &inputs);
+        crate::boomerang::step(self, input); // M5:
         crate::player::finish(self, input, &inputs);
         crate::pilot::remember(self);
         // 6. M6: crate::orbs::step(self); crate::imbue::step(self, input);
-        // 7. M5: crate::story::step(self); crate::merchant::step(self); …
+        // 7. M5: the opening, E and the pickups, the merchant, the camp, the trainer
+        crate::story::step(self, input);
         // 8. M2: the water
         crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
@@ -177,6 +203,10 @@ impl World {
         // M1: every fighter and everything thrown
         crate::player::draw(self, alpha, look, out);
         crate::throwables::draw(self, alpha, look, out);
+        // M5: the player's house and bed, villagers, pickups, the cart, the
+        // chest, the boomerang
+        crate::story::draw(self, alpha, look, out);
+        crate::boomerang::draw(self, alpha, look, out);
         crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
     }
 
@@ -192,9 +222,11 @@ impl World {
     }
 
     /// Lines over the game.
-    pub fn hud(&self, _strings: &Strings, _out: &mut Vec<HudItem>) {
+    pub fn hud(&self, strings: &Strings, out: &mut Vec<HudItem>) {
         // M4: crate::ui::hud(self, strings, out); M6: the imbue's cooldown
         // (M1's health reaches the HUD through `ui::health` and `ui::foe`)
+        // M5: the story's line, the prompt for E, the fade
+        crate::story::hud(self, strings, out);
     }
 
     /// A setting or flag named `module.name`.
@@ -203,10 +235,17 @@ impl World {
             Some(("inventory", rest)) => crate::inventory::act(self, rest, value), // M4:
             Some(("models", rest)) => crate::models::act(self, rest, value),       // M3:
             // M1:
-            Some(("duel", rest)) => crate::player::act(self, rest, value),
+            // M5: a test duel steps the story aside first (`story::step_aside`)
+            Some(("duel", rest)) => {
+                crate::story::step_aside(self);
+                crate::player::act(self, rest, value)
+            }
             Some(("motion", rest)) => crate::motion::act(self, rest, value),
             // M2
             Some(("places", rest)) => crate::places::act(self, rest, value),
+            // M5
+            Some(("story", rest)) => crate::story::act(self, rest, value),
+            Some(("trainer", rest)) => crate::trainer::act(self, rest, value),
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

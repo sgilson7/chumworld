@@ -1,7 +1,356 @@
-//! `trainer`: owned by M5 Places and story (task S) in PLAN.md. Empty until then.
+//! `trainer` (M5 Places and story, task S): the trainer in the hut on the
+//! hill west of the river, and the practice that teaches the imbue (T2).
 //!
-//! The trainer in the hut west of the river, and the practice round that
-//! teaches the imbue (T2, CW-9). Steps at 7 in `World::step`.
+//! The person: "you don't start with deflect, you have to learn it from a
+//! trainer, who makes you practice it with them". The practice, step by
+//! step:
 //!
-//! How a module joins the world (state, step, draw, scene, screen, act):
-//! the extension contract in `world.rs`.
+//! 1. E by the trainer: three lines (who they are, what the imbue does,
+//!    "draw your sword"). From here the trainer lends the imbue: the blade
+//!    is imbued while the practice lasts (`lending`, which M6's `imbue::on`
+//!    reads), though Q is not yet the player's.
+//! 2. The player draws (X). The trainer casts the practice pattern
+//!    (`orbs::cast(…, Pattern::Practice)`, M6's door).
+//! 3. Each orb the player's blade turns counts (`orbs::deflected`). When a
+//!    volley is spent short of `TO_PASS` turned, the trainer says so and,
+//!    after `BETWEEN_TICKS`, casts again; the count carries over.
+//! 4. At `TO_PASS` turned in all, the practice is passed: `imbue::learn` is
+//!    called, once, the trainer says the imbue is the player's now, and a
+//!    line over the game says Q imbues the sword.
+//!
+//! The trainer is a fighter (so M6's orbs fly from them) on the player's
+//! side: no one holds on them, and they hold on no one.
+
+use crate::fx::{self, Fx, ONE};
+use crate::geom::yaw_of;
+use crate::input::Input;
+use crate::orbs::{self, Pattern};
+use crate::pilot::Control;
+use crate::player::{self, Sheath};
+use crate::pose::Kind;
+use crate::story;
+use crate::world::World;
+
+/// Orbs turned to pass the practice.
+pub const TO_PASS: u32 = 5;
+/// The trainer stands once the player is this near the hut.
+pub const SPAWN_AT: Fx = fx::int(260);
+/// E talks to the trainer from this near.
+pub const TALK_FROM: Fx = ONE * 25 / 10;
+/// A volley is over when no orb of it flies, or after this long at most
+/// (15 s).
+pub const VOLLEY_MOST: u32 = 900;
+/// A volley is never over before this (the orbs leave the trainer's hand).
+pub const VOLLEY_LEAST: u32 = 60;
+/// The pause before the trainer casts again (2 s).
+pub const BETWEEN_TICKS: u32 = 120;
+/// Walk this far from the trainer and the practice waits for you to come
+/// back and talk again.
+pub const AWAY: Fx = fx::int(30);
+
+/// Where the practice stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stage {
+    /// not yet talked to
+    Waiting,
+    /// talked to: the imbue is lent; waiting for the sword to be drawn
+    Ready,
+    /// a volley in the air, ticks since the cast
+    Volley(u32),
+    /// a volley spent short of the count, ticks since
+    Between(u32),
+    /// passed: the imbue is the player's
+    Done,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct State {
+    pub foe: Option<usize>,
+    pub stage: Stage,
+    /// orbs turned in volleys already spent
+    pub turned: u32,
+    pub volleys: u32,
+    /// how many times `imbue::learn` has been called (once)
+    pub taught: u32,
+    /// test-only: orbs counted as turned without M6's orbs (`trainer.credit`)
+    pub credited: u32,
+}
+
+impl Default for State {
+    fn default() -> State {
+        State {
+            foe: None,
+            stage: Stage::Waiting,
+            turned: 0,
+            volleys: 0,
+            taught: 0,
+            credited: 0,
+        }
+    }
+}
+
+/// The trainer's fighter id, if they stand.
+pub fn id(w: &World) -> Option<usize> {
+    w.trainer.foe.map(|k| k + 1).filter(|&id| id < player::count(w))
+}
+
+/// A test duel forgets the trainer.
+pub fn forget(w: &mut World) {
+    w.trainer.foe = None;
+}
+
+/// Whether the trainer lends the imbue now: from the first talk until the
+/// practice is passed.
+pub fn lending(w: &World) -> bool {
+    matches!(
+        w.trainer.stage,
+        Stage::Ready | Stage::Volley(_) | Stage::Between(_)
+    )
+}
+
+/// Orbs turned so far in the practice: spent volleys and this one.
+pub fn turned(w: &World) -> u32 {
+    let now = match (w.trainer.stage, id(w)) {
+        (Stage::Volley(_), Some(id)) => orbs::deflected(w, id),
+        _ => 0,
+    };
+    w.trainer.turned + now + w.trainer.credited
+}
+
+fn spawn(w: &mut World) {
+    let at = story::near_place(w, "hut", story::spec().trainer.at);
+    let hut = crate::places::at(w, "hut").unwrap_or(at);
+    let yaw = yaw_of(at.sub(hut));
+    let k = story::sheathed_foe(w, Kind::Bandit, Kind::Trainer, at, yaw);
+    let foe = &mut w.foes[k];
+    foe.fighter.team = 0;
+    foe.fighter.held = crate::pose::Held::Sword;
+    foe.fighter.health = crate::health::Health::new(100_000);
+    foe.brain.control = Control::Still;
+    w.trainer.foe = Some(k);
+}
+
+/// Step 2b: the trainer stands (held still by their pilot).
+pub fn steer(w: &mut World, inputs: &mut [Input]) {
+    if let Some(k) = w.trainer.foe {
+        if let Some(i) = inputs.get_mut(k) {
+            *i = Input::default();
+        }
+    }
+}
+
+/// Step 7: the trainer stands when the player comes near; the practice.
+pub fn step(w: &mut World) {
+    if w.trainer.foe.is_none() {
+        if w.story.phase != story::Phase::Off {
+            if let Some(hut) = crate::places::at(w, "hut") {
+                if hut.sub(w.player.pos).len_xz() < SPAWN_AT {
+                    spawn(w);
+                }
+            }
+        }
+        return;
+    }
+    let Some(id) = id(w) else {
+        return;
+    };
+    let gap = player::body(w, id).pos.sub(w.player.pos).len_xz();
+    let stage = w.trainer.stage;
+    if matches!(stage, Stage::Ready | Stage::Volley(_) | Stage::Between(_)) && gap > AWAY {
+        w.trainer.turned = turned(w) - w.trainer.credited;
+        w.trainer.stage = Stage::Waiting;
+        return;
+    }
+    match stage {
+        Stage::Waiting | Stage::Done => {}
+        Stage::Ready => {
+            if w.me.sheath == Sheath::Drawn {
+                cast(w, id);
+            }
+        }
+        Stage::Volley(t) => {
+            if turned(w) >= TO_PASS {
+                pass(w);
+            } else if (t >= VOLLEY_LEAST && !orbs::flying(w, id)) || t >= VOLLEY_MOST {
+                w.trainer.turned += orbs::deflected(w, id);
+                w.trainer.stage = Stage::Between(0);
+                crate::ui::say(w, "trainer", &["trainer_again"]);
+            } else {
+                w.trainer.stage = Stage::Volley(t + 1);
+            }
+        }
+        Stage::Between(t) => {
+            if turned(w) >= TO_PASS {
+                pass(w);
+            } else if t + 1 >= BETWEEN_TICKS {
+                cast(w, id);
+            } else {
+                w.trainer.stage = Stage::Between(t + 1);
+            }
+        }
+    }
+}
+
+fn cast(w: &mut World, id: usize) {
+    w.trainer.volleys += 1;
+    w.trainer.stage = Stage::Volley(0);
+    orbs::cast(w, id, Pattern::Practice);
+}
+
+fn pass(w: &mut World) {
+    w.trainer.stage = Stage::Done;
+    if w.trainer.taught == 0 {
+        crate::imbue::learn(w);
+        w.trainer.taught += 1;
+        crate::ui::say(w, "trainer", &["trainer_pass_1", "trainer_pass_2"]);
+        story::banner(w, "story_learned");
+    }
+}
+
+/// How far the player is from talking to the trainer (not while a volley
+/// flies).
+pub fn reach(w: &World) -> Option<Fx> {
+    let id = id(w)?;
+    if matches!(w.trainer.stage, Stage::Volley(_)) {
+        return None;
+    }
+    let d = player::body(w, id).pos.sub(w.player.pos).len_xz();
+    (d <= TALK_FROM).then(|| (d - TALK_FROM + story::REACH).max(0))
+}
+
+pub fn prompt_key(_w: &World) -> &'static str {
+    "does_talk_trainer"
+}
+
+/// E by the trainer.
+pub fn talk(w: &mut World) {
+    match w.trainer.stage {
+        Stage::Waiting if w.trainer.taught == 0 => {
+            crate::ui::say(w, "trainer", &["trainer_1", "trainer_2", "trainer_3"]);
+            w.trainer.stage = Stage::Ready;
+        }
+        Stage::Ready => crate::ui::say(w, "trainer", &["trainer_draw"]),
+        Stage::Between(_) => crate::ui::say(w, "trainer", &["trainer_again"]),
+        _ => crate::ui::say(w, "trainer", &["trainer_done"]),
+    }
+}
+
+/// `trainer.<name>`: `credit` (test-only) counts `n` orbs as turned, for
+/// tests and views before M6's orbs can be turned.
+pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
+    match name {
+        "credit" => {
+            let n: u32 = value
+                .trim()
+                .parse()
+                .map_err(|_| format!("Orbs to count are a whole number, not \"{value}\"."))?;
+            w.trainer.credited += n;
+            Ok(())
+        }
+        _ => Err(format!("Unknown action \"trainer.{name}\".")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::input;
+
+    /// The opening skipped, the player 2 m from the trainer.
+    fn by_trainer() -> World {
+        let mut w = story::opening(6);
+        story::step_aside(&mut w);
+        let hut = crate::places::at(&w, "hut").unwrap();
+        let p = hut.add(crate::geom::v3(fx::int(9), 0, fx::int(5)));
+        w.player = crate::player::Body::new(p, 0);
+        w.me = crate::player::Fighter::new(Kind::Player, crate::pose::Held::ShortSword, 0, p, 0, false);
+        w.step(&Input::default());
+        let t = player::body(&w, id(&w).expect("the trainer stands")).pos;
+        let mut p = t.add(crate::geom::v3(0, 0, fx::int(2)));
+        p.y = w.ground(p.x, p.z);
+        w.player = crate::player::Body::new(p, 0);
+        w.me = crate::player::Fighter::new(Kind::Player, crate::pose::Held::ShortSword, 0, p, 0, false);
+        w
+    }
+
+    fn press(w: &mut World, keys: u32) {
+        w.step(&Input {
+            keys,
+            ..Input::default()
+        });
+        w.ui.dialogue = None;
+        w.step(&Input::default());
+    }
+
+    #[test]
+    fn the_imbue_is_not_known_at_the_start() {
+        let w = story::opening(1);
+        assert!(!crate::imbue::learned(&w));
+        assert!(!lending(&w));
+    }
+
+    #[test]
+    fn talking_to_the_trainer_starts_the_practice_with_the_imbue_lent() {
+        let mut w = by_trainer();
+        assert_eq!(story::nearest_use(&w).map(|(u, _)| u), Some(story::Use::Trainer));
+        press(&mut w, input::USE);
+        assert_eq!(w.trainer.stage, Stage::Ready);
+        assert!(lending(&w));
+        assert!(
+            crate::imbue::on(&w),
+            "the trainer imbues the blade for the practice"
+        );
+        assert!(!crate::imbue::learned(&w), "but Q is not the player's yet");
+        press(&mut w, input::DRAW);
+        for _ in 0..crate::player::DRAW_TICKS {
+            w.step(&Input::default());
+        }
+        assert!(
+            matches!(w.trainer.stage, Stage::Volley(_)),
+            "{:?}",
+            w.trainer.stage
+        );
+        assert_eq!(w.trainer.volleys, 1);
+    }
+
+    #[test]
+    fn the_practice_cannot_pass_without_the_deflections_and_learn_is_called_once() {
+        let mut w = by_trainer();
+        press(&mut w, input::USE);
+        press(&mut w, input::DRAW);
+        // volleys come and go with nothing turned: never passed
+        for _ in 0..3000 {
+            w.step(&Input::default());
+            w.ui.dialogue = None;
+        }
+        assert!(!crate::imbue::learned(&w));
+        assert_ne!(w.trainer.stage, Stage::Done);
+        assert!(
+            w.trainer.volleys >= 2,
+            "the trainer casts again: {}",
+            w.trainer.volleys
+        );
+        // one short of the count: still not passed
+        w.trainer.credited = TO_PASS - 1;
+        for _ in 0..30 {
+            w.step(&Input::default());
+            w.ui.dialogue = None;
+        }
+        assert!(!crate::imbue::learned(&w));
+        // the last one: passed, taught once, and the lending over
+        w.trainer.credited = TO_PASS;
+        for _ in 0..(BETWEEN_TICKS + 30) {
+            w.step(&Input::default());
+            w.ui.dialogue = None;
+        }
+        assert!(crate::imbue::learned(&w));
+        assert_eq!(w.trainer.stage, Stage::Done);
+        assert_eq!(w.trainer.taught, 1);
+        assert!(!lending(&w));
+        // more turned orbs, more talk: never taught twice
+        w.trainer.credited += 10;
+        press(&mut w, input::USE);
+        w.step(&Input::default());
+        assert_eq!(w.trainer.taught, 1);
+    }
+}

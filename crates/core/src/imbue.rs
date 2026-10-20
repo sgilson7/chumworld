@@ -26,6 +26,7 @@ pub fn learned(w: &World) -> bool {
 /// Whether the player's blade is imbued this tick (turns orbs, CW-9).
 /// Placeholder: never; M6 fills it.
 pub fn on(w: &World) -> bool {
-    let _ = w;
-    false
+    // M5: the trainer lends the imbue through the practice (T2); M6 adds
+    // the player's own imbue to this
+    crate::trainer::lending(w)
 }
