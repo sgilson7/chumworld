@@ -84,4 +84,4 @@ Check, 2026-10-20 after merging M1, M3 and M4: `./scripts/check.sh` steps 1 to 7
 
 Merged main at d07518d (M2 World). The conflicts in `world.rs` (land, water and arrival beside feel), `tools/shoot.py` (D2 and M2 views), `tests/breaks.json` (D2's rows kept as repaired, M2's 31 new rows, M2's one repair to a shared row, the M1 row removed in R3.50 left out: 276 rows), and the notes, are all kept on both sides. The shove test's fixture stood on the map's corner with a drawn orc; it now stands at the duel spot on level ground with the orc's blade put away (R3.52). The scabbard hangs from the belt, 40° back, tapered with a chape (R3.53). Held on a foe the view moves 0.4 m right (R3.54). Fence rounds 8 to 16 (R3.33). New test act `duel.guard` (R3.54).
 
-Check: `./scripts/check.sh`: see the D2 report.
+Check: `./scripts/check.sh` passed all 9 steps on 2026-10-20 after the merge (three engines); 275 tests by `./scripts/count-tests.sh` (7 probes ignored); `python3 scripts/break_tests.py M1`: 91 of 91 caught (with the scabbard row repaired, R3.55).

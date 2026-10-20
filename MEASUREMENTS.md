@@ -60,6 +60,8 @@ The machine: Sam's Mac, Apple M2 Max, macOS (Darwin 25.3). Frame budget (journal
 | Reach, shoulder to tip at full stretch | `a_fighter_s_reach_is_its_arm_at_full_stretch_and_its_blade` | player and short sword 1.388 m, orc and cleaver 1.435, bandit and short sword 1.405, leader and sword 1.771 | 2026-10-20, D2 |
 | Where an orc keeps to against a still player | a scratch run over `pilot::decide` | holds 158 to 188 cm, lunges to about 125, back at 165 after each attack | 2026-10-20, D2 |
 | A side cut and an overhead through the arm | `an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path` (a scratch print of the tip) | side cut: 2.5 m across, within 9 cm of one height; the edge meets a body at 10 to 13 m/s | 2026-10-20, D2 |
+| The view's framing held on a foe (1920 × 1080, an orc at its band) | `held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head` | the orc's blade's nearest point 107 px from the player's head, 93 px without the framing; the head about 47 px round | 2026-10-20, D2 |
+| Raid tick after M2 merged, native release | `probe_raid_tick_cost` | 0.498 ms mean, 0.695 ms worst (fence rounds 16) | 2026-10-20, D2 |
 | A guard held at a body walking into it | `a_body_cannot_walk_into_a_blade_held_at_it` | the walker held 1.37 m off a still orc | 2026-10-20, D2 |
 ## M2 World (task W)
 
