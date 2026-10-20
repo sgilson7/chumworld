@@ -134,6 +134,9 @@ pub struct State {
     /// the trees near where they were last looked up, and that point
     pub trees: Vec<Solid>,
     pub trees_at: Option<V3>,
+    /// the scatter chunks' trees built so far (each tree's foot with each of
+    /// its solids), near the player, shared between copies of the world
+    pub chunks: std::rc::Rc<Vec<Chunk>>,
     /// every building, tent and fence, worked out once (`blocks`)
     pub blocks: std::rc::Rc<Vec<Solid>>,
 }
@@ -266,7 +269,63 @@ pub fn tree(it: &crate::scatter::Item) -> Vec<Solid> {
     }
 }
 
-/// The trees within `TREES_NEAR` of `p`.
+/// One scatter chunk's trees as the boom meets them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Chunk {
+    pub at: (i32, i32),
+    pub solids: std::rc::Rc<Vec<(V3, Solid)>>,
+}
+
+/// Chunks are built this far ahead of the player, one a tick at most, so
+/// one is ready before the trees in it come within `TREES_NEAR`; those
+/// further than `KEEP` are let go.
+pub const AHEAD: Fx = fx::int(56);
+pub const KEEP: Fx = fx::int(200);
+
+/// The chunks a square `reach` round `p` touches, nearest first.
+fn chunks_round(w: &World, p: V3, reach: Fx) -> Vec<(i32, i32)> {
+    let side = w.land.spec.scatter.chunk_m * ONE;
+    let (i0, i1) = ((p.x - reach).div_euclid(side), (p.x + reach).div_euclid(side));
+    let (j0, j1) = ((p.z - reach).div_euclid(side), (p.z + reach).div_euclid(side));
+    let mut out = Vec::new();
+    for i in i0..=i1 {
+        for j in j0..=j1 {
+            let mid = v3(i * side + side / 2, 0, j * side + side / 2);
+            out.push((mid.sub(p).len_xz(), (i, j)));
+        }
+    }
+    out.sort();
+    out.into_iter().map(|(_, c)| c).collect()
+}
+
+/// Chunk `at`'s trees, built from `scatter::items`.
+fn build_chunk(w: &World, at: (i32, i32)) -> Chunk {
+    let mut solids = Vec::new();
+    for it in crate::scatter::items(&w.land, at.0, at.1) {
+        for s in tree(&it) {
+            solids.push((it.at, s));
+        }
+    }
+    Chunk {
+        at,
+        solids: std::rc::Rc::new(solids),
+    }
+}
+
+/// The trees within `TREES_NEAR` of `p`, from the chunks built (`step`).
+fn trees_from(chunks: &[Chunk], p: V3) -> Vec<Solid> {
+    let mut out = Vec::new();
+    for c in chunks {
+        for (foot, s) in c.solids.iter() {
+            if foot.sub(p).len_xz() <= TREES_NEAR {
+                out.push(*s);
+            }
+        }
+    }
+    out
+}
+
+/// The trees within `TREES_NEAR` of `p`, looked up afresh.
 pub fn trees_near(w: &World, p: V3) -> Vec<Solid> {
     let side = w.land.spec.scatter.chunk_m * ONE;
     let (i0, i1) = (
@@ -396,7 +455,7 @@ pub fn clip(w: &World, alpha: Fx, feet: V3, pivot: V3, eye: V3, fwd: V3) -> (V3,
     let focus = from.add(flat.scale(FOCUS)).sub(v3(0, FOCUS_DOWN, 0));
     let k = fx::div(up * 3, RISE_MOST).min(ONE);
     let toward = focus.sub(raised).norm();
-    return (raised, fwd.lerp(toward, k).norm());
+    (raised, fwd.lerp(toward, k).norm())
 }
 
 /// The eye rises once the boom is shorter than this, by this share of the
@@ -412,8 +471,33 @@ pub const FOCUS_DOWN: Fx = ONE * 4 / 10;
 /// when they have walked on; the boom eased; the house's hand-over.
 pub fn step(w: &mut World) {
     let p = w.player.pos;
-    if w.boom.trees_at.is_none_or(|at| at.sub(p).len_xz() > TREES_AGAIN) {
-        w.boom.trees = trees_near(w, p);
+    // the chunks: every one the near trees need at once (after a jump), and
+    // one more ahead a tick; far ones let go
+    let have = |w: &World, c: (i32, i32)| w.boom.chunks.iter().any(|k| k.at == c);
+    let mut added = false;
+    for c in chunks_round(w, p, TREES_NEAR) {
+        if !have(w, c) {
+            let built = build_chunk(w, c);
+            std::rc::Rc::make_mut(&mut w.boom.chunks).push(built);
+            added = true;
+        }
+    }
+    if let Some(c) = chunks_round(w, p, AHEAD).into_iter().find(|c| !have(w, *c)) {
+        let built = build_chunk(w, c);
+        std::rc::Rc::make_mut(&mut w.boom.chunks).push(built);
+    }
+    let side = w.land.spec.scatter.chunk_m * ONE;
+    if w.boom.chunks.iter().any(|k| {
+        let mid = v3(k.at.0 * side + side / 2, 0, k.at.1 * side + side / 2);
+        mid.sub(p).len_xz() > KEEP
+    }) {
+        std::rc::Rc::make_mut(&mut w.boom.chunks).retain(|k| {
+            let mid = v3(k.at.0 * side + side / 2, 0, k.at.1 * side + side / 2);
+            mid.sub(p).len_xz() <= KEEP
+        });
+    }
+    if added || w.boom.trees_at.is_none_or(|at| at.sub(p).len_xz() > TREES_AGAIN) {
+        w.boom.trees = trees_from(&w.boom.chunks, p);
         w.boom.trees_at = Some(p);
     }
     let cam = crate::camera::view_from(p, w.aim, crate::camera::BACK, |x, z| w.ground(x, z));

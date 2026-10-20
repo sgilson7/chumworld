@@ -4,7 +4,7 @@
   "smooth_ms": 60,
   "loop_fade_ms": 250,
   "pan_pct": 70,
-  "buses": { "world": 100, "duel": 100, "ui": 55, "ambience": 80, "story": 90 },
+  "buses": { "world": 100, "duel": 100, "ui": 55, "ambience": 100, "story": 90 },
   "limiter": { "threshold_db": -6, "knee_db": 6, "ratio": 8, "attack_ms": 3, "release_ms": 180 },
   "voices": {
     "step_grass": { "ms": 150, "peak_pct": 80, "level_pct": 34, "bus": "world", "gap_ticks": 3, "near_m": 2, "reach_m": 30,
@@ -161,13 +161,13 @@
         { "wave": "noise", "gain_pct": 28, "bp_hz": [2100, 2100], "bp_q_pct": 120, "am_mhz": 500, "am_pct": 45 },
         { "wave": "crackle", "density": 140, "gain_pct": 22, "bp_hz": [2800, 2800], "bp_q_pct": 300 }
       ] },
-    "wind": { "loop": true, "ms": 6000, "peak_pct": 80, "level_pct": 34, "bus": "ambience", "gap_ticks": 0, "near_m": 0, "reach_m": 0,
+    "wind": { "loop": true, "ms": 6000, "peak_pct": 80, "level_pct": 46, "bus": "ambience", "gap_ticks": 0, "near_m": 0, "reach_m": 0,
       "layers": [
         { "wave": "noise", "gain_pct": 60, "bp_hz": [480, 480], "bp_q_pct": 70, "am_mhz": 333, "am_pct": 60 },
         { "wave": "noise", "gain_pct": 45, "lp_hz": [280, 280], "am_mhz": 167, "am_pct": 40 },
         { "wave": "noise", "gain_pct": 14, "bp_hz": [1300, 1300], "bp_q_pct": 400, "am_mhz": 500, "am_pct": 80 }
       ] },
-    "fire": { "loop": true, "ms": 3000, "peak_pct": 85, "level_pct": 62, "bus": "ambience", "gap_ticks": 0, "near_m": 6, "reach_m": 90,
+    "fire": { "loop": true, "ms": 3000, "peak_pct": 85, "level_pct": 72, "bus": "ambience", "gap_ticks": 0, "near_m": 6, "reach_m": 90,
       "layers": [
         { "wave": "noise", "gain_pct": 55, "lp_hz": [420, 420], "am_mhz": 2000, "am_pct": 30 },
         { "wave": "crackle", "density": 30, "gain_pct": 80, "hp_hz": [1300, 1300] },

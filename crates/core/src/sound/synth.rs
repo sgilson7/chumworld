@@ -32,7 +32,7 @@ fn sine(phase: u32) -> i64 {
     let k = (phase >> (32 - SINE_BITS)) as usize;
     let frac = ((phase << SINE_BITS) >> 16) as i64; // 0..65 535
     let (a, b) = (t[k] as i64, t[k + 1] as i64);
-    a + ((b - a) * frac >> 16)
+    a + (((b - a) * frac) >> 16)
 }
 
 /// A generator of whole-number noise (splitmix64), seeded by the voice and

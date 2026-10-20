@@ -53,7 +53,7 @@
     "mark": [170, 240, 255]
   },
   "fires": {
-    "_note": "M7: the houses burning in the raid (by their place in data/places.json, metres east and south of the village centre), in sight on either side of the door. Each has flame tongues over its roof, unlit cones that flicker by the story's own clock, and puffs of smoke drawn by the ordered dither, thinning as they rise (nothing see-through to sort, CW-18). Colours are 0 to 255; sizes in centimetres; ticks.",
+    "_note": "M7: the houses burning in the raid (by their place in data/places.json, metres east and south of the village centre), in sight on either side of the door. Each has flame tongues over its roof, unlit cones that flicker by the story's own clock, and puffs of smoke, opaque and faceted, paling as they rise and shrinking away (nothing see-through to sort, no dither to shimmer, CW-18). Colours are 0 to 255; sizes in centimetres; ticks.",
     "houses": [[-46, -10], [-44, 32]],
     "tongues": 9,
     "ridge_cm": 510,
@@ -71,6 +71,7 @@
     "flame": [255, 120, 30],
     "core": [255, 214, 110],
     "ember": [255, 170, 70],
-    "smoke": [58, 54, 58]
+    "smoke": [70, 64, 66],
+    "smoke_high": [168, 164, 170]
   }
 }

@@ -331,3 +331,28 @@ fn the_dream_s_fade_is_heard_once() {
     }
     assert_eq!(dreams, 1);
 }
+
+/// The draw, quicker (M7): X, and the blade starts to slide out 11 ticks
+/// later, heard then, and is out 19 ticks after the press (0.32 s, from
+/// M1's 28).
+#[test]
+fn the_draw_is_heard_as_the_blade_slides_and_is_done_in_nineteen_ticks() {
+    let mut w = World::new(5);
+    let mut heard_at = None;
+    let mut drawn_at = None;
+    for t in 1..=40 {
+        let keys = if t == 1 { DRAW } else { 0 };
+        w.step(&Input {
+            keys,
+            ..Input::default()
+        });
+        if heard_at.is_none() && count_of(&w, "draw") == 1 {
+            heard_at = Some(t);
+        }
+        if drawn_at.is_none() && w.me.sheath == crate::player::Sheath::Drawn {
+            drawn_at = Some(t);
+        }
+    }
+    assert_eq!(heard_at, Some(12), "11 ticks after the tick X was pressed");
+    assert_eq!(drawn_at, Some(20), "19 ticks after it");
+}

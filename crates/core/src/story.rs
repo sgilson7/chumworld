@@ -90,6 +90,9 @@ pub const WAKE_TICKS: u32 = 90;
 pub const RISE_TICKS: u32 = crate::health::FALL_TICKS as u32;
 /// Lying in bed, the body is this far over the floor: on the quilt.
 pub const BED_TOP: Fx = ONE * 62 / 100;
+/// M7: getting up, the view eases up to look this far down: out of the
+/// door and over the meadow, the burning houses and the orcs in sight.
+pub const RISEN_PITCH: i32 = -deg(10);
 /// The heels lie this far past the bed's middle, toward its foot; getting up,
 /// the body slides on to `STAND` (clear of the bed by a body's radius).
 pub const HEELS: Fx = ONE * 115 / 100;
@@ -198,6 +201,7 @@ pub struct FireSpec {
     pub core: [i32; 3],
     pub ember: [i32; 3],
     pub smoke: [i32; 3],
+    pub smoke_high: [i32; 3],
 }
 
 /// `data/story.json`.
@@ -893,6 +897,11 @@ fn phases(w: &mut World) {
             } else {
                 let left = RISE_TICKS.saturating_sub(t + 1);
                 w.me.health.down_ticks = left as u16;
+                // M7: getting up, the view lifts from the bed toward the
+                // doorway's level, an eighth of the way a tick, so the raid
+                // outside comes into sight (the mouse still turns it)
+                let gap = RISEN_PITCH - w.aim.pitch;
+                w.aim.pitch += gap / 8;
                 let fall = w.me.health.fall();
                 w.story.lift = fx::mul(BED_TOP, fall);
                 // sliding off the bed's foot as the body comes up
@@ -1412,8 +1421,9 @@ fn rgb255(c: [i32; 3]) -> crate::look::Rgb {
 
 /// The fire on each burning house: tongues of flame over the roof, unlit
 /// cones that grow and shrink by the fire's clock; a glow round them; embers
-/// rising; puffs of smoke rising and thinning, drawn by the ordered dither
-/// (opaque where drawn, so nothing see-through is sorted, CW-18).
+/// rising; puffs of smoke rising, paling and at last shrinking away, opaque
+/// and faceted (nothing see-through to sort, and no dither that a slow pan
+/// would see shimmer, CW-18).
 fn draw_fires(w: &World, alpha: Fx, _look: &Look, out: &mut Shapes) {
     let sp = &spec().fires;
     let clock = fx::lerp(w.story.fire_prev as i32 * ONE, w.story.fire as i32 * ONE, alpha);
@@ -1424,6 +1434,7 @@ fn draw_fires(w: &World, alpha: Fx, _look: &Look, out: &mut Shapes) {
         rgb255(sp.ember),
         rgb255(sp.smoke),
     );
+    let high = rgb255(sp.smoke_high);
     for (n, (at, yaw, top)) in burning(w).into_iter().enumerate() {
         let n = n as i32;
         let place = Affine::translate(at).then(&Affine::rot_y(yaw));
@@ -1514,24 +1525,38 @@ fn draw_fires(w: &World, alpha: Fx, _look: &Look, out: &mut Shapes) {
             let id = n * 100 + 80 + k;
             let age = (clock + life * k / sp.puffs.max(1)).rem_euclid(life);
             let a = fx::div(age, life);
-            let size = cm(sp.puff_cm[0]) + fx::mul(a, cm(sp.puff_cm[1] - sp.puff_cm[0]));
+            // grows as it rises, then shrinks away over its last fifth
+            let grown = cm(sp.puff_cm[0]) + fx::mul(a, cm(sp.puff_cm[1] - sp.puff_cm[0]));
+            let size = fx::mul(grown, share_left(a));
             let drift = fx::mul(fx::mul(a, a), cm(sp.drift_cm));
             let lx = fx::mul(pick(id, 41) - ONE / 2, hx);
             let p = place
                 .apply(v3(lx, top * 9 / 10 + fx::mul(a, cm(sp.puff_rise_cm)), 0))
                 .add(v3(drift, 0, -drift / 3));
-            let fade = fx::mul(ONE - a, ONE * 85 / 100);
-            if fade > 0 {
-                out.dithered(
-                    Mesh::Blob,
+            if size > 0 {
+                // dark over the fire, paler as it rises
+                let c = [0, 1, 2].map(|i| fx::lerp(smoke[i], high[i], a));
+                out.solid(
+                    Mesh::Sphere,
                     Affine::translate(p)
                         .then(&Affine::rot_y(fx::mul(pick(id, 43), fx::TURN)))
                         .then(&Affine::scale(v3(size, size * 4 / 5, size))),
-                    smoke,
-                    fade,
+                    c,
+                    ONE / 3,
                 );
             }
         }
+    }
+}
+
+/// The share of a puff's size left at `a` of its life: whole until four
+/// fifths, then shrinking to nothing at its end.
+fn share_left(a: Fx) -> Fx {
+    let from = ONE * 4 / 5;
+    if a <= from {
+        ONE
+    } else {
+        ONE - fx::div(a - from, ONE - from)
     }
 }
 
@@ -1676,6 +1701,27 @@ mod tests {
         for _ in 0..n {
             w.step(&Input::default());
         }
+    }
+
+    /// M7: the raid has two houses burning, on either side of the door's
+    /// view, and their fire's clock stops while the story is held still.
+    #[test]
+    fn two_houses_burn_in_the_raid_and_their_fire_holds_still_with_the_story() {
+        let mut w = opening(3);
+        let b = burning(&w);
+        assert_eq!(b.len(), 2);
+        let c = centre(&w);
+        assert_eq!(
+            b[0].0.sub(c).len_xz() / ONE,
+            47,
+            "the house 46 m west, 10 m north"
+        );
+        idle(&mut w, 5);
+        assert_eq!((w.story.fire_prev, w.story.fire), (4, 5));
+        w.story.still = true;
+        idle(&mut w, 5);
+        assert_eq!((w.story.fire_prev, w.story.fire), (5, 5), "held");
+        assert!(burning(&World::new(3)).is_empty(), "none in a bare world");
     }
 
     /// The world after a dream, with what only a dream changes put back:

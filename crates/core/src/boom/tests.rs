@@ -270,3 +270,37 @@ fn the_house_s_two_drawings_share_every_pixel_once() {
         assert_eq!(cut - whole, ONE, "step {k}");
     }
 }
+
+/// The game opens in bed with the house already cut away: no hand-over on
+/// the title.
+#[test]
+fn the_opening_shows_the_house_cut_away_from_the_first_frame() {
+    let w = crate::story::opening(3);
+    assert_eq!((w.boom.cut, w.boom.prev_cut), (CUT_TICKS, CUT_TICKS));
+    assert_eq!(cut_share(&w, ONE / 2), ONE);
+}
+
+/// Backed up to a wall, facing away from it, the eye rises (by 0.3 m and
+/// more over the head) and stays over the right shoulder: right of the
+/// head along the view's right, looking down past it.
+#[test]
+fn backed_against_a_wall_the_eye_rises_over_the_right_shoulder() {
+    let mut w = crate::story::opening(1);
+    crate::story::step_aside(&mut w);
+    // 1.5 m out from the north wall of the house at (−8, 46) from the
+    // village centre (turned 180°), facing north, away from it
+    let mut p = v3(fx::int(1992), 0, fx::int(2842));
+    p.y = w.ground(p.x, p.z);
+    w.player = Body::new(p, 0);
+    w.aim.yaw = 0;
+    w.aim.pitch = -fx::deg(8);
+    for _ in 0..60 {
+        crate::boom::step(&mut w);
+    }
+    let c = w.camera(0, Mouse::default(), BACK);
+    let h = head(p);
+    assert!(c.eye.y > h.y + ONE * 3 / 10, "risen: {}", c.eye.y - h.y);
+    let right = crate::geom::right_of(0);
+    assert!(c.eye.sub(h).dot(right) > ONE / 2, "over the right shoulder");
+    assert!(c.fwd.y < -ONE / 4, "looking down past the head: {}", c.fwd.y);
+}

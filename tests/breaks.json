@@ -2602,5 +2602,222 @@
     "find": "        crate::imbue::lend(w, LEND_TICKS);\n",
     "replace": "",
     "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
+  },
+  {
+    "name": "M7 feel: a voice repeats inside its gap",
+    "file": "crates/core/src/sound.rs",
+    "find": "    if gap > 0 && last != u64::MAX && w.tick < last + gap {",
+    "replace": "    if false {",
+    "test": "a_clash_is_heard_exactly_once_and_not_again_within_its_gap"
+  },
+  {
+    "name": "M7 feel: blades that brush clash aloud",
+    "file": "crates/core/src/sound.rs",
+    "find": "        if c.speed >= CLASH_MIN {",
+    "replace": "        if c.speed >= 0 {",
+    "test": "a_clash_is_heard_exactly_once_and_not_again_within_its_gap"
+  },
+  {
+    "name": "M7 feel: a blow that takes nothing is heard",
+    "file": "crates/core/src/sound.rs",
+    "find": "        if crate::health::damage(h.speed, h.part) > 0 {",
+    "replace": "        if true {",
+    "test": "a_blow_that_lands_is_heard_once"
+  },
+  {
+    "name": "M7 feel: the draw makes no sound",
+    "file": "crates/core/src/sound.rs",
+    "find": "            Sheath::Drawing(t) if t == player::REACH_TICKS => {",
+    "replace": "            Sheath::Drawing(t) if t == 250 => {",
+    "test": "drawing_and_sheathing_are_each_heard_once"
+  },
+  {
+    "name": "M7 feel: the second foot lands unheard",
+    "file": "crates/core/src/sound.rs",
+    "find": "    passes(before, now, fx::QUARTER_TURN) || passes(before, now, -fx::QUARTER_TURN)",
+    "replace": "    passes(before, now, fx::QUARTER_TURN)",
+    "test": "a_foot_lands_as_its_stride_passes_a_quarter_turn"
+  },
+  {
+    "name": "M7 feel: the bridge's planks sound like grass",
+    "file": "crates/core/src/sound.rs",
+    "find": "    if w.solid.decks.iter().any(|(span, _)| span.holds(x, z, 0)) {",
+    "replace": "    if false {",
+    "test": "a_step_sounds_of_what_it_lands_on"
+  },
+  {
+    "name": "M7 feel: a sound far off is as loud as one near",
+    "file": "crates/core/src/sound.rs",
+    "find": "    let fall = if d <= near { ONE } else { fx::div(near, d) };",
+    "replace": "    let fall = ONE;",
+    "test": "a_sound_is_heard_by_its_distance_and_side"
+  },
+  {
+    "name": "M7 feel: a sound on the right is heard in the middle",
+    "file": "crates/core/src/sound.rs",
+    "find": "        fx::mul(flat.norm().dot(right), ONE * sp.pan_pct / 100)",
+    "replace": "        0",
+    "test": "a_sound_is_heard_by_its_distance_and_side"
+  },
+  {
+    "name": "M7 feel: the volume setting changes nothing",
+    "file": "crates/core/src/sound.rs",
+    "find": "    let base = ONE * row.level_pct / 100 * bus / 100 * volume_pct.clamp(0, 100) / 100;",
+    "replace": "    let base = ONE * row.level_pct / 100 * bus / 100;",
+    "test": "a_sound_is_heard_by_its_distance_and_side"
+  },
+  {
+    "name": "M7 feel: the loops play on while paused",
+    "file": "crates/core/src/game.rs",
+    "find": "        let live = matches!(self.screen, Screen::Play | Screen::Dialogue);",
+    "replace": "        let live = true;",
+    "test": "pausing_silences_every_loop_and_starts_nothing"
+  },
+  {
+    "name": "M7 feel: the menus make no tick",
+    "file": "crates/core/src/sound.rs",
+    "find": "    [\"menu.\", \"settings.\", \"dialogue.\", \"shop.\", \"screen.\"]",
+    "replace": "    [\"nothing.\"]",
+    "test": "a_press_on_the_menus_ticks_once"
+  },
+  {
+    "name": "M7 feel: a dialogue blips every letter",
+    "file": "crates/core/src/sound.rs",
+    "find": "    after > before && (before / BLIP_EVERY != after / BLIP_EVERY || before == 0)",
+    "replace": "    after > before",
+    "test": "a_dialogue_blips_every_third_letter"
+  },
+  {
+    "name": "M7 feel: the dream's fade is heard every tick it is down",
+    "file": "crates/core/src/sound.rs",
+    "find": "    if veil && !was && w.story.phase != crate::story::Phase::Free {",
+    "replace": "    if veil && w.story.phase != crate::story::Phase::Free {",
+    "test": "the_dream_s_fade_is_heard_once"
+  },
+  {
+    "name": "M7 feel: a voice is made past full scale",
+    "file": "crates/core/src/sound/synth.rs",
+    "find": "        let want = ONE as i64 * v.peak_pct as i64 / 100;",
+    "replace": "        let want = ONE as i64 * 101 / 100;",
+    "test": "every_voice_is_made_to_its_peak_and_never_clips"
+  },
+  {
+    "name": "M7 feel: a floor's step is named no more",
+    "file": "crates/core/src/sound.rs",
+    "find": "            return \"step_floor\";",
+    "replace": "            return \"step_grass\";",
+    "test": "every_sound_the_core_names_has_a_row"
+  },
+  {
+    "name": "M7 feel: the draw slower again",
+    "file": "crates/core/src/player.rs",
+    "find": "pub const REACH_TICKS: u8 = 11;",
+    "replace": "pub const REACH_TICKS: u8 = 18;",
+    "test": "the_draw_is_heard_as_the_blade_slides_and_is_done_in_nineteen_ticks"
+  },
+  {
+    "name": "M7 feel: a block's height is ignored",
+    "file": "crates/core/src/boom.rs",
+    "find": "                combine(&[lx.abs() - wall.hx, lz.abs() - wall.hz, (y0 - p.y).max(p.y - y1)])",
+    "replace": "                combine(&[lx.abs() - wall.hx, lz.abs() - wall.hz])",
+    "test": "a_block_s_gap_is_its_distance_out_or_in"
+  },
+  {
+    "name": "M7 feel: the boom keeps no clearance",
+    "file": "crates/core/src/boom.rs",
+    "find": "        near.iter().all(|(s, m)| s.gap(p) >= *m)",
+    "replace": "        near.iter().all(|(s, _)| s.gap(p) >= 0)",
+    "test": "the_boom_stops_short_of_a_wall_by_its_clearance"
+  },
+  {
+    "name": "M7 feel: the frame's hard clearance is dropped",
+    "file": "crates/core/src/boom.rs",
+    "find": "    let hard = reach(&all, pivot, eye, HARD);",
+    "replace": "    let hard = ONE;",
+    "test": "walking_round_every_house_the_eye_is_never_inside_a_solid"
+  },
+  {
+    "name": "M7 feel: the boom jumps back out",
+    "file": "crates/core/src/boom.rs",
+    "find": "        (b.len + fx::mul(want - b.len, OUT_SHARE).max(OUT_MIN)).min(want)",
+    "replace": "        want",
+    "test": "passing_a_corner_the_eye_comes_in_and_out_smoothly"
+  },
+  {
+    "name": "M7 feel: the roof is cut at once",
+    "file": "crates/core/src/boom.rs",
+    "find": "        (b.cut + 1).min(CUT_TICKS)",
+    "replace": "        CUT_TICKS",
+    "test": "the_house_fades_out_and_in_a_tick_at_a_time"
+  },
+  {
+    "name": "M7 feel: the opening's house is whole on the title",
+    "file": "crates/core/src/story.rs",
+    "find": "    // M7: in bed, the house is cut away from the first frame\n    crate::boom::cut_now(w);\n",
+    "replace": "",
+    "test": "the_opening_shows_the_house_cut_away_from_the_first_frame"
+  },
+  {
+    "name": "M7 feel: a short boom does not rise",
+    "file": "crates/core/src/boom.rs",
+    "find": "    if near >= SHORT {\n        return (at, fwd);\n    }",
+    "replace": "    if near >= 0 {\n        return (at, fwd);\n    }",
+    "test": "backed_against_a_wall_the_eye_rises_over_the_right_shoulder"
+  },
+  {
+    "name": "M7 feel: the spark burns as briefly as before",
+    "file": "crates/core/src/feel.rs",
+    "find": "pub const SPARK_TICKS: u8 = 20;",
+    "replace": "pub const SPARK_TICKS: u8 = 14;",
+    "test": "a_spark_burns_a_third_of_a_second_and_is_sized_by_the_meeting"
+  },
+  {
+    "name": "M7 feel: the spark as small as before",
+    "file": "crates/core/src/feel.rs",
+    "find": "    (ONE / 8 + fx::mul(speed, ONE / 40)).min(ONE / 3)",
+    "replace": "    (ONE / 12 + fx::mul(speed, ONE / 60)).min(ONE / 4)",
+    "test": "a_spark_burns_a_third_of_a_second_and_is_sized_by_the_meeting"
+  },
+  {
+    "name": "M7 feel: the mark stands at the trainer's elbow",
+    "file": "crates/core/src/trainer.rs",
+    "find": "        .add(crate::geom::facing(t.facing, 0).scale(fx::int(sp.mark_m)));",
+    "replace": "        .add(crate::geom::facing(t.facing, 0).scale(fx::int(2)));",
+    "test": "the_practice_s_mark_is_eight_metres_in_front_of_the_trainer"
+  },
+  {
+    "name": "M7 feel: the practice begins off the mark",
+    "file": "crates/core/src/trainer.rs",
+    "find": "            if w.me.sheath == Sheath::Drawn && ready_on_mark(w) {",
+    "replace": "            if w.me.sheath == Sheath::Drawn {",
+    "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
+  },
+  {
+    "name": "M7 feel: the practice never moves past one orb",
+    "file": "crates/core/src/trainer.rs",
+    "find": "                if got > 0 {\n                    w.trainer.step = (w.trainer.step + 1).min(STEPS - 1);\n                }",
+    "replace": "",
+    "test": "an_ordinary_player_passes_the_practice_within_a_minute"
+  },
+  {
+    "name": "M7 feel: no house burns",
+    "file": "crates/core/src/story.rs",
+    "find": "                .find(|s| s.at.sub(want).len_xz() < ONE)",
+    "replace": "                .find(|s| s.at.sub(want).len_xz() < 0)",
+    "test": "two_houses_burn_in_the_raid_and_their_fire_holds_still_with_the_story"
+  },
+  {
+    "name": "M7 feel: the fire burns on while the story holds still",
+    "file": "crates/core/src/story.rs",
+    "find": "    if !w.story.still {\n        w.story.fire += 1;\n    }",
+    "replace": "    w.story.fire += 1;",
+    "test": "two_houses_burn_in_the_raid_and_their_fire_holds_still_with_the_story"
+  },
+  {
+    "name": "M7 feel: the orc by the door is gone",
+    "file": "data/story.json",
+    "find": "      { \"route\": [[-30, 84], [-52, 70], [-46, 92]] },\n      { \"route\": [[-58, -12]",
+    "replace": "      { \"route\": [[-30, 84], [-52, 70], [-46, 92]] }\n    ], \"x\": [\n      { \"route\": [[-58, -12]",
+    "test": "the_game_opens_in_bed_with_six_orcs_in_the_village_and_none_in_a_wall"
   }
 ]

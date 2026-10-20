@@ -423,7 +423,7 @@ fn magic(w: &mut World, started: bool) {
         cue(w, "imbue_off", None, ONE, ONE);
     } else if on {
         let left = crate::imbue::left(w);
-        if left > 0 && left <= crate::imbue::WARN && left % crate::imbue::BLINK == 0 {
+        if left > 0 && left <= crate::imbue::WARN && left.is_multiple_of(crate::imbue::BLINK) {
             cue(w, "imbue_pulse", None, ONE, ONE);
         }
     }
@@ -513,7 +513,11 @@ fn story(w: &mut World, started: bool) {
     let was = w.sound.veiled;
     w.sound.veiled = veil;
     let opening = w.story.opening();
-    let ended = w.sound.opening && w.story.phase == crate::story::Phase::Free;
+    // the opening walked out of: its line has just come up (a test duel
+    // that sets the opening aside rings nothing)
+    let ended = w.sound.opening
+        && w.story.phase == crate::story::Phase::Free
+        && w.story.banner.as_ref().is_some_and(|b| b.key == "story_free");
     w.sound.opening = opening;
     let modes: Vec<u8> = w.story.raid.iter().map(|r| r.mode as u8).collect();
     let before = std::mem::replace(&mut w.sound.modes, modes.clone());
