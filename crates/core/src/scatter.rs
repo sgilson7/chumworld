@@ -269,9 +269,9 @@ impl Bake {
             let mut w = [0i64; 3];
             for (k, c) in cols.iter().enumerate() {
                 let f = n[k] as i64 * ONE as i64 / l2[k];
-                w[0] += c.x as i64 * f >> 16;
-                w[1] += c.y as i64 * f >> 16;
-                w[2] += c.z as i64 * f >> 16;
+                w[0] += (c.x as i64 * f) >> 16;
+                w[1] += (c.y as i64 * f) >> 16;
+                w[2] += (c.z as i64 * f) >> 16;
             }
             let nl = local_normal(unit(w), self.k);
             let lp = [self.local(p[0]), self.local(p[1]), self.local(p[2])];

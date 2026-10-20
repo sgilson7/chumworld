@@ -152,8 +152,8 @@ fn probe_map() {
             let e = land.height_in(x - step, z + step / 2, &sc) as i64;
             let slope =
                 ((h as i64 - e) * 4 * ONE as i64 / step as i64).clamp(-(ONE as i64) / 2, ONE as i64 / 2);
-            for k in 0..3 {
-                let v = (c[k] as i64 * (ONE as i64 + slope) / ONE as i64 * 255 / ONE as i64).clamp(0, 255);
+            for ch in c {
+                let v = (ch as i64 * (ONE as i64 + slope) / ONE as i64 * 255 / ONE as i64).clamp(0, 255);
                 out.push(v as u8);
             }
         }

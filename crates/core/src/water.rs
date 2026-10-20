@@ -192,8 +192,8 @@ pub fn smooth(t: Fx) -> Fx {
 /// tangents `t0` and `t1` (Hermite), at `t` (Q16), all in i64 Q16 metres.
 fn hermite(p0: [i64; 2], p1: [i64; 2], t0: [i64; 2], t1: [i64; 2], t: i64) -> [i64; 2] {
     let o = ONE as i64;
-    let t2 = t * t >> 16;
-    let t3 = t2 * t >> 16;
+    let t2 = (t * t) >> 16;
+    let t3 = (t2 * t) >> 16;
     let h00 = 2 * t3 - 3 * t2 + o;
     let h10 = t3 - 2 * t2 + t;
     let h01 = -2 * t3 + 3 * t2;
@@ -1312,7 +1312,7 @@ pub fn frame_values(land: &crate::terrain::Land, s: &State, origin: V3) -> Vec<i
     let mut out: Vec<i32> = s.phase.iter().map(|p| (p >> 16) as i32).collect();
     let period = l.noise_period.max(1) as i64;
     let ticks = s.ticks as i64;
-    let tps = crate::ticks::TICKS_PER_SECOND as i64;
+    let tps = crate::ticks::TICKS_PER_SECOND;
     // the ripples drift uDetail.z lattice cells a second (thousandths)
     let wrap = |speed_x1000: i64| {
         ((ticks * speed_x1000 * ONE as i64 / 1000 / tps).rem_euclid(period * ONE as i64)) as i32
@@ -1437,8 +1437,8 @@ mod tests {
                 fx::mul(q, ONE * 35 / 1000),
                 (ONE as i64 * 54_772 / 1_000_000) as Fx,
             );
-            let h5 = (0..4).fold(st.depth as i64, |acc, _| acc * st.depth as i64 >> 16);
-            let t3 = (0..2).fold(target as i64, |acc, _| acc * target as i64 >> 16);
+            let h5 = (0..4).fold(st.depth as i64, |acc, _| (acc * st.depth as i64) >> 16);
+            let t3 = (0..2).fold(target as i64, |acc, _| (acc * target as i64) >> 16);
             // within 6% of the depth (1.06⁵ = 1.34 on h⁵): the width wanders
             // over a few hundred metres and calm water takes about h / S =
             // 330 m to settle to a new width's depth

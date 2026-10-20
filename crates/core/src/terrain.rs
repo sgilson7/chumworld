@@ -157,7 +157,7 @@ impl LandSpec {
 const O: i64 = ONE as i64;
 
 fn qmul(a: i64, b: i64) -> i64 {
-    a * b >> 16
+    (a * b) >> 16
 }
 
 /// 0 to ONE between `e0` and `e1`, easing in and out.
@@ -979,6 +979,7 @@ impl Land {
 
     /// The colour of the ground at a corner of a tile of `level`, whose cells
     /// are `cell` wide: what a facet there is mixed from.
+    #[allow(clippy::too_many_arguments)]
     pub fn colour_in(
         &self,
         x: Fx,
