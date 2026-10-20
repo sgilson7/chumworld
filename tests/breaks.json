@@ -1405,5 +1405,33 @@
     "find": "if what == \"off\" {",
     "replace": "if false {",
     "test": "the_lineup_comes_when_asked_for_and_goes_when_turned_off"
+  },
+  {
+    "name": "M1b motion: a press parts by mass",
+    "file": "crates/core/src/motion.rs",
+    "find": "        v3(-k.x * mb, -k.y * mb, -k.z * mb),",
+    "replace": "        v3(-k.x * ma, -k.y * ma, -k.z * ma),",
+    "test": "two_bodies_pressed_together_part_by_mass_and_keep_their_momentum"
+  },
+  {
+    "name": "M1b motion: a push clears across the ground",
+    "file": "crates/core/src/motion.rs",
+    "find": "let need = clear - d.len_xz();",
+    "replace": "let need = depth + 0 * clear;",
+    "test": "two_bodies_pressed_together_part_by_mass_and_keep_their_momentum"
+  },
+  {
+    "name": "M1b motion: the closing speed is taken out",
+    "file": "crates/core/src/motion.rs",
+    "find": "let (ui, uj) = if closing < 0 {",
+    "replace": "let (ui, uj) = if closing < -ONE * 100 {",
+    "test": "two_bodies_pressed_together_part_by_mass_and_keep_their_momentum"
+  },
+  {
+    "name": "M1b motion: bodies are kept apart",
+    "file": "crates/core/src/motion.rs",
+    "find": "    for _ in 0..SEPARATE_PASSES {",
+    "replace": "    for _ in 0..0 {",
+    "test": "no_two_bodies_sink_into_each_other_in_a_shove_a_duel_or_a_group"
   }
 ]

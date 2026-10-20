@@ -157,10 +157,7 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
     let bodies: Vec<_> = (0..player::count(w))
         .map(|id| {
             let f = player::fighter(w, id);
-            (
-                f.health.down(),
-                blade::capsules(&f.prev_pose, &f.pose, f.build().girth_pct, f.build().head),
-            )
+            (f.health.down(), blade::capsules(f.kind, &f.prev_pose, &f.pose))
         })
         .collect();
     let mut still = Vec::new();

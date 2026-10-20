@@ -31,7 +31,7 @@ use crate::arm::{self, Arm};
 use crate::fx::{Fx, ONE};
 use crate::geom::{v3, V3};
 use crate::player;
-use crate::pose::Pose;
+use crate::pose::{self, Build, Kind, Pose};
 use crate::world::World;
 
 /// Two blades touch within this (each 2 cm thick).
@@ -251,36 +251,91 @@ fn edge_swept(a: &Arm) -> Swept {
     }
 }
 
-/// A fighter's capsules: a part, its spine last tick and this, and its
-/// radius.
-pub fn capsules(prev: &Pose, now: &Pose, girth_pct: i32, head: Fx) -> Vec<(Part, Swept, Fx)> {
-    let seg = |a0: V3, b0: V3, a1: V3, b1: V3| Swept { a0, b0, a1, b1 };
-    let torso = (ONE as i64 * 16 / 100 * girth_pct as i64 / 100) as Fx;
-    let mut out = vec![
-        (
-            Part::Head,
-            seg(prev.head, prev.head, now.head, now.head),
-            head * 40 / 100,
-        ),
-        (
-            Part::Torso,
-            seg(prev.pelvis, prev.chest, now.pelvis, now.chest),
-            torso,
-        ),
-    ];
-    for s in 0..2 {
-        out.push((
-            Part::Arm(s),
-            seg(prev.shoulder[s], prev.hand[s], now.shoulder[s], now.hand[s]),
-            ONE * 55 / 1000,
-        ));
-        out.push((
-            Part::Leg(s),
-            seg(prev.hip[s], prev.foot[s], now.hip[s], now.foot[s]),
-            ONE * 7 / 100,
-        ));
-    }
-    out
+/// One part of a body as a capsule: a segment and a radius.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Capsule {
+    pub part: Part,
+    pub a: V3,
+    pub b: V3,
+    pub r: Fx,
+}
+
+/// The capsules' radii, millimetres on the player's 1.70 m (M3's figure,
+/// `models/figure.rs`: the belly 160 mm across and 122 mm deep, the yoke
+/// 188 by 118, the head 190 by 205 by 182, an orc's 222 by 200 by 205, the
+/// limbs 56, 52, 76 and 63 with balls of 57 to 70 at the joints). A torso
+/// capsule is round, so it is set between the belly's width and its depth.
+pub const HEAD_MM: i32 = 192;
+pub const ORC_HEAD_MM: i32 = 212;
+pub const TORSO_MM: i32 = 145;
+pub const UPPER_ARM_MM: i32 = 60;
+pub const FOREARM_MM: i32 = 58;
+pub const THIGH_MM: i32 = 78;
+pub const SHIN_MM: i32 = 66;
+/// The capsules a body has: the head, the torso, two segments an arm, two
+/// a leg.
+pub const PARTS: usize = 10;
+/// Which of them are the trunk and legs (not the arms): what two bodies
+/// keep apart (`motion::separate`) and what a fighter's own blade keeps out
+/// of.
+pub const TRUNK: [usize; 6] = [0, 1, 6, 7, 8, 9];
+
+/// Millimetres on the player, up a build's height.
+fn tall(b: &Build, mm: i32) -> Fx {
+    (mm as i64 * b.height as i64 / 1700) as Fx
+}
+
+/// The same, across, widened by its girth.
+fn broad(b: &Build, mm: i32) -> Fx {
+    tall(b, mm) * b.girth_pct / 100
+}
+
+/// A body's capsules on a pose, sized to the figure M3 draws on it.
+pub fn body(kind: Kind, p: &Pose) -> [Capsule; PARTS] {
+    let b = pose::build(kind);
+    let head = if kind == Kind::Orc { ORC_HEAD_MM } else { HEAD_MM };
+    let c = |part, a, bb, r| Capsule { part, a, b: bb, r };
+    [
+        c(Part::Head, p.head, p.head, tall(&b, head)),
+        c(Part::Torso, p.pelvis, p.chest, broad(&b, TORSO_MM)),
+        c(Part::Arm(0), p.shoulder[0], p.elbow[0], broad(&b, UPPER_ARM_MM)),
+        c(Part::Arm(0), p.elbow[0], p.hand[0], broad(&b, FOREARM_MM)),
+        c(Part::Arm(1), p.shoulder[1], p.elbow[1], broad(&b, UPPER_ARM_MM)),
+        c(Part::Arm(1), p.elbow[1], p.hand[1], broad(&b, FOREARM_MM)),
+        c(Part::Leg(0), p.hip[0], p.knee[0], broad(&b, THIGH_MM)),
+        c(Part::Leg(0), p.knee[0], p.foot[0], broad(&b, SHIN_MM)),
+        c(Part::Leg(1), p.hip[1], p.knee[1], broad(&b, THIGH_MM)),
+        c(Part::Leg(1), p.knee[1], p.foot[1], broad(&b, SHIN_MM)),
+    ]
+}
+
+/// How far two capsules sink into each other (0 or less: apart), and the
+/// way from the first to the second at their nearest points.
+pub fn sunk(x: &Capsule, y: &Capsule) -> (Fx, V3) {
+    let (_, _, p, q) = closest(x.a, x.b, y.a, y.b);
+    let d = q.sub(p);
+    (x.r + y.r - d.len(), d)
+}
+
+/// A fighter's capsules swept over the tick: a part, its segment last tick
+/// and this, and its radius.
+pub fn capsules(kind: Kind, prev: &Pose, now: &Pose) -> Vec<(Part, Swept, Fx)> {
+    let (a, b) = (body(kind, prev), body(kind, now));
+    a.iter()
+        .zip(b.iter())
+        .map(|(p, n)| {
+            (
+                n.part,
+                Swept {
+                    a0: p.a,
+                    b0: p.b,
+                    a1: n.a,
+                    b1: n.b,
+                },
+                n.r,
+            )
+        })
+        .collect()
 }
 
 /// The box round a set of points, grown by `pad`.
@@ -339,12 +394,7 @@ pub fn step(w: &mut World) {
     let bodies: Vec<Vec<(Part, Swept, Fx)>> = (0..n)
         .map(|id| {
             let f = player::fighter(w, id);
-            capsules(
-                &f.pose,
-                &player::pose_of(w, id),
-                f.build().girth_pct,
-                f.build().head,
-            )
+            capsules(f.kind, &f.pose, &player::pose_of(w, id))
         })
         .collect();
     for i in 0..n {
