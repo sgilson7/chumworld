@@ -572,7 +572,9 @@ fn a_recorded_volley_hashes_the_same_every_run() {
     assert_eq!(run(&record).0, a);
     assert!(orbs.next > 0);
     let mut other = record.clone();
-    other[300].dx += 1;
+    // (one tick's key, not a hundredth of a pixel: at tick 300 the record's
+    // held button has the hand in a cut, which takes no mouse, M7 R9.170)
+    other[300].keys |= crate::input::LEFT;
     assert_ne!(run(&other).0.last(), a.last());
 }
 

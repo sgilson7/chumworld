@@ -163,6 +163,10 @@ body:not([data-screen="play"]) #hud { display: none; }
    the fade to dark over everything (the core says when; the page eases it) */
 #hud-story { position: fixed; top: 15vh; left: 50%; transform: translateX(-50%); max-width: 70vw; text-align: center; font-size: 19px; padding: 11px 24px; }
 #hud-prompt { position: fixed; bottom: calc(5vh + 52px); left: 50%; transform: translateX(-50%); transition: opacity 0.25s ease; }
+/* M7 (T10): the swing cue's word, small and faint below the middle of the
+   view while the left button chooses a cut */
+#hud-swing { position: fixed; top: 61vh; left: 50%; transform: translateX(-50%); font-size: 13px; padding: 5px 13px; background: rgba(43, 33, 64, 0.35); transition: opacity 0.15s ease; }
+#hud-swing.shown { opacity: 0.85; }
 #hud-veil { position: fixed; inset: 0; margin: 0; padding: 0; border-radius: 0; background: #1b1530; transition: opacity 1.3s ease; }
 
 #message:empty { display: none; }

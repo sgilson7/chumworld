@@ -163,6 +163,8 @@ pub struct Settings {
     /// the sword hand's speed under the mouse, percent (M1 reads it)
     pub hand_pct: i32,
     pub volume_pct: i32,
+    /// M7 (T10): the swing cue, the cut the mouse would pick (`swing::cue`)
+    pub cue: bool,
 }
 
 /// Test-only HUD values (`test.hud`), so a screenshot can show the bars
@@ -206,6 +208,7 @@ impl Default for State {
                 invert_y: false,
                 hand_pct: 100,
                 volume_pct: 80,
+                cue: true,
             },
             demo: None,
         }
@@ -1559,6 +1562,20 @@ fn settings_view(g: &Game) -> SettingsView {
                 on: set.invert_y,
             },
             range("volume", "settings.volume", set.volume_pct, VOLUME_RANGE),
+            // M7 (T10): the swing cue
+            Control {
+                id: "swing_cue".into(),
+                label: s.get("swing_cue"),
+                kind: "switch".into(),
+                value: set.cue as i32,
+                min: 0,
+                max: 1,
+                step: 1,
+                text: s.get(if set.cue { "on" } else { "off" }),
+                name: "settings.cue".into(),
+                next: (!set.cue).to_string(),
+                on: set.cue,
+            },
         ],
         note: s.get("settings_note"),
         back: action(s, "settings.back", "", "back", false),
@@ -1626,6 +1643,14 @@ pub fn act(g: &mut Game, name: &str, value: &str) -> Result<(), String> {
         "settings.volume" => {
             let v = percent_value(value, "volume")?;
             g.world.ui.settings.volume_pct = v.clamp(VOLUME_RANGE.0, VOLUME_RANGE.1);
+        }
+        // M7 (T10): the swing cue on or off
+        "settings.cue" => {
+            g.world.ui.settings.cue = match value.trim() {
+                "true" => true,
+                "false" => false,
+                other => return Err(format!("The swing cue is true or false, not \"{other}\".")),
+            }
         }
         "settings.invert" => {
             g.world.ui.settings.invert_y = match value.trim() {
@@ -2253,7 +2278,16 @@ mod tests {
             .iter()
             .map(|c| c["label"].as_str().unwrap())
             .collect();
-        assert_eq!(labels, ["Look speed", "Mouse sensitivity", "Invert Y", "Volume"]);
+        assert_eq!(
+            labels,
+            [
+                "Look speed",
+                "Mouse sensitivity",
+                "Invert Y",
+                "Volume",
+                "Swing cue"
+            ]
+        );
         g.act("settings.volume", "35").unwrap();
         g.act("settings.hand", "1000").unwrap();
         assert_eq!(
