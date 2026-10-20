@@ -375,10 +375,11 @@ pub struct Plan {
 }
 
 /// A foe's guard (degrees right and up, reach in percent of the arm): a
-/// middle guard, the hand low and to the right, the blade 9° up at the
-/// chest. A foe is as tall as the player or taller, and a guard at its own
-/// face height held its blade over the player's head (R3.49).
-pub const GUARD: (i32, i32, i32) = (14, -30, 80);
+/// low middle guard to its left, the blade level at the chest. A foe is as
+/// tall as the player or taller, and a guard at its own face height held
+/// its blade over the player's head; to its left, the blade sits on the
+/// side of the view away from the player's head (R3.49).
+pub const GUARD: (i32, i32, i32) = (-12, -40, 80);
 
 /// One pilot's record for this tick, and its memory for the next. Reads the
 /// world; changes nothing in it (CW-3).

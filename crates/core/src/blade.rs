@@ -730,21 +730,33 @@ mod tests {
         }
     }
 
+    /// The same, stepping in (W): a cut that closes the distance, since a
+    /// guard held at a foe keeps it off (R3.46).
+    fn cut_in() -> crate::input::Input {
+        crate::input::Input {
+            keys: crate::input::FORWARD,
+            ..sweep_left()
+        }
+    }
+
     #[test]
     fn a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed() {
-        let mut w = duel(115, -10, true);
+        let mut w = duel(135, 0, true);
         let most = w.foes[0].fighter.health.hp;
         let mut blows = Vec::new();
-        let mut after = None;
+        let (mut after, mut checked) = (None, false);
         for t in 0..30 {
-            w.step(&sweep_left());
+            // ticks the hit-stop holds (`feel`) are not the world running
+            let held = w.feel.stop > 0;
+            w.step(&cut_in());
             blows.extend(w.blades.hits.iter().copied());
             if !w.blades.hits.is_empty() {
                 after = Some(t);
             }
-            if let Some(a) = after.filter(|&a| a + 1 == t) {
-                // the tick after the blow the swing has stopped: the tip goes
-                // on at under half the speed it landed at
+            if let Some(a) = after.filter(|&a| a < t && !held && !checked) {
+                checked = true;
+                // the first tick the world runs after the blow the swing has
+                // stopped: the tip goes on at under half the speed it landed at
                 let landed = blows.last().map(|h: &Hit| h.speed).unwrap_or(0);
                 assert!(
                     player::mps(w.me.arm.pts[arm::TIP].vel().len()) < landed / 2,
@@ -762,11 +774,13 @@ mod tests {
                 torso.r - p.dist(q)
             );
         }
+        assert!(checked, "the world ran on after the blow");
         assert_eq!(blows.len(), 1, "one blow a contact: {blows:?}");
         let h = blows[0];
         assert_eq!((h.by, h.on, h.part), (0, 1, Part::Torso));
-        // a committed sweep through the front (`player::through_front`) runs
-        // the edge at 10 to 13 m/s where it meets the orc 1.15 m off
+        // a committed sweep through the front (`player::through_front`),
+        // stepping in from 1.35 m, runs the edge at 10 to 13 m/s where it
+        // meets the orc
         assert!(h.speed > ONE * 8 && h.speed < ONE * 16, "{}", h.speed);
         // (speed − 1.5 m/s) × 2.5, worked by hand from the speed recorded
         let taken = ((h.speed - ONE * 3 / 2) as i64 * 5 / 2 / ONE as i64) as i32;
@@ -821,10 +835,10 @@ mod tests {
     /// is gone: no knock, no stagger, the world running.
     #[test]
     fn a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away() {
-        let mut w = duel(115, -10, true);
+        let mut w = duel(135, 0, true);
         let mut blow = None;
         for _ in 0..30 {
-            w.step(&sweep_left());
+            w.step(&cut_in());
             if let Some(h) = w.blades.hits.first() {
                 blow = Some(*h);
                 break;
@@ -846,17 +860,23 @@ mod tests {
             "the orc is shoved back"
         );
         assert_eq!(w.foes[0].fighter.gait.stagger, crate::feel::STAGGER_TICKS);
-        let held = (w.foes[0].body, w.me.arm.pts, w.foes[0].fighter.arm.pts);
+        // where everything is: the bodies' feet and every arm's points
+        let at = |w: &World| {
+            let pts = |a: &Arm| a.pts.map(|p| p.p);
+            (
+                w.player.pos,
+                w.foes[0].body.pos,
+                pts(&w.me.arm),
+                pts(&w.foes[0].fighter.arm),
+            )
+        };
+        let held = at(&w);
         for k in 0..stop {
-            w.step(&sweep_left());
-            assert_eq!(
-                (w.foes[0].body, w.me.arm.pts, w.foes[0].fighter.arm.pts),
-                held,
-                "held tick {k}"
-            );
+            w.step(&cut_in());
+            assert_eq!(at(&w), held, "held tick {k}");
         }
-        w.step(&sweep_left());
-        assert_ne!(w.me.arm.pts, held.1, "and then the world runs");
+        w.step(&cut_in());
+        assert_ne!(at(&w), held, "and then the world runs");
         // knocked back: the orc's chest leans away from the player over its
         // hips, more than 4 cm (16° at the start, easing off)
         let p = w.foes[0].fighter.pose;
@@ -887,7 +907,7 @@ mod tests {
                 .filter(|s| s.pass == crate::render::Pass::Glow)
                 .count()
         };
-        let mut w = duel(160, 5, false);
+        let mut w = duel(135, 0, false);
         let before = glows(&w);
         let mut lit = None;
         for t in 0..30 {
@@ -914,11 +934,11 @@ mod tests {
     /// then lies still: two ticks draw it the same.
     #[test]
     fn a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still() {
-        let mut w = duel(115, -10, true);
+        let mut w = duel(135, 0, true);
         w.foes[0].fighter.health.hp = 1;
         let mut downed = Vec::new();
         for t in 0..240 {
-            w.step(&if t < 30 { sweep_left() } else { Default::default() });
+            w.step(&if t < 30 { cut_in() } else { Default::default() });
             downed.extend(w.feel.downed.iter().map(|&d| (t, d)));
         }
         assert_eq!(downed.len(), 1, "{downed:?}");
@@ -976,7 +996,7 @@ mod tests {
 
     #[test]
     fn a_block_stops_a_swing_and_the_blades_do_not_pass_through() {
-        let mut w = duel(160, 5, false);
+        let mut w = duel(135, 0, false);
         let (mut met, mut before, mut normal) = (None, 0, None);
         let mut ran = 0;
         for t in 0..30 {

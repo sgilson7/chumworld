@@ -467,9 +467,9 @@ def d2_views(browser, base, out, views, logs):
         page.mouse.up()
         page.close()
     if "d2-block" in views:
-        # wound out to the right and up 19 degrees, to meet the orc's guard
-        page = drawn("duel=orc&foe=still&gap=160")
-        move(page, 45, -12.7, 10)
+        # wound out to the right, the hand level, to meet the orc's guard
+        page = drawn("duel=orc&foe=still&gap=135")
+        move(page, 45, -9.3, 10)
         frames(page, 30)
         page.mouse.move(960, 540)
         page.mouse.down()
