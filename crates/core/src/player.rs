@@ -169,6 +169,10 @@ pub struct Fighter {
     pub throw: crate::throwables::Throw,
     /// how far the scabbard is tipped for a draw (`ONE`: fully)
     pub tilt: Fx,
+    /// how far the view has eased to its duel framing (`framing`), this
+    /// tick and last
+    pub framing: Fx,
+    pub prev_framing: Fx,
 }
 
 impl Fighter {
@@ -200,6 +204,8 @@ impl Fighter {
             pouch: crate::throwables::Pouch::default(),
             throw: crate::throwables::Throw::default(),
             tilt: 0,
+            framing: 0,
+            prev_framing: 0,
         };
         f.pose = pose_from(&body, &f);
         f.prev_pose = f.pose;
@@ -345,9 +351,31 @@ fn toward_chest(w: &World, from: V3, k: usize) -> (i32, i32) {
     (yaw_of(d), fx::wrap(fx::atan2(d.y, d.len_xz())))
 }
 
+/// Drawn and held on a foe, the view's eye moves this much further right
+/// (R3.54), still over the right shoulder (CW-15): a foe's blade pointed
+/// at the player then crosses the view beside the player's head rather than
+/// over it. (Raising the eye too was tried: it brought the blade nearer the
+/// head on screen.) It eases in and out by `FRAMING_STEP` a tick.
+pub const FRAMING_RIGHT: Fx = ONE * 40 / 100;
+pub const FRAMING_STEP: Fx = ONE / 12;
+
+/// The eye's move for the duel framing, `alpha` of the way from the last
+/// tick to this, for a view facing `yaw`.
+pub fn framing(w: &World, alpha: Fx, yaw: i32) -> V3 {
+    let f = fx::lerp(w.me.prev_framing, w.me.framing, alpha);
+    right_of(yaw).scale(fx::mul(FRAMING_RIGHT, f))
+}
+
 /// Still step 1: held on a foe, the view eases round to frame them unless
 /// the right button looks; every foe looks straight at whom it holds on.
 pub fn hold_on(w: &mut World) {
+    let goal = if w.me.engaged.is_some() && w.me.sheath == Sheath::Drawn && !w.me.mouse_looks {
+        ONE
+    } else {
+        0
+    };
+    w.me.prev_framing = w.me.framing;
+    w.me.framing = fx::approach(w.me.framing, goal, FRAMING_STEP);
     if let (Some(k), false) = (w.me.engaged, w.me.mouse_looks) {
         let from = pivot(w.player.pos, w.aim.yaw);
         let (yaw, pitch) = toward_chest(w, from, k as usize);
@@ -953,6 +981,23 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             }
             Ok(())
         }
+        // every foe's hand target on its shell, degrees right and up
+        // ("-40,-10"): staging a guard (a still foe holds it) for a test or a
+        // picture
+        "guard" => {
+            let parsed: Option<Vec<i32>> = value.split(',').map(|v| v.trim().parse().ok()).collect();
+            let [side, pitch] = parsed.as_deref().unwrap_or(&[]) else {
+                return Err(format!(
+                    "A guard is degrees right and up, as \"-40,-10\", not \"{value}\"."
+                ));
+            };
+            for f in &mut w.foes {
+                let a = &mut f.fighter.arm;
+                a.shell.side = deg(*side).clamp(arm::SIDE_MIN, arm::SIDE_MAX);
+                a.shell.pitch = deg(*pitch).clamp(arm::PITCH_MIN, arm::PITCH_MAX);
+            }
+            Ok(())
+        }
         // every foe's health set, 0 to put them down: staging a fall for a
         // test or a picture
         "health" => {
@@ -1179,6 +1224,18 @@ mod tests {
             act(&mut w, "spawn", "dragon"),
             Err("A test duel is with an orc, a bandit or a leader, not \"dragon\".".into())
         );
+        act(&mut w, "guard", "-40,-10").unwrap();
+        assert_eq!(
+            (
+                w.foes[0].fighter.arm.shell.side,
+                w.foes[0].fighter.arm.shell.pitch
+            ),
+            (deg(-40), deg(-10))
+        );
+        assert_eq!(
+            act(&mut w, "guard", "low"),
+            Err("A guard is degrees right and up, as \"-40,-10\", not \"low\".".into())
+        );
         act(&mut w, "health", "0").unwrap();
         assert!(w.foes[0].fighter.health.down(), "health 0 puts a foe down");
         assert_eq!(
@@ -1308,6 +1365,56 @@ mod tests {
             w.me.arm.grip_point(),
             sc.grip
         );
+    }
+
+    /// R3.54: drawn and held on an orc standing still at its band (1.75 m),
+    /// the view eases fully into its duel framing, and on a 1920 × 1080
+    /// screen the nearest point of the orc's blade sits further from the
+    /// player's head (its capsule, cap and all) than it does without:
+    /// measured 107 px against 93.
+    #[test]
+    fn held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head() {
+        let mut w = World::new(1);
+        act(&mut w, "spawn", "orc").unwrap();
+        act(&mut w, "pilot", "still").unwrap();
+        act(&mut w, "gap", "175").unwrap();
+        w.step(&press(DRAW));
+        for _ in 0..120 {
+            w.step(&Input::default());
+        }
+        assert_eq!(w.me.framing, ONE, "eased fully in");
+        // the nearest a point of the blade comes to the head's capsule on
+        // screen, pixels of a 1920-wide view
+        let clear = |w: &World| {
+            let aspect = ONE * 16 / 9;
+            let cam = w.camera(ONE, Mouse::default(), crate::camera::BACK);
+            let head = crate::blade::body(Kind::Player, &w.me.pose)[0];
+            let hs: Vec<(Fx, Fx)> = (0..=4)
+                .filter_map(|k| cam.screen(aspect, head.a.lerp(head.b, ONE * k / 4)))
+                .collect();
+            let a = &w.foes[0].fighter.arm;
+            let mut best = i64::MAX;
+            for rail in arm::rails(a.weapon.item) {
+                let (p, q, _) = a.rail(rail, false, false);
+                for k in 0..=16 {
+                    if let Some(s) = cam.screen(aspect, p.lerp(q, ONE * k / 16)) {
+                        for h in &hs {
+                            let dx = (s.0 - h.0) as i64;
+                            let dy = (s.1 - h.1) as i64 * 9 / 16;
+                            best = best.min(fx::isqrt_u64((dx * dx + dy * dy) as u64) as i64);
+                        }
+                    }
+                }
+            }
+            best * 1920 / ONE as i64
+        };
+        let mut flat = w.clone();
+        flat.me.framing = 0;
+        flat.me.prev_framing = 0;
+        let (with, without) = (clear(&w), clear(&flat));
+        assert!(with > without + 10, "framed {with} px, unframed {without} px");
+        // a head is about 47 px round here: the blade clears it
+        assert!(with > 47, "{with} px");
     }
 
     #[test]

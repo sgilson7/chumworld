@@ -1930,5 +1930,19 @@
     "find": "            self.draw(key, going, out);\n",
     "replace": "            self.draw(key, ONE, out);\n",
     "test": "the_static_scene_draws_no_two_surfaces_in_one_plane"
+  },
+  {
+    "name": "M1b player: held on a foe the view frames the duel",
+    "file": "crates/core/src/player.rs",
+    "find": "pub const FRAMING_RIGHT: Fx = ONE * 40 / 100;",
+    "replace": "pub const FRAMING_RIGHT: Fx = ONE * 0 / 100;",
+    "test": "held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head"
+  },
+  {
+    "name": "M1b player: the duel framing eases in",
+    "file": "crates/core/src/player.rs",
+    "find": "    w.me.framing = fx::approach(w.me.framing, goal, FRAMING_STEP);",
+    "replace": "    w.me.framing = fx::approach(w.me.framing, goal * 0, FRAMING_STEP);",
+    "test": "held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head"
   }
 ]

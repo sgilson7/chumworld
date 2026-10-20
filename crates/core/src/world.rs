@@ -245,8 +245,12 @@ impl World {
             self.aim
         };
         let mut cam = camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z));
-        // M1: a hard blow knocks the view a little
-        cam.eye = cam.eye.add(crate::feel::knock_at(self, alpha));
+        // M1: a hard blow knocks the view a little; held on a foe, the view
+        // frames the duel from a little higher and further right
+        cam.eye = cam
+            .eye
+            .add(crate::feel::knock_at(self, alpha))
+            .add(crate::player::framing(self, alpha, aim.yaw));
         cam
     }
 

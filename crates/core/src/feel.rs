@@ -177,6 +177,7 @@ pub fn hold(w: &mut World, input: &Input) {
         b.prev_facing = b.facing;
         f.prev_pose = f.pose;
         f.arm.prev_target = f.arm.target;
+        f.prev_framing = f.framing;
     }
     for t in &mut w.throwables.flying {
         t.prev = t.p;

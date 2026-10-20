@@ -333,6 +333,7 @@ The menus, the HUD, dialogue, the shop and settings (task U). Item routes and me
 | core: `duel.gap` refusal | A gap is a whole number of centimetres from 40 to 4000, not "…". |
 | core: `motion.speedster` refusal | The speedster pieces are a whole number from 0 to 5, not "…". |
 | core: `duel.health` refusal (D2) | A foe's health is a whole number from 0 to 1000, not "…". |
+| core: `duel.guard` refusal (D2) | A guard is degrees right and up, as "-40,-10", not "…". |
 | `GLOSSARY.md` | Dodge-step, Draw, Health, Reach, Sheathe, Swing, Sword hand, Throw (definitions there) |
 
 ### M2
