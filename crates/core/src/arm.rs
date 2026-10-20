@@ -1574,6 +1574,25 @@ mod tests {
         );
     }
 
+    /// A weapon's point lying on the ground sliding at 0.1 m a tick (6 554
+    /// units) along x, then along z: the air takes 3% (196 by integer
+    /// division), then the ground 30% of what is left (6 358 × 30 / 100 =
+    /// 1 907): 4 451 a tick after. (M7: R9.175; the fallen-orc test that
+    /// held this no longer slides its cleaver along x.)
+    #[test]
+    fn a_point_on_the_ground_loses_a_third_of_its_slide_a_tick() {
+        for along in [v3(6_554, 0, 0), v3(0, 0, 6_554)] {
+            let mut a = arm(Held::ShortSword);
+            let ground = a.frame.ground;
+            let at = v3(ONE, ground, ONE);
+            a.pts[TIP] = Point::at(at, 1);
+            a.pts[TIP].q = at.sub(along);
+            a.integrate(&[V3::ZERO; N], false);
+            let v = a.pts[TIP].vel();
+            assert_eq!((v.x, v.z), (along.x * 4_451 / 6_554, along.z * 4_451 / 6_554));
+        }
+    }
+
     #[test]
     fn a_committed_swing_moves_the_hand_faster() {
         let speed = |swing: bool| {

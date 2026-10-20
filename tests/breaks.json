@@ -1663,7 +1663,7 @@
     "file": "crates/core/src/arm.rs",
     "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
     "replace": "                v.x -= v.x * 0 / 100;",
-    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   },
   {
     "name": "M1b player: a staggered body leans back along the blow",
@@ -2721,5 +2721,12 @@
     "find": "    for i in [arm::POMMEL, arm::TIP, arm::HAND[0], arm::HAND[1]] {",
     "replace": "    for i in [arm::POMMEL, arm::TIP] {",
     "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M7 arm: a point on the ground drags to rest along z",
+    "file": "crates/core/src/arm.rs",
+    "find": "                v.z -= v.z * GROUND_DRAG_PCT / 100;",
+    "replace": "                v.z -= v.z * 0 / 100;",
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   }
 ]

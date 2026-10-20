@@ -67,6 +67,9 @@ pub const FOLLOW_TICKS: u8 = 8;
 pub const STALL_TICKS: u8 = 5;
 pub const STALL_GAIN: i32 = deg(3);
 pub const MAX_TICKS: u8 = 60;
+/// A heavy weapon's wind-up takes a while to turn round: no stall is
+/// counted in a strike's first ticks.
+pub const STRIKE_GRACE: u8 = 10;
 /// The wind-up drives the arm at this share of its strength.
 pub const WIND_PCT: i32 = 80;
 /// The heights a level cut takes from the hand's pitch: above `HIGH_FROM`
@@ -436,7 +439,7 @@ pub fn step(w: &mut World, id: usize, inp: &Input) -> bool {
                     c.phase = Phase::Follow;
                     c.t = 0;
                     c.aim = hand_of(-end - FOLLOW);
-                } else if c.age - c.best.1 >= STALL_TICKS {
+                } else if c.t > STRIKE_GRACE && c.age - c.best.1 >= STALL_TICKS {
                     ended = true;
                 }
             }
@@ -610,9 +613,9 @@ pub fn draw(w: &World, look: &Look, out: &mut Shapes) {
 
 /// The cue's beads: how many, how big, how bright.
 pub const BEADS: usize = 9;
-pub const BEAD: Fx = ONE * 12 / 1000;
-pub const BEAD_LAST: Fx = ONE * 24 / 1000;
-pub const CUE_GLOW: Fx = ONE / 4;
+pub const BEAD: Fx = ONE * 18 / 1000;
+pub const BEAD_LAST: Fx = ONE * 32 / 1000;
+pub const CUE_GLOW: Fx = ONE * 2 / 5;
 
 #[cfg(test)]
 mod tests {

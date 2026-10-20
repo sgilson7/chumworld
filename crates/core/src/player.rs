@@ -1088,6 +1088,42 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             }
             Ok(())
         }
+        // M7 (T10): every foe makes one cut through its record now (`level`,
+        // `backhand`, `chop`, `rising`, `thrust`), then stands still: staging
+        // for a picture
+        "cut" => {
+            let way = match value.trim() {
+                "level" => (-6_000, 0, 0),
+                "backhand" => (6_000, 0, 0),
+                "chop" => (0, 6_000, 0),
+                "rising" => (0, -6_000, 0),
+                "thrust" => (0, 0, -100),
+                _ => {
+                    return Err(format!(
+                        "A cut is level, backhand, chop, rising or thrust, not \"{value}\"."
+                    ))
+                }
+            };
+            for f in &mut w.foes {
+                let mut list = vec![Input::default(); f.brain.ticks as usize];
+                list.push(Input {
+                    buttons: input::SWING,
+                    dx: way.0,
+                    dy: way.1,
+                    wheel: way.2,
+                    ..Input::default()
+                });
+                list.extend(std::iter::repeat_n(
+                    Input {
+                        buttons: input::SWING,
+                        ..Input::default()
+                    },
+                    40,
+                ));
+                f.brain.control = crate::pilot::Control::Script(list);
+            }
+            Ok(())
+        }
         _ => Err(format!("Unknown action \"duel.{name}\".")),
     }
 }
