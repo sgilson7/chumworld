@@ -41,7 +41,7 @@ function ready() {
 async function main() {
   const strings = await (await fetch("data/strings.json")).text();
   el("loading-text").textContent = JSON.parse(strings).loading;
-  const [glossary, look, controls, display, vertex, fragment, keys] = await Promise.all([
+  const [glossary, look, controls, display, vertex, fragment, keys, waterVertex, waterFragment] = await Promise.all([
     fetch("data/glossary.md").then((r) => r.text()),
     fetch("data/look.json").then((r) => r.text()),
     fetch("data/controls.json").then((r) => r.json()),
@@ -49,6 +49,8 @@ async function main() {
     fetch("data/shaders/scene.vert").then((r) => r.text()),
     fetch("data/shaders/scene.frag").then((r) => r.text()),
     fetch("data/keys.json").then((r) => r.json()),
+    fetch("data/shaders/water.vert").then((r) => r.text()),
+    fetch("data/shaders/water.frag").then((r) => r.text()),
   ]);
   await init();
   const N = JSON.parse(numbers());
@@ -67,7 +69,7 @@ async function main() {
 
   const canvas = el("view");
   const meshes = JSON.parse(game.meshes());
-  const renderer = makeRenderer(canvas, N, { vertex, fragment, software: display.software }, meshes, (id) => game.mesh(id));
+  const renderer = makeRenderer(canvas, N, { vertex, fragment, waterVertex, waterFragment, software: display.software }, meshes, (id) => game.mesh(id));
   if (!renderer) {
     body.dataset.webgl = "none";
     el("message").textContent = JSON.parse(game.ui()).ok.no_webgl;
@@ -77,12 +79,15 @@ async function main() {
   body.dataset.webgl = "2";
   body.dataset.software = String(renderer.software);
   if (renderer.software) game.act("display.software", "true");
-  renderer.setUniforms(game.uniforms(), game.clear_color());
+  renderer.setUniforms(game.uniforms(), game.clear_color(), game.water_uniforms());
 
   let ui = null;
   const input = makeInput(canvas, controls, N.actions, () => {});
-  // a reader's look speed from the address (?look=<percent>), as any setting
-  const lookSpeed = new URLSearchParams(location.search).get("look");
+  // a reader's look speed from the address (?look=<percent>), as any setting,
+  // and a place to start at (?go=<place> [yaw] [pitch], for views of the world)
+  const params = new URLSearchParams(location.search);
+  const lookSpeed = params.get("look");
+  const goTo = params.get("go");
 
   // Sends one action through the core's door and draws what comes back.
   // `gesture`: the act came from a key or click, so if the core now wants
@@ -181,6 +186,7 @@ async function main() {
   });
 
   if (lookSpeed) act("look.speed", lookSpeed);
+  if (goTo) act("places.go", goTo);
   // a test duel and test settings from the address, each through the core's
   // door like any setting: ?duel=orc, ?foe=still, ?gap=115, ?speedster=5,
   // ?sticks=1
@@ -208,11 +214,14 @@ async function main() {
   function frame(now) {
     const { bits, dx, dy, wheel } = input.read();
     game.advance(now, bits, dx, dy, wheel);
+    // the meshes the core built this frame, each uploaded once
+    const ups = game.uploads();
+    for (let i = 0; i < ups.length; i += N.upload_values) renderer.setMesh(ups[i], game.mesh(ups[i]), ups[i + 1]);
     if (game.static_version() !== staticVersion) {
       staticVersion = game.static_version();
       renderer.setStatic(game.static_values());
     }
-    renderer.frame(game.view(), game.instances(), game.draws());
+    renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame());
     if (game.ui_version() !== uiVersion) {
       uiVersion = game.ui_version();
       show(JSON.parse(game.ui()).ok);

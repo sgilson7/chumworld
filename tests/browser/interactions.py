@@ -236,3 +236,25 @@ def menus(page, check, engine, base):
     page.keyboard.press("Escape")
     page.wait_for_selector("body[data-screen='paused']", state="attached")
     check(page.inner_text("#message") == "", "no error message is shown after the menus")
+
+    # M2: the world's terrain, trees and haze, seen from the trainer's hill
+    # west over the plains and the ridges to the horizon (?go=: the core's
+    # places.go), away from the river, whose waves move every tick. A still
+    # view draws the same pixels on consecutive frames, through every detail
+    # level's dither band in sight; a slow pan shows no shimmer on the far
+    # terrain (CW-18, PLAN.md flicker 5)
+    page.goto(base + "?pointer=free&look=25&go=352,1772,100,-1")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.evaluate(WAIT_FRAMES, [120, 2500])
+    hill = page.evaluate(GRAB, [2, 0, False])
+    a, b = hill["frames"]
+    check(a["colours"] > 20, f"the view from the hill is a picture ({a['colours']} colours sampled)")
+    check(a["hash"] == b["hash"], f"from the hill, a still view over the terrain to the horizon draws the same pixels on consecutive frames ({hill['w']}x{hill['h']})")
+    pan = page.evaluate(GRAB, [3, 1, True])
+    check(pan["frames"][0]["hash"] != pan["frames"][2]["hash"], "the slow pan over the terrain moves the picture")
+    share = pan["flips"] / pan["pixels"]
+    check(share < 0.0001, f"a slow pan over the terrain to the horizon shows no shimmer: {pan['flips']} of {pan['pixels']} pixels flipped and back ({share:.5%})")
+    print(f"  ({engine}: slow pan from the hill, {pan['flips']} A-B-A pixels of {pan['pixels']})")
+    check(page.inner_text("#message") == "", "no error message is shown on the hill")

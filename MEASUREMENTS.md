@@ -49,9 +49,30 @@ The machine: Sam's Mac, Apple M2 Max, macOS (Darwin 25.3). Frame budget (journal
 | Tip speed of a swing from a high guard to a low strike (one arm, a scratch probe over `arm::Arm`) | scratch probe, not kept | plain / committed: short sword 7.4 / 10.7 m/s, sword 6.4 / 9.4, cleaver 4.9 / 7.5; the blade holds its guard line to under 1° at rest | 2026-10-20, M1 |
 | A still fighter settling after a walk | scratch probe | every point still (under 0.37 mm a tick, then held exactly) within about a second (R3.7) | 2026-10-20, M1 |
 
+## M2 World (task W)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Frame rate at 1920 × 1080, headless Chromium on Metal (M2 Max): standing in the village, running across the plains (Shift + W, turning), turning slowly on the trainer's hill toward the horizon | `.venv/bin/python tools/shoot.py OUT --measure` (M2's walks) | 60 fps in all three, frame intervals median 16.7 ms, worst 16.8 ms (the display's 60 Hz caps it) | 2026-10-20, M2 |
+| The page's own frame callback (the core's advance in WebAssembly, the meshes handed over, about 550 draw calls), same walks | same command (`callback_*`: requestAnimationFrame wrapped in the tool's page) | village 1.9 ms median, 2.3 ms 95th percentile, 3.1 ms worst; plains running 1.4 / 1.9 / 3.5 ms; hill 1.3 / 1.5 / 3.4 ms. Against the 16.7 ms frame with half spare (8.3 ms) | 2026-10-20, M2 |
+| Load to the title | same command (`load_s`) | 0.89 s (M0: 0.07 s): the first frame builds about 380 terrain tiles, the river's 113 pieces and the scatter near the start | 2026-10-20, M2 |
+| One frame of the core, native release, the M0 probe running and turning round the village | `cargo test --release -p tool_core --test frame_probe -- --ignored --nocapture` | 0.743 ms mean, 1.60 ms worst; start 516 ms; 690 moving instances, 547 draws a frame; static array empty (the props are drawn by distance, R4.13) | 2026-10-20, M2 |
+| The detail levels' share of a frame, native, standing after the build-ahead settles | `M2_STILL=1 cargo test --release -p tool_core --test m2_probe probe_frame_parts -- --ignored --nocapture` | terrain 0.17 ms, scatter 0.28 ms, places and water 0.01 ms | 2026-10-20, M2 |
+| Building a terrain tile (32 × 32 cells, 2 304 triangles), native | `... --test m2_probe probe_terrain_cost` | plains 0.39 ms, at the river and bridge 0.50 ms; the land (parse, the river's 19 000 stations, the solve) 24 ms | 2026-10-20, M2 |
+| A minute running north at 6 m/s, terrain alone, native | same probe | 0.18 ms a frame mean, 1.77 ms worst (two tiles built in a frame at the most); 194 tiles built on the way, none needed before it was built | 2026-10-20, M2 |
+| Triangles drawn round the village, terrain, all round (before the frustum drops those behind) | same probe | 758 016 in 329 tiles (56, 43, 38, 48, 47, 36, 60 tiles by level 0 to 6) | 2026-10-20, M2 |
+| Resident meshes after the build-ahead settles at the village | `probe_frame_parts` | 1.55 M triangles: terrain 1.08 M (64 to 79 tiles a level), river and pond 0.20 M (113 pieces), forest crowns 0.20 M, cones, trees, rocks and grass 0.08 M. As vertex buffers (36 bytes a vertex, three a triangle): about 168 MB (R4.6) | 2026-10-20, M2 |
+| WebAssembly size, M1, M3, M4 and M2 merged | printed by `./scripts/build.sh` | 1 381 KB (M1: 527 KB); M2's data files are in it (R4.8) | 2026-10-20, M2 |
+| Flicker: a slow pan at the village (M0's check) and from the hill over the terrain to the horizon | `tests/browser/check.py` (look speed 25%) | village: Chromium 16 of 230 400, Firefox 26 and WebKit 13 of 921 600; hill: 6, 11 and 12 (bound 0.01%: 23 and 92) | 2026-10-20, M2 |
+| Flicker: still frames from the hill, westward | same | identical pixel for pixel in all three engines | 2026-10-20, M2 |
+| Flicker test 3 (CW-18): three camera paths at 5 and 6 m/s, 10 000 frames | `cargo test no_surface_changes_level_without_passing_through_the_dither_band` | no surface's share of the pixels changed by more than one dither cell (1/16) a frame; none waited to be built | 2026-10-20, M2 |
+| Water against its banks (CW-18): every facet crossing the water's level, levels 0 to 5, nine stretches and the pond | `cargo test the_water_meets_its_banks_steeply_enough_for_the_depth_buffer` | the band where the depth buffer cannot tell land from water is narrower than a pixel at the farthest each level is drawn | 2026-10-20, M2 |
+| Core tests | `./scripts/count-tests.sh` | 254 passed, 0 failed, 7 ignored (the probes) | 2026-10-20, M2 |
+
 ## Not measured
 
 - The headroom under 16.7 ms on Metal: requestAnimationFrame is held to the display's 60 Hz, and the page keeps no timer of its own. A GPU timer query (`EXT_disjoint_timer_query_webgl2`) in a probe would give it.
 - The WebAssembly build's own cost a frame (only the native release build's); the browser's frame rate covers it at 60 fps.
 - Any machine but this Mac; Safari and Firefox with their own windows rather than headless; a phone (out of scope, `BRIEF.md`).
 - Load over a network: GitHub Pages serves the same 432 KB.
+- M2: the GPU's own time a frame (only the page's callback, which submits the draws, and the 60 fps the display caps); the frame rate on a machine with less memory than the M2 Max's for the 168 MB of meshes (R4.6); the software renderer's frame rate with M2's terrain (R2.17, for M7).

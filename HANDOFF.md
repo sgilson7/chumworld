@@ -47,3 +47,15 @@ Merged main with M3 (models) and M4 (menus): health reaches M4's bars through `u
 
 Check: `./scripts/check.sh` passed all 9 steps on 2026-10-20 after merging M4 (223 tests by `./scripts/count-tests.sh`, 3 probes ignored; three engines). Breaks: `python3 scripts/break_tests.py` over M1's rows, the eight M0 rows M1 repaired and M4's full-health row: 55 of 55 caught.
 
+
+## 2026-10-20: M2 world (task W)
+
+Built: the land from a seed (`terrain.rs`: plains, the trainer's hill and five others, the north-east forest, ridges beyond the square to the 16 km horizon cut by the river's valley; the village plateau at height 0; roads, lanes, trails and every footprint flattened; Protection of the Spheres' faceted colours), drawn as a quadtree of tiles by detail level with dithered hand-overs and built ahead of the camera (`lod.rs`), the river solved with the fishing game's step method and drawn with its water look, flow round the bridge's piers and the shrine's islet, and the village pond (`water.rs`, `water/solve.rs`, `data/shaders/water.*`), the haze made whole before the far plane and tinted over the middle distance (`sky.rs`), trees, rocks, grass and flowers by detail level (`scatter.rs`), and the places from `data/places.json` through M3's `models::prop` (`places.rs`). `field.rs` is gone. `SECOND-ORDER.md` R4.1 to R4.24 say what was decided alone.
+
+Doors filled: `places::markers` (seven places, keys `place_<kind>`, the hollow tree as M4's `place_tree`), `terrain::is_water`; `places::road`, `roads`, `at`, `prop_spots` for M5; `?go=` on the address (`places.go`, R4.15).
+
+Waiting on the person: R4.24 (the water's, trees' and land's colours and the mountains are mine, tuned by eye; whether the water is as lifelike as the fishing game's is the person's call).
+
+For the coordinator: R4.4 (files outside M2's list that M2 had to add to), R4.6 (about 1.3 M triangles resident, 140 MB of vertex buffers), R4.7 (about 600 draws a frame), R4.14 (prop sizes assumed), R4.15 (`?go=` for M5 to keep or gate).
+
+Check, 2026-10-20 after merging M1, M3 and M4: `./scripts/check.sh` steps 1 to 7 pass (format, lint, 254 core tests by `./scripts/count-tests.sh` with 7 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R4.24 has status *person* and the journal, which M2 does not edit, does not name it yet; step 9, the browser check, passes in Chromium, Firefox and WebKit run on its own on the same build. Breaks: `python3 scripts/break_tests.py M2`, 31 of 31 caught, and M0's pass-order row repointed for `Pass::Water`, caught; the four `field.rs` rows went with `field.rs`.

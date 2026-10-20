@@ -26,6 +26,11 @@ uniform vec3 uSunGlow;
 // where the haze starts (m), how thick it is per metre (times ONE), the most
 // it hides, how far the sun's glow tints it
 uniform vec4 uHazeShape;
+// M2 (sky.rs): where the haze is made whole (m, m), the tint's share; the
+// tint; where it rises, is whole, falls, is gone (m)
+uniform vec4 uHazeEdge;
+uniform vec3 uAerial;
+uniform vec4 uAerialK;
 // light wrapped past the terminator, the ramp's start and end, how much of the ramp
 uniform vec4 uWrap;
 // the sky's curve, the sun disc's inner and outer cosines, the sun glow's power
@@ -52,9 +57,13 @@ vec4 haze() {
   vec3 to = vWorld - uEye;
   float d = length(to);
   vec3 flat_dir = normalize(vec3(to.x, 0.0, to.z) + vec3(0.0, uQ, 0.0));
-  float f = 1.0 - exp(-max(d - uHazeShape.x, 0.0) * uHazeShape.y * uQ);
+  float f = min(1.0 - exp(-max(d - uHazeShape.x, 0.0) * uHazeShape.y * uQ), uHazeShape.z);
+  // M2 (sky.rs): whole before the far plane; tinted cool over the middle distance
+  f = max(f, smoothstep(uHazeEdge.x, uHazeEdge.y, d));
   vec3 c = mix(uHorizon, sky(flat_dir), uHazeShape.w);
-  return vec4(c, min(f, uHazeShape.z));
+  float k = smoothstep(uAerialK.x, uAerialK.y, d) * (1.0 - smoothstep(uAerialK.z, uAerialK.w, d));
+  c = mix(c, uAerial, k * uHazeEdge.z);
+  return vec4(c, f);
 }
 
 // Whether the ordered dither keeps this pixel at fade f (look::keeps).
