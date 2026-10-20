@@ -195,7 +195,7 @@ impl World {
         crate::blade::step(self);
         crate::health::step(self);
         crate::feel::step(self); // M1:
-        // 5. M1/M5: throwables, the boomerang
+                                 // 5. M1/M5: throwables, the boomerang
         crate::throwables::step(self, input, &inputs);
         crate::boomerang::step(self, input);
         crate::player::finish(self, input, &inputs);
@@ -215,8 +215,8 @@ impl World {
         crate::player::draw(self, alpha, look, out);
         crate::throwables::draw(self, alpha, look, out);
         crate::feel::draw(self, alpha, look, out); // M1:
-        // M5: the player's house and bed, villagers, pickups, the cart, the
-        // chest, the boomerang
+                                                   // M5: the player's house and bed, villagers, pickups, the cart, the
+                                                   // chest, the boomerang
         crate::story::draw(self, alpha, look, out);
         crate::boomerang::draw(self, alpha, look, out);
         crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
@@ -258,6 +258,7 @@ impl World {
             // M5
             Some(("story", rest)) => crate::story::act(self, rest, value),
             Some(("trainer", rest)) => crate::trainer::act(self, rest, value),
+            Some(("merchant", rest)) => crate::merchant::act(self, rest, value),
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

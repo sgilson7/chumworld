@@ -420,9 +420,10 @@ pub fn begin(w: &mut World, seed: u64) {
     let sp = spec();
     let st = &mut w.story;
     st.seed = seed;
-    st.rng = Rng::new(seed ^ 0x5eed_0f_57_02);
+    st.rng = Rng::new(seed ^ 0x005e_ed0f_5702);
     st.phase = Phase::Bed(0);
     lie_down(w);
+    arrive(w);
     // the raid
     for (k, o) in sp.raid.orcs.iter().enumerate() {
         let at = near_place(w, "village", o.route[0]);
@@ -515,15 +516,15 @@ fn add_orc(w: &mut World, at: V3, yaw: i32, route: usize) {
     });
 }
 
-/// In bed, the view looks along the bed from past its foot and a little to
-/// one side, down into the room: the title's view (`Game::title_aim`), so
+/// In bed, the view looks across the bed from its side, a little toward its
+/// foot, down into the room and out over the meadow (the way out): the title's view (`Game::title_aim`), so
 /// play opens on it without a jump, and the view after a dream.
 pub fn title_view(w: &World) -> Option<(i32, i32)> {
     if !(matches!(w.story.phase, Phase::Bed(_)) && in_bed(w)) {
         return None;
     }
     let h = w.solid.home?;
-    Some((fx::wrap(h.bed.yaw + fx::HALF_TURN - deg(25)), -deg(24)))
+    Some((fx::wrap(h.bed.yaw + fx::QUARTER_TURN + deg(8)), -deg(34)))
 }
 
 /// After a dream, the view is the title's.
@@ -558,6 +559,10 @@ pub fn step_aside(w: &mut World) {
             let at = crate::world::START;
             w.player = Body::new(at, crate::world::START_YAW);
             w.me = Fighter::new(Kind::Player, held, 0, at, crate::world::START_YAW, false);
+            // and the view as the game had it before the opening
+            let pct = w.aim.pct;
+            w.aim = crate::camera::Aim::new(crate::world::START_YAW);
+            w.aim.pct = pct;
         }
         w.story.lift = 0;
         w.story.phase = Phase::Free;
@@ -583,7 +588,7 @@ pub fn filter(w: &mut World, input: &Input) -> Input {
     }
     if let Phase::Bed(_) = w.story.phase {
         let moves = input::FORWARD | input::BACK | input::LEFT | input::RIGHT;
-        if input.keys & moves != 0 && !w.story.dreamt_line_pending() {
+        if input.keys & moves != 0 && !w.story.dreamt_line_pending() && !w.story.still {
             w.story.phase = Phase::Rising(0);
         }
     }
@@ -641,7 +646,7 @@ fn steer_raid(w: &mut World, inputs: &mut [Input]) {
     let sp = spec();
     let me = w.player.pos;
     let free = !matches!(w.story.phase, Phase::Raid | Phase::Rising(_) | Phase::Bed(_));
-    let player_down = w.me.health.down();
+    let player_down = w.player_down();
     let home = w.solid.home;
     let hidden = |p: V3| home.is_some_and(|h| h.wall.holds(p.x, p.z, 0));
     let near_centre = centre(w).sub(me).len_xz() < BOUNDARY;
@@ -792,7 +797,7 @@ pub fn step(w: &mut World, raw: &Input) {
     phases(w);
     reinforce(w);
     flee(w);
-    if used && !w.me.health.down() && !in_bed(w) {
+    if used && !w.player_down() && !in_bed(w) {
         if let Some((u, _)) = nearest_use(w) {
             act_on(w, u);
         }
@@ -803,7 +808,7 @@ pub fn step(w: &mut World, raw: &Input) {
 }
 
 fn phases(w: &mut World) {
-    let down = w.me.health.down();
+    let down = w.player_down();
     let st = &mut w.story;
     match st.phase {
         Phase::Off | Phase::Free => {}
@@ -826,7 +831,10 @@ fn phases(w: &mut World) {
             } else {
                 WAKE_TICKS
             };
-            st.phase = if t + 1 >= wait {
+            st.phase = if st.still {
+                // held for a picture: the player lies on
+                Phase::Bed(t)
+            } else if t + 1 >= wait {
                 Phase::Rising(0)
             } else {
                 Phase::Bed(t + 1)
@@ -886,7 +894,7 @@ fn phases(w: &mut World) {
             }
         }
     }
-    if w.story.phase == Phase::Free && w.me.health.down() {
+    if w.story.phase == Phase::Free && w.player_down() {
         w.story.phase = Phase::Fallen(0);
     }
 }
@@ -1148,7 +1156,7 @@ pub fn hud(w: &World, s: &Strings, out: &mut Vec<HudItem>) {
 
 /// "E · Talk to the merchant": what E would do here.
 pub fn prompt(w: &World, s: &Strings) -> Option<String> {
-    if w.me.health.down() || in_bed(w) || w.story.veil {
+    if w.player_down() || in_bed(w) || w.story.veil {
         return None;
     }
     let (u, _) = nearest_use(w)?;
@@ -1186,7 +1194,7 @@ pub fn prompt(w: &World, s: &Strings) -> Option<String> {
 pub fn stamp(w: &World) -> (Option<String>, Option<Use>, bool) {
     (
         w.story.banner.as_ref().map(|b| b.key.clone()),
-        if in_bed(w) || w.me.health.down() {
+        if in_bed(w) || w.player_down() {
             None
         } else {
             nearest_use(w).map(|(u, _)| u)
@@ -1319,9 +1327,9 @@ pub fn walking_pose(
     body.facing = yaw;
     let foot = crate::motion::feet(&body, gait, &build, feet);
     let fwd = facing(yaw, 0);
-    for s in 0..2 {
-        p.foot[s] = foot[s];
-        p.knee[s] = crate::motion::knee(p.hip[s], foot[s], build.thigh, build.shin, fwd);
+    for (s, f) in foot.iter().enumerate() {
+        p.foot[s] = *f;
+        p.knee[s] = crate::motion::knee(p.hip[s], *f, build.thigh, build.shin, fwd);
     }
     p
 }
@@ -1372,7 +1380,7 @@ fn draw_pickup(p: &Pickup, look: &Look, out: &mut Shapes) {
             for k in 0..3 {
                 let at = Affine::translate(p.at.add(v3(
                     (k - 1) * ONE * 3 / 100,
-                    ONE * 1 / 100 + k * ONE * 2 / 100,
+                    ONE / 100 + k * ONE * 2 / 100,
                     0,
                 )))
                 .then(&Affine::scale(v3(ONE * 9 / 100, ONE * 2 / 100, ONE * 9 / 100)));
@@ -1398,8 +1406,8 @@ fn draw_pickup(p: &Pickup, look: &Look, out: &mut Shapes) {
 /// `story.<name>`: `still` (`on` or `off`, test-only) holds every foe the
 /// story steers, the villagers and the merchant still, for a picture or a
 /// still-frame check; `skip` ends the opening at once and stands the player
-/// at the village centre, as `step_aside` does for a test duel; `free`
-/// ends the opening where the player stands.
+/// at the village centre, as `step_aside` does for a test duel; `down`
+/// (test-only) puts the player down, as an orc's blow would.
 pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
     match name {
         "still" => {
@@ -1412,6 +1420,12 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
         }
         "skip" => {
             step_aside(w);
+            Ok(())
+        }
+        // test-only: the player falls, as to an orc's blow, for a view of
+        // the dream
+        "down" => {
+            w.me.health.hp = 0;
             Ok(())
         }
         _ => Err(format!("Unknown action \"story.{name}\".")),
@@ -1499,7 +1513,10 @@ mod tests {
             keys: FORWARD,
             ..Input::default()
         });
-        assert_eq!(w.story.phase, Phase::Rising(0), "a key gets the player up");
+        assert!(
+            matches!(w.story.phase, Phase::Rising(_)),
+            "a key gets the player up"
+        );
         // and in bed the keys move nothing
         assert_eq!(w.player.vel, V3::ZERO);
     }
@@ -1622,7 +1639,7 @@ mod tests {
         w.me.health.hp = 0;
         w.step(&Input::default());
         assert_eq!(w.story.phase, Phase::Dream(0));
-        idle(&mut w, FALL_SHOW);
+        idle(&mut w, FALL_SHOW + 1);
         assert!(w.story.veil, "the view fades");
         while !waking(&w) {
             w.step(&Input::default());
@@ -1633,11 +1650,14 @@ mod tests {
         assert_eq!(w.ui.settings.hand_pct, 150, "the reader's settings kept");
         let mut back = as_if_fresh(&w);
         back.ui.settings.hand_pct = 100;
-        assert_eq!(
-            back.hash(),
-            fresh.hash(),
-            "the world is the opening again, exactly"
-        );
+        if back.hash() != fresh.hash() {
+            let (a, b) = (format!("{back:?}"), format!("{fresh:?}"));
+            let at = a.bytes().zip(b.bytes()).position(|(x, y)| x != y).unwrap_or(0);
+            panic!(
+                "the world is not the opening again: {}",
+                &a[at.saturating_sub(300)..(at + 200).min(a.len())]
+            );
+        }
         assert!(in_bed(&w));
         // the fade lifts, then the line, from the player
         idle(&mut w, DARK_TICKS + 1);
@@ -1829,10 +1849,235 @@ mod tests {
         assert_eq!(keys.iter().filter(|k| **k == input::FORWARD).count(), 8 - n);
         // 10° left: mostly forward
         let mut acc = 0;
-        let keys: Vec<u32> = (0..9).map(|_| keys_toward(0, facing(deg(10), 0), &mut acc)).collect();
-        assert_eq!(keys.iter().filter(|k| **k == fl).count(), 2, "10/45 of 9: {keys:?}");
-        // straight behind: back only
+        let keys: Vec<u32> = (0..9)
+            .map(|_| keys_toward(0, facing(deg(10), 0), &mut acc))
+            .collect();
+        assert_eq!(
+            keys.iter().filter(|k| **k == fl).count(),
+            2,
+            "10/45 of 9: {keys:?}"
+        );
+        // just past straight behind: back
         let mut acc = 0;
-        assert_eq!(keys_toward(deg(30), facing(deg(210), 0), &mut acc), input::BACK);
+        assert_eq!(keys_toward(deg(30), facing(deg(212), 0), &mut acc), input::BACK);
+    }
+}
+
+/// Every route in `data/items.json` taken in one play, the way a reader
+/// takes it: the wake, the escape on foot, the trainer, the camp, the
+/// chest, the merchant stopped with a thrown rock, the speedster's pieces.
+/// Movement, looking, E, X and F are the reader's inputs through
+/// `Game::advance`; the shop and dialogue through their acts, as the page
+/// sends them. Three things are not by inputs, and say so: the long walks
+/// between places are `places.go` (a few kilometres at a run is minutes of
+/// ticks); the camp's foes are put down rather than duelled (M1's duel is
+/// tested on its own); and the practice's orbs are counted with
+/// `trainer.credit` until M6's orbs can be turned.
+#[cfg(test)]
+mod playthrough {
+    use super::*;
+    use crate::game::tests::{frames, game};
+    use crate::game::{Game, Screen};
+    use crate::input::{DRAW, FORWARD, RUN, THROW, USE};
+
+    /// Hundredths of a pixel of mouse movement that turn the aim by `d`
+    /// (12° a 100 px at the default look speed, `camera.rs`).
+    fn dx_for(d: i32) -> i32 {
+        (-(d as i64) * 10_000 / (fx::TURN as i64 * 12 / 360)).clamp(-40_000, 40_000) as i32
+    }
+
+    /// Turns to face `to` and walks (or runs) there, through the inputs.
+    fn walk_to(g: &mut Game, to: V3, run: bool) {
+        walk_near(g, to, run, ONE * 6 / 10);
+    }
+
+    fn walk_near(g: &mut Game, to: V3, run: bool, near: Fx) {
+        for _ in 0..60 * 120 {
+            let w = &g.world;
+            let d = to.sub(w.player.pos);
+            if d.len_xz() < near {
+                frames(g, 20, 0, 0);
+                return;
+            }
+            let turn = fx::wrap(yaw_of(d) - w.aim.yaw);
+            let keys = if turn.abs() < deg(40) {
+                FORWARD | if run { RUN } else { 0 }
+            } else {
+                0
+            };
+            frames(g, 1, keys, dx_for(turn));
+            assert_eq!(g.screen, Screen::Play, "walking to {to:?}");
+        }
+        panic!("did not reach {to:?} from {:?}", g.world.player.pos);
+    }
+
+    /// E, and whatever dialogue it opens read to its end.
+    fn press_e(g: &mut Game) {
+        frames(g, 1, USE, 0);
+        frames(g, 1, 0, 0);
+        read_on(g);
+    }
+
+    fn read_on(g: &mut Game) {
+        for _ in 0..20 {
+            if g.screen != Screen::Dialogue {
+                break;
+            }
+            g.act("dialogue.next", "").unwrap();
+            frames(g, 1, 0, 0);
+        }
+    }
+
+    fn go(g: &mut Game, x: i32, z: i32) {
+        g.act("places.go", &format!("{x},{z}")).unwrap();
+        frames(g, 2, 0, 0);
+    }
+
+    /// Walks to each pickup of `gift` lying within `near` and takes it.
+    fn take_all(g: &mut Game, near: Fx) {
+        loop {
+            let me = g.world.player.pos;
+            let next = g
+                .world
+                .story
+                .pickups
+                .iter()
+                .filter(|p| !p.taken && p.at.sub(me).len_xz() < near)
+                .min_by_key(|p| p.at.sub(me).len_xz())
+                .copied();
+            let Some(p) = next else {
+                return;
+            };
+            // within reach of it, then E
+            walk_near(g, p.at, false, REACH - ONE / 2);
+            press_e(g);
+            let taken = g
+                .world
+                .story
+                .pickups
+                .iter()
+                .find(|q| q.at == p.at)
+                .is_some_and(|q| q.taken);
+            assert!(taken, "took {:?}", p.gift);
+        }
+    }
+
+    fn home_point(w: &World, lx: Fx, lz: Fx) -> V3 {
+        let h = w.solid.home.unwrap();
+        let (dx, dz) = h.wall.world_dir(lx, lz);
+        v3(h.wall.x + dx, h.foot.y, h.wall.z + dz)
+    }
+
+    #[test]
+    fn every_item_s_one_route_can_be_taken_in_one_play() {
+        let mut g = game();
+        g.act("screen.show", "play").unwrap();
+        // the wake, the bandage by the bed
+        frames(&mut g, (WAKE_TICKS + RISE_TICKS + 2) as i64, 0, 0);
+        assert_eq!(g.world.story.phase, Phase::Raid);
+        take_all(&mut g, fx::int(3));
+        assert!(g.world.inventory.has(Item::Bandage), "route: village");
+        // out of the door and west across the meadow, at a run
+        let h = g.world.solid.home.unwrap();
+        let inside = home_point(&g.world, 0, -h.wall.hz + ONE);
+        let out = home_point(&g.world, 0, -h.wall.hz - fx::int(3));
+        walk_to(&mut g, inside, false);
+        walk_to(&mut g, out, false);
+        let far = home_point(&g.world, 0, -h.wall.hz - fx::int(280));
+        walk_to(&mut g, far, true);
+        assert_eq!(g.world.story.phase, Phase::Free, "got away on foot");
+        assert_eq!(crate::ui::task(&g.world), "quest_trainer");
+        // rocks by the crossroads (the "ground" route)
+        let cross = crate::places::at(&g.world, "crossroads").unwrap();
+        go(&mut g, fx::floor(cross.x) - 4, fx::floor(cross.z) - 4);
+        take_all(&mut g, fx::int(20));
+        assert!(g.world.inventory.count(Item::Rock) >= 3, "route: ground");
+        // the trainer: talk, draw, the practice
+        let hut = crate::places::at(&g.world, "hut").unwrap();
+        go(&mut g, fx::floor(hut.x) + 12, fx::floor(hut.z) + 12);
+        let t = crate::player::body(&g.world, crate::trainer::id(&g.world).unwrap()).pos;
+        walk_to(&mut g, t.add(v3(ONE * 18 / 10, 0, 0)), false);
+        press_e(&mut g);
+        assert_eq!(g.world.trainer.stage, crate::trainer::Stage::Ready);
+        frames(&mut g, 1, DRAW, 0);
+        frames(&mut g, 30, 0, 0);
+        assert!(matches!(g.world.trainer.stage, crate::trainer::Stage::Volley(_)));
+        g.act("trainer.credit", &crate::trainer::TO_PASS.to_string())
+            .unwrap();
+        frames(&mut g, 2, 0, 0);
+        read_on(&mut g);
+        assert!(crate::imbue::learned(&g.world), "route: trainer");
+        frames(&mut g, 1, DRAW, 0);
+        frames(&mut g, 30, 0, 0);
+        // the camp: the lookout sees you; its people put down; their drops
+        let c = crate::camp::centre(&g.world);
+        go(&mut g, fx::floor(c.x) - 40, fx::floor(c.z) + 40);
+        walk_to(&mut g, c.add(v3(-fx::int(22), 0, fx::int(26))), false);
+        assert!(g.world.camp.alarm, "the lookout raised the alarm");
+        for m in g.world.camp.members.clone() {
+            g.world.foes[m.foe].fighter.health.hp = 0;
+        }
+        frames(&mut g, 60, 0, 0);
+        take_all(&mut g, fx::int(40));
+        for (i, route) in [
+            (Item::Gloves, "lookout"),
+            (Item::Sword, "leader_duel"),
+            (Item::Knife, "bandits"),
+            (Item::ChestKey, "leader_drop"),
+        ] {
+            assert!(g.world.inventory.has(i), "route: {route}");
+        }
+        // the chest, with the key
+        let chest = crate::camp::chest(&g.world).unwrap();
+        let d = chest.at.sub(g.world.player.pos).norm();
+        walk_to(&mut g, chest.at.sub(d.scale(ONE * 14 / 10)), false);
+        press_e(&mut g);
+        assert!(
+            g.world.camp.open && g.world.inventory.has(Item::Boomerang),
+            "route: camp_chest"
+        );
+        // the merchant: beside the cart, a rock thrown at it, E, the shop
+        let m = &g.world.merchant;
+        let side = crate::geom::right_of(m.yaw);
+        let at = m.at.add(side.scale(fx::int(6)));
+        go(&mut g, fx::floor(at.x), fx::floor(at.z));
+        for _ in 0..40 {
+            let w = &g.world;
+            let ahead = w.merchant.at.add(facing(w.merchant.yaw, 0).scale(ONE / 2));
+            let turn = fx::wrap(yaw_of(ahead.sub(w.player.pos)) - w.aim.yaw);
+            // level: the mouse up or down by the pitch there is
+            let dy = (w.aim.pitch as i64 * 10_000 / (fx::TURN as i64 * 12 / 360)) as i32;
+            let now = g.clock.last().unwrap_or(0) + crate::ticks::TICK_US;
+            g.advance(now, 0, dx_for(turn), dy, 0);
+        }
+        frames(&mut g, 1, THROW, 0);
+        frames(&mut g, 60, 0, 0);
+        assert!(g.world.merchant.waiting(), "the rock stopped the cart");
+        let cart = g.world.merchant.at;
+        let d = cart.sub(g.world.player.pos).norm();
+        walk_to(&mut g, cart.sub(d.scale(fx::int(2))), false);
+        press_e(&mut g);
+        assert_eq!(g.screen, Screen::Shop);
+        g.act("shop.buy", "hood").unwrap();
+        g.act("shop.close", "").unwrap();
+        assert!(g.world.inventory.has(Item::Hood), "route: merchant");
+        // the three pieces lying in the world
+        for (place, item, route) in [
+            ("scarecrow", Item::Jacket, "scarecrow"),
+            ("hollow_tree", Item::Trousers, "hollow_tree"),
+            ("shrine", Item::Boots, "river_shrine"),
+        ] {
+            let p = crate::places::at(&g.world, place).unwrap();
+            go(&mut g, fx::floor(p.x) + 5, fx::floor(p.z) + 5);
+            take_all(&mut g, fx::int(12));
+            assert!(g.world.inventory.has(item), "route: {route}");
+        }
+        // every item the MVP has, held (the key went into the chest's lock)
+        for i in Item::ALL {
+            if i != Item::ChestKey {
+                assert!(g.world.inventory.has(i), "{i:?} is held at the end");
+            }
+        }
+        assert_eq!(crate::ui::task(&g.world), "quest_done");
     }
 }

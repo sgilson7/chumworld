@@ -1944,5 +1944,292 @@
     "find": "    w.me.framing = fx::approach(w.me.framing, goal, FRAMING_STEP);",
     "replace": "    w.me.framing = fx::approach(w.me.framing, goal * 0, FRAMING_STEP);",
     "test": "held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head"
+  },
+  {
+    "name": "M5 solid: a body against a wall is not pushed out",
+    "file": "crates/core/src/solid.rs",
+    "find": "            (sx, 0, r - ox)\n",
+    "replace": "            (sx, 0, 0)\n",
+    "test": "a_body_against_a_wall_is_pushed_out_to_its_radius_and_stops_going_in"
+  },
+  {
+    "name": "M5 solid: the player's house has no door",
+    "file": "crates/core/src/solid.rs",
+    "find": "        at(-(DOOR_GAP / 2 + side), -f.hz + t, side, t),\n",
+    "replace": "        at(0, -f.hz + t, f.hx, t),\n",
+    "test": "the_player_cannot_walk_into_a_house_but_walks_out_of_their_own_door"
+  },
+  {
+    "name": "M5 solid: the bridge's deck is at its foot",
+    "file": "crates/core/src/solid.rs",
+    "find": "m.decks.push((span, s.at.y + DECK));",
+    "replace": "m.decks.push((span, s.at.y));",
+    "test": "a_body_on_the_bridge_stands_on_its_deck_and_ramps_down_off_its_ends"
+  },
+  {
+    "name": "M5 story: the opening ends only past 250 m",
+    "file": "crates/core/src/story.rs",
+    "find": "    if now < BOUNDARY {\n        return;\n    }",
+    "replace": "    if now <= BOUNDARY {\n        return;\n    }",
+    "test": "the_opening_ends_at_250_metres_from_the_village_centre_and_not_at_249"
+  },
+  {
+    "name": "M5 story: a dream wakes in another opening",
+    "file": "crates/core/src/story.rs",
+    "find": "    let mut fresh = opening(w.story.seed);",
+    "replace": "    let mut fresh = opening(w.story.seed + 1);",
+    "test": "down_to_an_orc_the_player_wakes_in_bed_and_the_world_is_the_opening_again"
+  },
+  {
+    "name": "M5 story: a dream forgets the reader's settings",
+    "file": "crates/core/src/story.rs",
+    "find": "    fresh.ui.settings = settings;\n",
+    "replace": "    let _ = settings;\n",
+    "test": "down_to_an_orc_the_player_wakes_in_bed_and_the_world_is_the_opening_again"
+  },
+  {
+    "name": "M5 story: the view never fades in a dream",
+    "file": "crates/core/src/story.rs",
+    "find": "        Phase::Dream(t) => {\n            if t == FALL_SHOW {\n                st.veil = true;",
+    "replace": "        Phase::Dream(t) => {\n            if t == FALL_SHOW {\n                st.veil = false;",
+    "test": "down_to_an_orc_the_player_wakes_in_bed_and_the_world_is_the_opening_again"
+  },
+  {
+    "name": "M5 story: the second bed line comes a dream late",
+    "file": "crates/core/src/story.rs",
+    "find": "if st.dreams >= AGAIN_FROM {",
+    "replace": "if st.dreams > AGAIN_FROM {",
+    "test": "from_the_third_dream_the_line_is_the_second_one"
+  },
+  {
+    "name": "M5 story: a fallen orc is followed late",
+    "file": "crates/core/src/story.rs",
+    "find": "if r.down < COMES_AFTER || full {",
+    "replace": "if r.down < COMES_AFTER * 2 || full {",
+    "test": "a_fallen_orc_is_followed_by_another_from_the_south_edge"
+  },
+  {
+    "name": "M5 story: an orc sees a quarter as far",
+    "file": "crates/core/src/story.rs",
+    "find": "(gap < SIGHT || r.mode == Mode::Chase)",
+    "replace": "(gap < SIGHT / 4 || r.mode == Mode::Chase)",
+    "test": "an_orc_that_sees_the_player_runs_at_them_draws_and_fights"
+  },
+  {
+    "name": "M5 story: a drawn orc near the player does not fight",
+    "file": "crates/core/src/story.rs",
+    "find": "                    // drawn and near: its own tree fights\n                    inputs[r.foe]",
+    "replace": "                    // drawn and near: its own tree fights\n                    Input::default()",
+    "test": "an_orc_that_sees_the_player_runs_at_them_draws_and_fights"
+  },
+  {
+    "name": "M5 story: a story foe's mouse looks instead of moving its hand",
+    "file": "crates/core/src/story.rs",
+    "find": "    g.mouse_looks = false;",
+    "replace": "    g.mouse_looks = true;",
+    "test": "an_orc_that_sees_the_player_runs_at_them_draws_and_fights"
+  },
+  {
+    "name": "M5 story: a chasing orc runs every tick",
+    "file": "crates/core/src/story.rs",
+    "find": "pub const RUN_TICKS: u64 = 4;",
+    "replace": "pub const RUN_TICKS: u64 = 5;",
+    "test": "a_player_who_runs_from_a_chasing_orc_gets_away"
+  },
+  {
+    "name": "M5 story: the player gets up a second early",
+    "file": "crates/core/src/story.rs",
+    "find": "pub const WAKE_TICKS: u32 = 90;",
+    "replace": "pub const WAKE_TICKS: u32 = 60;",
+    "test": "the_player_gets_up_after_a_while_or_at_once_on_a_movement_key"
+  },
+  {
+    "name": "M5 story: in bed the keys move the body",
+    "file": "crates/core/src/story.rs",
+    "find": "    Input {\n        keys: 0,\n        buttons: 0,\n        ..*input\n    }",
+    "replace": "    Input {\n        buttons: 0,\n        ..*input\n    }",
+    "test": "the_player_gets_up_after_a_while_or_at_once_on_a_movement_key"
+  },
+  {
+    "name": "M5 story: the key mixes take no turns",
+    "file": "crates/core/src/story.rs",
+    "find": "    *acc += share;\n",
+    "replace": "    *acc += share / 2;\n",
+    "test": "keys_toward_alternate_between_the_two_nearest_mixes_so_their_mean_heads_true"
+  },
+  {
+    "name": "M5 story: a pickup stays after E takes it",
+    "file": "crates/core/src/story.rs",
+    "find": "            w.story.pickups[k].taken = true;\n",
+    "replace": "",
+    "test": "e_picks_up_what_lies_in_reach_and_the_prompt_names_it"
+  },
+  {
+    "name": "M5 story: the prompt names no key",
+    "file": "crates/core/src/story.rs",
+    "find": "        &[(\"key\", s.get(\"key_e\")), (\"does\", does)],",
+    "replace": "        &[(\"does\", does)],",
+    "test": "e_picks_up_what_lies_in_reach_and_the_prompt_names_it"
+  },
+  {
+    "name": "M5 story: the quest skips the trainer",
+    "file": "crates/core/src/story.rs",
+    "find": "        return \"quest_trainer\";",
+    "replace": "        return \"quest_camp\";",
+    "test": "the_quest_moves_on_with_the_story"
+  },
+  {
+    "name": "M5 story: an orc with no round is read",
+    "file": "crates/core/src/story.rs",
+    "find": "        if s.raid.orcs.iter().any(|o| o.route.is_empty()) {",
+    "replace": "        if false {",
+    "test": "the_story_file_refuses_a_pickup_that_is_no_item"
+  },
+  {
+    "name": "M5 merchant: the cart walks 1.5 m/s",
+    "file": "crates/core/src/merchant.rs",
+    "find": "pub const SPEED: Fx = ONE * 14 / 10 / 60;",
+    "replace": "pub const SPEED: Fx = ONE * 15 / 10 / 60;",
+    "test": "the_cart_walks_the_road_at_one_point_four_metres_a_second"
+  },
+  {
+    "name": "M5 merchant: the wait is 1,799 ticks",
+    "file": "crates/core/src/merchant.rs",
+    "find": "pub const WAIT_TICKS: u32 = 1800;",
+    "replace": "pub const WAIT_TICKS: u32 = 1799;",
+    "test": "a_throwable_landing_on_the_cart_stops_it_for_exactly_1800_ticks"
+  },
+  {
+    "name": "M5 merchant: a hit is not read",
+    "file": "crates/core/src/merchant.rs",
+    "find": "        if hit {\n",
+    "replace": "        if false {\n",
+    "test": "a_rock_thrown_onto_the_cart_stops_it_and_one_that_misses_does_not"
+  },
+  {
+    "name": "M5 merchant: the cart's box catches a near miss",
+    "file": "crates/core/src/merchant.rs",
+    "find": "pub const BOX_HALF: (Fx, Fx, Fx) = (ONE * 80 / 100,",
+    "replace": "pub const BOX_HALF: (Fx, Fx, Fx) = (ONE * 500 / 100,",
+    "test": "a_rock_thrown_onto_the_cart_stops_it_and_one_that_misses_does_not"
+  },
+  {
+    "name": "M5 merchant: the cart never turns",
+    "file": "crates/core/src/merchant.rs",
+    "find": "            m.dir = -m.dir;\n",
+    "replace": "",
+    "test": "the_cart_turns_round_at_each_end_of_its_beat"
+  },
+  {
+    "name": "M5 merchant: the cart drives under the bridge",
+    "file": "crates/core/src/merchant.rs",
+    "find": "    let mut p = a.lerp(b, fx::div(s - m.along[k - 1], seg));\n    p.y = solid::surface(w, p.x, p.z);",
+    "replace": "    let mut p = a.lerp(b, fx::div(s - m.along[k - 1], seg));\n    p.y = w.ground(p.x, p.z);",
+    "test": "over_the_bridge_the_cart_rides_on_the_deck"
+  },
+  {
+    "name": "M5 camp: no lookout",
+    "file": "crates/core/src/camp.rs",
+    "find": "    put(w, sp.lookout, Role::Lookout);\n",
+    "replace": "",
+    "test": "the_camp_stands_when_the_player_comes_near_with_a_lookout_three_bandits_and_a_leader"
+  },
+  {
+    "name": "M5 camp: the lookout sees 34 m",
+    "file": "crates/core/src/camp.rs",
+    "find": "pub const LOOKOUT_SIGHT: Fx = fx::int(32);",
+    "replace": "pub const LOOKOUT_SIGHT: Fx = fx::int(34);",
+    "test": "the_lookout_raises_the_alarm_at_thirty_two_metres_and_not_before"
+  },
+  {
+    "name": "M5 camp: the chest opens without the key",
+    "file": "crates/core/src/camp.rs",
+    "find": "    } else if w.inventory.has(Item::ChestKey) {",
+    "replace": "    } else if true {",
+    "test": "the_chest_opens_only_with_the_key_and_gives_the_boomerang"
+  },
+  {
+    "name": "M5 camp: the cleared camp drops no key",
+    "file": "crates/core/src/camp.rs",
+    "find": "    if cleared && !w.camp.key_dropped {",
+    "replace": "    if cleared && w.camp.key_dropped {",
+    "test": "the_whole_camp_down_drops_the_key_and_each_drops_its_own"
+  },
+  {
+    "name": "M5 camp: the leader casts once only",
+    "file": "crates/core/src/camp.rs",
+    "find": "        || (gap > CAST_FROM && w.tick >= w.camp.cast_at + CAST_EVERY)\n",
+    "replace": "",
+    "test": "the_leader_casts_when_it_first_holds_on_the_player_and_then_every_seven_seconds"
+  },
+  {
+    "name": "M5 trainer: the practice passes with nothing turned",
+    "file": "crates/core/src/trainer.rs",
+    "find": "    w.trainer.turned + now + w.trainer.credited\n",
+    "replace": "    TO_PASS + now\n",
+    "test": "the_practice_cannot_pass_without_the_deflections_and_learn_is_called_once"
+  },
+  {
+    "name": "M5 trainer: passing teaches nothing",
+    "file": "crates/core/src/trainer.rs",
+    "find": "        crate::imbue::learn(w);\n",
+    "replace": "",
+    "test": "the_practice_cannot_pass_without_the_deflections_and_learn_is_called_once"
+  },
+  {
+    "name": "M5 trainer: the imbue is not lent",
+    "file": "crates/core/src/trainer.rs",
+    "find": "    matches!(\n        w.trainer.stage,\n        Stage::Ready | Stage::Volley(_) | Stage::Between(_)\n    )\n}",
+    "replace": "    false\n}",
+    "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
+  },
+  {
+    "name": "M5 trainer: the lent imbue does not imbue",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    crate::trainer::lending(w)\n",
+    "replace": "    false\n",
+    "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
+  },
+  {
+    "name": "M5 boomerang: it comes back to where it was let go",
+    "file": "crates/core/src/boomerang.rs",
+    "find": "    let base = fl.from.lerp(hand(w), eased);",
+    "replace": "    let base = fl.from;",
+    "test": "the_boomerang_comes_back_to_the_hand_in_exactly_150_ticks_from_any_direction"
+  },
+  {
+    "name": "M5 boomerang: caught a tick late",
+    "file": "crates/core/src/boomerang.rs",
+    "find": "    if fl.t >= n {\n",
+    "replace": "    if fl.t > n {\n",
+    "test": "the_boomerang_comes_back_to_the_hand_in_exactly_150_ticks_from_any_direction"
+  },
+  {
+    "name": "M5 boomerang: the loop reaches a third out",
+    "file": "crates/core/src/boomerang.rs",
+    "find": "    let out = fx::mul(reach(), ONE - fx::cos(phi)) / 2;",
+    "replace": "    let out = fx::mul(reach(), ONE - fx::cos(phi)) / 3;",
+    "test": "the_loop_starts_and_ends_at_the_hand_and_reaches_eighteen_metres_out"
+  },
+  {
+    "name": "M5 boomerang: it strikes no one",
+    "file": "crates/core/src/boomerang.rs",
+    "find": "            player::parts_mut(w, id).1.health.take(BLOW_SPEED, part);\n",
+    "replace": "",
+    "test": "the_boomerang_strikes_a_foe_on_its_way_once_and_a_little"
+  },
+  {
+    "name": "M5 boomerang: it passes through the cart unseen",
+    "file": "crates/core/src/boomerang.rs",
+    "find": "                    fl.cart = true;\n",
+    "replace": "                    fl.cart = false;\n",
+    "test": "the_boomerang_through_the_merchant_s_cart_stops_it_and_flies_on_home"
+  },
+  {
+    "name": "M5 playthrough: the merchant sells no hood",
+    "file": "crates/core/src/story.rs",
+    "find": "            (Some(id), _) => Gift::Item(Item::from_id(id).expect(\"checked\"), p.count.unwrap_or(1)),",
+    "replace": "            (Some(id), _) if id == \"jacket\" => continue,\n            (Some(id), _) => Gift::Item(Item::from_id(id).expect(\"checked\"), p.count.unwrap_or(1)),",
+    "test": "every_item_s_one_route_can_be_taken_in_one_play"
   }
 ]

@@ -54,7 +54,7 @@ pub const CAST_FROM: Fx = fx::int(4);
 /// The chest's lid opens over this many ticks.
 pub const LID_TICKS: u32 = 30;
 /// E opens the chest from this near its middle.
-pub const CHEST_FROM: Fx = ONE * 19 / 10;
+pub const CHEST_FROM: Fx = ONE * 23 / 10;
 
 /// Who a camp foe is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -216,7 +216,7 @@ pub fn step(w: &mut World) {
                     || gap < NOTICE
                     || f.health.hp < f.health.most)
         });
-        if seen && !w.me.health.down() {
+        if seen && !w.player_down() {
             w.camp.alarm = true;
             story::banner(w, "story_alarm");
         }

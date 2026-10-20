@@ -260,6 +260,19 @@ pub fn talk(w: &mut World) {
     crate::ui::open_shop(w);
 }
 
+/// `merchant.<name>`: `stop` (test-only) stops the cart as a hit would,
+/// for a view of the shop on the road.
+pub fn act(w: &mut World, name: &str, _value: &str) -> Result<(), String> {
+    match name {
+        "stop" if w.merchant.active() => {
+            w.merchant.wait = WAIT_TICKS;
+            Ok(())
+        }
+        "stop" => Err("There is no merchant on the road yet.".into()),
+        _ => Err(format!("Unknown action \"merchant.{name}\".")),
+    }
+}
+
 // ---- drawing ------------------------------------------------------------------
 
 /// The cart, the donkey ahead of it and the merchant on its seat.
@@ -385,8 +398,8 @@ mod tests {
         // the merchant reads it now
         step(&mut w);
         let held = w.merchant.s;
-        assert_eq!(w.merchant.wait, WAIT_TICKS);
-        for t in 0..WAIT_TICKS {
+        assert_eq!(w.merchant.wait, 1800);
+        for t in 0..1800 {
             w.step(&Input::default());
             assert_eq!(w.merchant.s, held, "still waiting at tick {t}");
         }
@@ -468,12 +481,12 @@ mod tests {
         // and its pitch never jumps more than 2° a tick crossing it
         w.merchant.s = s + fx::int(12);
         w.merchant.dir = -1;
-        let mut last = None;
+        let mut last: Option<i32> = None;
         for _ in 0..(fx::int(24) / SPEED) {
             step(&mut w);
             if let Some(p) = last {
                 assert!(
-                    (w.merchant.pitch - p as i32).abs() <= deg(2),
+                    (w.merchant.pitch - p).abs() <= deg(2),
                     "{} {}",
                     p,
                     w.merchant.pitch

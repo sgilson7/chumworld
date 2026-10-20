@@ -201,6 +201,12 @@ icons["portrait_merchant"] = face(SKIN, "#7a5a3a",
     '<path d="M18 24 L 62 24" stroke="#e07b4c" stroke-width="4"/>'
     '<path d="M30 58 Q 40 66 50 58" fill="none" stroke="{ink}" stroke-width="2.4" stroke-linecap="round"/>'
     '<path d="M28 54 Q 40 50 52 54" fill="none" stroke="{hair}" stroke-width="4" stroke-linecap="round"/>')
+# M5: the player, for the dream line: brown hair under a blue nightcap
+icons["portrait_you"] = face(SKIN, "#6b4528",
+    '<path d="M14 40 C 12 22, 66 22, 66 40 C 58 32, 22 32, 14 40 Z" fill="{hair}" stroke="{ink}" stroke-width="2.6" stroke-linejoin="round"/>'
+    '<path d="M14 32 C 18 12, 52 6, 70 22 L 64 28 C 50 22, 28 22, 16 34 Z" fill="#7d9ce0" stroke="{ink}" stroke-width="2.6" stroke-linejoin="round"/>'
+    '<circle cx="70" cy="22" r="5" fill="#fffaf0" stroke="{ink}" stroke-width="2.2"/>'
+    '<path d="M33 58 Q 40 62 47 58" fill="none" stroke="{ink}" stroke-width="2.4" stroke-linecap="round"/>')
 icons["portrait_villager"] = face(SKIN, "#6f4a35",
     '<path d="M13 40 C 12 18, 68 18, 67 40 C 60 30, 22 28, 13 40 Z" fill="{hair}" stroke="{ink}" stroke-width="2.6" stroke-linejoin="round"/>'
     '<path d="M33 58 Q 40 63 47 58" fill="none" stroke="{ink}" stroke-width="2.4" stroke-linecap="round"/>')
