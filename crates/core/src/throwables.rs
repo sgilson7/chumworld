@@ -100,6 +100,8 @@ pub struct Flying {
     /// metres a tick
     pub vel: V3,
     pub ticks: u16,
+    /// M7: how many times it has glanced off a wall, a tree or a rock
+    pub bounces: u8,
 }
 
 /// What a throwable met when it stopped.
@@ -108,6 +110,9 @@ pub enum Struck {
     Body(u8),
     Prop(u16),
     Ground,
+    /// M7: a prop of the places or a tree or rock of the scatter
+    /// (`obstacles.rs`)
+    Scenery,
 }
 
 /// A throwable come to a stop this tick (the hook M5 reads).
@@ -121,12 +126,24 @@ pub struct Impact {
     pub struck: Struck,
 }
 
-/// A box a throwable stops against: a prop that is struck.
+/// A box a throwable stops against: a prop that is struck. Its half sizes
+/// are along its own axes, turned by `yaw` (`Affine::rot_y`'s; M7: the
+/// cart's box turns with the cart, R7.11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Block {
     pub centre: V3,
     pub half: V3,
+    pub yaw: i32,
 }
+
+/// A rock glances off a wall with this share of its speed into the wall
+/// turned back, and this share of its speed along it kept.
+pub const BOUNCE_PCT: i32 = 35;
+pub const GLANCE_PCT: i32 = 70;
+/// It glances off at most this many times, and only while it is faster
+/// than `BOUNCE_MIN`; then it drops where it is.
+pub const BOUNCES: u8 = 3;
+pub const BOUNCE_MIN: Fx = ONE * 3 / 2;
 
 /// One come to rest on the ground, still drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,12 +161,16 @@ pub struct State {
     /// boxes that stop a throwable (M5: the merchant's cart)
     pub props: Vec<Block>,
     pub resting: Vec<Resting>,
+    /// M7: this tick's glances off the scenery (a rock that flies on), for
+    /// the sound of a knock (P1)
+    pub knocks: Vec<Impact>,
 }
 
 /// Step 5: throws begun and let go, everything in the air moved one tick
 /// and stopped where it meets something.
 pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
     w.throwables.landed.clear();
+    w.throwables.knocks.clear();
     for id in 0..player::count(w) {
         let inp = if id == 0 { *input } else { foes[id - 1] };
         wind(w, id, &inp);
@@ -203,6 +224,11 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
                 consider(share, Struck::Prop(k as u16), t.prev.lerp(t.p, share as Fx));
             }
         }
+        // M7: the props, trees and rocks of the world
+        let scenery = w.obstacles.first(w, t.prev, t.p, r);
+        if let Some(h) = scenery {
+            consider(h.share, Struck::Scenery, t.prev.lerp(t.p, h.share as Fx));
+        }
         let ground = w.ground(t.p.x, t.p.z);
         if t.p.y <= ground + r {
             let drop = (t.prev.y - t.p.y).max(1) as i64;
@@ -210,6 +236,25 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
             let mut at = t.prev.lerp(t.p, share as Fx);
             at.y = ground + r;
             consider(share, Struck::Ground, at);
+        }
+        // a rock glances off the scenery and flies on
+        if let (Some((_, Struck::Scenery, at)), Some(h)) = (best, scenery) {
+            let speed = player::mps(t.vel.len());
+            if t.item == Held::Rock && t.bounces < BOUNCES && speed > BOUNCE_MIN {
+                w.throwables.knocks.push(Impact {
+                    item: t.item,
+                    by: t.by,
+                    at,
+                    speed,
+                    struck: Struck::Scenery,
+                });
+                t.vel = glance(t.vel, h.normal);
+                // where it met, a millimetre out of the face
+                t.p = at.add(h.normal.scale(ONE / 1000));
+                t.bounces += 1;
+                still.push(t);
+                continue;
+            }
         }
         match best {
             Some((_, struck, at)) => {
@@ -225,7 +270,11 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
                     struck,
                 });
                 let mut rest = at;
-                rest.y = w.ground(at.x, at.z) + if t.item == Held::Rock { ROCK_R } else { ONE / 100 };
+                // a knife sticks in the wall or the tree it meets (M7); the
+                // rest lie on the ground under where they stopped
+                if !(t.item == Held::Knife && struck == Struck::Scenery) {
+                    rest.y = w.ground(at.x, at.z) + if t.item == Held::Rock { ROCK_R } else { ONE / 100 };
+                }
                 w.throwables.resting.push(Resting {
                     item: t.item,
                     at: rest,
@@ -269,15 +318,42 @@ fn blow(w: &mut World, t: &Flying, id: usize, speed: Fx, at: V3) {
     });
 }
 
+/// A velocity off a face whose outward normal is `n`: the part into the
+/// face turned back at `BOUNCE_PCT`, the part along it kept at `GLANCE_PCT`.
+pub fn glance(v: V3, n: V3) -> V3 {
+    let into = v.dot(n);
+    if into >= 0 {
+        return v;
+    }
+    let normal = n.scale(into);
+    let along = v.sub(normal);
+    along
+        .scale(ONE * GLANCE_PCT / 100)
+        .sub(normal.scale(ONE * BOUNCE_PCT / 100))
+}
+
 /// Where along `a`→`b` (a share, `0..=ONE`) a sphere of radius `r` first
-/// enters box `k`, if it does: the slab test on the box grown by `r`.
+/// enters box `k`, if it does: the slab test on the box grown by `r`, in
+/// the box's own turned frame.
 pub fn through_box(a: V3, b: V3, k: &Block, r: Fx) -> Option<i64> {
     let one = ONE as i64;
     let (mut lo, mut hi) = (0i64, one);
+    // into the box's frame: undo its turn about its centre (as
+    // `solid::Wall::local`)
+    let (s, c) = (fx::sin(k.yaw), fx::cos(k.yaw));
+    let local = |p: V3| {
+        let (dx, dz) = (p.x - k.centre.x, p.z - k.centre.z);
+        v3(
+            fx::mul(dx, c) - fx::mul(dz, s),
+            p.y - k.centre.y,
+            fx::mul(dx, s) + fx::mul(dz, c),
+        )
+    };
+    let (a, b) = (local(a), local(b));
     let axes = [
-        (a.x, b.x, k.centre.x, k.half.x),
-        (a.y, b.y, k.centre.y, k.half.y),
-        (a.z, b.z, k.centre.z, k.half.z),
+        (a.x, b.x, 0, k.half.x),
+        (a.y, b.y, 0, k.half.y),
+        (a.z, b.z, 0, k.half.z),
     ];
     for (p, q, c, h) in axes {
         let (min, max) = (c as i64 - h as i64 - r as i64, c as i64 + h as i64 + r as i64);
@@ -381,6 +457,7 @@ fn wind(w: &mut World, id: usize, input: &Input) {
         prev: from,
         vel,
         ticks: 0,
+        bounces: 0,
     });
 }
 
@@ -515,6 +592,7 @@ mod tests {
         w.throwables.props.push(Block {
             centre: w.player.pos.add(ahead.scale(fx::int(4))).add(v3(0, ONE, 0)),
             half: v3(ONE, ONE, ONE),
+            yaw: 0,
         });
         throw(&mut w);
         let mut hit = None;
@@ -549,11 +627,56 @@ mod tests {
         assert!(w.foes[0].fighter.health.hp < most);
     }
 
+    /// R7.11: the cart's box turns with the cart. A box 2 m long (local x),
+    /// 1 m wide (local z), turned 45°: a path along its length 0.7 m to its
+    /// side misses it (on the world's axes the box would be 1 cos 45° + 0.5
+    /// sin 45° = 1.06 m half across each way, and the path, its nearest
+    /// 0.7 m from the middle, would count as a hit); 0.3 m to its side, it
+    /// meets the box.
+    #[test]
+    fn a_turned_box_lets_a_near_miss_on_a_diagonal_by() {
+        let b = Block {
+            centre: V3::ZERO,
+            half: v3(ONE, ONE * 8 / 10, ONE / 2),
+            yaw: fx::deg(45),
+        };
+        let turn = Affine::rot_y(fx::deg(45));
+        let (along, side) = (turn.apply_dir(v3(ONE, 0, 0)), turn.apply_dir(v3(0, 0, ONE)));
+        let path = |off: Fx| {
+            let o = side.scale(off);
+            through_box(
+                o.sub(along.scale(fx::int(5))),
+                o.add(along.scale(fx::int(5))),
+                &b,
+                0,
+            )
+        };
+        assert_eq!(path(ONE * 7 / 10), None, "a near miss to its side");
+        assert!(path(ONE * 3 / 10).is_some(), "a hit");
+        // the path at 0.3 m enters the 2 m long box 4 m along its 10: 40%
+        let mid = path(ONE * 3 / 10).unwrap();
+        assert!((mid - ONE as i64 * 4 / 10).abs() <= 16, "{mid}");
+    }
+
+    #[test]
+    fn a_rock_glances_off_a_wall_keeping_most_of_its_speed_along_it() {
+        // 10 along and 4 into a wall facing +x: back out at 35% (1.4), along
+        // at 70% (7)
+        let v = glance(v3(-fx::int(4), 0, fx::int(10)), v3(ONE, 0, 0));
+        assert!(
+            (v.x - ONE * 14 / 10).abs() <= 4 && (v.z - fx::int(7)).abs() <= 4,
+            "{v:?}"
+        );
+        // leaving the wall already, it is not turned
+        assert_eq!(glance(v3(ONE, 0, 0), v3(ONE, 0, 0)), v3(ONE, 0, 0));
+    }
+
     #[test]
     fn the_slab_test_finds_where_a_path_enters_a_box() {
         let b = Block {
             centre: v3(fx::int(5), 0, 0),
             half: v3(ONE, ONE, ONE),
+            yaw: 0,
         };
         // from x = 0 to 10 along the axis: enters at x = 4, 40% of the way
         assert_eq!(

@@ -555,7 +555,7 @@ fn frame_of(land: &Land, x0: Fx, z0: Fx, side: Fx) -> (V3, Fx) {
 
 /// The affines of a tree's parts: its trunk, then its crowns, each with a
 /// colour (a pine's cones, a leafy tree's faceted crowns).
-fn tree_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
+pub fn tree_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
     let s = |m: Fx| m * it.size / 100;
     let at = it.at;
     let turn = Affine::rot_y(it.yaw);

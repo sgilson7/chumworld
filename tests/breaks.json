@@ -2672,5 +2672,61 @@
     "find": "        let y = if (i + j) & 1 == 0 {\n            if u >= v {\n                ha + qmul(hb - ha, u) + qmul(hc - hb, v)\n            } else {\n                ha + qmul(hc - hd, u) + qmul(hd - ha, v)\n            }\n        } else if u + v <= O {\n            ha + qmul(hb - ha, u) + qmul(hd - ha, v)\n        } else {\n            hc + qmul(hd - hc, O - u) + qmul(hb - hc, O - v)\n        };\n        Some(y as Fx)",
     "replace": "        let y = if (i + j) & 1 == 1 {\n            if u >= v {\n                ha + qmul(hb - ha, u) + qmul(hc - hb, v)\n            } else {\n                ha + qmul(hc - hd, u) + qmul(hd - ha, v)\n            }\n        } else if u + v <= O {\n            ha + qmul(hb - ha, u) + qmul(hd - ha, v)\n        } else {\n            hc + qmul(hd - hc, O - u) + qmul(hb - hc, O - v)\n        };\n        Some(y as Fx)",
     "test": "a_patch_of_the_ground_stands_where_the_ground_does"
+  },
+  {
+    "name": "M7 land: a rock flies through the scenery",
+    "file": "crates/core/src/throwables.rs",
+    "find": "        let scenery = w.obstacles.first(w, t.prev, t.p, r);",
+    "replace": "        let scenery: Option<crate::obstacles::Hit> = None;",
+    "test": "every_prop_and_tree_stops_a_rock_thrown_at_it"
+  },
+  {
+    "name": "M7 land: trees are not obstacles",
+    "file": "crates/core/src/obstacles.rs",
+    "find": "                for t in self.trees(w, i, j).iter() {",
+    "replace": "                for t in self.trees(w, i, j).iter().take(0) {",
+    "test": "every_prop_and_tree_stops_a_rock_thrown_at_it"
+  },
+  {
+    "name": "M7 land: a prop's parts all passed over",
+    "file": "crates/core/src/obstacles.rs",
+    "find": "            size.iter().copied().max().unwrap_or(0) >= SMALLEST\n        })",
+    "replace": "            size.iter().copied().max().unwrap_or(0) >= SMALLEST * 1000\n        })",
+    "test": "every_prop_and_tree_stops_a_rock_thrown_at_it"
+  },
+  {
+    "name": "M7 land: an orb passes through a house",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    if let Some(h) = w.obstacles.first(w, o.prev, o.pos, r) {",
+    "replace": "    if let Some(h) = None::<crate::obstacles::Hit> {",
+    "test": "an_orb_is_stopped_by_a_house_wall"
+  },
+  {
+    "name": "M7 land: a volume's planes not grown by the sphere",
+    "file": "crates/core/src/obstacles.rs",
+    "find": "            let d = d + r as i64;",
+    "replace": "            let d = d;",
+    "test": "a_path_enters_a_turned_box_where_its_face_is"
+  },
+  {
+    "name": "M7 land: a cone's sides upright",
+    "file": "crates/core/src/obstacles.rs",
+    "find": "                out.push(([c * 894 / 1000, ONE as i64 * 447 / 1000, s * 894 / 1000], ONE as i64 * 2236 / 10_000));",
+    "replace": "                out.push(([c, 0, s], ONE as i64 / 2));",
+    "test": "a_cone_is_narrow_at_its_top_and_wide_at_its_foot"
+  },
+  {
+    "name": "M7 land: the cart's box not turned",
+    "file": "crates/core/src/throwables.rs",
+    "find": "    let (s, c) = (fx::sin(k.yaw), fx::cos(k.yaw));",
+    "replace": "    let (s, c) = (fx::sin(0), fx::cos(0));",
+    "test": "a_turned_box_lets_a_near_miss_on_a_diagonal_by"
+  },
+  {
+    "name": "M7 land: a glance keeps all its speed along the wall",
+    "file": "crates/core/src/throwables.rs",
+    "find": "pub const GLANCE_PCT: i32 = 70;",
+    "replace": "pub const GLANCE_PCT: i32 = 100;",
+    "test": "a_rock_glances_off_a_wall_keeping_most_of_its_speed_along_it"
   }
 ]

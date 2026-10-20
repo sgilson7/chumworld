@@ -112,6 +112,8 @@ pub struct World {
     // M6: the orbs in flight and the casts under way; the imbue
     pub orbs: crate::orbs::State,
     pub imbue: crate::imbue::State,
+    // M7: what things in flight meet (props, trees, rocks), worked out once
+    pub obstacles: std::rc::Rc<crate::obstacles::Map>,
 }
 
 impl World {
@@ -154,8 +156,10 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
+            obstacles: std::rc::Rc::default(),
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
+        w.obstacles = std::rc::Rc::new(crate::obstacles::Map::build(&w));
         w
     }
 

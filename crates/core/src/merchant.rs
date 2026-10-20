@@ -172,15 +172,13 @@ fn place(w: &mut World) {
 /// The cart's box for throwables: round its body and canopy, as wide as it
 /// is across whichever way it heads (a box on the world's axes).
 pub fn cart_box(m: &State) -> Block {
-    let (s, c) = (fx::sin(m.yaw).abs(), fx::cos(m.yaw).abs());
     let (hx, hy, hz) = BOX_HALF;
+    // M7: turned with the cart, so a near miss beside it on a diagonal
+    // heading misses (R7.11)
     Block {
         centre: m.at.add(v3(0, BOX_UP, 0)),
-        half: v3(
-            fx::mul(hx, c) + fx::mul(hz, s),
-            hy,
-            fx::mul(hx, s) + fx::mul(hz, c),
-        ),
+        half: v3(hx, hy, hz),
+        yaw: m.yaw,
     }
 }
 
