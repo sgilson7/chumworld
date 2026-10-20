@@ -457,6 +457,13 @@ pub struct Goals {
     pub hold: [bool; 2],
     /// the scabbard's pommel and tip
     pub sheath: (V3, V3),
+    /// the weapon sliding in or out of its scabbard: where the scabbard puts
+    /// its pommel and tip this tick, and how much of the way from where the
+    /// arm had it (`ONE`: all); the sword hand holds on
+    pub ride: Option<(V3, V3, Fx)>,
+    /// the sword hand reaches for something (the hilt at the hip) at the
+    /// servo's whole strength, not a resting arm's `REST_PCT`
+    pub grasp: bool,
     /// the shell's target, for the reticle
     pub target: Option<V3>,
 }
@@ -478,6 +485,8 @@ pub struct Arm {
     pub fences: Vec<Fence>,
     /// how round an elbow and a hand are, as M3 draws them
     pub joint_r: (Fx, Fx),
+    /// the weapon slides along its scabbard this tick (`Goals::ride`)
+    pub riding: bool,
 }
 
 /// `v` × `num` / `den`, in i64.
@@ -519,6 +528,7 @@ impl Arm {
             target: frame.shoulder[1],
             prev_target: frame.shoulder[1],
             fences: Vec::new(),
+            riding: false,
             joint_r: (
                 (ELBOW_MM as i64 * build.height as i64 * build.girth_pct as i64 / 170_000) as Fx,
                 (HAND_MM as i64 * build.height as i64 * build.girth_pct as i64 / 170_000) as Fx,
@@ -569,6 +579,12 @@ impl Arm {
             self.weapon.grip[1] as i64,
             self.weapon.len.max(1) as i64,
         ))
+    }
+
+    /// The point `at` from the pommel along the weapon.
+    pub fn hilt_at(&self, at: Fx) -> V3 {
+        let (a, b) = (self.pts[POMMEL].p, self.pts[TIP].p);
+        a.add(mul_div(b.sub(a), at as i64, self.weapon.len.max(1) as i64))
     }
 
     /// Where the grip was a tick ago.
@@ -626,7 +642,8 @@ impl Arm {
                 // a hand on the hilt moves with the weapon (below)
                 Some(_) if held(s) => {}
                 Some(t) => {
-                    let ac = HAND_ACCEL * REST_PCT / 100;
+                    let rest = if s == 1 && g.grasp { 100 } else { REST_PCT };
+                    let ac = HAND_ACCEL * rest / 100;
                     acc[HAND[s]] = servo(&self.pts[HAND[s]], t, HAND_SPEED * pct / 100, ac * pct / 100);
                 }
                 None => {}
@@ -677,6 +694,16 @@ impl Arm {
             self.pts[POMMEL] = Point::at(pommel, self.weapon.mass[0]);
             self.pts[TIP] = Point::at(tip, self.weapon.mass[1]);
         }
+        self.riding = g.in_hand && g.ride.is_some();
+        if let (true, Some((pommel, tip, blend))) = (g.in_hand, g.ride) {
+            // the scabbard guides the blade: it moves where the scabbard puts
+            // it (from where the arm had it, by `blend`), with the speed of
+            // that move, so it leaves the scabbard moving
+            for (k, at) in [(POMMEL, pommel), (TIP, tip)] {
+                let pt = &mut self.pts[k];
+                pt.p = pt.p.lerp(at, blend);
+            }
+        }
         for _ in 0..PASSES {
             self.relax();
         }
@@ -689,7 +716,7 @@ impl Arm {
             d.x.abs() <= REST && d.y.abs() <= REST && d.z.abs() <= REST
         });
         // (never while the weapon changes hands)
-        if still && settled && g.in_hand == before.2 {
+        if still && settled && g.in_hand == before.2 && !self.riding {
             self.pts = before.0;
             self.frame = before.1;
         }
@@ -740,16 +767,23 @@ impl Arm {
             self.stick(ELBOW[s], HAND[s], self.bones.1);
         }
         if self.in_hand {
-            self.stick(POMMEL, TIP, self.weapon.len);
+            if !self.riding {
+                self.stick(POMMEL, TIP, self.weapon.len);
+            }
             for (s, hand) in HAND.into_iter().enumerate() {
                 if self.hold[s] && self.weapon.grip[s] >= 0 {
-                    self.pin(hand, self.weapon.grip[s]);
+                    if self.riding {
+                        // the scabbard holds the weapon; the hand follows it
+                        self.pts[hand].p = self.hilt_at(self.weapon.grip[s]);
+                    } else {
+                        self.pin(hand, self.weapon.grip[s]);
+                    }
                 }
             }
         }
         let f = self.frame;
         for k in [ELBOW[0], ELBOW[1], HAND[0], HAND[1], TIP] {
-            if k == TIP && !self.in_hand {
+            if k == TIP && (!self.in_hand || self.riding) {
                 continue;
             }
             self.keep_out(k, f.spine[0], f.spine[1], f.chest_r + ONE / 25);
@@ -915,7 +949,7 @@ impl Arm {
     /// for a weapon in its scabbard.
     #[allow(clippy::type_complexity)]
     fn rail_lines(&self) -> Vec<(Rail, [(V3, V3, Fx); 2], [(V3, V3, Fx); 2])> {
-        if !self.in_hand {
+        if !self.in_hand || self.riding {
             return Vec::new();
         }
         let (now, was) = (self.across(false), self.across(true));
@@ -1116,7 +1150,7 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
     for id in 0..player::count(w) {
         let inp = if id == 0 { *input } else { foes[id - 1] };
         move_shell(w, id, &inp);
-        let (sheath, goals) = player::goals(w, id, &inp);
+        let (sheath, tilt, goals) = player::goals(w, id, &inp);
         let b = *player::body(w, id);
         let f = player::fighter(w, id);
         let frame = player::frame_of(
@@ -1129,6 +1163,7 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
         let near = fences_of(w, id, &caps, false);
         let f = player::parts_mut(w, id).1;
         f.sheath = sheath;
+        f.tilt = tilt;
         f.arm.fences = near;
         f.arm.step(&frame, &goals);
         caps[id] = crate::blade::body(player::fighter(w, id).kind, &player::pose_of(w, id));
@@ -1250,6 +1285,8 @@ mod tests {
             in_hand: true,
             hold: [a.weapon.two_handed(), true],
             sheath: (V3::ZERO, V3::ZERO),
+            ride: None,
+            grasp: false,
             target: Some(target),
         }
     }
@@ -1310,6 +1347,8 @@ mod tests {
             in_hand: true,
             hold: [true, true],
             sheath: (V3::ZERO, V3::ZERO),
+            ride: None,
+            grasp: false,
             target: None,
         };
         let f = frame();

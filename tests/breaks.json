@@ -1545,5 +1545,40 @@
     "find": "\"keep_cm\": [15, 45],",
     "replace": "\"keep_cm\": [70, 100],",
     "test": "a_foe_keeps_a_little_outside_its_reach_steps_in_to_attack_and_out_to_recover"
+  },
+  {
+    "name": "M1b player: the hand holds the hilt as the blade slides",
+    "file": "crates/core/src/arm.rs",
+    "find": "                        self.pts[hand].p = self.hilt_at(self.weapon.grip[s]);",
+    "replace": "                        let _ = self.hilt_at(self.weapon.grip[s]);",
+    "test": "the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump"
+  },
+  {
+    "name": "M1b player: the blade slides out eased, not snapped",
+    "file": "crates/core/src/player.rs",
+    "find": "            let (p, q) = sc.holds(fx::mul(sc.pull(), ease(u)));",
+    "replace": "            let (p, q) = sc.holds(sc.pull() + 0 * u);",
+    "test": "the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump"
+  },
+  {
+    "name": "M1b player: the scabbard swings back",
+    "file": "crates/core/src/player.rs",
+    "find": "        _ => (f.tilt - TILT_STEP).max(0),",
+    "replace": "        _ => f.tilt,",
+    "test": "the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump"
+  },
+  {
+    "name": "M1b player: sheathing turns the blade as quickly as a swing",
+    "file": "crates/core/src/player.rs",
+    "find": "            g.swing = true;\n            g.hand = [Some(steady), Some(grip)];",
+    "replace": "            g.swing = false;\n            g.hand = [Some(steady), Some(grip)];",
+    "test": "the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump"
+  },
+  {
+    "name": "M1b player: the scabbard holds the blade with room",
+    "file": "crates/core/src/player.rs",
+    "find": "        _ => (66, 30),",
+    "replace": "        _ => (46, 9),",
+    "test": "a_sheathed_sword_its_scabbard_and_the_figure_share_no_face"
   }
 ]
