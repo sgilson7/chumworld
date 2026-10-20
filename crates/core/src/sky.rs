@@ -20,7 +20,7 @@
 
 use serde::Deserialize;
 
-use crate::fx::{self, Fx, ONE};
+use crate::fx::{self, ONE};
 use crate::look::rgb;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

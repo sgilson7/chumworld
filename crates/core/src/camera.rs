@@ -1,9 +1,12 @@
 //! The camera: over the right shoulder, third person, always (CW-15, T1).
 //!
-//! The mouse turns the view (`Aim`); the camera sits on a pivot 0.5 m above
-//! and 0.6 m right of the head, and 2.6 m back from it along the line of
-//! sight, so looking down lifts it and looking up lowers it, never below
-//! `MIN_EYE_HEIGHT` over the ground. Numbers from PLAN.md.
+//! The mouse turns the view (`Aim`); the camera sits on a pivot `ABOVE` the
+//! head and `RIGHT` of it, and `BACK` from it along the line of sight, so
+//! looking down lifts it and looking up lowers it, never below
+//! `MIN_EYE_HEIGHT` over the ground. PLAN.md's numbers (2.6 m back, 0.6 m
+//! right, 0.5 m up) put the body across the lower frame; M1 retuned them by
+//! screenshots so the whole figure stands left of centre with the sword and
+//! the foe clear of it, under a slight downward look (SECOND-ORDER.md R3.10).
 //!
 //! The view a frame draws uses the mouse movement that has arrived since the
 //! last tick (`input::Pending`) as if a tick had already taken it, so the
@@ -16,11 +19,11 @@ use crate::input::Mouse;
 use crate::render::Camera;
 
 /// Back from the pivot, along the line of sight.
-pub const BACK: Fx = ONE * 26 / 10;
+pub const BACK: Fx = ONE * 35 / 10;
 /// Right of the head.
-pub const RIGHT: Fx = ONE * 6 / 10;
+pub const RIGHT: Fx = ONE * 85 / 100;
 /// Above the head.
-pub const ABOVE: Fx = ONE / 2;
+pub const ABOVE: Fx = ONE / 5;
 /// The head's height over the feet (the top of a 1.8 m body is 10 cm above).
 pub const HEAD: Fx = ONE * 17 / 10;
 /// The vertical field of view.
@@ -29,7 +32,7 @@ pub const FOV: i32 = deg(60);
 pub const PITCH_MIN: i32 = -deg(55);
 pub const PITCH_MAX: i32 = deg(35);
 /// The pitch the game opens with: a little down, so the ground reads.
-pub const PITCH_START: i32 = -deg(8);
+pub const PITCH_START: i32 = -deg(12);
 /// The look speed a reader may set, percent.
 pub const LOOK_PCT_MIN: i32 = 10;
 pub const LOOK_PCT_MAX: i32 = 400;
@@ -112,7 +115,7 @@ mod tests {
     #[test]
     fn level_and_facing_north_the_eye_is_behind_right_of_and_above_the_head() {
         // feet at the origin, head at 1.7 m; heading 0 faces −z, so behind
-        // is +z and right is +x: the eye at (0.6, 2.2, 2.6)
+        // is +z and right is +x: the eye at (0.85, 1.9, 3.5)
         let c = view(
             V3::ZERO,
             Aim {
@@ -123,7 +126,7 @@ mod tests {
             },
             flat,
         );
-        let want = v3(ONE * 6 / 10, ONE * 22 / 10, ONE * 26 / 10);
+        let want = v3(ONE * 85 / 100, ONE * 19 / 10, ONE * 35 / 10);
         assert!(
             (c.eye.x - want.x).abs() <= 4 && (c.eye.y - want.y).abs() <= 4 && (c.eye.z - want.z).abs() <= 4,
             "{:?}",
@@ -135,7 +138,7 @@ mod tests {
     #[test]
     fn turned_a_quarter_left_the_shoulder_turns_with_the_view() {
         // heading a quarter turn left faces −x (west): behind is +x, right
-        // is −z; the eye at (2.6, 2.2, −0.6)
+        // is −z; the eye at (3.5, 1.9, −0.85)
         let c = view(
             V3::ZERO,
             Aim {
@@ -147,7 +150,7 @@ mod tests {
             flat,
         );
         assert!(
-            (c.eye.x - ONE * 26 / 10).abs() <= 4 && (c.eye.z + ONE * 6 / 10).abs() <= 4,
+            (c.eye.x - ONE * 35 / 10).abs() <= 4 && (c.eye.z + ONE * 85 / 100).abs() <= 4,
             "{:?}",
             c.eye
         );
@@ -175,9 +178,9 @@ mod tests {
             },
             flat,
         );
-        // 2.6 m × sin 30° = 1.3 m higher
+        // 3.5 m × sin 30° = 1.75 m higher
         assert!(
-            (down.eye.y - level.eye.y - ONE * 13 / 10).abs() < ONE / 100,
+            (down.eye.y - level.eye.y - ONE * 175 / 100).abs() < ONE / 100,
             "{}",
             down.eye.y
         );

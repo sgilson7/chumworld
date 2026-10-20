@@ -187,6 +187,14 @@ async function main() {
 
   if (lookSpeed) act("look.speed", lookSpeed);
   if (goTo) act("places.go", goTo);
+  // a test duel and test settings from the address, each through the core's
+  // door like any setting: ?duel=orc, ?foe=still, ?gap=115, ?speedster=5,
+  // ?sticks=1
+  const flags = new URLSearchParams(location.search);
+  for (const [flag, name] of [["duel", "duel.spawn"], ["foe", "duel.pilot"], ["gap", "duel.gap"], ["speedster", "motion.speedster"], ["sticks", "duel.sticks"]]) {
+    const value = flags.get(flag);
+    if (value) act(name, value);
+  }
   // acts from the address, as `?act=name` or `?act=name:value` (the test
   // inventory and HUD the screenshots and checks use: test.give_all, …)
   for (const asked of new URLSearchParams(location.search).getAll("act")) {
