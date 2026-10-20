@@ -64,4 +64,6 @@ These stay with the person and go in `BRIEF.md` or `PLAN.md`:
 
 | Default | Changed to | Reason | Recorded in |
 | --- | --- | --- | --- |
-| | | | |
+| D2 (how the core meets "no floats, clocks or randomness") | The realtime kit copied in, 2026-10-20: `crates/core/src/fx.rs` (SHA-256 `832baf54ef1bf4076c931cfb65d336b15fccc7d6aedd69e7017e6a5963f167d6` as copied), `rng.rs` (`b2d1359ac7cd049a8369b46dcb6998feef640d14c086d39ee3e47b5316877fe0`), `ticks.rs` (`ed82d61637fd52c3b6bfe1f1db3f5499262630e13d8932f3b75fa2199f9fe9d8`), `web/input.js` (`3a753752d6968fdf38be6ae685cc6b9415e3829a03f1af13c69a46eaa5d7f829`). The kit changes no default; this project then changed its files: `fx::sin` exact to Q16 in place of Bhaskara's approximation, helpers added; `Clock::alpha`, `last`, `rest`, the example `World` moved into the tests; the wheel in `input.js` | a game with a fixed 60 Hz tick, pointer lock and a 3D camera | `SECOND-ORDER.md` R2.1, R2.2; `LICENSES.md`; the kit's tests in `tests/breaks.json` |
+| D3 (shaders hold no number but 0 and 1) | Unchanged; met by sending every constant, the pass identities (flags of 0 and 1) and the dither table (a `mat4`) as uniforms | an array size counts as a number in the scan | `SECOND-ORDER.md` R2.7 |
+| D11 (release profile for size) | Unchanged after measuring: the core costs 5 µs a frame natively, the page holds 60 fps on Metal | Iron Vector's `opt-level = 3` is not needed here yet | `SECOND-ORDER.md` R2.18; `MEASUREMENTS.md` |
