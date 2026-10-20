@@ -59,6 +59,29 @@ seen from the player's shoulder, the camera pitched to frame it:
     models-speedster  the speedster pieces worn, and lying on the ground
     models-cart       the merchant's cart and its donkey
 
+M2's views (the world), each on a page of its own opened at a place with
+?go=<x>,<z>,<yaw>,<pitch> (metres east and south, degrees; the core's
+`places.go`), Play pressed, the camera's ease and the detail levels' first
+frames done:
+
+    village   the village from beside the start, looking into the green
+    plains    the plains west of the village toward the river
+    river     the river's water up close by the bridge
+    bridge    the bridge from the west bank
+    camp      the bandit camp in its forest clearing
+    hut       the trainer's hut on its hill
+    horizon   east from the trainer's hill over the plains to the 16 km horizon
+    dither    a still frame on a detail level's hand-over (the forest's whole
+              trees handing over to cones, 128 to 150 m off; grass at 44 to 58 m)
+    map       the map menu filled in (?act=test.explore), the terrain shaded
+
+With --measure, M2 also measures three walks at 1920 x 1080: standing in
+the village, running across the plains (Shift + W, turning), and standing on
+the hill turning slowly toward the horizon; for each, the frames a second
+and the time the page's own frame callback takes (the core's advance, the
+meshes it hands over and the draw calls), timed by wrapping
+requestAnimationFrame in this tool's page, not the game's code.
+
 The page has no reader-facing way to send a lineup act (R5.8), so for these
 views this tool serves app.js with one line added, `window.__act = act;`,
 and calls it; everything else the page does is unchanged.
@@ -90,6 +113,24 @@ VIEWS = ["loading", "title", "standing", "turn", "run", "paused"]
 DUEL_VIEWS = ["sheathed", "drawn", "swing", "block", "hit", "rock", "orc", "slide"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
+# M2: view: the place (?go=), and extra address flags
+M2_VIEWS = {
+    "village": ("2014,2862,12,-7", ""),
+    "plains": ("1500,2650,80,-3", ""),
+    "river": ("636,2262,20,-28", ""),
+    "bridge": ("598,2228,300,-8", ""),
+    "camp": ("3196,1012,300,-9", ""),
+    "hut": ("300,1800,325,-4", ""),
+    "horizon": ("352,1772,282,-1", ""),
+    "dither": ("2905,1755,335,-6", ""),
+    "map": ("2000,2800,20,-8", TEST_ACTS),
+}
+# M2: the time each frame callback of the page takes, and the frames
+CALLBACK_TIMES = """() => {
+    const raf = window.requestAnimationFrame.bind(window);
+    window.__cb = [];
+    window.requestAnimationFrame = (f) => raf((t) => { const a = performance.now(); f(t); window.__cb.push(performance.now() - a); });
+}"""
 
 # view: (lineup value, camera pitch change in CSS pixels, + looks down)
 MODEL_VIEWS = {
@@ -261,6 +302,71 @@ def m4_views(browser, base, out, views, logs):
         shot(name)
     page.close()
 
+def callback_stats(page):
+    """The page's frame callbacks since the last call: median, 95th
+    percentile and worst, ms."""
+    return page.evaluate(
+        """() => {
+            const d = window.__cb.splice(0).sort((a, b) => a - b);
+            const at = (q) => d[Math.min(d.length - 1, Math.floor(q * d.length))];
+            return {callback_median_ms: at(0.5), callback_p95_ms: at(0.95), callback_worst_ms: d[d.length - 1], callbacks: d.length};
+        }"""
+    )
+
+
+def m2_views(browser, base, out, views, logs, numbers, measure):
+    """The world at its places (M2), and its measured walks."""
+    for name, (go, flags) in M2_VIEWS.items():
+        if name not in views:
+            continue
+        page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+        page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+        page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+        page.goto(base + "/index.html?pointer=free&go=" + go + flags, wait_until="commit")
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+        wait_frames(page, 20)
+        page.click("#title button")
+        page.wait_for_selector("body[data-screen='play']", state="attached")
+        # the ease from the title's view, and the meshes built ahead
+        wait_frames(page, 150)
+        if name == "map":
+            page.keyboard.press("Tab")
+            page.wait_for_selector("#menu.shown")
+            page.wait_for_timeout(700)
+            page.keyboard.press("ArrowRight")
+            page.wait_for_timeout(300)
+            page.keyboard.press("KeyE")
+            page.wait_for_timeout(900)
+        page.screenshot(path=str(out / f"m2_{name}.png"))
+        page.close()
+    if not measure:
+        return
+    for name, go, keys, px in (
+        ("m2_village_standing", "2014,2862,12,-7", [], 0),
+        ("m2_plains_running", "1500,2650,80,-3", ["ShiftLeft", "KeyW"], 2),
+        ("m2_horizon_turning", "352,1772,282,-1", [], 1),
+    ):
+        page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+        page.add_init_script(CALLBACK_TIMES)
+        page.goto(base + "/index.html?pointer=free&go=" + go, wait_until="commit")
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+        wait_frames(page, 20)
+        page.click("#title button")
+        page.wait_for_selector("body[data-screen='play']", state="attached")
+        for k in keys:
+            page.keyboard.down(k)
+        if px:
+            page.evaluate(
+                """(px) => { window.__turning = true; const go = () => { window.dispatchEvent(new MouseEvent('mousemove', {movementX: px, movementY: 0})); if (window.__turning) requestAnimationFrame(go); }; requestAnimationFrame(go); }""",
+                px,
+            )
+        wait_frames(page, 90)
+        callback_stats(page)
+        numbers[name] = frame_times(page, 5000)
+        numbers[name].update(callback_stats(page))
+        page.close()
+
+
 HOOK = 'if (lookSpeed) act("look.speed", lookSpeed);'
 
 
@@ -425,8 +531,8 @@ def main(argv):
         sys.exit(__doc__)
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
-    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + M4_VIEWS
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in M4_VIEWS]
+    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + M4_VIEWS + list(M2_VIEWS)
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -513,11 +619,14 @@ def main(argv):
         duel_views(browser, base, out, views, logs)
         if any(v in M4_VIEWS for v in views):
             m4_views(browser, base, out, views, logs)
+        if any(v in M2_VIEWS for v in views) or measure:
+            m2_views(browser, base, out, views, logs, numbers, measure)
         browser.close()
     server.shutdown()
     for name in views:
-        if (out / f"{name}.png").exists():
-            print(f"saved {out / (name + '.png')}")
+        for file in (f"{name}.png", f"m2_{name}.png"):
+            if (out / file).exists():
+                print(f"saved {out / file}")
     if measure:
         print(json.dumps(numbers, indent=2))
     for line in logs:

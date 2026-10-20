@@ -33,7 +33,8 @@ pub struct SkySpec {
 
 impl SkySpec {
     pub fn parse(json: &str) -> Result<SkySpec, String> {
-        let s: SkySpec = serde_json::from_str(json).map_err(|e| format!("The sky file could not be read: {e}"))?;
+        let s: SkySpec =
+            serde_json::from_str(json).map_err(|e| format!("The sky file could not be read: {e}"))?;
         let [a, b, c, d] = s.aerial_m;
         if s.edge_m[0] >= s.edge_m[1] || !(a < b && b <= c && c < d) {
             return Err("The sky file's distances must rise.".into());
@@ -60,7 +61,12 @@ pub const UNIFORMS: &[(&str, &str, usize)] = &[
 /// The values: where the haze is made whole (m, m), the tint's share and
 /// none; the tint; where it rises, is whole, falls and is gone (m).
 pub fn uniform_values(s: &SkySpec) -> Vec<i32> {
-    let mut out = vec![fx::int(s.edge_m[0]), fx::int(s.edge_m[1]), s.aerial_pct * ONE / 100, 0];
+    let mut out = vec![
+        fx::int(s.edge_m[0]),
+        fx::int(s.edge_m[1]),
+        s.aerial_pct * ONE / 100,
+        0,
+    ];
     out.extend(rgb(s.aerial));
     out.extend(s.aerial_m.map(fx::int));
     out
@@ -88,14 +94,21 @@ mod tests {
         assert_eq!(u.len(), n);
         // 38% is 24 903.68 in Q16, rounded down
         assert_eq!(u[2], 24_903);
-        let mut bad: serde_json::Value = serde_json::from_str(include_str!("../../../data/sky.json")).unwrap();
+        let mut bad: serde_json::Value =
+            serde_json::from_str(include_str!("../../../data/sky.json")).unwrap();
         bad["edge_m"] = serde_json::json!([12_500, 17_000]);
-        assert_eq!(SkySpec::parse(&bad.to_string()).unwrap_err(), "The sky file's edge must end before the far plane.");
+        assert_eq!(
+            SkySpec::parse(&bad.to_string()).unwrap_err(),
+            "The sky file's edge must end before the far plane."
+        );
     }
 
     #[test]
     fn the_shaders_make_the_haze_whole_at_the_edge() {
-        for src in [include_str!("../../../data/shaders/scene.frag"), include_str!("../../../data/shaders/water.frag")] {
+        for src in [
+            include_str!("../../../data/shaders/scene.frag"),
+            include_str!("../../../data/shaders/water.frag"),
+        ] {
             assert!(src.contains("f = max(f, smoothstep(uHazeEdge.x, uHazeEdge.y, d));"));
         }
     }

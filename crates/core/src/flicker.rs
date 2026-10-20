@@ -663,7 +663,10 @@ mod tests {
                 .iter()
                 .map(|i| table.vertices(i.mesh).len() / (3 * prim::VERTEX_VALUES))
                 .sum();
-            assert!(tris > 100_000, "the scan reads the terrain's triangles, {tris} in all");
+            assert!(
+                tris > 100_000,
+                "the scan reads the terrain's triangles, {tris} in all"
+            );
             let seen = Seen {
                 bottom: -int(100),
                 eyes: eyes.clone(),
@@ -677,7 +680,12 @@ mod tests {
                 .filter(|x| !complementary(&insts[x.a], &insts[x.b]))
                 .collect();
             let report: Vec<String> = f.iter().take(8).map(|x| describe(&insts, x)).collect();
-            assert!(f.is_empty(), "from {e:?}, {} pairs fight:\n{}", f.len(), report.join("\n"));
+            assert!(
+                f.is_empty(),
+                "from {e:?}, {} pairs fight:\n{}",
+                f.len(),
+                report.join("\n")
+            );
         }
     }
 }

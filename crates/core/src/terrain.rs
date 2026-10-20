@@ -433,7 +433,11 @@ impl Land {
         let reach = river.stations.iter().map(|s| s.half).max().unwrap_or(0)
             + BANK_MAX as Fx
             + layout.river.valley_m * ONE;
-        let waves = waters.waves.iter().map(|w| Wave::new(w, waters.waves.len())).collect();
+        let waves = waters
+            .waves
+            .iter()
+            .map(|w| Wave::new(w, waters.waves.len()))
+            .collect();
         let mut land = Land {
             spec,
             layout,
@@ -450,7 +454,12 @@ impl Land {
             reach,
             zero: 0,
         };
-        let village = land.layout.places.first().map(|p| metres(p.centre)).unwrap_or(V3::ZERO);
+        let village = land
+            .layout
+            .places
+            .first()
+            .map(|p| metres(p.centre))
+            .unwrap_or(V3::ZERO);
         land.zero = land.raw(village.x, village.z, &land.scope_all());
         land.lay_out();
         land
@@ -549,7 +558,8 @@ impl Land {
                 // a footprint over the river's water would fill it: the
                 // bridge's ends rest on the banks instead
                 let all = self.scope_all();
-                let base = self.before_flats(c.0 as Fx, c.1 as Fx, &all, self.near(c.0 as Fx, c.1 as Fx, &all));
+                let base =
+                    self.before_flats(c.0 as Fx, c.1 as Fx, &all, self.near(c.0 as Fx, c.1 as Fx, &all));
                 self.flats.push(Flat {
                     c,
                     hx: m(size[0]) / 2,
@@ -637,7 +647,10 @@ impl Land {
             return 0;
         }
         let f = &self.layout.forest;
-        let (dx, dz) = (x as i64 - f.centre[0] as i64 * O, z as i64 - f.centre[1] as i64 * O);
+        let (dx, dz) = (
+            x as i64 - f.centre[0] as i64 * O,
+            z as i64 - f.centre[1] as i64 * O,
+        );
         let (rx, rz) = (f.radii_m[0].max(1) as i64, f.radii_m[1].max(1) as i64);
         // ((dx/rx)² + (dz/rz)²), Q16
         let (u, v) = (dx / rx, dz / rz);
@@ -904,7 +917,13 @@ impl Land {
     pub fn ponds(&self) -> Vec<(V3, Fx, Fx)> {
         self.ponds
             .iter()
-            .map(|p| (v3(p.c.0 as Fx, p.level as Fx, p.c.1 as Fx), p.r as Fx, p.bank as Fx))
+            .map(|p| {
+                (
+                    v3(p.c.0 as Fx, p.level as Fx, p.c.1 as Fx),
+                    p.r as Fx,
+                    p.bank as Fx,
+                )
+            })
             .collect()
     }
 
@@ -960,7 +979,16 @@ impl Land {
 
     /// The colour of the ground at a corner of a tile of `level`, whose cells
     /// are `cell` wide: what a facet there is mixed from.
-    pub fn colour_in(&self, x: Fx, z: Fx, h: Fx, level: u32, cell: Fx, sc: &Scope, near: Option<Near>) -> Rgb {
+    pub fn colour_in(
+        &self,
+        x: Fx,
+        z: Fx,
+        h: Fx,
+        level: u32,
+        cell: Fx,
+        sc: &Scope,
+        near: Option<Near>,
+    ) -> Rgb {
         let p = &self.paint;
         let sh = &self.spec.shading;
         let seed = self.spec.seed;
@@ -1028,7 +1056,11 @@ impl Land {
             // beyond the banks is still meadow
             let wet = (h as i64) < n.surface as i64 && d < half + BANK_MAX / 2;
             if wet {
-                c = mix(p.sand, p.bed, (sstep(0, O / 2, n.surface as i64 - h as i64)) as Fx);
+                c = mix(
+                    p.sand,
+                    p.bed,
+                    (sstep(0, O / 2, n.surface as i64 - h as i64)) as Fx,
+                );
             } else {
                 let band = cover((d - half).abs(), 2 * O + cell / 4);
                 if band > 0 {
@@ -1052,11 +1084,23 @@ impl Land {
         let hm = h as i64;
         if hm > sh.upland_from_m as i64 * O {
             let wobble = noise(x, z, 300, seed ^ 0x2c2c) * 70;
-            let up = sstep(sh.upland_from_m as i64 * O, sh.upland_from_m as i64 * O + 120 * O, hm + wobble);
+            let up = sstep(
+                sh.upland_from_m as i64 * O,
+                sh.upland_from_m as i64 * O + 120 * O,
+                hm + wobble,
+            );
             c = mix(c, p.upland, up as Fx);
-            let rock = sstep(sh.rock_from_m[0] as i64 * O, sh.rock_from_m[1] as i64 * O, hm + wobble);
+            let rock = sstep(
+                sh.rock_from_m[0] as i64 * O,
+                sh.rock_from_m[1] as i64 * O,
+                hm + wobble,
+            );
             c = mix(c, p.mountain, rock as Fx);
-            let snow = sstep(sh.snow_from_m[0] as i64 * O, sh.snow_from_m[1] as i64 * O, hm + wobble * 2);
+            let snow = sstep(
+                sh.snow_from_m[0] as i64 * O,
+                sh.snow_from_m[1] as i64 * O,
+                hm + wobble * 2,
+            );
             c = mix(c, p.snow, snow as Fx);
         }
         // each corner's seeded unevenness
@@ -1130,7 +1174,8 @@ impl Land {
         let seed = self.spec.seed;
         let tri = |out: &mut Vec<i32>, q: [(i32, i32); 3], salt: u32| {
             let (pa, pb, pc) = (p(q[0].0, q[0].1), p(q[1].0, q[1].1), p(q[2].0, q[2].1));
-            let mean = [0, 1, 2].map(|k| (col(q[0].0, q[0].1)[k] + col(q[1].0, q[1].1)[k] + col(q[2].0, q[2].1)[k]) / 3);
+            let mean = [0, 1, 2]
+                .map(|k| (col(q[0].0, q[0].1)[k] + col(q[1].0, q[1].1)[k] + col(q[2].0, q[2].1)[k]) / 3);
             let nrm = facet_normal(pa, pb, pc);
             let steep = ((ONE * 4 / 5 - nrm.y).clamp(0, ONE / 5) * 5) as i64;
             let mut c = mix(mean, rock, (steep * sh.steep_pct as i64 / 100) as Fx);
@@ -1290,13 +1335,32 @@ pub(crate) mod tests {
         // flat within its first radius, 90 m
         for (dx, dz) in [(80, 0), (0, -80), (-60, 50)] {
             let (x, z) = (s.x + int(dx), s.z + int(dz));
-            assert!(l.height(x, z).abs() < ONE / 100, "({dx}, {dz}): {}", l.height(x, z));
+            assert!(
+                l.height(x, z).abs() < ONE / 100,
+                "({dx}, {dz}): {}",
+                l.height(x, z)
+            );
         }
     }
 
     #[test]
     fn the_quick_square_root_is_the_floor_of_the_root() {
-        for n in [0u64, 1, 2, 3, 4, 15, 16, 17, 99, 100, 1 << 40, (1 << 40) + 1, u64::MAX / 4, 999_999_999_999] {
+        for n in [
+            0u64,
+            1,
+            2,
+            3,
+            4,
+            15,
+            16,
+            17,
+            99,
+            100,
+            1 << 40,
+            (1 << 40) + 1,
+            u64::MAX / 4,
+            999_999_999_999,
+        ] {
             let r = root(n);
             assert!(r * r <= n && (r + 1) * (r + 1) > n, "{n}: {r}");
         }
@@ -1309,14 +1373,25 @@ pub(crate) mod tests {
         // at a lattice point the noise is the lattice's value
         let seed = 9;
         for (i, j) in [(0, 0), (3, -2), (-7, 5)] {
-            assert_eq!(noise(int(40 * i), int(40 * j), 40, seed), lattice(i as i64, j as i64, seed));
+            assert_eq!(
+                noise(int(40 * i), int(40 * j), 40, seed),
+                lattice(i as i64, j as i64, seed)
+            );
         }
         // halfway, with the quintic ease at ½ (½³ (½ (3 − 15) + 10) = ½), the
         // mean of the four corners
-        let (a, b, c, d) = (lattice(0, 0, seed), lattice(1, 0, seed), lattice(0, 1, seed), lattice(1, 1, seed));
+        let (a, b, c, d) = (
+            lattice(0, 0, seed),
+            lattice(1, 0, seed),
+            lattice(0, 1, seed),
+            lattice(1, 1, seed),
+        );
         let mid = noise(int(20), int(20), 40, seed);
         assert!((mid - (a + b + c + d) / 4).abs() <= 2, "{mid}");
         assert_eq!(fade(O / 2), O / 2);
+        // a quarter of the way: ¼³ (¼ (1.5 − 15) + 10) = 6.625 / 64 = 0.1035,
+        // eased, where a straight line would give 0.25
+        assert!((fade(O / 4) - O * 1035 / 10_000).abs() < 8, "{}", fade(O / 4));
         assert_eq!((fade(0), fade(O)), (0, O));
     }
 
@@ -1356,10 +1431,21 @@ pub(crate) mod tests {
             l.height(p.x, p.z)
         };
         let deep = h(0);
-        assert!(deep < st.at.y - st.depth, "the middle is deeper than the mean depth");
+        assert!(
+            deep < st.at.y - st.depth,
+            "the middle is deeper than the mean depth"
+        );
         // at the water's edge, the bank is at the water
         let edge = h(st.half);
         assert!((edge - st.at.y).abs() < ONE / 20, "{} vs {}", edge, st.at.y);
+        // ten centimetres out the bank has risen only by its slope, as the
+        // water's bowl falls by its own: a few centimetres
+        let out = h(st.half + ONE / 10);
+        assert!(
+            out > st.at.y && out - st.at.y < ONE / 20,
+            "{} over the water",
+            out - st.at.y
+        );
         // and two metres out, above it on both sides
         assert!(h(st.half + int(2)) > st.at.y + ONE / 4);
         assert!(h(-st.half - int(2)) > st.at.y + ONE / 4);
@@ -1384,13 +1470,27 @@ pub(crate) mod tests {
         let hut = l.height(hx, hz);
         assert!(hut > int(30), "the hill is {} m", hut / ONE);
         assert_eq!(l.height(hx + int(2), hz - int(2)), hut);
+        // the shrine, on its islet's dome, stands on a level footprint too
+        let (sx, sz) = (int(738), int(1000));
+        let base = l.height(sx, sz);
+        for (dx, dz) in [(-1, -1), (1, 1), (-1, 1), (1, -1)] {
+            assert_eq!(
+                l.height(sx + int(dx) * 3 / 2, sz + int(dz) * 3 / 2),
+                base,
+                "({dx}, {dz})"
+            );
+        }
     }
 
     #[test]
     fn the_land_rises_into_mountains_beyond_the_square() {
         let l = land();
         // 8 km north of the square, away from the river's valley
-        let far = (-1000..=5000).step_by(500).map(|x| l.height(int(x), int(-8000))).max().unwrap();
+        let far = (-1000..=5000)
+            .step_by(500)
+            .map(|x| l.height(int(x), int(-8000)))
+            .max()
+            .unwrap();
         assert!(far > int(500), "the north's ridges reach {} m", far / ONE);
         let plains = l.height(int(2500), int(1800));
         assert!(plains.abs() < int(25), "the plains are {} m", plains / ONE);
@@ -1429,7 +1529,23 @@ pub(crate) mod tests {
         // over its radius, 128 m here): the area times k² is the square's
         let k = t.at.c0.x as i128;
         assert_eq!(k, int(128) as i128);
-        assert_eq!(area * k * k / (ONE as i128 * ONE as i128), (128 * ONE as i128) * (128 * ONE as i128));
+        assert_eq!(
+            area * k * k / (ONE as i128 * ONE as i128),
+            (128 * ONE as i128) * (128 * ONE as i128)
+        );
+        // and each facet once: no two share their middle
+        let mut middles: Vec<(i64, i64)> = t
+            .vertices
+            .chunks(3 * VERTEX_VALUES)
+            .take((2 * n * n) as usize)
+            .map(|tr| {
+                let c = |k: usize| (0..3).map(|q| tr[q * VERTEX_VALUES + k] as i64).sum::<i64>();
+                (c(0), c(2))
+            })
+            .collect();
+        middles.sort();
+        middles.dedup();
+        assert_eq!(middles.len() as i32, 2 * n * n);
         assert_eq!(t.at.t, t.centre);
         assert_eq!(t.centre.x, int(7 * 128 + 64));
         // the north skirt faces north (−z), the east's east

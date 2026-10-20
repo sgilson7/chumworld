@@ -363,9 +363,7 @@ impl River {
                 self.spec
                     .riffles
                     .iter()
-                    .find(|r| {
-                        self.stations[i].at.z >= r.from_z * ONE && self.stations[i].at.z < r.to_z * ONE
-                    })
+                    .find(|r| self.stations[i].at.z >= r.from_z * ONE && self.stations[i].at.z < r.to_z * ONE)
                     .map(|r| r.slope_per_1000)
                     .unwrap_or(self.spec.slope_per_1000)
             } else {
@@ -515,7 +513,8 @@ impl River {
         let rel = (s - s0).max(0) as i64;
         let i = ((rel / self.step as i64) as usize).min(n - 1);
         let j = (i + 1).min(n - 1);
-        let t = ((rel - i as i64 * self.step as i64) * ONE as i64 / self.step as i64).clamp(0, ONE as i64) as Fx;
+        let t =
+            ((rel - i as i64 * self.step as i64) * ONE as i64 / self.step as i64).clamp(0, ONE as i64) as Fx;
         let (a, b) = (&self.stations[i], &self.stations[j]);
         let l = |p: Fx, q: Fx| p + fx::mul(q - p, t);
         Station {
@@ -818,7 +817,6 @@ pub fn step(w: &mut crate::world::World) {
     }
     w.water.ticks += 1;
 }
-
 
 // ---- the surface over the ground (after the fishing game's river/bake.rs) ----
 
@@ -1180,7 +1178,11 @@ pub fn pieces(land: &crate::terrain::Land) -> Vec<Piece> {
             .map(|j| {
                 (0..=n)
                     .map(|i| {
-                        let p = v3(pc.x - reach + i as i32 * cell, pc.y, pc.z - reach + j as i32 * cell);
+                        let p = v3(
+                            pc.x - reach + i as i32 * cell,
+                            pc.y,
+                            pc.z - reach + j as i32 * cell,
+                        );
                         let ground = land.height(p.x, p.z);
                         (p, still, pc.y - ground)
                     })
@@ -1268,7 +1270,12 @@ pub fn uniform_values(land: &crate::terrain::Land) -> Vec<i32> {
     out.extend(rgb(l.shallow));
     out.extend(rgb(l.crest));
     out.extend(rgb(l.foam));
-    out.extend([0, thousandths(l.fresnel_base), thousandths(l.fresnel_power), thousandths(l.crest_power)]);
+    out.extend([
+        0,
+        thousandths(l.fresnel_base),
+        thousandths(l.fresnel_power),
+        thousandths(l.crest_power),
+    ]);
     for v in [l.glint, l.body, l.crest_light, l.foam_fold, l.foam_edge, l.detail] {
         out.extend(v.map(thousandths));
     }
@@ -1281,9 +1288,19 @@ pub fn uniform_values(land: &crate::terrain::Land) -> Vec<i32> {
     // in the shallows (1 / calm depth)
     out.extend([k, least, most, fx::div(ONE, (l.calm_cm * ONE / 100).max(1))]);
     // shore foam: from and to (metres), strength, and the ripples' fade distance
-    out.extend([l.shore[0] * ONE / 1000, l.shore[1] * ONE / 1000, thousandths(l.shore[2]), l.detail_fade_m * ONE]);
+    out.extend([
+        l.shore[0] * ONE / 1000,
+        l.shore[1] * ONE / 1000,
+        thousandths(l.shore[2]),
+        l.detail_fade_m * ONE,
+    ]);
     let [spacing, per_km, from, to] = l.lod_waves;
-    out.extend([spacing * ONE / 100, per_km * ONE / 1000, thousandths(from), thousandths(to)]);
+    out.extend([
+        spacing * ONE / 100,
+        per_km * ONE / 1000,
+        thousandths(from),
+        thousandths(to),
+    ]);
     out
 }
 
@@ -1297,7 +1314,9 @@ pub fn frame_values(land: &crate::terrain::Land, s: &State, origin: V3) -> Vec<i
     let ticks = s.ticks as i64;
     let tps = crate::ticks::TICKS_PER_SECOND as i64;
     // the ripples drift uDetail.z lattice cells a second (thousandths)
-    let wrap = |speed_x1000: i64| ((ticks * speed_x1000 * ONE as i64 / 1000 / tps).rem_euclid(period * ONE as i64)) as i32;
+    let wrap = |speed_x1000: i64| {
+        ((ticks * speed_x1000 * ONE as i64 / 1000 / tps).rem_euclid(period * ONE as i64)) as i32
+    };
     let ripple = wrap(l.detail[2] as i64);
     let foam = wrap(1000);
     // the flow map's cycle: uFlowK.w seconds (thousandths) a turn
@@ -1331,16 +1350,23 @@ mod tests {
         for level in 0..6u32 {
             let side = crate::lod::cell(level) as i64 * n;
             let far = crate::lod::ring(level) + side * 3 / 2;
-            let step = crate::render::DEPTH_STEPS as i64 * crate::render::layered_depth_step(far.min(crate::render::FAR as i64) as Fx) as i64;
+            let step = crate::render::DEPTH_STEPS as i64
+                * crate::render::layered_depth_step(far.min(crate::render::FAR as i64) as Fx) as i64;
             // a pixel at `far`: far × 2 tan 30° / 1080
             let pixel = far * 11_547 / 10_000 / 1080;
-            let mut points: Vec<(Fx, Fx)> = [-1000, 0, 700, 1000, 1500, 2248, 2340, 3000, 4000].iter().map(|&z| {
-                let k = l.river.stations.iter().position(|s| s.at.z >= int(z)).unwrap();
-                (l.river.stations[k].at.x, l.river.stations[k].at.z)
-            }).collect();
+            let mut points: Vec<(Fx, Fx)> = [-1000, 0, 700, 1000, 1500, 2248, 2340, 3000, 4000]
+                .iter()
+                .map(|&z| {
+                    let k = l.river.stations.iter().position(|s| s.at.z >= int(z)).unwrap();
+                    (l.river.stations[k].at.x, l.river.stations[k].at.z)
+                })
+                .collect();
             points.push((int(2030), int(2826)));
             for (x, z) in points {
-                let (i, j) = ((x as i64).div_euclid(side) as i32, (z as i64).div_euclid(side) as i32);
+                let (i, j) = (
+                    (x as i64).div_euclid(side) as i32,
+                    (z as i64).div_euclid(side) as i32,
+                );
                 let t = l.tile(level, i, j);
                 let tris = 2 * l.spec.lod.tile_cells as usize * l.spec.lod.tile_cells as usize;
                 for tr in t.vertices.chunks(3 * crate::prim::VERTEX_VALUES).take(tris) {
@@ -1351,14 +1377,20 @@ mod tests {
                         })
                         .collect();
                     let mid = v3((p[0].x + p[1].x + p[2].x) / 3, 0, (p[0].z + p[1].z + p[2].z) / 3);
-                    let level_here = match l.river.near(mid.x, mid.z, int(40)) {
-                        Some(nr) if nr.d < nr.half + int(30) => nr.surface,
-                        _ => match l.ponds().iter().find(|(c, r, bank)| v3(mid.x - c.x, 0, mid.z - c.z).len_xz() < r + bank + int(4)) {
-                            Some((c, _, _)) => c.y,
-                            None => continue,
-                        },
-                    };
-                    let (lo, hi) = (p.iter().map(|q| q.y).min().unwrap(), p.iter().map(|q| q.y).max().unwrap());
+                    let level_here =
+                        match l.river.near(mid.x, mid.z, int(40)) {
+                            Some(nr) if nr.d < nr.half + int(30) => nr.surface,
+                            _ => match l.ponds().iter().find(|(c, r, bank)| {
+                                v3(mid.x - c.x, 0, mid.z - c.z).len_xz() < r + bank + int(4)
+                            }) {
+                                Some((c, _, _)) => c.y,
+                                None => continue,
+                            },
+                        };
+                    let (lo, hi) = (
+                        p.iter().map(|q| q.y).min().unwrap(),
+                        p.iter().map(|q| q.y).max().unwrap(),
+                    );
                     if !(lo < level_here && hi > level_here) {
                         continue;
                     }
@@ -1384,5 +1416,95 @@ mod tests {
             }
         }
         assert!(checked > 500, "{checked} crossings checked");
+    }
+
+    /// Away from the riffles, the bridge and the ford, the solved water runs
+    /// near Manning's normal depth for its own width: h = (q n / √S)^(3/5),
+    /// so h⁵ = (q n / √S)³. With Q = 22 m³/s over 14 m (q = 1.571 m²/s),
+    /// n = 0.035 and S = 0.003 (√S = 0.054 77): q n / √S = 1.004, h = 1.002 m.
+    #[test]
+    fn the_solved_river_runs_at_its_normal_depth_on_a_plain_stretch() {
+        let l = land();
+        let r = &l.river;
+        let mut tried = 0;
+        for z in [300, 1500, 2900, 3600] {
+            let k = r.stations.iter().position(|s| s.at.z >= int(z)).unwrap();
+            let st = r.stations[k];
+            assert_eq!(st.regime, solve::Regime::Calm, "at z = {z}");
+            // q n / √S in Q16: Q / (2 half) × 0.035 / 0.054 772
+            let q = fx::div(22 * ONE, 2 * st.half);
+            let target = fx::div(
+                fx::mul(q, ONE * 35 / 1000),
+                (ONE as i64 * 54_772 / 1_000_000) as Fx,
+            );
+            let h5 = (0..4).fold(st.depth as i64, |acc, _| acc * st.depth as i64 >> 16);
+            let t3 = (0..2).fold(target as i64, |acc, _| acc * target as i64 >> 16);
+            // within 6% of the depth (1.06⁵ = 1.34 on h⁵): the width wanders
+            // over a few hundred metres and calm water takes about h / S =
+            // 330 m to settle to a new width's depth
+            assert!(
+                (h5 - t3).abs() * 100 < t3 * 34,
+                "z = {z}: h = {} cm, h⁵ {h5} vs {t3}",
+                st.depth * 100 / ONE
+            );
+            tried += 1;
+        }
+        assert_eq!(tried, 4);
+        // the speed is the flow over the depth: v = q / h
+        let k = r.stations.iter().position(|s| s.at.z >= int(1500)).unwrap();
+        let st = r.stations[k];
+        let v = fx::div(fx::div(22 * ONE, 2 * st.half), st.depth);
+        assert!((st.speed - v).abs() < ONE / 100, "{} vs {v}", st.speed);
+    }
+
+    #[test]
+    fn the_water_slows_and_turns_back_behind_a_pier_and_runs_fast_beside_it() {
+        let l = land();
+        let r = &l.river;
+        let pier = r.rocks.iter().find(|k| k.r < ONE).expect("a pier");
+        let st = r.station(pier.s);
+        let right = v3(-st.dir.z, 0, st.dir.x);
+        let at = |down: Fx, across: Fx| pier.at.add(st.dir.scale(down)).add(right.scale(across));
+        let along = |p: V3| {
+            let (s, a) = (
+                pier.s + fx::mul(p.sub(pier.at).dot(st.dir), ONE),
+                pier.across + p.sub(pier.at).dot(right),
+            );
+            r.field(p, s, a).vel.dot(st.dir)
+        };
+        // just behind it (10 cm) the eddy runs back upstream: the slack there
+        // is 1 − 1.35 (1 − x / 6r) = −0.07 for a 45 cm pier; two radii beside
+        // it the flow is faster than on the pier's line far upstream
+        let behind = along(at(pier.r + ONE / 10, 0));
+        let beside = along(at(0, pier.r * 2));
+        let upstream = along(at(-20 * ONE, 0));
+        assert!(behind < 0, "behind the pier: {behind}");
+        assert!(beside > upstream, "{beside} beside, {upstream} upstream");
+        // and there is white water on its upstream face
+        let face = at(-pier.r - ONE / 10, 0);
+        let (s, a) = (pier.s - pier.r - ONE / 10, pier.across);
+        assert!(r.field(face, s, a).white > ONE / 4);
+    }
+
+    #[test]
+    fn a_wave_steps_its_phase_by_its_deep_water_period() {
+        // L = g T² / 2π: a 3.6 m wave has T = √(2π × 3.6 / 9.81) = 1.5185 s,
+        // so 2³² / (1.5185 × 60) = 47 139 360 a tick
+        let w = Wave::new(
+            &WaveSpec {
+                toward_deg: 90,
+                length_cm: 360,
+                amp_mm: 20,
+                steep_pct: 50,
+            },
+            4,
+        );
+        assert!((w.step as i64 - 47_139_360).abs() < 47_139, "{}", w.step);
+        // toward 90°: along +x
+        assert!(w.dx > ONE - 4 && w.dz.abs() < 4);
+        let mut world = crate::world::World::new(1);
+        crate::water::step(&mut world);
+        assert_eq!(world.water.phase[0], world.land.waves[0].step);
+        assert_eq!(world.water.ticks, 1);
     }
 }

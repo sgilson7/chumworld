@@ -18,7 +18,10 @@ use tool_core::terrain::Land;
 fn probe_terrain_cost() {
     let t = Instant::now();
     let land = Land::shipped();
-    println!("land (parse, river, solve): {:.1} ms", t.elapsed().as_secs_f64() * 1000.0);
+    println!(
+        "land (parse, river, solve): {:.1} ms",
+        t.elapsed().as_secs_f64() * 1000.0
+    );
     let t = Instant::now();
     let mut n = 0;
     for j in 0..4 {
@@ -27,12 +30,19 @@ fn probe_terrain_cost() {
             n += tile.vertices.len();
         }
     }
-    println!("16 level-0 tiles on the plains: {:.2} ms each, {} values", t.elapsed().as_secs_f64() * 1000.0 / 16.0, n / 16);
+    println!(
+        "16 level-0 tiles on the plains: {:.2} ms each, {} values",
+        t.elapsed().as_secs_f64() * 1000.0 / 16.0,
+        n / 16
+    );
     let t = Instant::now();
     for k in 0..8 {
         let _ = land.tile(0, 9 + k % 2, 35 + k / 2);
     }
-    println!("8 level-0 tiles at the river and bridge: {:.2} ms each", t.elapsed().as_secs_f64() * 1000.0 / 8.0);
+    println!(
+        "8 level-0 tiles at the river and bridge: {:.2} ms each",
+        t.elapsed().as_secs_f64() * 1000.0 / 8.0
+    );
     let t = Instant::now();
     let mut d = Detail::new(&land.spec.lod, 20);
     let mut out = Shapes::default();
@@ -75,23 +85,36 @@ fn probe_parts() {
     for k in 0..10_000 {
         acc += land.height_in(int(1900) + k * 1000, int(2500), &sc) as i64;
     }
-    println!("height on the plains: {:.2} us", t.elapsed().as_secs_f64() * 1e6 / 10_000.0);
+    println!(
+        "height on the plains: {:.2} us",
+        t.elapsed().as_secs_f64() * 1e6 / 10_000.0
+    );
     let t = Instant::now();
     for k in 0..10_000 {
         let h = land.height_in(int(1900) + k * 1000, int(2500), &sc);
         acc += land.colour_in(int(1900) + k * 1000, int(2500), h, 0, 2 * ONE, &sc, None)[0] as i64;
     }
-    println!("height + colour on the plains: {:.2} us", t.elapsed().as_secs_f64() * 1e6 / 10_000.0);
+    println!(
+        "height + colour on the plains: {:.2} us",
+        t.elapsed().as_secs_f64() * 1e6 / 10_000.0
+    );
     let t = Instant::now();
     for k in 0..10_000 {
-        acc += land.river.near(int(600) + k * 10, int(2000), land.reach).map(|n| n.d).unwrap_or(0) as i64;
+        acc += land
+            .river
+            .near(int(600) + k * 10, int(2000), land.reach)
+            .map(|n| n.d)
+            .unwrap_or(0) as i64;
     }
     println!("river near: {:.2} us", t.elapsed().as_secs_f64() * 1e6 / 10_000.0);
     let t = Instant::now();
     for k in 0..100_000u64 {
         acc += tool_core::fx::isqrt_u64(k * 123_456_789_011) as i64;
     }
-    println!("fx::isqrt_u64 of a big number: {:.3} us {acc}", t.elapsed().as_secs_f64() * 1e6 / 100_000.0);
+    println!(
+        "fx::isqrt_u64 of a big number: {:.3} us {acc}",
+        t.elapsed().as_secs_f64() * 1e6 / 100_000.0
+    );
 }
 
 #[test]
@@ -105,7 +128,14 @@ fn probe_colour_line() {
             let h = land.height_in(px, pz, &sc);
             let c = land.colour_in(px, pz, h, 0, 2 * ONE, &sc, None);
             let (rd, rh) = land.road_distance(px, pz, &sc);
-            println!("({x}, {z}) h {:.2} rgb {:?} road {:.1}/{:.1} foot {}", h as f64 / 65536.0, c.map(|v| v * 255 / ONE), rd as f64 / 65536.0, rh as f64/65536.0, land.footprint_distance(px, pz, &sc) / ONE);
+            println!(
+                "({x}, {z}) h {:.2} rgb {:?} road {:.1}/{:.1} foot {}",
+                h as f64 / 65536.0,
+                c.map(|v| v * 255 / ONE),
+                rd as f64 / 65536.0,
+                rh as f64 / 65536.0,
+                land.footprint_distance(px, pz, &sc) / ONE
+            );
         }
     }
 }
@@ -128,7 +158,11 @@ fn probe_cover() {
                 let side = d.tile_side(dr.key.level as u32);
                 let (x0, z0) = (dr.key.i as i64 * side, dr.key.j as i64 * side);
                 if px >= x0 && px < x0 + side && pz >= z0 && pz < z0 + side {
-                    sum += if dr.fade >= 0 { dr.fade as i64 } else { -(dr.fade as i64) };
+                    sum += if dr.fade >= 0 {
+                        dr.fade as i64
+                    } else {
+                        -(dr.fade as i64)
+                    };
                     what.push((dr.key.level, dr.key.i, dr.key.j, dr.fade));
                 }
             }
@@ -180,7 +214,11 @@ fn probe_normals() {
             ny += y / (x * x + y * y + z * z).sqrt();
             n += 1.0;
         }
-        println!("tile {i}: k {k}, mean decoded ny {:.4}, centre {:?}", ny / n, t.centre);
+        println!(
+            "tile {i}: k {k}, mean decoded ny {:.4}, centre {:?}",
+            ny / n,
+            t.centre
+        );
     }
 }
 
@@ -195,7 +233,9 @@ fn probe_tile_colours() {
             let mut c = [0i64; 3];
             let mut n = 0;
             for v in t.vertices.chunks(9).take(2048 * 3) {
-                for k in 0..3 { c[k] += v[6 + k] as i64; }
+                for k in 0..3 {
+                    c[k] += v[6 + k] as i64;
+                }
                 n += 1;
             }
             row += &format!(" {:?}", c.map(|x| x * 255 / n / 65536));
@@ -214,7 +254,12 @@ fn probe_map() {
     let land = Land::shipped();
     let spec = std::env::var("M2_MAP").unwrap_or_else(|_| "-200 -200 4400 1100 shots/m2/overview.ppm".into());
     let p: Vec<&str> = spec.split_whitespace().collect();
-    let (x0, z0, size, px) = (p[0].parse::<i32>().unwrap(), p[1].parse::<i32>().unwrap(), p[2].parse::<i32>().unwrap(), p[3].parse::<i32>().unwrap());
+    let (x0, z0, size, px) = (
+        p[0].parse::<i32>().unwrap(),
+        p[1].parse::<i32>().unwrap(),
+        p[2].parse::<i32>().unwrap(),
+        p[3].parse::<i32>().unwrap(),
+    );
     let step = (size as i64 * ONE as i64 / px as i64) as i32;
     let mut out = format!("P6 {px} {px} 255\n").into_bytes();
     let cell = step.max(2 * ONE);
@@ -230,7 +275,8 @@ fn probe_map() {
             }
             // light from the west-south-west: brighter where the land faces it
             let e = land.height_in(x - step, z + step / 2, &sc) as i64;
-            let slope = ((h as i64 - e) * 4 * ONE as i64 / step as i64).clamp(-(ONE as i64) / 2, ONE as i64 / 2);
+            let slope =
+                ((h as i64 - e) * 4 * ONE as i64 / step as i64).clamp(-(ONE as i64) / 2, ONE as i64 / 2);
             for k in 0..3 {
                 let v = (c[k] as i64 * (ONE as i64 + slope) / ONE as i64 * 255 / ONE as i64).clamp(0, 255);
                 out.push(v as u8);
@@ -254,16 +300,30 @@ fn probe_game_view() {
     g.act("places.go", "2000,2800,20,-8").unwrap();
     g.act("screen.show", "play").unwrap();
     let mut now = 0;
-    for _ in 0..200 { now += 16_667; g.advance(now, 0, 0, 0, 0); }
+    for _ in 0..200 {
+        now += 16_667;
+        g.advance(now, 0, 0, 0, 0);
+    }
     let eye = g.camera().eye;
-    println!("eye ({:.1}, {:.1}, {:.1})", eye.x as f64 / 65536.0, eye.y as f64 / 65536.0, eye.z as f64 / 65536.0);
+    println!(
+        "eye ({:.1}, {:.1}, {:.1})",
+        eye.x as f64 / 65536.0,
+        eye.y as f64 / 65536.0,
+        eye.z as f64 / 65536.0
+    );
     for (x, z) in [(2030, 2700), (2060, 2700), (2040, 2600), (2070, 2600)] {
         let (px, pz) = (int(x) as i64, int(z) as i64);
-        let hits: Vec<_> = g.detail.drawn.iter().filter(|dr| {
-            let side = g.detail.tile_side(dr.key.level as u32);
-            let (x0, z0) = (dr.key.i as i64 * side, dr.key.j as i64 * side);
-            px >= x0 && px < x0 + side && pz >= z0 && pz < z0 + side
-        }).map(|dr| (dr.key.level, dr.key.i, dr.key.j, dr.fade)).collect();
+        let hits: Vec<_> = g
+            .detail
+            .drawn
+            .iter()
+            .filter(|dr| {
+                let side = g.detail.tile_side(dr.key.level as u32);
+                let (x0, z0) = (dr.key.i as i64 * side, dr.key.j as i64 * side);
+                px >= x0 && px < x0 + side && pz >= z0 && pz < z0 + side
+            })
+            .map(|dr| (dr.key.level, dr.key.i, dr.key.j, dr.fade))
+            .collect();
         println!("({x}, {z}): {hits:?}");
     }
 }
@@ -282,12 +342,21 @@ fn probe_water_draws() {
     g.act("places.go", "1000,2000,90,-6").unwrap();
     g.act("screen.show", "play").unwrap();
     let mut now = 0;
-    for _ in 0..100 { now += 16_667; g.advance(now, 0, 0, 0, 0); }
+    for _ in 0..100 {
+        now += 16_667;
+        g.advance(now, 0, 0, 0, 0);
+    }
     let water = tool_core::render::Pass::Water as u32;
     for d in g.frame.draws.chunks(6).filter(|d| d[4] == water) {
         println!("water draw: mesh {} layer {} count {}", d[1], d[5], d[3]);
     }
-    for f in g.detail.faded.iter().filter(|f| f.name.starts_with("river")).take(3) {
+    for f in g
+        .detail
+        .faded
+        .iter()
+        .filter(|f| f.name.starts_with("river"))
+        .take(3)
+    {
         println!("{} centre {:?} fade {:?}", f.name, f.centre, f.fade);
     }
 }
@@ -304,9 +373,19 @@ fn probe_dip_map() {
         for i in 0..px {
             let (x, z) = (int(x0) + i * step, int(z0) + j * step);
             let near = land.river.near(x, z, land.reach);
-            let dip = near.map(|n| (n.d as i64) < n.half as i64 + 12 * ONE as i64).unwrap_or(false);
-            if dip && near.unwrap().d > 60 * ONE { hits += 1; }
-            out.extend(if dip { [200u8, 40, 40] } else if near.is_some() { [90, 140, 90] } else { [60, 60, 60] });
+            let dip = near
+                .map(|n| (n.d as i64) < n.half as i64 + 12 * ONE as i64)
+                .unwrap_or(false);
+            if dip && near.unwrap().d > 60 * ONE {
+                hits += 1;
+            }
+            out.extend(if dip {
+                [200u8, 40, 40]
+            } else if near.is_some() {
+                [90, 140, 90]
+            } else {
+                [60, 60, 60]
+            });
         }
     }
     println!("dips more than 60 m from the centreline: {hits}");
@@ -334,9 +413,14 @@ fn probe_frame_parts() {
         g.detail.frame(&w, &look, eye, &mut out);
         let _ = g.detail.uploads();
     }
-    println!("built after 3000 still frames: {}, resident triangles {}", g.detail.stats.total_builds, g.detail.stats.resident_triangles);
+    println!(
+        "built after 3000 still frames: {}, resident triangles {}",
+        g.detail.stats.total_builds, g.detail.stats.resident_triangles
+    );
     for _ in 0..600 {
-        if !still { eye.z -= ONE / 10; }
+        if !still {
+            eye.z -= ONE / 10;
+        }
         let mut out = Shapes::default();
         let t = Instant::now();
         g.detail.terrain(&w.land, eye, &mut out);
@@ -349,6 +433,14 @@ fn probe_frame_parts() {
         tf += t.elapsed().as_secs_f64();
         let _ = g.detail.uploads();
     }
-    println!("resident (kind, level) -> (meshes, triangles): {:?}", g.detail.resident_by());
-    println!("per frame: terrain {:.3} ms, scatter {:.3} ms, faded {:.3} ms", tt / 0.6, ts / 0.6, tf / 0.6);
+    println!(
+        "resident (kind, level) -> (meshes, triangles): {:?}",
+        g.detail.resident_by()
+    );
+    println!(
+        "per frame: terrain {:.3} ms, scatter {:.3} ms, faded {:.3} ms",
+        tt / 0.6,
+        ts / 0.6,
+        tf / 0.6
+    );
 }

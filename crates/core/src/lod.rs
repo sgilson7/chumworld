@@ -251,8 +251,14 @@ impl Detail {
             // within the land the scatter covers
             let [elo, ehi] = sp.extent_m.map(|v| v as i64 * ONE as i64);
             let (c0, c1) = (elo.div_euclid(s), ehi.div_euclid(s));
-            let (i0, i1) = ((eye.x as i64 - soon).div_euclid(s).max(c0), (eye.x as i64 + soon).div_euclid(s).min(c1));
-            let (j0, j1) = ((eye.z as i64 - soon).div_euclid(s).max(c0), (eye.z as i64 + soon).div_euclid(s).min(c1));
+            let (i0, i1) = (
+                (eye.x as i64 - soon).div_euclid(s).max(c0),
+                (eye.x as i64 + soon).div_euclid(s).min(c1),
+            );
+            let (j0, j1) = (
+                (eye.z as i64 - soon).div_euclid(s).max(c0),
+                (eye.z as i64 + soon).div_euclid(s).min(c1),
+            );
             // in 256ths of a metre, so squares fit
             let (ex, ez) = (eye.x as i64 >> 8, eye.z as i64 >> 8);
             let (near2, far2) = (((lo - margin).max(0) >> 8).pow(2), (soon >> 8).pow(2));
@@ -403,12 +409,24 @@ impl Detail {
     /// The faded groups' share of a frame.
     pub fn faded_frame(&mut self, eye: V3, out: &mut Shapes) {
         for (n, f) in self.faded.iter().enumerate() {
-            let d = to_square(eye.x as i64, eye.z as i64, f.centre.x as i64, f.centre.z as i64, 0);
+            let d = to_square(
+                eye.x as i64,
+                eye.z as i64,
+                f.centre.x as i64,
+                f.centre.z as i64,
+                0,
+            );
             let (a, b) = (f.fade.0 as i64, f.fade.1 as i64);
             // t: the share of the way from near to far
             let t = ((d - a) * ONE as i64 / (b - a).max(1)).clamp(0, ONE as i64) as Fx;
             let (coming, going) = look::hand_over(t);
-            let fade = if f.far { coming } else if t == 0 { ONE } else { going };
+            let fade = if f.far {
+                coming
+            } else if t == 0 {
+                ONE
+            } else {
+                going
+            };
             // nothing to draw: a far piece not yet coming in, a near one gone
             if (f.far && t == 0) || (!f.far && t == ONE) || (f.far && d > FAR as i64) {
                 continue;
@@ -639,7 +657,13 @@ impl Detail {
     fn beyond(&self, eye: V3, key: Key) -> bool {
         let level = key.level as u32;
         let side = self.tile_side(level);
-        let d = to_square(eye.x as i64, eye.z as i64, key.i as i64 * side, key.j as i64 * side, side);
+        let d = to_square(
+            eye.x as i64,
+            eye.z as i64,
+            key.i as i64 * side,
+            key.j as i64 * side,
+            side,
+        );
         if level >= self.top() {
             return d > FAR as i64 * 2;
         }
@@ -672,7 +696,12 @@ impl Detail {
             self.draw(key, fade_in, out);
             return;
         }
-        let children = [(2 * i, 2 * j), (2 * i + 1, 2 * j), (2 * i, 2 * j + 1), (2 * i + 1, 2 * j + 1)];
+        let children = [
+            (2 * i, 2 * j),
+            (2 * i + 1, 2 * j),
+            (2 * i, 2 * j + 1),
+            (2 * i + 1, 2 * j + 1),
+        ];
         if d < ring(level - 1) * self.spec.prefetch_pct as i64 / 100 {
             for &(ci, cj) in &children {
                 ahead.push((d, Detail::tile_key(level - 1, ci, cj)));
@@ -778,6 +807,9 @@ mod tests {
         assert_eq!(d.split(1, int(256) as i64), 0);
         let half = d.split(1, (int(2368) / 10) as i64);
         assert!((half - ONE / 2).abs() <= 2, "{half}");
+        // a quarter of the way in, at 227.2 m: (256 − 227.2) / 38.4 = ¾
+        let most = d.split(1, (int(2272) / 10) as i64);
+        assert!((most - ONE * 3 / 4).abs() <= 2, "{most}");
     }
 
     /// Every point of the land is drawn once: the tiles drawn at fade ONE,
@@ -795,7 +827,14 @@ mod tests {
         let cover = |f: Fx| if f >= 0 { f as i64 } else { -(f as i64) };
         // sample points in a 3 km square: the cover of every tile over each
         // adds to ONE
-        for (x, z) in [(1234, 2345), (1500, 2300), (1000, 2100), (1460, 2345), (2600, 2900), (-300, 4100)] {
+        for (x, z) in [
+            (1234, 2345),
+            (1500, 2300),
+            (1000, 2100),
+            (1460, 2345),
+            (2600, 2900),
+            (-300, 4100),
+        ] {
             let (px, pz) = (int(x) as i64, int(z) as i64);
             let mut sum = 0;
             for dr in &d.drawn {
@@ -850,7 +889,12 @@ mod tests {
             eye.x += ONE / 10;
             out = Shapes::default();
             d.terrain(&l, eye, &mut out);
-            assert_eq!(d.stats.sync_builds, 0, "a tile was needed before it was built, at {}", eye.x / ONE);
+            assert_eq!(
+                d.stats.sync_builds,
+                0,
+                "a tile was needed before it was built, at {}",
+                eye.x / ONE
+            );
             assert!(d.stats.builds <= d.spec.builds_per_frame);
         }
     }
@@ -893,13 +937,28 @@ mod tests {
                 let hidden = |k: &Key| {
                     k.kind == TERRAIN && {
                         let side = d.tile_side(k.level as u32);
-                        to_square(eye.x as i64, eye.z as i64, k.i as i64 * side, k.j as i64 * side, side) >= edge
+                        to_square(
+                            eye.x as i64,
+                            eye.z as i64,
+                            k.i as i64 * side,
+                            k.j as i64 * side,
+                            side,
+                        ) >= edge
                     }
                 };
                 if t > 0 {
-                    assert_eq!(d.stats.sync_builds, 0, "{:?} waited to be built at tick {t}, eye {:?}", d.stats.last_sync, (eye.x / ONE, eye.z / ONE));
+                    assert_eq!(
+                        d.stats.sync_builds,
+                        0,
+                        "{:?} waited to be built at tick {t}, eye {:?}",
+                        d.stats.last_sync,
+                        (eye.x / ONE, eye.z / ONE)
+                    );
                     for k in last.keys().chain(now.keys()).filter(|k| !hidden(k)) {
-                        let (a, b) = (last.get(k).copied().unwrap_or(0), now.get(k).copied().unwrap_or(0));
+                        let (a, b) = (
+                            last.get(k).copied().unwrap_or(0),
+                            now.get(k).copied().unwrap_or(0),
+                        );
                         assert!(
                             (a - b).abs() <= ONE / 16,
                             "{k:?} went from {a} to {b} of ONE at tick {t}, eye {:?}",
@@ -922,7 +981,10 @@ mod tests {
         assert!(ups.len() > 20);
         let (id, count) = (ups[0], ups[1]);
         assert!(id >= 100, "after the static table");
-        assert_eq!(d.lent(id).unwrap().len(), count as usize * crate::prim::VERTEX_VALUES);
+        assert_eq!(
+            d.lent(id).unwrap().len(),
+            count as usize * crate::prim::VERTEX_VALUES
+        );
         // the frames after build ahead, a few at a time, until all is built
         let mut frames = 0;
         loop {
@@ -932,6 +994,7 @@ mod tests {
                 break;
             }
             assert!(d.stats.builds <= d.spec.builds_per_frame);
+            assert!(frames < 2000, "the page is handed meshes without end");
         }
         assert!(frames > 1);
         // nothing new: nothing handed over, and the last lot is let go

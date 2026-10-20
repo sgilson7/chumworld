@@ -138,7 +138,12 @@ pub fn items(land: &Land, i: i32, j: i32) -> Vec<Item> {
     if x0 + side < lo || x0 > hi || z0 + side < lo || z0 > hi {
         return Vec::new();
     }
-    let sc = land.scope(x0 - 8 * ONE, z0 - 8 * ONE, x0 + side + 8 * ONE, z0 + side + 8 * ONE);
+    let sc = land.scope(
+        x0 - 8 * ONE,
+        z0 - 8 * ONE,
+        x0 + side + 8 * ONE,
+        z0 + side + 8 * ONE,
+    );
     let seed = land.spec.seed;
     let mut out = Vec::new();
     // the forest's pines and the plains' leafy trees, each on its own grid
@@ -168,7 +173,11 @@ pub fn items(land: &Land, i: i32, j: i32) -> Vec<Item> {
                 if !room(land, &sc, x, z, 2 * ONE) {
                     continue;
                 }
-                let [s0, s1] = if forest { sp.tree_size_pct } else { sp.plains_size_pct };
+                let [s0, s1] = if forest {
+                    sp.tree_size_pct
+                } else {
+                    sp.plains_size_pct
+                };
                 let (thing, tones) = if forest {
                     (Thing::Pine, sp.pine.len())
                 } else {
@@ -200,7 +209,11 @@ pub fn items(land: &Land, i: i32, j: i32) -> Vec<Item> {
             out.push(Item {
                 thing: Thing::Rock,
                 at: v3(x, land.ground(x, z), z),
-                size: if big { r.between(140, 260) } else { r.between(35, 90) },
+                size: if big {
+                    r.between(140, 260)
+                } else {
+                    r.between(35, 90)
+                },
                 yaw: r.below(fx::TURN as u32) as i32,
                 tone: r.below(sp.rock.len().max(1) as u32) as usize,
             });
@@ -241,7 +254,9 @@ impl Bake {
         let cols = [at.c0, at.c1, at.c2];
         let l2: Vec<i64> = cols
             .iter()
-            .map(|c| ((c.x as i64 * c.x as i64 + c.y as i64 * c.y as i64 + c.z as i64 * c.z as i64) >> 16).max(1))
+            .map(|c| {
+                ((c.x as i64 * c.x as i64 + c.y as i64 * c.y as i64 + c.z as i64 * c.z as i64) >> 16).max(1)
+            })
             .collect();
         for t in vs.chunks(3 * prim::VERTEX_VALUES) {
             let mut p = [V3::ZERO; 3];
@@ -277,7 +292,12 @@ impl Bake {
             // counter-clockwise seen from outside
             let n = crate::terrain::facet_normal(b, a, tip);
             let tri = [self.local(b), self.local(a), self.local(tip)];
-            facet(&mut self.out, tri, local_normal(n, self.k), shade(c, 92 + 6 * q as i32));
+            facet(
+                &mut self.out,
+                tri,
+                local_normal(n, self.k),
+                shade(c, 92 + 6 * q as i32),
+            );
         }
     }
 }
@@ -297,7 +317,11 @@ fn tree_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
     let s = |m: Fx| m * it.size / 100;
     let at = it.at;
     let turn = Affine::rot_y(it.yaw);
-    let place = |y: Fx, w: Fx, h: Fx, d: Fx| Affine::translate(at.add(v3(0, y, 0))).then(&turn).then(&Affine::scale(v3(w, h, d)));
+    let place = |y: Fx, w: Fx, h: Fx, d: Fx| {
+        Affine::translate(at.add(v3(0, y, 0)))
+            .then(&turn)
+            .then(&Affine::scale(v3(w, h, d)))
+    };
     let trunk = rgb(sp.trunk);
     let mut out = Vec::new();
     match it.thing {
@@ -305,18 +329,61 @@ fn tree_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
             let leaf = rgb(sp.pine[it.tone % sp.pine.len()]);
             // Protection of the Spheres' pine: a trunk, three cones stepping in
             let th = s(ONE * 14 / 10);
-            out.push((Mesh::Cyl, place(th / 2 - ONE / 4, s(ONE * 4 / 10), th + ONE / 2, s(ONE * 4 / 10)), trunk));
-            for (k, (y, w, h)) in [(110, 390, 230), (230, 310, 200), (345, 215, 175)].into_iter().enumerate() {
+            out.push((
+                Mesh::Cyl,
+                place(th / 2 - ONE / 4, s(ONE * 4 / 10), th + ONE / 2, s(ONE * 4 / 10)),
+                trunk,
+            ));
+            for (k, (y, w, h)) in [(110, 390, 230), (230, 310, 200), (345, 215, 175)]
+                .into_iter()
+                .enumerate()
+            {
                 let c = shade(leaf, 100 + 7 * k as i32);
-                out.push((Mesh::Cone, place(s(y * ONE / 100) + s(h * ONE / 100) / 2, s(w * ONE / 100), s(h * ONE / 100), s(w * ONE / 100)), c));
+                out.push((
+                    Mesh::Cone,
+                    place(
+                        s(y * ONE / 100) + s(h * ONE / 100) / 2,
+                        s(w * ONE / 100),
+                        s(h * ONE / 100),
+                        s(w * ONE / 100),
+                    ),
+                    c,
+                ));
             }
         }
         Thing::Leafy => {
             let leaf = rgb(sp.leafy[it.tone % sp.leafy.len()]);
             let th = s(ONE * 18 / 10);
-            out.push((Mesh::Cyl, place(th / 2 - ONE / 4, s(ONE * 36 / 100), th + ONE / 2, s(ONE * 36 / 100)), trunk));
-            out.push((Mesh::Blob, place(s(ONE * 30 / 10), s(ONE * 36 / 10), s(ONE * 28 / 10), s(ONE * 34 / 10)), leaf));
-            out.push((Mesh::Blob, place(s(ONE * 41 / 10), s(ONE * 24 / 10), s(ONE * 20 / 10), s(ONE * 23 / 10)), shade(leaf, 108)));
+            out.push((
+                Mesh::Cyl,
+                place(
+                    th / 2 - ONE / 4,
+                    s(ONE * 36 / 100),
+                    th + ONE / 2,
+                    s(ONE * 36 / 100),
+                ),
+                trunk,
+            ));
+            out.push((
+                Mesh::Blob,
+                place(
+                    s(ONE * 30 / 10),
+                    s(ONE * 36 / 10),
+                    s(ONE * 28 / 10),
+                    s(ONE * 34 / 10),
+                ),
+                leaf,
+            ));
+            out.push((
+                Mesh::Blob,
+                place(
+                    s(ONE * 41 / 10),
+                    s(ONE * 24 / 10),
+                    s(ONE * 20 / 10),
+                    s(ONE * 23 / 10),
+                ),
+                shade(leaf, 108),
+            ));
         }
         Thing::Rock => {
             let c = rgb(sp.rock[it.tone % sp.rock.len()]);
@@ -331,7 +398,11 @@ fn tree_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
 /// pass; none for a part the chunk has nothing in.
 pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) -> Option<crate::lod::Built> {
     let sp = &land.spec.scatter;
-    let side = if part == GRASS { sp.grass_chunk_m } else { sp.chunk_m } * ONE;
+    let side = if part == GRASS {
+        sp.grass_chunk_m
+    } else {
+        sp.chunk_m
+    } * ONE;
     let (centre, k) = frame_of(land, i * side, j * side, side);
     let mut b = Bake::new(centre, k);
     let mut pass = Pass::Dither;
@@ -369,8 +440,16 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
             for it in items.iter().filter(|it| it.thing != Thing::Rock) {
                 let s = |m: Fx| m * it.size / 100;
                 let (w, h, c) = match it.thing {
-                    Thing::Pine => (s(ONE * 36 / 10), s(ONE * 47 / 10), rgb(sp.pine[it.tone % sp.pine.len()])),
-                    _ => (s(ONE * 36 / 10), s(ONE * 42 / 10), rgb(sp.leafy[it.tone % sp.leafy.len()])),
+                    Thing::Pine => (
+                        s(ONE * 36 / 10),
+                        s(ONE * 47 / 10),
+                        rgb(sp.pine[it.tone % sp.pine.len()]),
+                    ),
+                    _ => (
+                        s(ONE * 36 / 10),
+                        s(ONE * 42 / 10),
+                        rgb(sp.leafy[it.tone % sp.leafy.len()]),
+                    ),
                 };
                 let a = Affine::translate(it.at.add(v3(0, s(ONE * 8 / 10) + h / 2, 0)))
                     .then(&Affine::rot_y(it.yaw))
@@ -383,7 +462,10 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
             let cell = sp.cluster_cell_m.max(1) * ONE;
             let n = side / cell;
             let sc = land.scope(i * side, j * side, (i + 1) * side, (j + 1) * side);
-            let mean = sp.pine.iter().fold([0; 3], |acc, c| [acc[0] + c[0], acc[1] + c[1], acc[2] + c[2]]);
+            let mean = sp
+                .pine
+                .iter()
+                .fold([0; 3], |acc, c| [acc[0] + c[0], acc[1] + c[1], acc[2] + c[2]]);
             let mean = rgb(mean.map(|v| v / sp.pine.len().max(1) as i32));
             for q in 0..n {
                 for p in 0..n {
@@ -406,7 +488,12 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
         GRASS => {
             let cell = (sp.grass_cell_cm.max(10) * ONE / 100) as Fx;
             let n = side / cell;
-            let sc = land.scope(i * side - ONE, j * side - ONE, (i + 1) * side + ONE, (j + 1) * side + ONE);
+            let sc = land.scope(
+                i * side - ONE,
+                j * side - ONE,
+                (i + 1) * side + ONE,
+                (j + 1) * side + ONE,
+            );
             for q in 0..n {
                 for p in 0..n {
                     let (ci, cj) = (i * n + p, j * n + q);
@@ -435,7 +522,11 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                         let fc = rgb(sp.flower[r.below(sp.flower.len() as u32) as usize]);
                         let top = foot.add(v3(0, ONE * r.between(30, 44) / 100, 0));
                         b.blade(foot, top, ONE * 2 / 100, shade(c, 90));
-                        let head = Affine::translate(top).then(&Affine::scale(v3(ONE * 9 / 100, ONE * 7 / 100, ONE * 9 / 100)));
+                        let head = Affine::translate(top).then(&Affine::scale(v3(
+                            ONE * 9 / 100,
+                            ONE * 7 / 100,
+                            ONE * 9 / 100,
+                        )));
                         b.shape(Mesh::Octa, &head, fc);
                     }
                 }
@@ -456,7 +547,11 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
 /// The middle of a part's chunk and its side.
 pub fn chunk_middle(land: &Land, part: u8, i: i32, j: i32) -> (Fx, Fx, Fx) {
     let sp = &land.spec.scatter;
-    let side = if part == GRASS { sp.grass_chunk_m } else { sp.chunk_m } * ONE;
+    let side = if part == GRASS {
+        sp.grass_chunk_m
+    } else {
+        sp.chunk_m
+    } * ONE;
     (i * side + side / 2, j * side + side / 2, side)
 }
 
@@ -546,7 +641,17 @@ mod tests {
         assert!(pines > 100, "{pines} pines");
         // the chunks over the river and the bridge, the village, the road
         // through the forest
-        let chunks = [(4, 17), (5, 17), (4, 7), (5, 7), (15, 21), (15, 22), (16, 21), (22, 14), (23, 12)];
+        let chunks = [
+            (4, 17),
+            (5, 17),
+            (4, 7),
+            (5, 7),
+            (15, 21),
+            (15, 22),
+            (16, 21),
+            (22, 14),
+            (23, 12),
+        ];
         let all: Vec<Item> = chunks.iter().flat_map(|&(i, j)| items(&l, i, j)).collect();
         assert!(all.len() > 100);
         for it in &all {

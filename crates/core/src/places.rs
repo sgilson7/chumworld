@@ -128,7 +128,10 @@ impl Layout {
         for p in &l.places {
             for q in &p.props {
                 if prop_kind(&q.prop).is_none() {
-                    return Err(format!("The places file names a prop \"{}\" there is no model for.", q.prop));
+                    return Err(format!(
+                        "The places file names a prop \"{}\" there is no model for.",
+                        q.prop
+                    ));
                 }
             }
         }
@@ -192,7 +195,11 @@ pub fn spots(w: &World, place: &PlaceSpec) -> Vec<Spot> {
                 // a bridge stands on its banks: the higher of its two ends,
                 // half its span along its length (local z) either way
                 let yaw = fx::deg(q.yaw_deg);
-                let along = v3(fx::mul(fx::sin(yaw), BRIDGE_SPAN / 2), 0, fx::mul(fx::cos(yaw), BRIDGE_SPAN / 2));
+                let along = v3(
+                    fx::mul(fx::sin(yaw), BRIDGE_SPAN / 2),
+                    0,
+                    fx::mul(fx::cos(yaw), BRIDGE_SPAN / 2),
+                );
                 let (a, b) = (at.add(along), at.sub(along));
                 w.ground(a.x, a.z).max(w.ground(b.x, b.z))
             } else {
@@ -441,8 +448,12 @@ mod tests {
     #[test]
     fn the_places_file_names_only_props_there_are_models_for() {
         let l = Layout::shipped();
-        assert!(l.places.iter().all(|p| p.props.iter().all(|q| prop_kind(&q.prop).is_some())));
-        let mut bad: serde_json::Value = serde_json::from_str(include_str!("../../../data/places.json")).unwrap();
+        assert!(l
+            .places
+            .iter()
+            .all(|p| p.props.iter().all(|q| prop_kind(&q.prop).is_some())));
+        let mut bad: serde_json::Value =
+            serde_json::from_str(include_str!("../../../data/places.json")).unwrap();
         bad["places"][0]["props"][0]["prop"] = serde_json::json!("castle");
         assert_eq!(
             Layout::parse(&bad.to_string()).unwrap_err(),
@@ -504,7 +515,11 @@ mod tests {
         assert!(r.points.first().unwrap().x < 0 && r.points.last().unwrap().x > 4000 * ONE);
         let bridge = at(&w, "bridge").unwrap();
         let closest = r.points.iter().map(|p| p.sub(bridge).len_xz()).min().unwrap();
-        assert!(closest < WAY_STEP, "the road passes the bridge {} m off", closest / ONE);
+        assert!(
+            closest < WAY_STEP,
+            "the road passes the bridge {} m off",
+            closest / ONE
+        );
         // its points follow the ground
         for p in r.points.iter().step_by(25) {
             assert_eq!(p.y, w.ground(p.x, p.z));
@@ -516,7 +531,11 @@ mod tests {
         let mut w = world();
         act(&mut w, "go", "bridge 90 -10").unwrap();
         let b = at(&w, "bridge").unwrap();
-        assert_eq!((w.player.pos.x, w.player.pos.z), (b.x, b.z), "the player is moved at once");
+        assert_eq!(
+            (w.player.pos.x, w.player.pos.z),
+            (b.x, b.z),
+            "the player is moved at once"
+        );
         assert_eq!(w.player.pos.y, w.ground(b.x, b.z));
         assert_ne!(w.aim.yaw, fx::deg(90), "the aim waits for play");
         arrive(&mut w);
@@ -525,7 +544,9 @@ mod tests {
         act(&mut w, "go", "600,2200").unwrap();
         arrive(&mut w);
         assert_eq!((w.player.pos.x, w.player.pos.z), (600 * ONE, 2200 * ONE));
-        assert!(act(&mut w, "go", "castle").unwrap_err().contains("not \"castle\""));
+        assert!(act(&mut w, "go", "castle")
+            .unwrap_err()
+            .contains("not \"castle\""));
         assert!(act(&mut w, "go", "").is_err());
     }
 }
