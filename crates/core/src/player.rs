@@ -898,8 +898,9 @@ mod tests {
         w.me.health.hp = 64;
         let h = crate::ui::health(&w);
         assert_eq!((h.now, h.most), (64, 80));
+        w.foes[0].fighter.health.hp = 90;
         let (who, g) = crate::ui::foe(&w).expect("drawn, the orc is held on");
-        assert_eq!((who.as_str(), g.now, g.most), ("orc", 140, 140));
+        assert_eq!((who.as_str(), g.now, g.most), ("orc", 90, 140));
         w.me.health.hp = -9;
         assert_eq!(crate::ui::health(&w).now, 0, "never below none");
     }
