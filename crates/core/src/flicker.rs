@@ -648,7 +648,7 @@ mod tests {
             }
         }
         let seen = Seen {
-            bottom: crate::field::UNDER,
+            bottom: -crate::fx::int(100),
             eyes,
             far: render::FAR,
         };

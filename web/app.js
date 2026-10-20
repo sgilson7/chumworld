@@ -79,8 +79,11 @@ async function main() {
 
   let ui = null;
   const input = makeInput(canvas, controls, N.actions, () => {});
-  // a reader's look speed from the address (?look=<percent>), as any setting
-  const lookSpeed = new URLSearchParams(location.search).get("look");
+  // a reader's look speed from the address (?look=<percent>), as any setting,
+  // and a place to start at (?go=<place> [yaw] [pitch], for views of the world)
+  const params = new URLSearchParams(location.search);
+  const lookSpeed = params.get("look");
+  const goTo = params.get("go");
 
   // Sends one action through the core's door and draws what comes back.
   function act(name, value) {
@@ -167,6 +170,7 @@ async function main() {
   });
 
   if (lookSpeed) act("look.speed", lookSpeed);
+  if (goTo) act("places.go", goTo);
 
   function resize() {
     const [w, h] = game.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);
@@ -180,6 +184,9 @@ async function main() {
   function frame(now) {
     const { bits, dx, dy, wheel } = input.read();
     game.advance(now, bits, dx, dy, wheel);
+    // the meshes the core built this frame, each uploaded once
+    const ups = game.uploads();
+    for (let i = 0; i < ups.length; i += N.upload_values) renderer.setMesh(ups[i], game.mesh(ups[i]), ups[i + 1]);
     if (game.static_version() !== staticVersion) {
       staticVersion = game.static_version();
       renderer.setStatic(game.static_values());

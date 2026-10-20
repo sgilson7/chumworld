@@ -1,0 +1,66 @@
+{
+  "_note": "The land's shape and colours (M2, crates/core/src/terrain.rs, lod.rs, scatter.rs). Heights are cm, distances m, colours 0 to 255, shares percent. The village plateau is height 0, so the game opens with its feet on the ground (world::START).",
+  "seed": 2026,
+  "noise": [
+    { "wave_m": 700, "amp_cm": 560 },
+    { "wave_m": 190, "amp_cm": 170 },
+    { "wave_m": 47, "amp_cm": 34 },
+    { "wave_m": 13, "amp_cm": 7 }
+  ],
+  "_noise": "value noise, octave by octave: the plains' long swells, then smaller rises, then the facets' unevenness",
+  "tilt_cm_per_km": [0, -150],
+  "_tilt_cm_per_km": "the land falls gently toward the south, where the orcs come from (east, south)",
+  "forest_rise_cm": 260,
+  "mountains": {
+    "_note": "Beyond the square the land rises into ridges, as scenery to the 16 km horizon (CW-Q14). They start rising this far past the square's edge and are whole by the second distance; each side has its own height. The river's valley cuts through them.",
+    "rise_m": [500, 5600],
+    "base_m": 160,
+    "ridge_m": { "north": 1150, "west": 880, "east": 760, "south": 380 },
+    "waves_m": [3300, 1350, 540],
+    "gap_m": [350, 2200]
+  },
+  "colour": {
+    "grass": [[150, 186, 104], [163, 195, 116], [141, 176, 97], [175, 201, 125]],
+    "dry": [192, 190, 124],
+    "floor": [102, 138, 78],
+    "canopy": [70, 112, 64],
+    "road": [198, 168, 122],
+    "road_dark": [174, 142, 102],
+    "earth": [182, 160, 120],
+    "sand": [210, 194, 152],
+    "bed": [126, 120, 94],
+    "crop": [224, 198, 116],
+    "furrow": [152, 120, 84],
+    "rock": [152, 142, 130],
+    "mountain": [132, 126, 128],
+    "upland": [124, 154, 98],
+    "snow": [238, 240, 242]
+  },
+  "shading": {
+    "_note": "Protection of the Spheres' faceted ground: each corner's seeded unevenness shades it, each facet a little more, steep faces turn to rock. The patchwork of tones is whole on the finest level and fades level by level, because a colour that changes from one tiny far facet to the next shimmers as the view moves (CW-18).",
+    "patch_m": 38,
+    "meadow_m": 420,
+    "dry_pct": 38,
+    "corner_pct": 5,
+    "facet_pct": 3,
+    "steep_pct": 80,
+    "patchwork_pct": [100, 80, 55, 30, 12, 0, 0],
+    "village_earth_pct": 60,
+    "upland_from_m": 140,
+    "rock_from_m": [260, 520],
+    "snow_from_m": [860, 1060]
+  },
+  "lod": {
+    "_note": "Terrain in tiles round the camera (lod.rs): level 0 has 2 m cells, each level twice as coarse, to 128 m cells (PLAN.md, render::rings). A tile is split into four of the level below while the camera is inside the ring of that level, measured to the tile's nearest point; the outer band_pct of the ring hands over with the ordered dither. Tiles are built ahead of need inside prefetch_pct of a ring, at most builds_per_frame a frame, and forgotten outside evict_pct.",
+    "tile_cells": 32,
+    "levels": 7,
+    "band_pct": 15,
+    "prefetch_pct": 135,
+    "evict_pct": 170,
+    "builds_per_frame": 3,
+    "skirt_cm": 30,
+    "river_dip_from_level": 3,
+    "river_dip_cm": 45,
+    "extent_m": [-16384, 20480]
+  }
+}

@@ -80,7 +80,11 @@ pub struct World {
     pub aim: Aim,
     pub player: Body,
     // M1: pub arms: arm::State, pub pilots: pilot::State, pub health: health::State, …
-    // M2: pub water: water::State, …
+    // M2: the land (heights, layout, river), shared by every copy of the
+    // world; the water's waves; a place to put the player when play starts
+    pub land: std::rc::Rc<crate::terrain::Land>,
+    pub water: crate::water::State,
+    pub arrival: Option<crate::places::Arrival>,
     // M5: pub story: story::State, pub merchant: merchant::State, …
     // M6: pub orbs: orbs::State, pub imbue: imbue::State
 }
@@ -92,13 +96,17 @@ impl World {
             rng: Rng::new(seed),
             aim: Aim::new(START_YAW),
             player: Body::new(START, START_YAW),
+            // M2
+            land: crate::terrain::shipped(),
+            water: crate::water::State::new(),
+            arrival: None,
         }
     }
 
-    /// The ground's height at (x, z). Flat in M0; M2's `terrain.rs` answers
-    /// from here.
-    pub fn ground(&self, _x: Fx, _z: Fx) -> Fx {
-        0
+    /// The ground's height at (x, z): M2's terrain, the triangles of its
+    /// finest tiles as drawn (`terrain::Land::ground`).
+    pub fn ground(&self, x: Fx, z: Fx) -> Fx {
+        self.land.ground(x, z)
     }
 
     /// One tick, in the order the module doc gives.
@@ -118,7 +126,8 @@ impl World {
         // 5. M1/M5: throwables, crate::boomerang::step(self, input);
         // 6. M6: crate::orbs::step(self); crate::imbue::step(self, input);
         // 7. M5: crate::story::step(self); crate::merchant::step(self); …
-        // 8. M2: crate::water::step(self);
+        // 8. M2: the water
+        crate::water::step(self);
     }
 
     /// What moves, drawn `alpha` of the way from the last tick to this one.
@@ -129,9 +138,13 @@ impl World {
 
     /// What never moves: the static groups, and the meshes they draw.
     pub fn scene(&self, look: &Look, meshes: &mut MeshTable) -> Vec<Group> {
-        // M2: replace the test field with terrain, scatter and places
-        crate::field::groups(look, START, meshes)
-        // M2/M5: crate::places::scene(self, look, &mut out); …
+        // M2: the places and the water; the terrain and the scatter are drawn
+        // by detail level round the camera (`lod.rs`, from `Game::draw`)
+        let mut out = Vec::new();
+        crate::places::scene(self, look, meshes, &mut out);
+        crate::water::scene(self, look, meshes, &mut out);
+        // M5: …
+        out
     }
 
     /// Lines over the game.
@@ -140,9 +153,13 @@ impl World {
     }
 
     /// A setting or flag named `module.name`.
-    pub fn act(&mut self, name: &str, _value: &str) -> Result<(), String> {
-        // M1: Some(("arm", rest)) => crate::arm::act(self, rest, value), …
-        Err(format!("Unknown action \"{name}\"."))
+    pub fn act(&mut self, name: &str, value: &str) -> Result<(), String> {
+        match name.split_once('.') {
+            // M1: Some(("arm", rest)) => crate::arm::act(self, rest, value), …
+            // M2
+            Some(("places", rest)) => crate::places::act(self, rest, value),
+            _ => Err(format!("Unknown action \"{name}\".")),
+        }
     }
 
     /// One number for the whole state, for replays and determinism tests: an

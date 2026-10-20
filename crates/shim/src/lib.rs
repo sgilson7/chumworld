@@ -94,6 +94,12 @@ impl Game {
         floats(api::mesh(&self.inner, id))
     }
 
+    /// The meshes built since the last call, as (id, vertex count) pairs:
+    /// each is read with `mesh` until the next call (M2, `lod.rs`).
+    pub fn uploads(&mut self) -> Vec<u32> {
+        self.inner.detail.uploads()
+    }
+
     /// The view model, as JSON.
     pub fn ui(&self) -> String {
         api::ok(&api::ui(&self.inner))
