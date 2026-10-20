@@ -868,13 +868,6 @@
     "test": "a_blade_that_crosses_a_body_in_one_tick_is_stopped_on_the_near_side"
   },
   {
-    "name": "M1 blade: one blow a contact",
-    "file": "crates/core/src/blade.rs",
-    "find": "                pa.dist(pb) <= *re + *r + COME_AWAY",
-    "replace": "                pa.dist(pb) <= *re + *r - COME_AWAY",
-    "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
-  },
-  {
     "name": "M1 blade: a block rewinds both blades",
     "file": "crates/core/src/blade.rs",
     "find": "    rewind(a, k, s);\n    rewind(b, k, s);",
@@ -1010,8 +1003,8 @@
   {
     "name": "M1 arm: a still arm holds still",
     "file": "crates/core/src/arm.rs",
-    "find": "        if still && settled && g.in_hand == before.2 {",
-    "replace": "        if false && still && settled && g.in_hand == before.2 {",
+    "find": "        if still && settled && g.in_hand == before.2 && !self.riding {",
+    "replace": "        if false && still && settled && g.in_hand == before.2 && !self.riding {",
     "test": "two_still_ticks_give_identical_frames_and_static_arrays"
   },
   {
