@@ -1948,8 +1948,8 @@
   {
     "name": "M5 solid: a body against a wall is not pushed out",
     "file": "crates/core/src/solid.rs",
-    "find": "            (sx, 0, r - ox)\n",
-    "replace": "            (sx, 0, 0)\n",
+    "find": "            (0, sz, r - oz)\n",
+    "replace": "            (0, sz, 0)\n",
     "test": "a_body_against_a_wall_is_pushed_out_to_its_radius_and_stops_going_in"
   },
   {

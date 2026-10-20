@@ -1497,7 +1497,8 @@ mod tests {
     #[test]
     fn the_player_gets_up_after_a_while_or_at_once_on_a_movement_key() {
         let mut w = opening(3);
-        idle(&mut w, WAKE_TICKS - 1);
+        // 1.5 s lying: 89 ticks in bed, then up
+        idle(&mut w, 89);
         assert!(matches!(w.story.phase, Phase::Bed(_)));
         idle(&mut w, 1 + RISE_TICKS);
         assert_eq!(w.story.phase, Phase::Raid);
