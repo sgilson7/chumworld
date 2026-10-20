@@ -249,7 +249,7 @@ def flick(page, ticks):
 def duel_views(browser, base, out, views, logs):
     """M1's views (DUEL_VIEWS), each from a fresh page."""
     if {"sheathed", "drawn"} & set(views):
-        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=320&sticks=1")
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=320")
         # drawn first, so the view turns to hold on the orc, then put away
         page.keyboard.press("KeyX")
         frames(page, 70)
@@ -263,14 +263,14 @@ def duel_views(browser, base, out, views, logs):
             page.screenshot(path=str(out / "drawn.png"))
         page.close()
     if "swing" in views:
-        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=200&sticks=1")
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=200")
         draw_and_wind(page, 0)
         flick(page, 4)
         page.screenshot(path=str(out / "swing.png"))
         page.mouse.up()
         page.close()
     if "block" in views:
-        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=115&sticks=1")
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=115")
         # the hand up 24° (160 px at 0.15° a pixel) to meet the orc's guard
         draw_and_wind(page, 160)
         flick(page, 9)
@@ -279,7 +279,7 @@ def duel_views(browser, base, out, views, logs):
         page.mouse.up()
         page.close()
     if "hit" in views:
-        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=85&sticks=1")
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=85")
         # low: 26° down (173 px) passes under the orc's guard
         draw_and_wind(page, -173)
         flick(page, 9)
@@ -288,14 +288,14 @@ def duel_views(browser, base, out, views, logs):
         page.mouse.up()
         page.close()
     if "rock" in views:
-        page = duel_page(browser, base, logs, "duel=bandit&foe=still&gap=900&sticks=1")
+        page = duel_page(browser, base, logs, "duel=bandit&foe=still&gap=900")
         page.keyboard.press("KeyF")
         # 12 ticks of wind, then a sixth of a second in the air
         frames(page, 22)
         page.screenshot(path=str(out / "rock.png"))
         page.close()
     if "orc" in views:
-        page = duel_page(browser, base, logs, "duel=orc&gap=400&sticks=1")
+        page = duel_page(browser, base, logs, "duel=orc&gap=400")
         page.keyboard.press("KeyX")
         frames(page, 150)
         for _ in range(3):
@@ -307,7 +307,7 @@ def duel_views(browser, base, out, views, logs):
         page.screenshot(path=str(out / "orc.png"))
         page.close()
     if "slide" in views:
-        page = duel_page(browser, base, logs, "speedster=5&sticks=1")
+        page = duel_page(browser, base, logs, "speedster=5")
         page.keyboard.down("ShiftLeft")
         page.keyboard.down("KeyW")
         frames(page, 200)
