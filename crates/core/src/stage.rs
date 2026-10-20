@@ -69,7 +69,7 @@ pub fn shown(g: &Game) -> bool {
 /// whole turn every `turn_seconds`.
 pub fn heading(ticks: u32) -> i32 {
     let s = spec();
-    let per_turn = (s.turn_seconds as i64 * crate::ticks::TICKS_PER_SECOND as i64).max(1);
+    let per_turn = (s.turn_seconds as i64 * crate::ticks::TICKS_PER_SECOND).max(1);
     let spun = (ticks as i64 % per_turn) * fx::TURN as i64 / per_turn;
     fx::wrap(fx::HALF_TURN + fx::deg(s.start_deg) + spun as i32)
 }

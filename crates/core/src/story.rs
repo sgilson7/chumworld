@@ -1469,7 +1469,10 @@ mod tests {
     fn pickups_turn_with_the_clock_and_hold_still_for_a_picture() {
         let mut w = opening(5);
         step_aside(&mut w);
-        assert!(w.story.pickups.iter().any(|p| !p.taken), "pickups lie in the world");
+        assert!(
+            w.story.pickups.iter().any(|p| !p.taken),
+            "pickups lie in the world"
+        );
         let look = crate::look::tests::look();
         let drawn = |w: &World| {
             let mut out = Shapes::default();
@@ -1485,7 +1488,10 @@ mod tests {
         let mut b = Shapes::default();
         draw(&w, 0, &look, &mut b);
         assert_ne!(a, b, "a second's half on, the pickups have moved");
-        assert_eq!(b.list.iter().filter(|s| drawn(&w).list.contains(s)).count(), drawn(&w).len());
+        assert_eq!(
+            b.list.iter().filter(|s| drawn(&w).list.contains(s)).count(),
+            drawn(&w).len()
+        );
         w.story.still = true;
         let mut c = Shapes::default();
         draw(&w, 0, &look, &mut c);

@@ -443,6 +443,7 @@ mod tests {
         // the same type before and after its fields were renamed
         mod before {
             #[derive(Debug)]
+            #[allow(dead_code)]
             pub struct S {
                 pub hp: i32,
                 pub pos: (i32, i32),
@@ -451,6 +452,7 @@ mod tests {
         }
         mod after {
             #[derive(Debug)]
+            #[allow(dead_code)]
             pub struct S {
                 pub health: i32,
                 pub at: (i32, i32),
@@ -460,6 +462,7 @@ mod tests {
         use after::S as B;
         use before::S as A;
         #[derive(Debug)]
+        #[allow(dead_code)]
         enum M {
             Round(u8),
             Rest(u8),

@@ -7,8 +7,11 @@ front (a ring face turned away is skipped: it is drawn at the side on
 purpose, as Ocarina of Time's are), and reports:
 
 - words off the window;
-- words cut by the nearest box that clips its overflow (a list that scrolls
-  counts: a list that needs scrolling at a size is one that does not fit);
+- words cut by the nearest box that clips its overflow, and a box that
+  scrolls (overflow auto or scroll) holding more than it shows: a list that
+  needs scrolling at a size is one that does not fit (a box that hides its
+  overflow, as the ring's stage hides the side screens, is judged by the
+  words it cuts);
 - an element whose words are wider than it and hidden (an ellipsis);
 - words of one element overlapping the words of another;
 - a key cap or a button's box overlapping words outside it.
@@ -66,7 +69,7 @@ LAYOUT = r"""(roots) => {
             if (s.overflowX !== 'visible' || s.overflowY !== 'visible') {
                 const c = e.getBoundingClientRect();
                 if (b.left < c.left - 1 || b.right > c.right + 1 || b.top < c.top - 1 || b.bottom > c.bottom + 1) say(`cut by ${name(e)}: "${t}"`);
-                if (e.scrollHeight > e.clientHeight + 1 && s.overflowY !== 'visible') say(`${name(e)} needs scrolling: "${t}"`);
+                if (e.scrollHeight > e.clientHeight + 1 && (s.overflowY === 'auto' || s.overflowY === 'scroll')) say(`${name(e)} needs scrolling: "${t}"`);
                 break;
             }
         }
