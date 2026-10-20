@@ -1,16 +1,688 @@
 [
   {
-    "name": "an empty title is refused",
+    "name": "an empty string is refused by name",
     "file": "crates/core/src/page.rs",
-    "find": "if strings.title.trim().is_empty() {",
+    "find": "if text.trim().is_empty() {",
     "replace": "if false {",
     "test": "an_empty_title_is_rejected_by_name"
   },
   {
     "name": "an unknown action is refused",
+    "file": "crates/core/src/world.rs",
+    "find": "Err(format!(\"Unknown action \\\"{name}\\\".\"))",
+    "replace": "Ok(())",
+    "test": "an_unknown_action_is_refused_by_name"
+  },
+  {
+    "name": "kit fx: a product keeps sixteen fraction bits",
+    "file": "crates/core/src/fx.rs",
+    "find": "    saturate((a as i64 * b as i64) >> SHIFT)",
+    "replace": "    saturate((a as i64 * b as i64) >> (SHIFT - 1))",
+    "test": "products_and_quotients_keep_sixteen_fraction_bits"
+  },
+  {
+    "name": "kit fx: an overflowing product saturates",
+    "file": "crates/core/src/fx.rs",
+    "find": "    v.clamp(i32::MIN as i64, i32::MAX as i64) as Fx",
+    "replace": "    v as Fx",
+    "test": "an_overflowing_product_saturates_rather_than_wrapping"
+  },
+  {
+    "name": "kit fx: round goes half up",
+    "file": "crates/core/src/fx.rs",
+    "find": "    (x + HALF) >> SHIFT",
+    "replace": "    x >> SHIFT",
+    "test": "floor_and_round_go_the_stated_way"
+  },
+  {
+    "name": "kit fx: a negative root is zero",
+    "file": "crates/core/src/fx.rs",
+    "find": "    if x <= 0 {\n        return 0;\n    }\n    saturate(isqrt((x as u64) << SHIFT) as i64)",
+    "replace": "    saturate(isqrt((x.unsigned_abs() as u64) << SHIFT) as i64)",
+    "test": "square_roots_and_lengths_match_hand_computed_values"
+  },
+  {
+    "name": "kit fx: sine lands within its error",
+    "file": "crates/core/src/fx.rs",
+    "find": "    let r = x as i128 * TWO_PI_Q32 / TURN as i128;",
+    "replace": "    let r = x as i128 * TWO_PI_Q32 / TURN as i128 * 101 / 100;",
+    "test": "sine_and_cosine_land_within_the_stated_error"
+  },
+  {
+    "name": "sine rounds to the nearest Q16 step",
+    "file": "crates/core/src/fx.rs",
+    "find": "    let q16 = ((sum + (1 << 15)) >> 16).clamp(0, ONE as i128) as Fx;",
+    "replace": "    let q16 = (sum >> 16).clamp(0, ONE as i128) as Fx;",
+    "test": "sine_is_exact_to_the_last_bit_at_hand_computed_angles"
+  },
+  {
+    "name": "sine sums enough terms for a unit basis",
+    "file": "crates/core/src/fx.rs",
+    "find": "    for k in 1..=7i128 {",
+    "replace": "    for k in 1..=1i128 {",
+    "test": "a_rotation_basis_stays_unit_length_at_every_angle"
+  },
+  {
+    "name": "headings interpolate the short way round",
+    "file": "crates/core/src/fx.rs",
+    "find": "    a.wrapping_add(mul(wrap(b.wrapping_sub(a)), t))",
+    "replace": "    a.wrapping_add(mul(b.wrapping_sub(a), t))",
+    "test": "wrap_and_lerp_angle_take_the_short_way_round"
+  },
+  {
+    "name": "atan2 finds the second quadrant",
+    "file": "crates/core/src/fx.rs",
+    "find": "        (false, true) => HALF_TURN - a,",
+    "replace": "        (false, true) => HALF_TURN + a,",
+    "test": "atan2_finds_each_quadrant_within_a_quarter_degree"
+  },
+  {
+    "name": "decimal text rounds",
+    "file": "crates/core/src/fx.rs",
+    "find": "    let r = (v.abs() + ONE as i64 / 2) / ONE as i64;",
+    "replace": "    let r = v.abs() / ONE as i64;",
+    "test": "decimal_text_rounds_and_drops_trailing_zeros"
+  },
+  {
+    "name": "kit rng: SplitMix64's published sequence",
+    "file": "crates/core/src/rng.rs",
+    "find": "        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);",
+    "replace": "        z = (z ^ (z >> 29)).wrapping_mul(0xbf58_476d_1ce4_e5b9);",
+    "test": "the_first_values_match_the_published_splitmix64_sequence"
+  },
+  {
+    "name": "kit rng: a seed decides the sequence",
+    "file": "crates/core/src/rng.rs",
+    "find": "        Rng { state: seed }",
+    "replace": "        Rng { state: seed & 0xff }",
+    "test": "the_same_seed_gives_the_same_sequence_and_another_does_not"
+  },
+  {
+    "name": "kit rng: between reaches its top value",
+    "file": "crates/core/src/rng.rs",
+    "find": "        let span = (hi as i64 - lo as i64 + 1) as u32;",
+    "replace": "        let span = (hi as i64 - lo as i64) as u32;",
+    "test": "below_and_between_stay_in_range_and_reach_every_value"
+  },
+  {
+    "name": "kit rng: chance is always at its end",
+    "file": "crates/core/src/rng.rs",
+    "find": "        self.below(den) < num",
+    "replace": "        self.below(den) < num.saturating_sub(1)",
+    "test": "chance_is_never_and_always_at_its_ends"
+  },
+  {
+    "name": "kit ticks: a tap between ticks is latched",
+    "file": "crates/core/src/ticks.rs",
+    "find": "            self.latched |= bits;",
+    "replace": "",
+    "test": "a_tap_released_before_any_tick_ran_still_counts"
+  },
+  {
+    "name": "kit ticks: a latched tap is used once",
+    "file": "crates/core/src/ticks.rs",
+    "find": "            ticks.push(bits | self.latched);\n            self.latched = 0;",
+    "replace": "            ticks.push(bits | self.latched);",
+    "test": "a_latched_tap_is_used_once"
+  },
+  {
+    "name": "kit ticks: held bits reach every tick",
+    "file": "crates/core/src/ticks.rs",
+    "find": "            ticks.push(bits | self.latched);",
+    "replace": "            ticks.push(if ticks.is_empty() { bits | self.latched } else { 0 });",
+    "test": "held_bits_reach_every_tick_of_a_slow_frame"
+  },
+  {
+    "name": "kit ticks: a stall drops the rest",
+    "file": "crates/core/src/ticks.rs",
+    "find": "            Some(prev) => (now_us - prev).clamp(0, TICK_US * MAX_TICKS_PER_FRAME as i64),",
+    "replace": "            Some(prev) => (now_us - prev).max(0),",
+    "test": "a_stall_runs_at_most_the_cap_and_drops_the_rest"
+  },
+  {
+    "name": "kit ticks: a clock going back owes nothing",
+    "file": "crates/core/src/ticks.rs",
+    "find": "            Some(prev) => (now_us - prev).clamp(0, TICK_US * MAX_TICKS_PER_FRAME as i64),",
+    "replace": "            Some(prev) => (now_us - prev).clamp(-TICK_US * 9, TICK_US * MAX_TICKS_PER_FRAME as i64),",
+    "test": "a_clock_that_goes_backwards_runs_nothing"
+  },
+  {
+    "name": "kit ticks: frame rate never changes the world",
+    "file": "crates/core/src/ticks.rs",
+    "find": "            self.owed -= TICK_US;",
+    "replace": "            self.owed = 0;",
+    "test": "the_same_frames_give_the_same_world_at_any_frame_rate"
+  },
+  {
+    "name": "alpha is the share of a tick owed",
+    "file": "crates/core/src/ticks.rs",
+    "find": "        ((owed << crate::fx::SHIFT) / TICK_US) as crate::fx::Fx",
+    "replace": "        ((owed << crate::fx::SHIFT) / TICK_US / 2) as crate::fx::Fx",
+    "test": "alpha_is_the_share_of_a_tick_owed_after_a_frame"
+  },
+  {
+    "name": "a rested clock forgets what it owed",
+    "file": "crates/core/src/ticks.rs",
+    "find": "        self.owed = 0;\n        self.latched = 0;",
+    "replace": "        self.latched = 0;",
+    "test": "a_rested_clock_owes_nothing_and_runs_no_catch_up"
+  },
+  {
+    "name": "kit ticks: a held key is one press",
+    "file": "crates/core/src/ticks.rs",
+    "find": "            if bits & FIRE != 0 && self.prev & FIRE == 0 {",
+    "replace": "            if bits & FIRE != 0 {",
+    "test": "a_tap_counts_once_when_a_frame_runs_several_ticks"
+  },
+  {
+    "name": "the same shapes give the same arrays",
+    "file": "crates/core/src/render.rs",
+    "find": "    let t = a.t.sub(origin);",
+    "replace": "    static RUNS: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);\n    let t = a.t.sub(origin).add(v3(RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed), 0, 0));",
+    "test": "the_same_shapes_give_the_same_arrays_byte_for_byte"
+  },
+  {
+    "name": "the same world gives the same frame",
+    "file": "crates/core/src/render.rs",
+    "find": "    let t = a.t.sub(origin);",
+    "replace": "    static RUNS: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);\n    let t = a.t.sub(origin).add(v3(RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed), 0, 0));",
+    "test": "the_same_world_gives_the_same_frame_byte_for_byte"
+  },
+  {
+    "name": "the same seed lays out the same field",
+    "file": "crates/core/src/field.rs",
+    "find": "    let mut r = Rng::new(SEED ^ ((x as u32 as u64) << 32) ^ (z as u32 as u64));",
+    "replace": "    static RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);\n    let mut r = Rng::new(SEED ^ RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) ^ ((x as u32 as u64) << 32) ^ (z as u32 as u64));",
+    "test": "the_same_seed_lays_out_the_same_field"
+  },
+  {
+    "name": "the strings file holds every key",
+    "file": "data/strings.json",
+    "find": "\"hint_pause\": \"Esc pauses\"",
+    "replace": "\"hint_pause\": \" \"",
+    "test": "the_strings_file_holds_every_required_key"
+  },
+  {
+    "name": "right is east at heading zero",
+    "file": "crates/core/src/geom.rs",
+    "find": "    v3(fx::cos(yaw), 0, -fx::sin(yaw))",
+    "replace": "    v3(fx::cos(yaw), 0, fx::sin(yaw))",
+    "test": "heading_zero_faces_north_and_right_is_east"
+  },
+  {
+    "name": "a turn about the vertical matches facing",
+    "file": "crates/core/src/geom.rs",
+    "find": "            c2: v3(s, 0, c),",
+    "replace": "            c2: v3(-s, 0, c),",
+    "test": "rotation_about_y_turns_forward_the_way_facing_does"
+  },
+  {
+    "name": "yaw_of inverts facing",
+    "file": "crates/core/src/geom.rs",
+    "find": "    fx::atan2(-d.x, -d.z)",
+    "replace": "    fx::atan2(d.x, -d.z)",
+    "test": "yaw_of_inverts_facing"
+  },
+  {
+    "name": "the projection puts w in front",
+    "file": "crates/core/src/geom.rs",
+    "find": "        m[11] = -ONE;",
+    "replace": "        m[11] = ONE;",
+    "test": "a_point_ahead_of_the_camera_lands_in_the_clip_volume_and_one_behind_does_not"
+  },
+  {
+    "name": "the far plane's terms in i64",
+    "file": "crates/core/src/geom.rs",
+    "find": "        m[14] = (((2 * fr * n) >> fx::FRAC_BITS << fx::FRAC_BITS) / (n - fr)) as i32;",
+    "replace": "        m[14] = (2 * far * near) / (near - far);",
+    "test": "a_far_plane_sixteen_kilometres_away_does_not_overflow"
+  },
+  {
+    "name": "looking faces along its direction",
+    "file": "crates/core/src/geom.rs",
+    "find": "        let back = dir.neg();",
+    "replace": "        let back = dir;",
+    "test": "looking_points_minus_z_along_the_direction"
+  },
+  {
+    "name": "reach holds the unit shape",
+    "file": "crates/core/src/geom.rs",
+    "find": "        (self.c0.len() / 2)",
+    "replace": "        (self.c0.len() / 4)",
+    "test": "reach_holds_a_box_from_its_centre_to_its_corner"
+  },
+  {
+    "name": "buttons sit above the keys",
+    "file": "crates/core/src/input.rs",
+    "find": "            buttons: bits >> BUTTON_SHIFT,",
+    "replace": "            buttons: bits,",
+    "test": "the_page_bits_split_into_keys_and_buttons"
+  },
+  {
+    "name": "each action has its own bit",
+    "file": "crates/core/src/input.rs",
+    "find": "    (\"map\", MAP),",
+    "replace": "    (\"map\", MENU),",
+    "test": "every_action_has_its_own_bit_and_name"
+  },
+  {
+    "name": "opposite keys cancel",
+    "file": "crates/core/src/input.rs",
+    "find": "        let x = self.key(RIGHT) as i32 - self.key(LEFT) as i32;",
+    "replace": "        let x = self.key(RIGHT) as i32;",
+    "test": "opposite_movement_keys_cancel"
+  },
+  {
+    "name": "pending movement is taken once",
+    "file": "crates/core/src/input.rs",
+    "find": "        std::mem::take(&mut self.m)",
+    "replace": "        self.m",
+    "test": "pending_movement_goes_to_one_tick_once"
+  },
+  {
+    "name": "an input record keeps its wheel",
+    "file": "crates/core/src/input.rs",
+    "find": "    /// toward the reader is positive.\n    pub wheel: i32,",
+    "replace": "    /// toward the reader is positive.\n    #[serde(skip)]\n    pub wheel: i32,",
+    "test": "an_input_record_survives_a_trip_through_json"
+  },
+  {
+    "name": "the camera is 2.6 m back",
+    "file": "crates/core/src/camera.rs",
+    "find": "pub const BACK: Fx = ONE * 26 / 10;",
+    "replace": "pub const BACK: Fx = ONE * 20 / 10;",
+    "test": "level_and_facing_north_the_eye_is_behind_right_of_and_above_the_head"
+  },
+  {
+    "name": "the shoulder turns with the view",
+    "file": "crates/core/src/camera.rs",
+    "find": "    let pivot = head.add(v3(0, ABOVE, 0)).add(right_of(look.yaw).scale(RIGHT));",
+    "replace": "    let pivot = head.add(v3(RIGHT, ABOVE, 0));",
+    "test": "turned_a_quarter_left_the_shoulder_turns_with_the_view"
+  },
+  {
+    "name": "the eye stays over the ground",
+    "file": "crates/core/src/camera.rs",
+    "find": "    eye.y = eye.y.max(ground(eye.x, eye.z) + MIN_EYE_HEIGHT);",
+    "replace": "    let _ = ground(eye.x, eye.z);",
+    "test": "looking_down_lifts_the_camera_and_the_ground_stops_it_going_under"
+  },
+  {
+    "name": "mouse right turns right",
+    "file": "crates/core/src/camera.rs",
+    "find": "            yaw: fx::wrap(self.yaw.wrapping_sub(dyaw)),",
+    "replace": "            yaw: fx::wrap(self.yaw.wrapping_add(dyaw)),",
+    "test": "mouse_right_turns_right_and_down_looks_down_within_range"
+  },
+  {
+    "name": "slow mouse movement is kept",
+    "file": "crates/core/src/camera.rs",
+    "find": "            (total.div_euclid(10_000) as i32, total.rem_euclid(10_000) as i32)",
+    "replace": "            (total.div_euclid(10_000) as i32, 0)",
+    "test": "slow_movement_turns_the_view_as_much_as_the_same_movement_at_once"
+  },
+  {
+    "name": "the look speed scales turning",
+    "file": "crates/core/src/camera.rs",
+    "find": " * self.pct as i64 / 100",
+    "replace": "",
+    "test": "a_quarter_look_speed_turns_a_quarter_as_far"
+  },
+  {
+    "name": "faces wind outward",
+    "file": "crates/core/src/prim.rs",
+    "find": "            push_quad(&mut o, p(1, -1, 1), p(1, -1, -1), p(1, 1, -1), p(1, 1, 1));",
+    "replace": "            push_quad(&mut o, p(1, 1, 1), p(1, 1, -1), p(1, -1, -1), p(1, -1, 1));",
+    "test": "every_face_of_a_closed_mesh_winds_away_from_its_centre"
+  },
+  {
+    "name": "meshes fit the unit cube",
+    "file": "crates/core/src/prim.rs",
+    "find": "    let apex = v3(0, H, 0);",
+    "replace": "    let apex = v3(0, H + H / 4, 0);",
+    "test": "every_mesh_fits_in_the_unit_cube"
+  },
+  {
+    "name": "the ground triangle faces up",
+    "file": "crates/core/src/prim.rs",
+    "find": "            push_flat(&mut o, v3(-H, 0, H), v3(H, 0, H), v3(H, 0, -H));",
+    "replace": "            push_flat(&mut o, v3(H, 0, -H), v3(H, 0, H), v3(-H, 0, H));",
+    "test": "the_ground_shapes_face_up_and_the_cube_has_twelve_triangles"
+  },
+  {
+    "name": "the capsule's ends are round",
+    "file": "crates/core/src/prim.rs",
+    "find": "            let spine = H - r;",
+    "replace": "            let spine = H;",
+    "test": "the_capsule_is_round_ended_and_its_normals_point_out"
+  },
+  {
+    "name": "every uniform gets its values",
+    "file": "crates/core/src/look.rs",
+    "find": "        out.push(fx::int(BAYER_SIZE));",
+    "replace": "",
+    "test": "the_uniform_values_fill_the_named_uniforms_exactly"
+  },
+  {
+    "name": "the haze arrives times one",
+    "file": "crates/core/src/look.rs",
+    "find": "        let per_m_times_one = (self.haze_per_km_pct as i64 * ONE as i64 * ONE as i64 / 100_000) as i32;",
+    "replace": "        let per_m_times_one = (self.haze_per_km_pct as i64 * ONE as i64 * ONE as i64 / 1_000_000) as i32;",
+    "test": "the_haze_and_the_biases_arrive_times_one_for_the_shader_to_scale"
+  },
+  {
+    "name": "the dither hand-over covers each pixel once",
+    "file": "crates/core/src/look.rs",
+    "find": "        t >= f + ONE",
+    "replace": "        t >= f + ONE + ONE / 16",
+    "test": "the_dither_hand_over_covers_every_pixel_once_at_every_step"
+  },
+  {
+    "name": "the shader dithers by the core's rule",
+    "file": "data/shaders/scene.frag",
+    "find": "  return f >= 0.0 ? t < f : t >= f + 1.0;",
+    "replace": "  return f >= 0.0 ? t < f : t > f + 1.0;",
+    "test": "the_shader_keeps_a_dithered_pixel_by_the_same_rule"
+  },
+  {
+    "name": "a look file needs a sun",
+    "file": "crates/core/src/look.rs",
+    "find": "        if l.sun_toward == [0, 0, 0] {",
+    "replace": "        if false {",
+    "test": "a_look_file_with_no_sun_or_no_grass_is_refused_by_name"
+  },
+  {
+    "name": "ink grows evenly with size",
+    "file": "crates/core/src/render.rs",
+    "find": "const INK_PER_METRE: Fx = ONE / 160;",
+    "replace": "const INK_PER_METRE: Fx = ONE / 80;",
+    "test": "an_inked_shape_is_drawn_twice_and_its_outline_is_evenly_larger"
+  },
+  {
+    "name": "passes draw in order",
+    "file": "crates/core/src/render.rs",
+    "find": "        Pass::Ink,\n        Pass::Shade,\n        Pass::Glow,\n    ];",
+    "replace": "        Pass::Glow,\n        Pass::Shade,\n        Pass::Ink,\n    ];",
+    "test": "draws_come_layer_by_layer_and_pass_by_pass_in_order"
+  },
+  {
+    "name": "a shape is drawn in each layer it reaches",
+    "file": "crates/core/src/render.rs",
+    "find": "        let far = d.saturating_add(radius) > FAR_LAYER_NEAR;",
+    "replace": "        let far = d.saturating_add(radius) > NEAR_LAYER_FAR;",
+    "test": "a_shape_is_drawn_in_each_layer_it_reaches_and_none_behind_the_eye"
+  },
+  {
+    "name": "positions are relative to the origin",
+    "file": "crates/core/src/render.rs",
+    "find": "    let t = a.t.sub(origin);",
+    "replace": "    let t = a.t;",
+    "test": "positions_reach_the_page_relative_to_the_origin"
+  },
+  {
+    "name": "the depth step's formula",
+    "file": "crates/core/src/render.rs",
+    "find": "    (d * d * (f - n) / (f * n * (1 << 24))) as Fx",
+    "replace": "    (d * d * (f - n) / (f * n * (1 << 23))) as Fx",
+    "test": "the_depth_step_matches_the_hand_worked_formula"
+  },
+  {
+    "name": "the far layer keeps its own near plane",
+    "file": "crates/core/src/render.rs",
+    "find": "            Layer::Far => (FAR_LAYER_NEAR, FAR),",
+    "replace": "            Layer::Far => (NEAR, FAR),",
+    "test": "depth_precision_holds_at_every_ring_distance"
+  },
+  {
+    "name": "the layers overlap",
+    "file": "crates/core/src/render.rs",
+    "find": "pub const FAR_LAYER_NEAR: Fx = fx::int(112);",
+    "replace": "pub const FAR_LAYER_NEAR: Fx = fx::int(130);",
+    "test": "the_layers_overlap_so_the_seam_is_drawn_twice"
+  },
+  {
+    "name": "ink culls its front faces",
+    "file": "crates/core/src/render.rs",
+    "find": "            Pass::Ink => (None, true, true, Some(\"FRONT\")),",
+    "replace": "            Pass::Ink => (None, true, true, Some(\"BACK\")),",
+    "test": "every_pass_has_a_state_and_only_blended_passes_leave_depth_alone"
+  },
+  {
+    "name": "the shader biases ink and halos",
+    "file": "data/shaders/scene.vert",
+    "find": "  gl_Position.z += (uModeA.y * uBias.x - (uModeA.z + uModeB.x) * uBias.y) * uQ * gl_Position.w;",
+    "replace": "  gl_Position.z -= (uModeA.y * uBias.x - (uModeA.z + uModeB.x) * uBias.y) * uQ * gl_Position.w;",
+    "test": "the_shader_pushes_ink_back_and_halos_and_shadows_forward"
+  },
+  {
+    "name": "the body speeds up at its rate",
+    "file": "crates/core/src/player.rs",
+    "find": "pub const ACCEL: Fx = fx::int(18);",
+    "replace": "pub const ACCEL: Fx = fx::int(9);",
+    "test": "holding_w_walks_north_and_reaches_walking_pace_smoothly"
+  },
+  {
+    "name": "Shift runs",
+    "file": "crates/core/src/player.rs",
+    "find": "        let speed = if input.key(input::RUN) { RUN } else { WALK };",
+    "replace": "        let speed = WALK;",
+    "test": "shift_runs_faster_than_walking"
+  },
+  {
+    "name": "movement follows the camera",
+    "file": "crates/core/src/player.rs",
+    "find": "            .scale(x * ONE)\n            .sub(facing(yaw, 0).scale(z * ONE))",
+    "replace": "            .scale(x * ONE)\n            .sub(facing(0, 0).scale(z * ONE))",
+    "test": "movement_is_relative_to_the_camera_heading"
+  },
+  {
+    "name": "the body turns to its way",
+    "file": "crates/core/src/player.rs",
+    "find": "            let turn = fx::wrap(want - self.facing).clamp(-TURN_RATE, TURN_RATE);",
+    "replace": "            let turn = fx::wrap(want - self.facing).clamp(-TURN_RATE / 2, 0);",
+    "test": "letting_go_slows_to_a_stop_and_the_body_turns_to_face_its_way"
+  },
+  {
+    "name": "the body is drawn between ticks",
+    "file": "crates/core/src/player.rs",
+    "find": "        self.prev_pos.lerp(self.pos, alpha)",
+    "replace": "        self.pos",
+    "test": "the_body_is_drawn_between_ticks"
+  },
+  {
+    "name": "ground rings leave the inner ring out",
+    "file": "crates/core/src/field.rs",
+    "find": "                if inside {\n                    continue;\n                }",
+    "replace": "",
+    "test": "the_ground_rings_tile_without_gaps_or_overlaps"
+  },
+  {
+    "name": "the far ground is one colour",
+    "file": "crates/core/src/field.rs",
+    "find": "const PATCHWORK_PCT: [i32; 4] = [100, 30, 8, 0];",
+    "replace": "const PATCHWORK_PCT: [i32; 4] = [100, 30, 8, 5];",
+    "test": "the_far_ground_is_one_even_colour"
+  },
+  {
+    "name": "the world's hash reads its state",
+    "file": "crates/core/src/world.rs",
+    "find": "        for b in text.bytes() {",
+    "replace": "        for b in text.bytes().take(16) {",
+    "test": "the_same_inputs_give_the_same_world_tick_for_tick"
+  },
+  {
+    "name": "the body moves along the new aim",
+    "file": "crates/core/src/world.rs",
+    "find": "        self.player.step(input, self.aim.yaw, ground);",
+    "replace": "        self.player.step(input, START_YAW, ground);",
+    "test": "the_mouse_turns_the_aim_before_the_body_moves_the_same_tick"
+  },
+  {
+    "name": "the camera shows pending movement",
+    "file": "crates/core/src/world.rs",
+    "find": "        let aim = self.aim.turned(pending);",
+    "replace": "        let aim = self.aim;",
+    "test": "the_camera_shows_pending_mouse_movement_and_the_tick_does_not_jump_it"
+  },
+  {
+    "name": "a missing string is refused by name",
+    "file": "crates/core/src/page.rs",
+    "find": "    if let Some(missing) = REQUIRED.iter().find(|k| !out.contains_key(**k)) {",
+    "replace": "    if let Some(missing) = REQUIRED.iter().find(|_| false) {",
+    "test": "a_missing_key_is_rejected_by_name"
+  },
+  {
+    "name": "a string must be text",
+    "file": "crates/core/src/page.rs",
+    "find": "            return Err(StringsError::NotJson(format!(\"\\\"{k}\\\" is not text\")));",
+    "replace": "            continue;",
+    "test": "a_value_that_is_not_text_and_text_that_is_not_json_are_rejected"
+  },
+  {
+    "name": "notes are skipped",
+    "file": "crates/core/src/page.rs",
+    "find": "        if k.starts_with('_') {",
+    "replace": "        if k.starts_with('#') {",
+    "test": "notes_are_skipped_and_an_unknown_key_reads_as_itself"
+  },
+  {
+    "name": "Play shows play",
+    "file": "crates/core/src/game.rs",
+    "find": "                \"play\" => self.show(Screen::Play),",
+    "replace": "                \"play\" => self.show(Screen::Paused),",
+    "test": "the_game_opens_on_the_title_and_play_goes_through_the_door"
+  },
+  {
+    "name": "a lost pointer and a hidden tab pause",
+    "file": "crates/core/src/game.rs",
+    "find": "            \"key.escape\" | \"pointer.lost\" | \"page.hidden\" => {",
+    "replace": "            \"key.escape\" => {",
+    "test": "escape_a_lost_pointer_and_a_hidden_tab_pause_play_and_only_play"
+  },
+  {
+    "name": "a pause forgets the time it lasted",
+    "file": "crates/core/src/game.rs",
+    "find": "                self.clock.rest();",
+    "replace": "",
+    "test": "a_paused_world_holds_still_and_resuming_runs_no_catch_up"
+  },
+  {
+    "name": "a still world draws the same frame",
+    "file": "crates/core/src/game.rs",
+    "find": "        moving.sky(cam.eye);",
+    "replace": "        moving.sky(cam.eye.add(crate::geom::v3(self.world.tick as i32, 0, 0)));",
+    "test": "two_still_ticks_give_identical_frames_and_static_arrays"
+  },
+  {
+    "name": "play draws at the clock's alpha",
+    "file": "crates/core/src/game.rs",
+    "find": "                if hinted != self.hint_shown() {\n                    self.ui_version += 1;\n                }\n                self.alpha = self.clock.alpha();",
+    "replace": "                if hinted != self.hint_shown() {\n                    self.ui_version += 1;\n                }\n                self.alpha = 0;",
+    "test": "the_body_is_drawn_between_ticks_by_the_clock_s_alpha"
+  },
+  {
+    "name": "a new origin rebuilds the static array",
+    "file": "crates/core/src/game.rs",
+    "find": "        if origin != self.scene.origin || self.scene.version == 0 {",
+    "replace": "        if self.scene.version == 0 {",
+    "test": "walking_far_moves_the_origin_and_rebuilds_the_static_array"
+  },
+  {
+    "name": "a software renderer draws fewer pixels",
+    "file": "crates/core/src/game.rs",
+    "find": "            self.dpr_pct * SOFTWARE_SCALE_PCT / 100",
+    "replace": "            self.dpr_pct",
+    "test": "a_software_renderer_draws_half_as_many_pixels_each_way"
+  },
+  {
+    "name": "the pause hint lasts six seconds",
+    "file": "crates/core/src/game.rs",
+    "find": "pub const HINT_TICKS: u64 = 360;",
+    "replace": "pub const HINT_TICKS: u64 = 600;",
+    "test": "the_pause_hint_shows_for_the_first_six_seconds_of_play"
+  },
+  {
+    "name": "play opens where the title looked",
+    "file": "crates/core/src/game.rs",
+    "find": "                self.world.aim = self.title_aim();",
+    "replace": "",
+    "test": "play_opens_looking_where_the_title_camera_had_turned"
+  },
+  {
+    "name": "the look speed is held in range",
+    "file": "crates/core/src/game.rs",
+    "find": "                self.world.aim.pct = pct.clamp(camera::LOOK_PCT_MIN, camera::LOOK_PCT_MAX);",
+    "replace": "                self.world.aim.pct = pct;",
+    "test": "the_look_speed_is_a_setting_held_in_its_range"
+  },
+  {
+    "name": "drawing is camera-relative",
+    "file": "crates/core/src/render.rs",
+    "find": "        Mat4::perspective(self.fov, aspect, n, f).mul(&Mat4::look(V3::ZERO, self.fwd, V3::UP))",
+    "replace": "        Mat4::perspective(self.fov, aspect, n, f).mul(&Mat4::look(self.eye, self.fwd, V3::UP))",
+    "test": "the_body_holds_still_on_screen_while_the_view_turns"
+  },
+  {
+    "name": "Play takes the pointer",
     "file": "crates/core/src/api.rs",
-    "find": "other => return Err(format!(\"Unknown action \\\"{other}\\\".\")),",
-    "replace": "_ => {}",
-    "test": "act_refuses_an_unknown_action"
+    "find": "            actions: vec![button(g, \"screen.show\", \"play\", \"play\", true)],",
+    "replace": "            actions: vec![button(g, \"screen.show\", \"play\", \"play\", false)],",
+    "test": "the_title_screen_shows_the_title_the_controls_and_a_play_button_that_takes_the_pointer"
+  },
+  {
+    "name": "only play holds the pointer",
+    "file": "crates/core/src/api.rs",
+    "find": "        capture: g.screen == Screen::Play,",
+    "replace": "        capture: true,",
+    "test": "act_answers_with_the_new_screen_or_the_error"
+  },
+  {
+    "name": "the core fills glossary numbers",
+    "file": "crates/core/src/api.rs",
+    "find": "        out = out.replace(&format!(\"{{{k}}}\"), v);",
+    "replace": "        let _ = (k, v);",
+    "test": "glossary_numbers_are_filled_by_the_core"
+  },
+  {
+    "name": "numbers name every pass",
+    "file": "crates/core/src/api.rs",
+    "find": "        \"passes\": render::pass_states(),",
+    "replace": "        \"passes\": [],",
+    "test": "numbers_name_every_mesh_pass_and_uniform_the_page_needs"
+  },
+  {
+    "name": "two faces in one plane fight",
+    "file": "crates/core/src/flicker.rs",
+    "find": "            if gap > window || f.inst == g.inst {",
+    "replace": "            if gap > window || f.inst == g.inst || gap == 0 {",
+    "test": "two_boxes_whose_tops_meet_in_one_plane_fight_and_a_lifted_one_does_not"
+  },
+  {
+    "name": "a fight pressed on a box is unseen",
+    "file": "crates/core/src/flicker.rs",
+    "find": "                .any(|&k| inside(&insts[k], front) || inside(&insts[k], deep))",
+    "replace": "                .any(|_| false)",
+    "test": "a_band_in_a_walls_side_fights_and_one_colour_a_halo_or_a_crevice_does_not"
+  },
+  {
+    "name": "planes apart fight only from far off",
+    "file": "crates/core/src/flicker.rs",
+    "find": "                if d >= seen.far as i64 || gap >= Seen::apart(d) {",
+    "replace": "                if true {",
+    "test": "planes_apart_fight_only_where_the_depth_buffer_cannot_tell_them_apart"
+  },
+  {
+    "name": "the scan reads back world positions",
+    "file": "crates/core/src/flicker.rs",
+    "find": "                    t: v3(v[3], v[7], v[11]).add(o),",
+    "replace": "                    t: v3(v[3], v[7], v[11]),",
+    "test": "the_static_array_read_back_is_the_shapes_pushed"
+  },
+  {
+    "name": "the field's floor lies below the ground",
+    "file": "crates/core/src/field.rs",
+    "find": "pub const UNDER: Fx = -fx::int(2);",
+    "replace": "pub const UNDER: Fx = 0;",
+    "test": "the_static_scene_draws_no_two_surfaces_in_one_plane"
   }
 ]

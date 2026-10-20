@@ -153,10 +153,11 @@ impl World {
     }
 
     /// The camera for this frame: the aim with `pending` mouse movement
-    /// applied as the next tick will apply it, over the feet at `alpha`.
-    pub fn camera(&self, alpha: Fx, pending: Mouse) -> crate::render::Camera {
+    /// applied as the next tick will apply it, over the feet at `alpha`,
+    /// `back` from the shoulder's pivot (`camera::BACK` in play).
+    pub fn camera(&self, alpha: Fx, pending: Mouse, back: Fx) -> crate::render::Camera {
         let aim = self.aim.turned(pending);
-        camera::view(self.player.feet(alpha), aim, |x, z| self.ground(x, z))
+        camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z))
     }
 }
 
@@ -223,13 +224,13 @@ mod tests {
             dy: 0,
             wheel: 0,
         };
-        let before = w.camera(0, m);
+        let before = w.camera(0, m, camera::BACK);
         let mut after = w.clone();
         after.step(&Input {
             dx: m.dx,
             ..Input::default()
         });
-        assert_eq!(before, after.camera(0, Mouse::default()));
+        assert_eq!(before, after.camera(0, Mouse::default(), camera::BACK));
     }
 
     #[test]

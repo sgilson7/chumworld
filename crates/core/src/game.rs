@@ -211,12 +211,7 @@ impl Game {
         let feet = self.world.player.feet(self.alpha);
         match self.screen {
             Screen::Title => camera::view_from(feet, self.title_aim(), self.back(), ground),
-            _ => camera::view_from(
-                feet,
-                self.world.aim.turned(self.pending.peek()),
-                self.back(),
-                ground,
-            ),
+            _ => self.world.camera(self.alpha, self.pending.peek(), self.back()),
         }
     }
 
@@ -359,9 +354,17 @@ pub(crate) mod tests {
         // ten seconds paused with W held
         frames(&mut g, 600, FORWARD, 500);
         assert_eq!(g.world, held);
+        // D tapped and let go inside a frame shorter than a tick, still paused
+        g.advance(now(&g) + TICK_US / 3, crate::input::RIGHT, 0, 0, 0);
         g.act("screen.show", "play").unwrap();
         g.advance(now(&g) + TICK_US, FORWARD, 0, 0, 0);
         assert_eq!(g.world.tick, tick + 1, "one frame of play runs one tick");
+        // the tap stayed in the pause: the body still moves straight ahead
+        let sideways = g.world.player.vel.dot(crate::geom::right_of(g.world.aim.yaw));
+        assert!(
+            sideways.abs() <= 4,
+            "a key tapped while paused reached play: {sideways}"
+        );
     }
 
     #[test]
