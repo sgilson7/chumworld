@@ -94,7 +94,9 @@ def run(page, check, engine):
     button = page.locator("#title button")
     check(button.inner_text() == STRINGS["play"], "the title screen's button says Play")
     rows = page.locator("#title table.controls tr")
-    check(rows.count() == 4, "the title screen lists the four controls")
+    # M0's four controls and M1's eight (the sword, its hand, the buttons,
+    # the wheel, F and Space)
+    check(rows.count() == 12, "the title screen lists the twelve controls")
     check(rows.nth(1).inner_text().split() == [STRINGS["key_run"], STRINGS["control_run"]], "Shift runs, as the controls table says")
     term = page.get_attribute("#title td span[data-term='Run']", "title") or ""
     check("5 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
@@ -139,3 +141,21 @@ def run(page, check, engine):
     resume.click()
     page.wait_for_selector("body[data-screen='play']", state="attached")
     check(page.inner_text("#message") == "", "no error message is shown")
+
+    # M1: a test duel through the address (?duel=orc, forwarded through act):
+    # drawn, the line over the game names the orc held on and its health,
+    # and the player's own health is there from the start
+    page.goto(base + "?pointer=free&duel=orc&foe=still")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+    page.locator("#title button").click()
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    check(page.inner_text("#hud-health").startswith(STRINGS["health_you"]), "the player's health is over the game")
+    page.keyboard.press("KeyX")
+    page.evaluate(WAIT_FRAMES, [30, 600])
+    foe = page.locator("#hud-foe_health")
+    check(foe.count() == 1 and foe.inner_text().startswith(STRINGS["foe_orc"]), "drawn, the orc held on and its health are shown")
+    check(page.inner_text("#message") == "", "the test duel's flags are taken without an error")
+    # CW-18 with fighters on screen: two still frames, sword drawn, identical
+    page.evaluate(WAIT_FRAMES, [90, 1500])
+    duel = page.evaluate(GRAB, [2, 0, False])
+    check(duel["frames"][0]["hash"] == duel["frames"][1]["hash"], "a still duel draws the same frame twice: nothing jitters")

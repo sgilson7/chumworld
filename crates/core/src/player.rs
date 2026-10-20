@@ -57,6 +57,8 @@ pub const HOLD_PITCH_MIN: i32 = -deg(24);
 pub const HOLD_PITCH_MAX: i32 = deg(10);
 /// A foe spawned for a test duel stands this far ahead of the player.
 pub const SPAWN_AHEAD: Fx = fx::int(6);
+/// A body sliding faster than its feet leans back by up to this.
+pub const SLIDE_LEAN: i32 = deg(14);
 /// Where the scabbard sits on the left hip, in the body's frame (right, up,
 /// forward), and which way its blade points (down and back).
 const SHEATH_AT: (i32, i32, i32) = (-19, 92, 6);
@@ -139,7 +141,7 @@ impl Fighter {
     pub fn new(kind: Kind, held: Held, team: u8, feet: V3, yaw: i32, drawn: bool) -> Fighter {
         let build = pose::build(kind);
         let body = Body::new(feet, yaw);
-        let frame = frame_of(&body, &build, 0, feet.y);
+        let frame = frame_of(&body, &build, &Gait::default(), 0, feet.y);
         let (pommel, tip) = sheath_points(&body, &build, &arm::weapon(held));
         let mut a = Arm::new(&frame, arm::weapon(held), &build, pommel, tip);
         if drawn {
@@ -341,8 +343,8 @@ pub fn hold_on(w: &mut World) {
 
 /// The shoulders and chest for a body this tick, `fall` of the way to lying
 /// on its back (`ONE`: down), over ground at `ground`.
-pub fn frame_of(b: &Body, build: &Build, fall: Fx, ground: Fx) -> Frame {
-    let place = local(b, fall);
+pub fn frame_of(b: &Body, build: &Build, gait: &Gait, fall: Fx, ground: Fx) -> Frame {
+    let place = leaning(b, gait, fall);
     let shoulder = [-1, 1].map(|s| place(v3(s * build.shoulder_x, build.shoulder_y, 0)));
     let chest_r = (ONE as i64 * 15 / 100 * build.girth_pct as i64 / 100) as Fx;
     Frame {
@@ -367,6 +369,18 @@ fn local(b: &Body, fall: Fx) -> impl Fn(V3) -> V3 {
     let feet = b.pos;
     move |p: V3| feet.add(turn.apply_dir(v3(p.x, p.y, -p.z)))
 }
+
+/// The same, leaning back against a slide (`Gait::slide`): up to `SLIDE_LEAN`
+/// at 5 m/s of slide, the head away from the way the body slides.
+fn leaning(b: &Body, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
+    let base = local(b, fall);
+    let by = (SLIDE_LEAN as i64 * g.slide.min(fx::int(5)) as i64 / fx::int(5) as i64) as i32;
+    let way = crate::geom::yaw_of(b.vel);
+    let tilt = Affine::rot_y(way).then(&Affine::rot_x(by)).then(&Affine::rot_y(-way));
+    let feet = b.pos;
+    move |p: V3| feet.add(tilt.apply_dir(base(p).sub(feet)))
+}
+
 
 /// The scabbard's hilt and blade for a body: where a sheathed weapon is.
 pub fn sheath_points(b: &Body, build: &Build, wpn: &arm::Weapon) -> (V3, V3) {
@@ -406,7 +420,7 @@ fn blank_pose(feet: V3, yaw: i32) -> Pose {
 pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
     let build = f.build();
     let fall = f.health.fall();
-    let place = local(b, fall);
+    let place = leaning(b, &f.gait, fall);
     let bob = fx::mul(
         fx::cos(f.gait.phase.wrapping_mul(2)).abs(),
         fx::mul(ONE / 40, f.gait.swing.min(ONE)),
@@ -723,7 +737,7 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
                 let f = &mut w.foes[k];
                 f.body = Body::new(at, yaw);
                 // the arms come too, carried as the body would carry them
-                let frame = frame_of(&f.body, &f.fighter.build(), 0, at.y);
+                let frame = frame_of(&f.body, &f.fighter.build(), &f.fighter.gait, 0, at.y);
                 f.fighter.arm.carry(&frame);
                 f.fighter.arm.frame = frame;
             }

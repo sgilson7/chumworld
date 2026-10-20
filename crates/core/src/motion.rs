@@ -78,6 +78,9 @@ pub struct Gait {
     pub dodge: u8,
     pub dodge_wait: u8,
     pub dodge_way: V3,
+    /// how much faster the body slides than its feet step, metres a second,
+    /// eased: a sliding body leans back and spreads its arms
+    pub slide: Fx,
 }
 
 /// Grip with `n` speedster pieces: `GRIP_BASE` × (55/100)ⁿ, each step
@@ -216,12 +219,15 @@ pub fn step_body(
     // feet stride as fast as they are asked to go, at most as fast as the
     // body goes: a body sliding on ice with nothing held glides on still feet
     let asked = if want.len() < b.vel.len() { want } else { b.vel };
-    stride(&mut f.gait, asked);
+    stride(&mut f.gait, asked, b.vel);
 }
 
 /// The gait follows the distance the feet cover: half a turn of phase per
 /// stride, the swing eased toward how fast the body goes.
-pub fn stride(g: &mut Gait, vel: V3) {
+pub fn stride(g: &mut Gait, vel: V3, moving: V3) {
+    // how much faster the body goes than its feet: a slide, eased
+    let slide = (moving.len_xz() - vel.len_xz()).max(0) * TICKS;
+    g.slide = fx::approach(g.slide, slide.min(fx::int(10)), ONE / 4);
     let speed = vel.len_xz() as i64 * TICKS as i64;
     let len = STRIDE + fx::mul(speed as Fx, STRIDE_PER_MPS);
     g.phase = fx::wrap(g.phase + (vel.len_xz() as i64 * fx::HALF_TURN as i64 / len as i64) as i32);

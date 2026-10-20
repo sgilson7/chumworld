@@ -165,7 +165,8 @@ pub fn weapon(item: Held) -> Weapon {
     match item {
         Held::Sword => Weapon {
             item,
-            len: cm(122),
+            // grip to tip 1.138 m, M3's `models::grip_to_tip` (R3.19)
+            len: cm(16) + ONE * 1138 / 1000,
             hilt: cm(22),
             grip: [cm(5), cm(16)],
             mass: [3, 3],
@@ -181,7 +182,8 @@ pub fn weapon(item: Held) -> Weapon {
         },
         _ => Weapon {
             item,
-            len: cm(85),
+            // grip to tip 0.806 m, M3's `models::grip_to_tip` (R3.19)
+            len: cm(8) + ONE * 806 / 1000,
             hilt: cm(15),
             grip: [-1, cm(8)],
             mass: [2, 1],
@@ -739,7 +741,7 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
         let (sheath, goals) = player::goals(w, id, &inp);
         let b = *player::body(w, id);
         let f = player::fighter(w, id);
-        let frame = player::frame_of(&b, &f.build(), f.health.fall(), w.ground(b.pos.x, b.pos.z));
+        let frame = player::frame_of(&b, &f.build(), &f.gait, f.health.fall(), w.ground(b.pos.x, b.pos.z));
         let f = player::parts_mut(w, id).1;
         f.sheath = sheath;
         f.arm.step(&frame, &goals);
@@ -755,7 +757,7 @@ mod tests {
 
     fn frame() -> Frame {
         let b = Body::new(v3(0, 0, 0), 0);
-        player::frame_of(&b, &crate::pose::build(Kind::Player), 0, 0)
+        player::frame_of(&b, &crate::pose::build(Kind::Player), &Default::default(), 0, 0)
     }
 
     fn arm(item: Held) -> Arm {

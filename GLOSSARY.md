@@ -14,6 +14,20 @@ Where slush comes out. Each line has up to {line.spouts} spouts.
 Not: tap, dispenser, nozzle
 -->
 
+### Dodge-step
+
+A short quick step to one side with Space and a movement key. You cannot dodge-step again straight away.
+
+### Draw
+
+Taking the sword out of its sheath with X. Drawn, the mouse moves the sword hand and the view holds on the nearest foe.
+
+Not: unsheathe
+
+### Health
+
+How much more you can take. A blow takes health by how fast the blade was moving when it landed; at none you fall.
+
 ### Look
 
 Turning the view with the mouse. The camera stays over the player's right shoulder while it turns.
@@ -24,9 +38,31 @@ Not: free look, free camera
 
 Stopping the world until you choose Resume. Esc, leaving the tab or letting go of the pointer pauses the game.
 
+### Reach
+
+How far from the shoulder the sword hand stretches. The wheel draws it in or sends it out.
+
 ### Run
 
 Moving at {run.speed} metres a second while Shift is held with a movement key.
+
+### Sheathe
+
+Putting the sword back on the left hip with X. Sheathed, the mouse looks and Shift runs.
+
+Not: holster
+
+### Swing
+
+Holding the left button while you move the mouse. The arm pushes harder, so the sword moves faster and hits harder.
+
+### Sword hand
+
+The hand that holds the sword, which the mouse moves while the sword is drawn. A small light shows where it is going.
+
+### Throw
+
+Sending a rock or a knife where you look with F. The free hand winds back first.
 
 ### Walk
 

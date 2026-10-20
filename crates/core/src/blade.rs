@@ -36,6 +36,9 @@ use crate::world::World;
 
 /// Two blades touch within this (each 2 cm thick).
 pub const BLADE_GAP: Fx = ONE * 4 / 100;
+/// A blade resting on a body has come away once it is this far off it: the
+/// next contact is a new blow.
+pub const COME_AWAY: Fx = ONE / 10;
 /// The most substeps a pair is swept in.
 pub const S_MAX: u32 = 32;
 /// The arms relax this many passes after a rewind (Vagrancy: two).
@@ -492,7 +495,7 @@ fn strike(w: &mut World, i: usize, j: usize, body: &[(Part, Swept, Fx)]) {
         }
         let still = deep
             || body.iter().any(|(_, s, r)| {
-                let r = (*r + BLADE_GAP) as i64;
+                let r = (*r + COME_AWAY) as i64;
                 gap(s) <= r * r
             });
         set(&mut w.blades.touching, key, still);
@@ -685,7 +688,10 @@ mod tests {
                 met = Some(t);
                 before = speed;
                 normal = Some(p.sub(q));
-                // the blow stopped the swing: under half the speed it had
+            }
+            if met.is_some_and(|m| t == m + 1) {
+                // within a tick of the contact the swing has stopped: under
+                // half the speed it had
                 assert!(a.pts[arm::TIP].vel().len() < before / 2, "{} of {before}", a.pts[arm::TIP].vel().len());
             }
             if let Some(n) = normal {

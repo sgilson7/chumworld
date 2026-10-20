@@ -196,10 +196,11 @@ def duel_views(browser, base, out, views, logs):
     """M1's views (DUEL_VIEWS), each from a fresh page."""
     if {"sheathed", "drawn"} & set(views):
         page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=320&sticks=1")
-        page.keyboard.down("KeyD")
-        frames(page, 40)
-        page.keyboard.up("KeyD")
-        frames(page, 40)
+        # drawn first, so the view turns to hold on the orc, then put away
+        page.keyboard.press("KeyX")
+        frames(page, 70)
+        page.keyboard.press("KeyX")
+        frames(page, 50)
         if "sheathed" in views:
             page.screenshot(path=str(out / "sheathed.png"))
         page.keyboard.press("KeyX")
@@ -235,8 +236,8 @@ def duel_views(browser, base, out, views, logs):
     if "rock" in views:
         page = duel_page(browser, base, logs, "duel=bandit&foe=still&gap=900&sticks=1")
         page.keyboard.press("KeyF")
-        # 12 ticks of wind, then a third of a second in the air
-        frames(page, 32)
+        # 12 ticks of wind, then a sixth of a second in the air
+        frames(page, 22)
         page.screenshot(path=str(out / "rock.png"))
         page.close()
     if "orc" in views:
