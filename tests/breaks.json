@@ -1706,5 +1706,12 @@
     "find": "pub const HEAD_TOP_MM: i32 = 70;",
     "replace": "pub const HEAD_TOP_MM: i32 = 0;",
     "test": "the_head_s_capsule_takes_in_a_cap"
+  },
+  {
+    "name": "M1b blade: the settle lets no rounding through",
+    "file": "crates/core/src/blade.rs",
+    "find": "        if rounding {\n            a.pts = before;\n        }",
+    "replace": "        if rounding && false {\n            a.pts = before;\n        }",
+    "test": "a_still_duel_holds_every_arm_exactly_still"
   }
 ]

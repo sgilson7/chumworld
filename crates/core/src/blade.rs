@@ -421,8 +421,18 @@ pub fn step(w: &mut World) {
         let near = arm::fences_of(w, id, &caps, true);
         let a = &mut player::parts_mut(w, id).1.arm;
         a.fences = near;
+        let before = a.pts;
         for _ in 0..SETTLE_PASSES {
             a.relax();
+        }
+        // what moved no point past `arm::REST` was rounding: kept as it was,
+        // so a still fighter draws the same frame tick after tick (CW-18)
+        let rounding = a.pts.iter().zip(before.iter()).all(|(n, o)| {
+            let d = n.p.sub(o.p);
+            d.x.abs() <= arm::REST && d.y.abs() <= arm::REST && d.z.abs() <= arm::REST
+        });
+        if rounding {
+            a.pts = before;
         }
         caps[id] = body(player::fighter(w, id).kind, &player::pose_of(w, id));
     }
@@ -1160,6 +1170,26 @@ mod tests {
         let cap = w.me.pose.head.add(up.scale(ONE * 218 / 1000));
         let d = arm::nearest_on(head.a, head.b, cap).dist(cap);
         assert!(d < head.r, "{d} from the capsule's line, round {}", head.r);
+    }
+
+    /// CW-18 with a foe: a still orc and the player drawn at the guard,
+    /// three seconds on, two ticks leave every arm exactly as it was: the
+    /// final settle's rounding is not let through.
+    #[test]
+    fn a_still_duel_holds_every_arm_exactly_still() {
+        let mut w = World::new(1);
+        player::act(&mut w, "spawn", "orc").unwrap();
+        player::act(&mut w, "pilot", "still").unwrap();
+        w.step(&crate::input::Input {
+            keys: crate::input::DRAW,
+            ..Default::default()
+        });
+        for _ in 0..180 {
+            w.step(&Default::default());
+        }
+        let before = (w.me.arm.pts, w.foes[0].fighter.arm.pts);
+        w.step(&Default::default());
+        assert_eq!((w.me.arm.pts, w.foes[0].fighter.arm.pts), before);
     }
 
     #[test]
