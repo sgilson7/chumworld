@@ -57,3 +57,5 @@ Doors filled: `places::markers` (seven places, keys `place_<kind>`, the hollow t
 Waiting on the person: R4.24 (the water's, trees' and land's colours and the mountains are mine, tuned by eye; whether the water is as lifelike as the fishing game's is the person's call).
 
 For the coordinator: R4.4 (files outside M2's list that M2 had to add to), R4.6 (about 1.3 M triangles resident, 140 MB of vertex buffers), R4.7 (about 600 draws a frame), R4.14 (prop sizes assumed), R4.15 (`?go=` for M5 to keep or gate).
+
+Check, 2026-10-20 after merging M1, M3 and M4: `./scripts/check.sh` steps 1 to 7 pass (format, lint, 254 core tests by `./scripts/count-tests.sh` with 7 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R4.24 has status *person* and the journal, which M2 does not edit, does not name it yet; step 9, the browser check, passes in Chromium, Firefox and WebKit run on its own on the same build. Breaks: `python3 scripts/break_tests.py M2`, 31 of 31 caught, and M0's pass-order row repointed for `Pass::Water`, caught; the four `field.rs` rows went with `field.rs`.
