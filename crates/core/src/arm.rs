@@ -1172,7 +1172,7 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
 /// capsules are M3's surfaces, and a blade lying on a face reads as in it.
 pub const SKIN: Fx = ONE * 15 / 1000;
 /// Times each relaxation pass goes over the fences.
-pub const FENCE_ROUNDS: usize = 8;
+pub const FENCE_ROUNDS: usize = 16;
 /// Fighter `id`'s mouse moves its hand's target on the shell, unless it is
 /// looking; otherwise the target's swing eases to nothing.
 pub fn move_shell(w: &mut World, id: usize, inp: &Input) {

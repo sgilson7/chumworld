@@ -58,7 +58,9 @@ pub const TILT_STEP: Fx = ONE / 10;
 const SCABBARD: &str = "hilt_leather";
 const SCABBARD_BRASS: &str = "brass";
 const THROAT_MM: i32 = 34;
-const CHAPE_MM: i32 = 30;
+const CHAPE_MM: i32 = 60;
+/// The scabbard narrows over this much at its tip, where the point sits.
+const TIP_MM: i32 = 141;
 /// The camera's turn toward the foe held on: this share of the way a tick,
 /// at most `HOLD_TURN`.
 pub const HOLD_SHARE: Fx = ONE / 5;
@@ -83,11 +85,15 @@ pub const STAGGER_LEAN: i32 = deg(16);
 pub const STAGGER_WEAK_PCT: i32 = 50;
 /// Where the scabbard holds the hilt's grip on the left hip, in the body's
 /// frame (right, up, forward, centimetres on the player), which way its
-/// blade points hanging (down 38° and back), and tipped for a draw (down,
+/// blade points hanging (down 40° and back, close along the leg: the
+/// short sword's tip 0.45 m up, above the back of the knee at 0.37), and
+/// tipped for a draw (down,
 /// left and back: the hilt toward the sword shoulder, so the pull ends
 /// within the arm's reach, 0.43 m from the shoulder for the short sword).
-const SHEATH_AT: (i32, i32, i32) = (-17, 90, 10);
-const SHEATH_DIR: (i32, i32, i32) = (-20, -62, -76);
+const SHEATH_AT: (i32, i32, i32) = (-18, 96, 10);
+const SHEATH_DIR: (i32, i32, i32) = (-6, -64, -77);
+/// Where the hanger meets the belt, above the mouth.
+const BELT_AT: (i32, i32, i32) = (-17, 104, 6);
 const DRAW_DIR: (i32, i32, i32) = (-61, -66, -44);
 const TICKS: i32 = crate::ticks::TICKS_PER_SECOND as i32;
 
@@ -448,6 +454,8 @@ pub struct Scabbard {
     pub grip: V3,
     pub dir: V3,
     pub wpn: arm::Weapon,
+    /// where its hanger meets the belt
+    pub belt: V3,
 }
 
 impl Scabbard {
@@ -466,7 +474,17 @@ impl Scabbard {
         let way = |d: (i32, i32, i32)| v3(scale(d.0), scale(d.1), scale(d.2)).norm();
         let local = way(SHEATH_DIR).lerp(way(DRAW_DIR), tilt);
         let dir = place(local).sub(place(V3::ZERO)).norm();
-        Scabbard { grip, dir, wpn: *wpn }
+        let belt = place(v3(
+            scale(BELT_AT.0) * build.girth_pct / 100,
+            tall(BELT_AT.1),
+            scale(BELT_AT.2),
+        ));
+        Scabbard {
+            grip,
+            dir,
+            wpn: *wpn,
+            belt,
+        }
     }
 
     /// How far the blade slides before its point clears the mouth: from the
@@ -793,26 +811,40 @@ fn scabbard(sc: &Scabbard, out: &mut Shapes, look: &Look) {
         _ => (66, 30),
     };
     let mm = crate::models::mm;
-    let mouth = sc.throat();
-    let end = sc.grip.add(sc.dir.scale(sc.wpn.len - sc.wpn.grip[1] + mm(25)));
+    let along = |d: Fx| sc.grip.add(sc.dir.scale(d));
+    // from the mouth (the guard's far side) to past where the point sits:
+    // the scabbard is as long as the blade it carries
+    let (mouth, end) = (mouth(sc.wpn.item), sc.wpn.len - sc.wpn.grip[1] + mm(25));
+    let point = end - mm(TIP_MM);
     let mut m = crate::models::Model::default();
     let ink = t.ink_item;
-    let leather = crate::models::bar(mouth, end, (mm(wide), mm(thick)), V3::UP);
-    m.add(Mesh::Cube, leather, t.c(SCABBARD), ink);
-    let throat = crate::models::bar(
-        mouth.sub(sc.dir.scale(mm(4))),
-        mouth.add(sc.dir.scale(mm(THROAT_MM))),
-        (mm(wide + 10), mm(thick + 10)),
-        V3::UP,
+    let bar = |a: Fx, b: Fx, w: i32, k: i32| crate::models::bar(along(a), along(b), (mm(w), mm(k)), V3::UP);
+    // the straight body, then the last part narrowing to 60% over the point
+    m.add(
+        Mesh::Cube,
+        bar(mouth, point + mm(4), wide, thick),
+        t.c(SCABBARD),
+        ink,
     );
-    m.add(Mesh::Cube, throat, t.c(SCABBARD_BRASS), ink);
-    let chape = crate::models::bar(
-        end.sub(sc.dir.scale(mm(CHAPE_MM))),
-        end.add(sc.dir.scale(mm(6))),
-        (mm(wide + 8), mm(thick + 8)),
-        V3::UP,
+    m.add(Mesh::Taper, bar(point, end, wide, thick), t.c(SCABBARD), ink);
+    // brass at the mouth and a chape over the tip
+    m.add(
+        Mesh::Cube,
+        bar(mouth - mm(4), mouth + mm(THROAT_MM), wide + 10, thick + 10),
+        t.c(SCABBARD_BRASS),
+        ink,
     );
-    m.add(Mesh::Cube, chape, t.c(SCABBARD_BRASS), ink);
+    let chape_w = |w: i32| w * (100 - 40 * (TIP_MM - CHAPE_MM) / TIP_MM) / 100 + 8;
+    m.add(
+        Mesh::Taper,
+        bar(end - mm(CHAPE_MM), end + mm(6), chape_w(wide), chape_w(thick)),
+        t.c(SCABBARD_BRASS),
+        ink,
+    );
+    // and a leather hanger from the throat up to the belt
+    let belt = sc.belt;
+    let hang = crate::models::bar(belt, along(mouth + mm(THROAT_MM / 2)), (mm(26), mm(10)), V3::UP);
+    m.add(Mesh::Cube, hang, t.c(SCABBARD), ink);
     m.emit(look.ink(), out);
 }
 

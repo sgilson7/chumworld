@@ -911,7 +911,7 @@ mod tests {
                 .filter(|s| s.pass == crate::render::Pass::Glow)
                 .count()
         };
-        let mut w = duel(135, 0, false);
+        let mut w = duel(160, 0, false);
         let before = glows(&w);
         let mut lit = None;
         for t in 0..30 {
@@ -1000,7 +1000,7 @@ mod tests {
 
     #[test]
     fn a_block_stops_a_swing_and_the_blades_do_not_pass_through() {
-        let mut w = duel(135, 0, false);
+        let mut w = duel(160, 0, false);
         let (mut met, mut before, mut normal) = (None, 0, None);
         let mut ran = 0;
         for t in 0..30 {
@@ -1150,7 +1150,7 @@ mod tests {
     /// How deep a blade or hand may sit inside the surface the fences keep
     /// (a capsule and its 15 mm `arm::SKIN`) at the end of a tick: the skin
     /// itself, so never inside a capsule. Measured over these 3 600 ticks:
-    /// 21 units (0.3 mm) into the skin at worst.
+    /// 25 units (0.4 mm) into the skin at worst.
     const SINK: Fx = arm::SKIN;
 
     /// The head's capsule takes in a cap: the player's reaches 218 mm above
