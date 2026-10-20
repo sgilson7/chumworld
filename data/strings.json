@@ -1,4 +1,19 @@
 {
-  "title": "A new Builder tool",
-  "intro": "Replace this text in data/strings.json, and replace the placeholder rule in crates/core/src/page.rs with the rules your brief describes."
+  "_note": "Reader-visible text, by key. crates/core/src/page.rs lists the keys the game reads; GLOSSARY.md defines each term a string uses.",
+  "title": "CHUMWORLD",
+  "loading": "Loading the world",
+  "no_webgl": "This game draws with WebGL 2, which this browser has turned off or does not have. Turn on hardware acceleration in the browser's settings, or open the page in a current Chrome, Firefox or Safari.",
+  "play": "Play",
+  "paused": "Paused",
+  "resume": "Resume",
+  "controls": "Controls",
+  "key_move": "W A S D",
+  "key_run": "Shift",
+  "key_look": "Mouse",
+  "key_pause": "Esc",
+  "control_move": "Walk",
+  "control_run": "Run",
+  "control_look": "Look",
+  "control_pause": "Pause",
+  "hint_pause": "Esc pauses"
 }

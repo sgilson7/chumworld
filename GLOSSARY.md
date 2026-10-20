@@ -13,3 +13,25 @@ Where slush comes out. Each line has up to {line.spouts} spouts.
 
 Not: tap, dispenser, nozzle
 -->
+
+### Look
+
+Turning the view with the mouse. The camera stays over the player's right shoulder while it turns.
+
+Not: free look, free camera
+
+### Pause
+
+Stopping the world until you choose Resume. Esc, leaving the tab or letting go of the pointer pauses the game.
+
+### Run
+
+Moving at {run.speed} metres a second while Shift is held with a movement key.
+
+### Walk
+
+Moving at {walk.speed} metres a second with W, A, S or D, the way the camera faces.
+
+### WebGL 2
+
+The browser's interface for drawing with the graphics card. The game draws every frame with it.

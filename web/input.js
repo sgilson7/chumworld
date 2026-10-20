@@ -1,6 +1,7 @@
 // Keyboard and mouse, turned into the action bits the core defines. Part of
 // the realtime kit (kits/realtime/README.md), after the input layer shared by
-// Pursuer and Long Time Comin'.
+// Pursuer and Long Time Comin'. This project adds the wheel, which adds up
+// between reads as the mouse does (SECOND-ORDER.md R2.1).
 //
 // data/controls.json names an action for each key code ("KeyW": "forward",
 // "Mouse0": "fire"); the core's numbers() gives each action its bit. This
@@ -18,7 +19,7 @@
 // because a driven browser may grant the lock and drop it at once.
 
 export function makeInput(canvas, controls, actions, onEngage) {
-  const state = { held: 0, tapped: 0, dx: 0, dy: 0, fallback: false };
+  const state = { held: 0, tapped: 0, dx: 0, dy: 0, wheel: 0, fallback: false };
   const bitOf = (code) => actions[controls[code]] || 0;
   const locked = () => document.pointerLockElement === canvas;
   const engaged = () => locked() || state.fallback;
@@ -96,6 +97,13 @@ export function makeInput(canvas, controls, actions, onEngage) {
     state.dx += e.movementX;
     state.dy += e.movementY;
   });
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if (engaged()) state.wheel += e.deltaY;
+    },
+    { passive: true },
+  );
   window.addEventListener("blur", release);
 
   return {
@@ -106,10 +114,11 @@ export function makeInput(canvas, controls, actions, onEngage) {
     // and the movement since then. The core latches what a frame with no
     // tick could not use (crates/core/src/ticks.rs).
     read() {
-      const out = { bits: state.held | state.tapped, dx: state.dx, dy: state.dy };
+      const out = { bits: state.held | state.tapped, dx: state.dx, dy: state.dy, wheel: state.wheel };
       state.tapped = 0;
       state.dx = 0;
       state.dy = 0;
+      state.wheel = 0;
       return out;
     },
   };

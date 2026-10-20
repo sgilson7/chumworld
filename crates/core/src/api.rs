@@ -1,32 +1,34 @@
-//! The door into the core. Every function takes strings and returns a JSON
-//! string: `{"ok": ...}` on success or `{"error": "..."}` with a message the
-//! page can show as it is. The shim forwards these calls and nothing else.
+//! The door into the core. The shim holds one `game::Game` and forwards the
+//! page's calls; everything the page draws in HTML comes from `ui`, a view
+//! model, and everything it sends back goes through `act(name, value)`,
+//! answered `{"ok": <ui>}` or `{"error": "..."}` with a message the page
+//! shows as it is. (After Peter's Mandible.)
 //!
-//! The core describes the screen as a view model (`Ui`): the screen's name,
-//! its panels and their actions, and the glossary's definitions. The page
-//! builds the DOM from that description without knowing what a panel means.
-//! Settings, screens and flags all come back through one function, `act`,
-//! with a dotted name such as `screen.show`, so a new option needs a new
-//! `match` arm here and no new shim function. (After Peter's Mandible.)
+//! The view model names the screen, its panels (heading, text, rows of key
+//! and meaning, buttons with the action each sends), the lines over the
+//! game, and the glossary's definitions with their numbers filled in by the
+//! core. The page builds the DOM from it without knowing what a panel means.
+//! A button marked `engage` also asks the browser for the pointer, which only
+//! a click may do.
+//!
+//! Extension (M4's `ui.rs`): a menu or a screen adds its panels in `ui`
+//! below, by screen; a line over the game comes from `World::hud`.
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use crate::{glossary, page};
+use crate::game::{Game, Screen};
+use crate::input;
+use crate::look;
+use crate::prim::{self, Mesh};
+use crate::render;
+use crate::world::HudItem;
 
-fn ok<T: Serialize>(value: &T) -> String {
+pub fn ok<T: Serialize>(value: &T) -> String {
     serde_json::json!({ "ok": value }).to_string()
 }
 
-fn error(message: String) -> String {
+pub fn error(message: String) -> String {
     serde_json::json!({ "error": message }).to_string()
-}
-
-/// What the page hands back on the next call. The page stores it and does
-/// not read it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct State {
-    pub screen: String,
-    pub strings: page::Strings,
 }
 
 /// One button: the action name and value the page sends back through `act`.
@@ -36,6 +38,15 @@ pub struct Action {
     pub value: String,
     pub label: String,
     pub enabled: bool,
+    /// also take the pointer (pointer lock) on this click
+    pub engage: bool,
+}
+
+/// One row of a panel's table: a key and what it does.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Row {
+    pub key: String,
+    pub does: String,
 }
 
 /// One block of the screen. Empty fields are left out of the JSON.
@@ -46,6 +57,10 @@ pub struct Panel {
     pub heading: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub text: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub rows_heading: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rows: Vec<Row>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub actions: Vec<Action>,
 }
@@ -57,133 +72,230 @@ pub struct Hint {
     pub definition: String,
 }
 
-/// Everything the page draws.
+/// Everything the page draws in HTML.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Ui {
     pub screen: String,
     pub title: String,
     pub panels: Vec<Panel>,
+    pub hud: Vec<HudItem>,
     pub hints: Vec<Hint>,
-    pub state: State,
+    /// the text the page shows if it cannot draw (no WebGL 2)
+    pub no_webgl: String,
+    /// whether the game wants the pointer held (pointer lock): the page lets
+    /// go of it when this is false, and takes it again on a click when true
+    pub capture: bool,
+    pub version: u32,
 }
 
-fn ui(state: State, hints: Vec<Hint>) -> Ui {
-    let panels = vec![Panel {
-        id: "intro".into(),
-        heading: String::new(),
-        text: state.strings.intro.clone(),
-        actions: Vec::new(),
+fn controls(g: &Game) -> (String, Vec<Row>) {
+    let s = &g.strings;
+    let row = |k: &str, d: &str| Row {
+        key: s.get(k),
+        does: s.get(d),
+    };
+    (
+        s.get("controls"),
+        vec![
+            row("key_move", "control_move"),
+            row("key_run", "control_run"),
+            row("key_look", "control_look"),
+            row("key_pause", "control_pause"),
+        ],
+    )
+}
+
+fn button(g: &Game, name: &str, value: &str, label: &str, engage: bool) -> Action {
+    Action {
+        name: name.into(),
+        value: value.into(),
+        label: g.strings.get(label),
+        enabled: true,
+        engage,
+    }
+}
+
+/// A definition with each `{placeholder}` replaced by the core's number.
+pub fn fill(definition: &str, values: &[(&str, String)]) -> String {
+    let mut out = definition.to_string();
+    for (k, v) in values {
+        out = out.replace(&format!("{{{k}}}"), v);
+    }
+    out
+}
+
+/// The view model for the game as it stands.
+pub fn ui(g: &Game) -> Ui {
+    let s = &g.strings;
+    let (rows_heading, rows) = controls(g);
+    let mut panels = Vec::new();
+    match g.screen {
+        Screen::Title => panels.push(Panel {
+            id: "title".into(),
+            heading: s.get("title"),
+            text: String::new(),
+            rows_heading,
+            rows,
+            actions: vec![button(g, "screen.show", "play", "play", true)],
+        }),
+        Screen::Paused => panels.push(Panel {
+            id: "paused".into(),
+            heading: s.get("paused"),
+            text: String::new(),
+            rows_heading,
+            rows,
+            actions: vec![button(g, "screen.show", "play", "resume", true)],
+        }),
+        Screen::Play => {}
+    }
+    // M4: crate::ui::panels(g, &mut panels);
+    let mut hud = vec![HudItem {
+        id: "hint".into(),
+        text: s.get("hint_pause"),
+        shown: g.hint_shown(),
     }];
+    g.world.hud(s, &mut hud);
+    let values = g.glossary_values();
     Ui {
-        screen: state.screen.clone(),
-        title: state.strings.title.clone(),
+        screen: g.screen.name().into(),
+        title: s.get("title"),
         panels,
-        hints,
-        state,
+        hud,
+        hints: g
+            .glossary
+            .iter()
+            .map(|e| Hint {
+                term: e.term.clone(),
+                definition: fill(&e.definition, &values),
+            })
+            .collect(),
+        no_webgl: s.get("no_webgl"),
+        capture: g.screen == Screen::Play,
+        version: g.ui_version,
     }
 }
 
-fn hints_from(glossary_md: &str) -> Result<Vec<Hint>, String> {
-    let entries = glossary::parse(glossary_md).map_err(|e| e.message())?;
-    Ok(entries
-        .into_iter()
-        .map(|e| Hint {
-            term: e.term,
-            definition: e.definition,
-        })
-        .collect())
-}
-
-/// Checks the strings file and the glossary and returns the first screen.
-pub fn start(strings_json: &str, glossary_md: &str) -> String {
-    let run = || -> Result<Ui, String> {
-        let strings = page::parse_strings(strings_json).map_err(|e| e.message())?;
-        let hints = hints_from(glossary_md)?;
-        let state = State {
-            screen: "start".into(),
-            strings,
-        };
-        Ok(ui(state, hints))
-    };
-    match run() {
-        Ok(u) => ok(&u),
+/// `act` as the page calls it: the new view model, or the error.
+pub fn act(g: &mut Game, name: &str, value: &str) -> String {
+    match g.act(name, value) {
+        Ok(()) => ok(&ui(g)),
         Err(e) => error(e),
     }
 }
 
-/// Applies one named action to the state the page holds. The template knows
-/// one action, `screen.show`, as the pattern for a project's own.
-pub fn act(state_json: &str, glossary_md: &str, name: &str, value: &str) -> String {
-    let run = || -> Result<Ui, String> {
-        let mut state: State =
-            serde_json::from_str(state_json).map_err(|e| format!("The state could not be read: {e}"))?;
-        let hints = hints_from(glossary_md)?;
-        match name {
-            "screen.show" => match value {
-                "start" => state.screen = value.to_string(),
-                other => return Err(format!("There is no screen \"{other}\".")),
-            },
-            other => return Err(format!("Unknown action \"{other}\".")),
-        }
-        Ok(ui(state, hints))
-    };
-    match run() {
-        Ok(u) => ok(&u),
-        Err(e) => error(e),
-    }
+/// Sizes and layout the page needs to upload and draw: every stride, offset,
+/// bit, pass state and uniform name, so the page holds no layout of its own.
+pub fn numbers() -> String {
+    let b = render::BYTES_PER_VALUE;
+    let vec4 = 4 * b;
+    serde_json::json!({
+        "actions": input::ACTIONS.iter().map(|(n, bit)| (n.to_string(), serde_json::json!(bit))).collect::<serde_json::Map<_, _>>(),
+        "meshes": Mesh::ALL.iter().map(|m| serde_json::json!({
+            "id": *m as u32,
+            "vertices": prim::vertices(*m).len() / prim::VERTEX_VALUES,
+        })).collect::<Vec<_>>(),
+        "vertex": {
+            "stride": prim::VERTEX_VALUES * b,
+            "attributes": [["aPos", 3, 0], ["aNormal", 3, 3 * b]],
+        },
+        "instance": {
+            "stride": render::INSTANCE_VALUES * b,
+            "attributes": [["iA", 4, 0], ["iB", 4, vec4], ["iC", 4, 2 * vec4], ["iD", 4, 3 * vec4]],
+        },
+        "draw_values": render::DRAW_VALUES,
+        "buffers": { "static": render::STATIC_BUFFER, "dynamic": render::DYNAMIC_BUFFER },
+        "passes": render::pass_states(),
+        "uniforms": look::UNIFORMS.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+        // the view values: each layer's matrix by layer number, then the eye
+        "view": { "layers": [[0, 16], [16, 32]], "eye": [32, 35] },
+    })
+    .to_string()
+}
+
+/// One mesh's vertex values by id (its place in `Mesh::ALL`); none for an
+/// id past the end.
+pub fn mesh(id: u32) -> Vec<i32> {
+    Mesh::ALL
+        .get(id as usize)
+        .map(|m| prim::vertices(*m))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const STRINGS: &str = r#"{"title": "T", "intro": "I"}"#;
-    const GLOSSARY: &str = "### Spout\n\nWhere slush comes out.\n";
+    use crate::game::tests::game;
 
     fn json(text: &str) -> serde_json::Value {
         serde_json::from_str(text).unwrap()
     }
 
     #[test]
-    fn start_returns_the_start_screen_with_its_panel_and_hints() {
-        let v = json(&start(STRINGS, GLOSSARY));
-        assert_eq!(v["ok"]["screen"], "start");
-        assert_eq!(v["ok"]["title"], "T");
-        assert_eq!(v["ok"]["panels"][0]["id"], "intro");
-        assert_eq!(v["ok"]["panels"][0]["text"], "I");
-        assert_eq!(v["ok"]["hints"][0]["term"], "Spout");
-        assert_eq!(v["ok"]["hints"][0]["definition"], "Where slush comes out.");
+    fn the_title_screen_shows_the_title_the_controls_and_a_play_button_that_takes_the_pointer() {
+        let g = game();
+        let u = json(&ok(&ui(&g)));
+        let p = &u["ok"]["panels"][0];
+        assert_eq!(u["ok"]["screen"], "title");
+        assert_eq!(p["heading"], "CHUMWORLD");
+        assert_eq!(p["rows"][1]["key"], "Shift");
+        assert_eq!(p["rows"][1]["does"], "Run");
+        assert_eq!(p["actions"][0]["label"], "Play");
+        assert_eq!(p["actions"][0]["engage"], true);
+        assert_eq!(p["actions"][0]["name"], "screen.show");
     }
 
     #[test]
-    fn start_wraps_a_bad_strings_file_in_error() {
-        assert_eq!(
-            start(r#"{"title": "", "intro": "I"}"#, ""),
-            r#"{"error":"The strings file has an empty \"title\"."}"#
+    fn act_answers_with_the_new_screen_or_the_error() {
+        let mut g = game();
+        let v = json(&act(&mut g, "screen.show", "play"));
+        assert_eq!(v["ok"]["screen"], "play");
+        assert!(
+            v["ok"]["panels"].as_array().unwrap().is_empty(),
+            "nothing covers play"
         );
-    }
-
-    #[test]
-    fn start_wraps_a_bad_glossary_in_error() {
-        let v = json(&start(STRINGS, "### Spout\n"));
-        assert_eq!(v["error"], "The glossary entry \"Spout\" has no definition.");
-    }
-
-    #[test]
-    fn act_goes_through_the_one_door() {
-        let first = json(&start(STRINGS, ""));
-        let state = first["ok"]["state"].to_string();
-        let v = json(&act(&state, "", "screen.show", "start"));
-        assert_eq!(v["ok"]["screen"], "start");
-    }
-
-    #[test]
-    fn act_refuses_an_unknown_action_and_screen_by_name() {
-        let first = json(&start(STRINGS, ""));
-        let state = first["ok"]["state"].to_string();
-        let v = json(&act(&state, "", "screen.jump", "start"));
+        assert_eq!(v["ok"]["hud"][0]["shown"], true);
+        assert_eq!(v["ok"]["capture"], true, "play holds the pointer");
+        let v = json(&act(&mut g, "key.escape", ""));
+        assert_eq!(v["ok"]["panels"][0]["heading"], "Paused");
+        assert_eq!(v["ok"]["panels"][0]["actions"][0]["label"], "Resume");
+        assert_eq!(v["ok"]["capture"], false, "a pause lets go of the pointer");
+        let v = json(&act(&mut g, "screen.jump", "x"));
         assert_eq!(v["error"], "Unknown action \"screen.jump\".");
-        let v = json(&act(&state, "", "screen.show", "nowhere"));
-        assert_eq!(v["error"], "There is no screen \"nowhere\".");
+    }
+
+    #[test]
+    fn glossary_numbers_are_filled_by_the_core() {
+        let g = game();
+        let u = ui(&g);
+        let run = u
+            .hints
+            .iter()
+            .find(|h| h.term == "Run")
+            .expect("Run is in the glossary");
+        assert!(run.definition.contains("5 metres a second"), "{}", run.definition);
+        let walk = u.hints.iter().find(|h| h.term == "Walk").unwrap();
+        assert!(
+            walk.definition.contains("2.2 metres a second"),
+            "{}",
+            walk.definition
+        );
+        for h in &u.hints {
+            assert!(
+                !h.definition.contains('{'),
+                "{}: a placeholder the core does not fill",
+                h.term
+            );
+        }
+    }
+
+    #[test]
+    fn numbers_name_every_mesh_pass_and_uniform_the_page_needs() {
+        let n = json(&numbers());
+        assert_eq!(n["meshes"].as_array().unwrap().len(), Mesh::ALL.len());
+        assert_eq!(n["passes"].as_array().unwrap().len(), render::Pass::ORDER.len());
+        assert_eq!(n["instance"]["stride"], 64);
+        assert_eq!(n["actions"]["forward"], 1);
+        assert_eq!(n["actions"]["two_hands"], 1 << 24);
+        assert_eq!(n["view"]["eye"][1], render::VIEW_VALUES);
     }
 }

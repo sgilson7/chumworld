@@ -1,22 +1,45 @@
-//! The placeholder rule: the page's text comes from `data/strings.json`, and
-//! the core decides whether that file is usable before the page draws it.
-//! Replace this module with your tool's rules.
+//! The reader-visible strings, from `data/strings.json`. The core checks the
+//! file before anything is drawn: every key the game uses must be there and
+//! hold text.
+//!
+//! The file is one object of key to text. A milestone that needs a string
+//! adds its key to the file and to `REQUIRED` (adding entries only), and
+//! reads it with `Strings::get`. Keys starting with `_` hold notes.
 
-use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+use serde::Serialize;
+
+/// Every key the game reads, so a missing one is found at start, not mid-game.
+pub const REQUIRED: &[&str] = &[
+    "title",
+    "loading",
+    "no_webgl",
+    "play",
+    "paused",
+    "resume",
+    "controls",
+    "key_move",
+    "key_run",
+    "key_look",
+    "key_pause",
+    "control_move",
+    "control_run",
+    "control_look",
+    "control_pause",
+    "hint_pause",
+];
 
 /// The reader-visible strings the page needs. They live in data, not source.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Strings {
-    pub title: String,
-    pub intro: String,
-}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Strings(pub BTreeMap<String, String>);
 
 /// Why a strings file cannot be used.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StringsError {
     NotJson(String),
-    Empty(&'static str),
+    Missing(String),
+    Empty(String),
 }
 
 impl StringsError {
@@ -24,61 +47,97 @@ impl StringsError {
     /// beside the rule.
     pub fn message(&self) -> String {
         match self {
-            StringsError::NotJson(detail) => {
-                format!("The strings file could not be read: {detail}")
-            }
-            StringsError::Empty(field) => format!("The strings file has an empty \"{field}\"."),
+            StringsError::NotJson(detail) => format!("The strings file could not be read: {detail}"),
+            StringsError::Missing(key) => format!("The strings file has no \"{key}\"."),
+            StringsError::Empty(key) => format!("The strings file has an empty \"{key}\"."),
         }
     }
 }
 
-/// Parses and checks the strings file. A field that is only whitespace counts
+impl Strings {
+    /// The text for a key; a key outside `REQUIRED` that is missing reads as
+    /// itself, so the gap shows on screen rather than as a blank.
+    pub fn get(&self, key: &str) -> String {
+        self.0.get(key).cloned().unwrap_or_else(|| key.to_string())
+    }
+}
+
+/// Parses and checks the strings file. A value that is only whitespace counts
 /// as empty, because the page would draw nothing.
 pub fn parse_strings(json: &str) -> Result<Strings, StringsError> {
-    let strings: Strings = serde_json::from_str(json).map_err(|e| StringsError::NotJson(e.to_string()))?;
-    if strings.title.trim().is_empty() {
-        return Err(StringsError::Empty("title"));
+    let all: BTreeMap<String, serde_json::Value> =
+        serde_json::from_str(json).map_err(|e| StringsError::NotJson(e.to_string()))?;
+    let mut out = BTreeMap::new();
+    for (k, v) in all {
+        if k.starts_with('_') {
+            continue;
+        }
+        let Some(text) = v.as_str() else {
+            return Err(StringsError::NotJson(format!("\"{k}\" is not text")));
+        };
+        if text.trim().is_empty() {
+            return Err(StringsError::Empty(k));
+        }
+        out.insert(k, text.to_string());
     }
-    if strings.intro.trim().is_empty() {
-        return Err(StringsError::Empty("intro"));
+    if let Some(missing) = REQUIRED.iter().find(|k| !out.contains_key(**k)) {
+        return Err(StringsError::Missing(missing.to_string()));
     }
-    Ok(strings)
+    Ok(Strings(out))
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
+    pub fn strings() -> Strings {
+        parse_strings(include_str!("../../../data/strings.json")).expect("data/strings.json")
+    }
+
+    fn with(key: &str, value: serde_json::Value) -> String {
+        let mut v: serde_json::Value =
+            serde_json::from_str(include_str!("../../../data/strings.json")).unwrap();
+        v[key] = value;
+        v.to_string()
+    }
+
     #[test]
-    fn a_complete_file_is_accepted() {
-        let s = parse_strings(r#"{"title": "T", "intro": "I"}"#).unwrap();
-        assert_eq!(s.title, "T");
-        assert_eq!(s.intro, "I");
+    fn the_strings_file_holds_every_required_key() {
+        let s = strings();
+        for k in REQUIRED {
+            assert!(!s.get(k).trim().is_empty(), "{k}");
+        }
     }
 
     #[test]
     fn an_empty_title_is_rejected_by_name() {
-        let e = parse_strings(r#"{"title": "  ", "intro": "I"}"#).unwrap_err();
-        assert_eq!(e, StringsError::Empty("title"));
+        let e = parse_strings(&with("title", "  ".into())).unwrap_err();
+        assert_eq!(e, StringsError::Empty("title".into()));
         assert_eq!(e.message(), "The strings file has an empty \"title\".");
     }
 
     #[test]
-    fn an_empty_intro_is_rejected_by_name() {
-        let e = parse_strings(r#"{"title": "T", "intro": ""}"#).unwrap_err();
-        assert_eq!(e, StringsError::Empty("intro"));
+    fn a_missing_key_is_rejected_by_name() {
+        let mut v: serde_json::Value =
+            serde_json::from_str(include_str!("../../../data/strings.json")).unwrap();
+        v.as_object_mut().unwrap().remove("resume");
+        let e = parse_strings(&v.to_string()).unwrap_err();
+        assert_eq!(e.message(), "The strings file has no \"resume\".");
     }
 
     #[test]
-    fn an_unknown_field_is_rejected() {
+    fn a_value_that_is_not_text_and_text_that_is_not_json_are_rejected() {
         assert!(matches!(
-            parse_strings(r#"{"title": "T", "intro": "I", "extra": "x"}"#),
+            parse_strings(&with("play", 3.into())),
             Err(StringsError::NotJson(_))
         ));
+        assert!(matches!(parse_strings("title: T"), Err(StringsError::NotJson(_))));
     }
 
     #[test]
-    fn text_that_is_not_json_is_rejected() {
-        assert!(matches!(parse_strings("title: T"), Err(StringsError::NotJson(_))));
+    fn notes_are_skipped_and_an_unknown_key_reads_as_itself() {
+        let s = parse_strings(&with("_note", "for people".into())).unwrap();
+        assert!(!s.0.contains_key("_note"));
+        assert_eq!(s.get("no.such.key"), "no.such.key");
     }
 }

@@ -14,6 +14,13 @@
 //! inside such a frame reaches the core in that frame's bits, and no tick
 //! runs to use it. The clock keeps those bits and adds them to the next
 //! tick that runs, so a quick tap is never lost.
+//!
+//! This project's changes to the kit (SECOND-ORDER.md R2.1): `alpha` gives
+//! the share of a tick the clock owes after a frame, which the renderer
+//! uses to draw between the last two ticks, so the page does no arithmetic
+//! for smooth motion; and the kit's example `World` lives in the tests,
+//! where the kit's own tests still run against it. The game's world is
+//! `crate::world::World`.
 
 /// Ticks a second, and the length of one in microseconds.
 pub const TICKS_PER_SECOND: i64 = 60;
@@ -52,45 +59,93 @@ impl Clock {
         }
         ticks
     }
-}
 
-/// Input bits for the example world.
-pub const FIRE: u32 = 1;
-pub const RIGHT: u32 = 2;
-
-/// An example world that counts presses (not held ticks) and moves while a
-/// key is held. Replace it with the project's own.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct World {
-    pub presses: u32,
-    pub x: i32,
-    prev: u32,
-}
-
-impl World {
-    pub fn tick(&mut self, bits: u32) {
-        if bits & FIRE != 0 && self.prev & FIRE == 0 {
-            self.presses += 1;
-        }
-        if bits & RIGHT != 0 {
-            self.x += 1;
-        }
-        self.prev = bits;
+    /// How far the clock is into the next tick, in Q16 from 0 up to (not
+    /// including) `ONE`: the renderer's interpolation fraction between the
+    /// tick before last and the last tick.
+    pub fn alpha(&self) -> crate::fx::Fx {
+        let owed = self.owed.clamp(0, TICK_US - 1);
+        ((owed << crate::fx::SHIFT) / TICK_US) as crate::fx::Fx
     }
-}
 
-/// One display frame: what the shim's `advance` calls.
-pub fn advance(clock: &mut Clock, world: &mut World, now_us: i64, bits: u32) -> usize {
-    let ticks = clock.frame(now_us, bits);
-    for b in &ticks {
-        world.tick(*b);
+    /// The last frame's timestamp, once a frame has come.
+    pub fn last(&self) -> Option<i64> {
+        self.last
     }
-    ticks.len()
+
+    /// Forgets the time since the last frame, so the next frame runs no
+    /// catch-up ticks (after a pause, for one).
+    pub fn rest(&mut self) {
+        self.owed = 0;
+        self.latched = 0;
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Input bits for the example world.
+    pub const FIRE: u32 = 1;
+    pub const RIGHT: u32 = 2;
+
+    /// An example world that counts presses (not held ticks) and moves while a
+    /// key is held. Replace it with the project's own.
+    #[derive(Debug, Default, Clone, PartialEq, Eq)]
+    pub struct World {
+        pub presses: u32,
+        pub x: i32,
+        prev: u32,
+    }
+
+    impl World {
+        pub fn tick(&mut self, bits: u32) {
+            if bits & FIRE != 0 && self.prev & FIRE == 0 {
+                self.presses += 1;
+            }
+            if bits & RIGHT != 0 {
+                self.x += 1;
+            }
+            self.prev = bits;
+        }
+    }
+
+    /// One display frame: what the shim's `advance` calls.
+    pub fn advance(clock: &mut Clock, world: &mut World, now_us: i64, bits: u32) -> usize {
+        let ticks = clock.frame(now_us, bits);
+        for b in &ticks {
+            world.tick(*b);
+        }
+        ticks.len()
+    }
+
+    #[test]
+    fn alpha_is_the_share_of_a_tick_owed_after_a_frame() {
+        let mut c = Clock::default();
+        assert_eq!(c.frame(0, 0).len(), 1);
+        assert_eq!(c.alpha(), 0, "the first frame's tick leaves nothing owed");
+        // half a tick later: no tick runs, and the renderer is halfway
+        assert!(c.frame(TICK_US / 2, 0).is_empty());
+        assert_eq!(c.alpha(), (((TICK_US / 2) << 16) / TICK_US) as i32);
+        // three quarters on: one tick ran, a quarter is owed
+        assert_eq!(c.frame(TICK_US / 2 + TICK_US * 3 / 4, 0).len(), 1);
+        let quarter = (((TICK_US / 4) << 16) / TICK_US) as i32;
+        assert!((c.alpha() - quarter).abs() <= 8, "{} vs {quarter}", c.alpha());
+        assert!(c.alpha() < crate::fx::ONE);
+    }
+
+    #[test]
+    fn a_rested_clock_owes_nothing_and_runs_no_catch_up() {
+        let mut c = Clock::default();
+        c.frame(0, 0);
+        c.frame(TICK_US * 9 / 10, FIRE);
+        c.rest();
+        assert_eq!(c.alpha(), 0);
+        // a frame a little later runs nothing, and the latched tap is gone
+        assert!(c.frame(TICK_US * 95 / 100, 0).is_empty());
+        let ticks = c.frame(TICK_US * 2, 0);
+        assert_eq!(ticks, vec![0], "{ticks:?}");
+    }
 
     #[test]
     fn a_tap_released_before_any_tick_ran_still_counts() {
