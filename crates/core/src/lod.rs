@@ -187,6 +187,10 @@ pub fn unit_for(radius: i64) -> Fx {
     k.min(1 << 30) as Fx
 }
 
+/// How near the player every grass tuft, tree and rock is drawn whole, Q16
+/// metres (the person's "immediate viewable area", R9.44).
+pub const NEAR: Fx = 25 * ONE;
+
 /// The nearest and farthest flat distances from the eye to the square from
 /// (x0, z0), `side` wide, Q16 metres.
 pub fn reach_of(eye: V3, x0: i64, z0: i64, side: i64) -> (i64, i64) {
@@ -365,6 +369,43 @@ impl Detail {
             .map(|k| (k.i, k.j))
             .collect();
         self.things.retain(|ij, _| keep.contains(ij));
+    }
+
+    /// Of the grass, tree and rock chunks whose square comes within `r` of
+    /// `feet`, how many this frame left undrawn (neither drawn nor known to
+    /// hold nothing), and how many there were (the probe, `lod.probe`).
+    pub fn near_missing(&self, land: &Land, feet: V3, r: Fx) -> (u32, u32) {
+        let sp = &land.spec.scatter;
+        let drawn: std::collections::BTreeSet<Key> = self
+            .drawn
+            .iter()
+            .filter(|d| d.key.kind == SCATTER)
+            .map(|d| d.key)
+            .collect();
+        let (mut missing, mut looked) = (0, 0);
+        for part in [crate::scatter::GRASS, crate::scatter::WHOLE, crate::scatter::ROCK] {
+            let s = crate::scatter::side_of(sp, part) as i64;
+            let (x, z, r) = (feet.x as i64, feet.z as i64, r as i64);
+            for j in (z - r).div_euclid(s)..=(z + r).div_euclid(s) {
+                for i in (x - r).div_euclid(s)..=(x + r).div_euclid(s) {
+                    if to_square(x, z, i * s, j * s, s) > r {
+                        continue;
+                    }
+                    let key = Key {
+                        kind: SCATTER,
+                        level: part,
+                        i: i as i32,
+                        j: j as i32,
+                        part: 0,
+                    };
+                    looked += 1;
+                    if !drawn.contains(&key) && !self.empty.contains(&key) {
+                        missing += 1;
+                    }
+                }
+            }
+        }
+        (missing, looked)
     }
 
     /// The mesh table with every detail mesh kept so far after it, at its
@@ -1143,6 +1184,10 @@ mod tests {
                         "part {part} at ({x}, {z}) frame {t}: a chunk within 25 m not drawn"
                     );
                 }
+                // and the probe the browser check reads says so
+                let (missing, looked) = d.near_missing(l, feet, NEAR);
+                assert_eq!(missing, 0);
+                assert!(looked >= 9, "{looked} chunks looked at");
             }
         }
         // the walks pass through grass and among trees and rocks

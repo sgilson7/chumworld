@@ -86,6 +86,11 @@ pub struct Ui {
     /// go of it when this is false, and takes it again on a click when true
     pub capture: bool,
     pub version: u32,
+    /// M7: with the test act `lod.probe`, the most scatter chunks within
+    /// 25 m of the player any frame has left undrawn since, and how many
+    /// were looked at; the page puts it on `body[data-probe]` for the
+    /// browser check (R9.44)
+    pub probe: Option<[u32; 2]>,
     /// M4: the HUD, the menu ring, dialogue, the shop and settings (`ui.rs`)
     #[serde(flatten)]
     pub menus: crate::ui::Views,
@@ -188,6 +193,7 @@ pub fn ui(g: &Game) -> Ui {
         no_webgl: s.get("no_webgl"),
         capture: g.screen == Screen::Play,
         version: g.ui_version,
+        probe: g.probe,
         menus: crate::ui::views(g),
     }
 }

@@ -144,6 +144,8 @@ async function main() {
     hints = u.hints;
     document.title = u.title;
     body.dataset.screen = u.screen;
+    // M7: the near-scatter probe a check asked for (?act=lod.probe)
+    if (u.probe) body.dataset.probe = u.probe.join(" ");
     el("overlay").replaceChildren(...u.panels.map(panel));
     el("overlay").hidden = u.panels.length === 0;
     for (const item of u.hud) {
