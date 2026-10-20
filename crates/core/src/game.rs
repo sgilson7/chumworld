@@ -323,6 +323,8 @@ impl Game {
         let mut moving = Shapes::default();
         moving.sky(cam.eye);
         self.world.draw(self.alpha, &self.look, &mut moving);
+        // M7 (R9.91): blades and other thin things edge-on keep a width
+        render::keep_visible(&mut moving.list, cam.eye);
         // M2: the terrain and scatter round the eye, by detail level
         self.detail.frame(&self.world, &self.look, cam.eye, &mut moving);
         self.water_frame = crate::water::frame_values(&self.world.land, &self.world.water, self.scene.origin);

@@ -59,9 +59,9 @@ mod lineup;
 mod props;
 
 pub use figure::{rest_pose, Dress, BOOTS, GLOVES, HOOD, JACKET, SPEEDSTER_ALL, TROUSERS};
-pub use held::{grip_to_tip, kind_held, pickup, Pickup};
+pub use held::{float, grip_to_tip, kind_held, pickup, pickup_at, ring, Pickup, PHASE_TICKS};
 pub use lineup::{act, draw, Lineup, Show};
-pub use props::{donkey, prop_radius, prop_shapes, DONKEY_TO_CART};
+pub use props::{cart_model, donkey, prop_radius, prop_shapes, DONKEY_TO_CART};
 
 /// The parts each model is drawn from, for counting and testing.
 pub use figure::model as figure_model;

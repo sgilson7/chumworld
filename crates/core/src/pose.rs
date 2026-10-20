@@ -145,6 +145,13 @@ fn size(kind: Kind) -> (i32, i32) {
     }
 }
 
+/// M7 (R9.88): bodies are drawn this much broader across than the
+/// millimetres in `models/figure.rs` say, so a figure reads less long and
+/// narrow. The joints (`Build`), and so the arm, the reach and the head
+/// (CW-17), are unchanged, and so are `blade.rs`'s capsules: a blade
+/// stopped at a torso's side shows at most 8 mm into the cloth.
+pub const BODY_GIRTH_PCT: i32 = 108;
+
 /// The proportions of a kind: the player's scaled to its height, then
 /// widened by its girth. The head keeps the player's quarter of the height.
 pub fn build(kind: Kind) -> Build {

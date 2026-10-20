@@ -581,3 +581,67 @@ fn the_lineup_comes_when_asked_for_and_goes_when_turned_off() {
         Err("Unknown action \"models.parade\".".into())
     );
 }
+
+/// M7 (R9.87): a pickup floats 120 mm up and bobs 60 mm more over 120
+/// ticks: (1 − cos) / 2 of it, so 0 at the start, all 60 mm at 60 ticks;
+/// it turns once in 240 ticks, a quarter at 60; and a ring of light lies
+/// 3 cm over the ground under it.
+#[test]
+fn a_pickup_floats_bobs_and_turns_over_a_ring_of_light() {
+    assert_eq!(float(0), (mm(120), 0));
+    let (up, spin) = float(60 * ONE);
+    assert!((up - mm(180)).abs() <= 2, "{up}");
+    assert_eq!(spin, fx::QUARTER_TURN);
+    let (up, spin) = float(240 * ONE);
+    assert!((up - mm(120)).abs() <= 2 && spin == 0, "{up} {spin}");
+    let at = v3(int(10), int(2), int(10));
+    let mut s = Shapes::default();
+    pickup_at(
+        Pickup::Boots,
+        at,
+        0,
+        60 * ONE,
+        &crate::look::tests::look(),
+        &mut s,
+    );
+    let ring: Vec<_> = s.list.iter().filter(|x| x.mesh == Mesh::Torus.into()).collect();
+    assert_eq!(ring.len(), 1);
+    assert_eq!(ring[0].pass, crate::render::Pass::Glow);
+    assert_eq!(ring[0].at.t, at.add(v3(0, ONE * 3 / 100, 0)));
+    // the model hangs over the ground by the float: its lowest part's
+    // centre is higher than when lying
+    let lowest = |s: &Shapes| {
+        s.list
+            .iter()
+            .filter(|x| x.pass == crate::render::Pass::Solid)
+            .map(|x| x.at.t.y)
+            .min()
+            .unwrap()
+    };
+    let mut lying = Shapes::default();
+    pickup_model(Pickup::Boots)
+        .placed(&Affine::translate(at))
+        .emit([0; 3], &mut lying);
+    assert!(
+        lowest(&s) - lowest(&lying) >= mm(179),
+        "{}",
+        lowest(&s) - lowest(&lying)
+    );
+}
+
+/// M7 (R9.88): bodies are drawn 8% broader across (`pose::BODY_GIRTH_PCT`),
+/// heights unchanged: the player's hips, 2 × 152 mm across, are now
+/// 2 × 152 × 1.08 = 328.3 mm; its thigh 2 × 76 × 1.08 = 164.2 mm thick; its
+/// head as before (CW-17).
+#[test]
+fn bodies_are_drawn_eight_percent_broader_and_no_taller() {
+    let pose = rest_pose(Kind::Player, V3::ZERO, 0);
+    let m = figure_model(Kind::Player, &pose, Dress::default());
+    // the legs' eight parts come first (each side: thigh, knee, shin, shoe),
+    // then the hips
+    let hips = m.parts[8].at.c0.len();
+    assert!((hips - mm(328)).abs() <= mm(1), "hips {hips}");
+    let thigh = m.parts[0].at.c0.len();
+    assert!((thigh - mm(164)).abs() <= mm(1), "thigh {thigh}");
+    assert_eq!(build(Kind::Player).head * 100 / build(Kind::Player).height, 24);
+}
