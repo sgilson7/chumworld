@@ -281,7 +281,7 @@ def menus(page, check, engine, base):
     # magic.leader, then magic.freeze:150: frozen 150 ticks into play), the
     # view held on the leader. Orbs are glowing, blended shapes: a frozen
     # volley in sight draws the same pixels on consecutive frames (CW-18)
-    page.goto(base + "?pointer=free&foe=still&act=magic.leader&act=magic.freeze:150")
+    page.goto(base + "?pointer=free&foe=still&act=magic.leader&act=magic.freeze:150&act=story.still:on")
     page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
     page.click("#title button")
     page.wait_for_selector("body[data-screen='play']", state="attached")
