@@ -25,6 +25,11 @@ pub enum Screen {
     Title,
     Play,
     Paused,
+    // M4: the menu ring, settings, dialogue and the shop (`ui.rs`)
+    Menu,
+    Settings,
+    Dialogue,
+    Shop,
 }
 
 impl Screen {
@@ -33,6 +38,10 @@ impl Screen {
             Screen::Title => "title",
             Screen::Play => "play",
             Screen::Paused => "paused",
+            Screen::Menu => "menu",
+            Screen::Settings => "settings",
+            Screen::Dialogue => "dialogue",
+            Screen::Shop => "shop",
         }
     }
 }
@@ -84,6 +93,8 @@ pub struct Game {
     /// ticks since play began from the title, for the camera's ease in
     pub zoom_ticks: u64,
     pub ui_version: u32,
+    /// M4: the menu ring's turn and cursors, and where settings return to
+    pub menu: crate::ui::Menu,
 }
 
 impl Game {
@@ -117,6 +128,7 @@ impl Game {
             title_ticks: 0,
             zoom_ticks: ZOOM_TICKS,
             ui_version: 1,
+            menu: crate::ui::Menu::default(),
         };
         g.draw();
         Ok(g)
@@ -151,9 +163,16 @@ impl Game {
         let ticks = self.clock.frame(now_us, bits);
         match self.screen {
             Screen::Play => {
+                // M4: invert Y (a reader's setting)
+                let dy = if self.world.ui.settings.invert_y { -dy } else { dy };
                 self.pending.add(dx, dy, wheel);
                 let hinted = self.hint_shown();
                 for (k, b) in ticks.iter().enumerate() {
+                    // M4: Tab and M open the menu ring before the tick runs
+                    if let Some(face) = crate::ui::menu_pressed(&mut self.menu, *b) {
+                        crate::ui::open(self, face);
+                        break;
+                    }
                     let m = if k == 0 {
                         self.pending.take()
                     } else {
@@ -162,18 +181,35 @@ impl Game {
                     self.world.step(&Input::from_page(*b, m));
                     self.play_ticks += 1;
                     self.zoom_ticks = (self.zoom_ticks + 1).min(ZOOM_TICKS);
+                    // M4: a dialogue or the shop the tick opened
+                    if let Some(s) = crate::ui::wanted(&self.world) {
+                        self.show(s);
+                        break;
+                    }
                 }
                 if hinted != self.hint_shown() {
                     self.ui_version += 1;
                 }
+                // M4: the HUD's bars, ring, keys and toast changed
+                if crate::ui::hud_changed(self) {
+                    self.ui_version += 1;
+                }
                 self.alpha = self.clock.alpha();
             }
-            Screen::Title => {
+            // M4: settings opened from the title keep its drifting view
+            _ if self.titled() => {
                 self.pending.clear();
                 self.title_ticks += ticks.len() as u64;
                 self.alpha = self.clock.alpha();
             }
-            Screen::Paused => {
+            // M4: dialogue text appears tick by tick while the world holds still
+            Screen::Dialogue => {
+                self.pending.clear();
+                if crate::ui::reveal(&mut self.world, ticks.len() as u32) {
+                    self.ui_version += 1;
+                }
+            }
+            Screen::Title | Screen::Paused | Screen::Menu | Screen::Settings | Screen::Shop => {
                 // the world holds still; time passing while paused is
                 // forgotten, so resuming runs no catch-up ticks
                 self.pending.clear();
@@ -181,6 +217,13 @@ impl Game {
             }
         }
         self.draw();
+    }
+
+    /// M4: whether the title's view shows: the title, or settings opened
+    /// from it.
+    pub fn titled(&self) -> bool {
+        self.screen == Screen::Title
+            || (self.screen == Screen::Settings && self.menu.settings_from == Screen::Title)
     }
 
     pub fn hint_shown(&self) -> bool {
@@ -202,7 +245,7 @@ impl Game {
     /// How far back the camera sits: the title's wide view, easing in to
     /// the shoulder (`camera::BACK`) once play begins.
     fn back(&self) -> Fx {
-        if self.screen == Screen::Title {
+        if self.titled() {
             return TITLE_BACK;
         }
         let t = ((self.zoom_ticks as i64 * ONE as i64 + self.alpha as i64) / ZOOM_TICKS as i64)
@@ -214,10 +257,10 @@ impl Game {
     pub fn camera(&self) -> Camera {
         let ground = |x, z| self.world.ground(x, z);
         let feet = self.world.player.feet(self.alpha);
-        match self.screen {
-            Screen::Title => camera::view_from(feet, self.title_aim(), self.back(), ground),
-            _ => self.world.camera(self.alpha, self.pending.peek(), self.back()),
+        if self.titled() {
+            return camera::view_from(feet, self.title_aim(), self.back(), ground);
         }
+        self.world.camera(self.alpha, self.pending.peek(), self.back())
     }
 
     /// Builds the frame the page draws next.
@@ -233,8 +276,12 @@ impl Game {
         self.frame = Frame::build(&self.scene, &moving, &cam, self.aspect);
     }
 
-    fn show(&mut self, s: Screen) {
+    pub(crate) fn show(&mut self, s: Screen) {
         if self.screen != s {
+            // M4: back in play, Tab and M count from a fresh press
+            if s == Screen::Play {
+                self.menu.last_bits = 0;
+            }
             if self.screen == Screen::Title && s == Screen::Play {
                 // play opens looking where the title's camera had drifted
                 // to, and eases in from its distance
@@ -262,6 +309,9 @@ impl Game {
             "key.escape" | "pointer.lost" | "page.hidden" => {
                 if self.screen == Screen::Play {
                     self.show(Screen::Paused);
+                } else if name == "key.escape" {
+                    // M4: Esc on the menu, the shop or settings
+                    crate::ui::escape(self);
                 }
             }
             // a reader's look speed, percent (?look= on the page's address)
@@ -271,6 +321,8 @@ impl Game {
                 })?;
                 self.world.aim.pct = pct.clamp(camera::LOOK_PCT_MIN, camera::LOOK_PCT_MAX);
             }
+            // M4: the menus, settings, dialogue, the shop, and test acts
+            n if crate::ui::owns(n) => crate::ui::act(self, name, value)?,
             "display.software" => {
                 self.software = value == "true";
                 let (w, h) = self.css;
@@ -283,11 +335,19 @@ impl Game {
 
     /// The numbers glossary placeholders name, as text.
     pub fn glossary_values(&self) -> Vec<(&'static str, String)> {
-        vec![
-            ("walk.speed", fx::decimal(crate::player::WALK, 1)),
-            ("run.speed", fx::decimal(crate::player::RUN, 1)),
-        ]
+        let mut v = base_values();
+        // M4: items, the speedster's armour, the imbue, the merchant
+        v.extend(crate::ui::values());
+        v
     }
+}
+
+/// The glossary's numbers M0 set.
+pub fn base_values() -> Vec<(&'static str, String)> {
+    vec![
+        ("walk.speed", fx::decimal(crate::player::WALK, 1)),
+        ("run.speed", fx::decimal(crate::player::RUN, 1)),
+    ]
 }
 
 #[cfg(test)]
