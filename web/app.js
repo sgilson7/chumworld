@@ -40,13 +40,15 @@ function ready() {
 async function main() {
   const strings = await (await fetch("data/strings.json")).text();
   el("loading-text").textContent = JSON.parse(strings).loading;
-  const [glossary, look, controls, display, vertex, fragment] = await Promise.all([
+  const [glossary, look, controls, display, vertex, fragment, waterVertex, waterFragment] = await Promise.all([
     fetch("data/glossary.md").then((r) => r.text()),
     fetch("data/look.json").then((r) => r.text()),
     fetch("data/controls.json").then((r) => r.json()),
     fetch("data/display.json").then((r) => r.json()),
     fetch("data/shaders/scene.vert").then((r) => r.text()),
     fetch("data/shaders/scene.frag").then((r) => r.text()),
+    fetch("data/shaders/water.vert").then((r) => r.text()),
+    fetch("data/shaders/water.frag").then((r) => r.text()),
   ]);
   await init();
   const N = JSON.parse(numbers());
@@ -65,7 +67,7 @@ async function main() {
 
   const canvas = el("view");
   const meshes = JSON.parse(game.meshes());
-  const renderer = makeRenderer(canvas, N, { vertex, fragment, software: display.software }, meshes, (id) => game.mesh(id));
+  const renderer = makeRenderer(canvas, N, { vertex, fragment, waterVertex, waterFragment, software: display.software }, meshes, (id) => game.mesh(id));
   if (!renderer) {
     body.dataset.webgl = "none";
     el("message").textContent = JSON.parse(game.ui()).ok.no_webgl;
@@ -75,7 +77,7 @@ async function main() {
   body.dataset.webgl = "2";
   body.dataset.software = String(renderer.software);
   if (renderer.software) game.act("display.software", "true");
-  renderer.setUniforms(game.uniforms(), game.clear_color());
+  renderer.setUniforms(game.uniforms(), game.clear_color(), game.water_uniforms());
 
   let ui = null;
   const input = makeInput(canvas, controls, N.actions, () => {});
@@ -191,7 +193,7 @@ async function main() {
       staticVersion = game.static_version();
       renderer.setStatic(game.static_values());
     }
-    renderer.frame(game.view(), game.instances(), game.draws());
+    renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame());
     if (game.ui_version() !== uiVersion) {
       uiVersion = game.ui_version();
       show(JSON.parse(game.ui()).ok);

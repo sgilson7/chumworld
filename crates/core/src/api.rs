@@ -204,8 +204,15 @@ pub fn numbers() -> String {
         "uniforms": look::UNIFORMS.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
         // the view values: each layer's matrix by layer number, then the eye
         "view": { "layers": [[0, 16], [16, 32]], "eye": [32, 35] },
-        // M2: `uploads` lists each new mesh as (id, vertex count)
+        // M2: `uploads` lists each new mesh as (id, vertex count); the water
+        // program's own uniforms (once) and its frame's (each frame), and the
+        // nearest distance each layer draws water at, by layer number
         "upload_values": 2,
+        "water": {
+            "uniforms": crate::water::UNIFORMS.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+            "frame": crate::water::FRAME.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+            "cut": [render::NEAR_LAYER_FAR / crate::fx::ONE, 0],
+        },
     })
     .to_string()
 }

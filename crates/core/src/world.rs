@@ -142,11 +142,11 @@ impl World {
 
     /// What never moves: the static groups, and the meshes they draw.
     pub fn scene(&self, look: &Look, meshes: &mut MeshTable) -> Vec<Group> {
-        // M2: the places and the water; the terrain and the scatter are drawn
-        // by detail level round the camera (`lod.rs`, from `Game::draw`)
+        // M2: the places' props, baked here; `Game::new` hands their groups
+        // (named `place:<kind>`) to the detail levels, which draw them to
+        // 3 km and the terrain, water and scatter round the camera (`lod.rs`)
         let mut out = Vec::new();
         crate::places::scene(self, look, meshes, &mut out);
-        crate::water::scene(self, look, meshes, &mut out);
         // M5: …
         out
     }

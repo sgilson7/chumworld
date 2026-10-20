@@ -230,7 +230,13 @@ pub fn fence_spans(w: &World, place: &PlaceSpec) -> Vec<Spot> {
     out
 }
 
-/// Every place's props as static groups, one group a place.
+/// The name every place's group starts with: the detail levels draw these
+/// groups to `PROPS_TO` and hand them over through the dither before it (M3's
+/// marks are flicker-safe on props to 3 km, R5.6).
+pub const FADED: &str = "place:";
+pub const PROPS_TO: (Fx, Fx) = (fx::int(2550), fx::int(3000));
+
+/// Every place's props as groups, one group a place.
 pub fn scene(w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group>) {
     for place in &w.land.layout.places {
         let c = metres(place.centre);
@@ -247,7 +253,7 @@ pub fn scene(w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group
             .unwrap_or(0);
         let mut centre = c;
         centre.y = w.ground(c.x, c.z);
-        let mut g = Group::new(&place.kind, centre, reach);
+        let mut g = Group::new(&format!("{FADED}{}", place.kind), centre, reach);
         for s in &all {
             models::prop(s.prop, s.at, s.yaw, look, meshes, &mut g);
         }

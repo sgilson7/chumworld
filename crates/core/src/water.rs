@@ -711,7 +711,8 @@ pub struct LookSpec {
     pub noise_period: i32,
     pub see_through: [i32; 3],
     pub shore: [i32; 3],
-    pub lod_waves: [i32; 2],
+    pub lod_waves: [i32; 4],
+    pub calm_cm: i32,
 }
 
 /// `data/water.json`.
@@ -813,13 +814,488 @@ pub fn step(w: &mut crate::world::World) {
     w.water.ticks += 1;
 }
 
-/// The water's static meshes, one group a stretch of river and one for the
-/// pond (filled in below).
-pub fn scene(
-    w: &crate::world::World,
-    look: &crate::look::Look,
-    meshes: &mut crate::prim::MeshTable,
-    out: &mut Vec<crate::render::Group>,
-) {
-    let _ = (w, look, meshes, out);
+
+// ---- the surface over the ground (after the fishing game's river/bake.rs) ----
+
+/// What the water does at a point.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Field {
+    /// the still surface, with every standing feature
+    pub height: Fx,
+    pub vel: V3,
+    /// white water, 0 to ONE
+    pub white: Fx,
+    /// how rough the chop is, 0 to ONE
+    pub rough: Fx,
+}
+
+/// v²/2g.
+fn head(v: Fx) -> Fx {
+    fx::div(fx::mul(v, v), 2 * G)
+}
+
+/// sin(π x) for x from 0 to ONE: one hump.
+fn hump(x: Fx) -> Fx {
+    if x <= 0 || x >= ONE {
+        0
+    } else {
+        fx::sin(x / 2)
+    }
+}
+
+impl River {
+    /// The rocks (piers, islets) within `reach` of `s` down the river.
+    pub fn rocks_near(&self, s: Fx, reach: Fx) -> impl Iterator<Item = &Rock> {
+        let lo = self.rocks.partition_point(|k| k.s < s - reach);
+        let hi = self.rocks.partition_point(|k| k.s <= s + reach);
+        self.rocks[lo..hi].iter()
+    }
+
+    /// The water at `p`, `s` down the river and `a` across (the fishing
+    /// game's `bake::field`, its walls our banks): the speed across the
+    /// channel, the bend's tilt, the jumps' rollers and standing waves, and
+    /// round each rock a pillow upstream, V-waves and an eddy downstream.
+    pub fn field(&self, p: V3, s: Fx, a: Fx) -> Field {
+        let st = self.station(s);
+        let eta = st.at.y;
+        let half = st.half.max(ONE);
+        let u = fx::div(a, half).clamp(-ONE, ONE);
+        let rushing = st.regime == solve::Regime::Rushing;
+        let v = st.speed;
+        let u2 = fx::mul(u, u);
+        let edge = ONE - fx::mul(u2, u2);
+        let mut height = eta;
+        let mut white = 0;
+        let mut rough = if rushing {
+            ONE * 55 / 100 + (st.froude - ONE).clamp(0, ONE) * 3 / 10
+        } else {
+            ONE * 12 / 100 + fx::div(v, 8 * ONE).min(ONE / 5)
+        };
+        if rushing {
+            white = ONE / 4 + (st.froude - ONE).clamp(0, ONE) * 35 / 100;
+        }
+        // the bend: the outside stands higher, Δη = v² κ a / g
+        height -= fx::div(fx::mul(fx::mul(v, v), fx::mul(st.curve, a)), G);
+        // the banks: in a riffle the water rides up and froths along them
+        let dw = half - a.abs();
+        if dw < 3 * ONE && dw > -ONE {
+            let k = (ONE - dw.max(0) / 3).clamp(0, ONE);
+            let k = fx::mul(k, k);
+            let rub = if st.riffle { head(v) * 30 / 100 } else { 0 };
+            height += fx::mul(rub, k);
+            let froth = if st.riffle {
+                ONE * 35 / 100 + fx::div(v, 4 * ONE).min(ONE) * 4 / 10
+            } else if dw < ONE * 6 / 10 {
+                ONE * 10 / 100
+            } else {
+                0
+            };
+            white = white.max(fx::mul(froth, k));
+        }
+        // the speed across the channel, and the spread or squeeze of the banks
+        let right = v3(-st.dir.z, 0, st.dir.x);
+        let along = fx::mul(v, profile(u));
+        let lat = fx::mul(v, fx::mul(u, st.widen));
+        let mut vel = st.dir.scale(along).add(right.scale(lat));
+        // the jumps: a roller, then a train of standing waves, λ = 2πv²/g
+        for j in &self.jumps {
+            let x = s - j.s;
+            if !(-ONE..=60 * ONE).contains(&x) {
+                continue;
+            }
+            let rise = j.h2 - j.h1;
+            let roll = fx::div(x, j.roller);
+            height += fx::mul(rise / 4, hump(roll));
+            let strength = (j.fr1 - ONE).clamp(ONE * 3 / 10, ONE);
+            if x < j.roller {
+                white = white.max(strength);
+                rough = ONE;
+            }
+            let lambda = fx::div(fx::mul(TAU, fx::mul(j.v1, j.v1)), G).clamp(3 * ONE, 12 * ONE);
+            let waves = 4;
+            let xs = fx::div(x, lambda);
+            if x >= 0 && xs < waves * ONE {
+                let swell = ONE - xs / waves;
+                let swell = fx::mul(swell, swell);
+                let a0 = (rise * 35 / 100).clamp(ONE / 20, ONE * 9 / 10);
+                let c = fx::cos(xs);
+                height += fx::mul(fx::mul(fx::mul(a0, swell), c), edge);
+                if c > ONE * 6 / 10 {
+                    white = white.max(fx::mul(strength, swell) * 6 / 10);
+                }
+            }
+            if x >= 0 {
+                let fade = (ONE - x / 40).max(0);
+                white = white.max(fx::mul(strength, fade) / 2);
+                rough = rough.max(fade);
+            }
+        }
+        // the rocks
+        let mut slow = ONE;
+        for k in self.rocks_near(s, 60 * ONE) {
+            let d = v3(p.x - k.at.x, 0, p.z - k.at.z);
+            let dist = d.len_xz();
+            let reach = k.r * 6;
+            if dist <= k.r {
+                vel = V3::ZERO;
+                white = white.max(ONE / 2);
+                continue;
+            }
+            if dist > reach * 2 {
+                continue;
+            }
+            let x = fx::mul(d.x, k.flow.x) + fx::mul(d.z, k.flow.z);
+            let y = fx::mul(d.x, k.flow.z) - fx::mul(d.z, k.flow.x);
+            let khead = head(k.speed);
+            // round the rock: v' = U [ŵ − (R²/d²)(2 (ŵ·d̂) d̂ − ŵ)], as the change
+            let dn = d.norm();
+            let q = fx::div(fx::mul(k.r, k.r), fx::mul(dist, dist));
+            let wd = k.flow.dot(dn);
+            let bend = dn.scale(2 * wd).sub(k.flow);
+            vel = vel.sub(bend.scale(fx::mul(k.speed, q)));
+            // a pillow on its upstream face
+            if x < 0 {
+                let near = (ONE - fx::div(dist - k.r, k.r * 4 / 5)).max(0);
+                height += fx::mul(fx::mul(khead * 60 / 100, near), fx::div(-x, dist));
+                white = white.max(near * 7 / 10);
+            }
+            // V-waves at the Kelvin angle in calm water
+            if x > 0 {
+                let tan = ONE * 354 / 1000;
+                let off = y.abs() - (k.r + fx::mul(x, tan));
+                let band = ONE * 7 / 10;
+                if off.abs() < band && x < 8 * k.r {
+                    let amp = fx::mul(khead * 40 / 100, ONE - fx::div(x, 8 * k.r));
+                    let crest = fx::mul(amp, ONE - fx::div(off.abs(), band));
+                    height += crest;
+                    white = white.max(fx::div(crest, ONE / 4).min(ONE) * 4 / 10);
+                }
+                // the wake: slack behind, turning back in an eddy close to
+                // the rock; its edges are the eddy lines
+                if x < reach {
+                    let width = k.r + fx::mul(k.r, fx::div(x, reach));
+                    let b = y.abs();
+                    if b < width {
+                        let lat = fx::div(b, width);
+                        let g = fx::mul(ONE - fx::div(x, reach), ONE - fx::mul(lat, lat));
+                        slow = fx::mul(slow, ONE - fx::mul(ONE + ONE * 35 / 100, g));
+                    }
+                    let off = (fx::div(b, width) - ONE).abs();
+                    let line = fx::mul((ONE - off * 3).max(0), ONE - fx::div(x, reach));
+                    white = white.max(line * 7 / 10);
+                    rough = rough.max(line);
+                }
+            }
+        }
+        Field {
+            height,
+            vel: vel.scale(slow),
+            white,
+            rough,
+        }
+    }
+}
+
+// ---- the meshes ----
+
+/// The water's vertex: the still surface's point, then in the normal's
+/// slots the current along x and z (m/s) and the white water, in the
+/// colour's the roughness, the depth to the ground (m, negative under the
+/// bank) and none. `water.vert` reads them so.
+fn vertex(out: &mut Vec<i32>, p: V3, f: &Field, depth: Fx) {
+    out.extend_from_slice(&[p.x, p.y, p.z, f.vel.x, f.vel.z, f.white, f.rough, depth, 0]);
+}
+
+/// A grid of water rows into triangles, a mesh built about `centre` with x
+/// and z divided by `k`: row by row, each row's points from one bank to the
+/// other, quads kept where any corner is wet.
+fn grid(rows: &[Vec<(V3, Field, Fx)>], centre: V3, k: Fx) -> Vec<i32> {
+    let mut out = Vec::new();
+    let local = |p: V3| {
+        v3(
+            ((p.x - centre.x) as i64 * ONE as i64 / k as i64) as Fx,
+            p.y - centre.y,
+            ((p.z - centre.z) as i64 * ONE as i64 / k as i64) as Fx,
+        )
+    };
+    for r in 0..rows.len().saturating_sub(1) {
+        let (a, b) = (&rows[r], &rows[r + 1]);
+        for l in 0..a.len().min(b.len()).saturating_sub(1) {
+            let q = [a[l], a[l + 1], b[l + 1], b[l]];
+            if q.iter().all(|c| c.2 < -ONE / 3) {
+                continue;
+            }
+            // seen from above, counter-clockwise: a row runs downstream,
+            // its points from the left bank to the right
+            for t in [[0, 1, 2], [0, 2, 3]] {
+                let (p0, p1, p2) = (q[t[0]].0, q[t[1]].0, q[t[2]].0);
+                let n = crate::terrain::facet_normal(p0, p1, p2);
+                let tri = if n.y >= 0 { t } else { [t[0], t[2], t[1]] };
+                for &i in &tri {
+                    vertex(&mut out, local(q[i].0), &q[i].1, q[i].2);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// One drawn piece of water: its mesh, how it is drawn, and the distances
+/// it hands over at (`lod.rs`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Piece {
+    pub name: String,
+    pub vertices: Vec<i32>,
+    pub at: crate::geom::Affine,
+    pub centre: V3,
+    pub radius: Fx,
+    /// near: drawn to `fade.0`, handed over to the far strip by `fade.1`;
+    /// far: the reverse
+    pub far: bool,
+    pub fade: (Fx, Fx),
+}
+
+/// Every piece of the water: the river near and far, stretch by stretch,
+/// and the pond.
+pub fn pieces(land: &crate::terrain::Land) -> Vec<Piece> {
+    let r = &land.river;
+    let m = &land.waters.mesh;
+    let cm = |v: i32| v * ONE / 100;
+    let mut out = Vec::new();
+    let (a, b) = r.solved;
+    if b <= a + 1 {
+        return out;
+    }
+    let near = m.near_m * ONE;
+    let band = (near as i64 * m.band_pct as i64 / 100) as Fx;
+    let fade = (near - band, near);
+    let (s0, s1) = (r.stations[a].s, r.stations[b - 1].s);
+    let chunk = m.chunk_m.max(8) * ONE;
+    let lanes = 48;
+    let under = m.under_m * ONE;
+    let mut c = s0;
+    while c < s1 {
+        let end = (c + chunk).min(s1);
+        // rows down the stretch: fine near a rock
+        let mut ss = Vec::new();
+        let mut s = c;
+        while s < end {
+            ss.push(s);
+            let fine = r.rocks.iter().any(|k| (k.s - s).abs() < m.fine_reach_m * ONE);
+            s += if fine { cm(m.fine_along_cm) } else { cm(m.along_cm) };
+        }
+        ss.push(end);
+        let mut rows = Vec::with_capacity(ss.len());
+        let mut hint = None;
+        for &s in &ss {
+            let st = r.station(s);
+            let w = st.half + under;
+            let mut row = Vec::with_capacity(lanes + 1);
+            for l in 0..=lanes {
+                // from the left bank (looking downstream) to the right
+                let across = -w + fx::mul(2 * w, l as i32 * ONE / lanes as i32);
+                let mut p = r.point(s, across);
+                let f = r.field(p, s, across);
+                let ground = {
+                    let sc = land.scope(p.x - ONE, p.z - ONE, p.x + ONE, p.z + ONE);
+                    let nr = r.near_from(p.x, p.z, land.reach, &mut hint);
+                    land.height_near(p.x, p.z, &sc, nr)
+                };
+                p.y = f.height;
+                row.push((p, f, st.at.y - ground));
+            }
+            rows.push(row);
+        }
+        let mid = r.station((c + end) / 2);
+        let centre = v3(mid.at.x, mid.at.y, mid.at.z);
+        let span = (end - c) as i64 / 2 + (mid.half + under) as i64 + 4 * ONE as i64;
+        let k = crate::lod::unit_for(span * 3 / 2);
+        out.push(Piece {
+            name: "river".into(),
+            vertices: grid(&rows, centre, k),
+            at: crate::lod::placed(centre, k),
+            centre,
+            radius: (span * 3 / 2) as Fx,
+            far: false,
+            fade,
+        });
+        // the far strip: coarse rows as wide as the coarse terrain's dip
+        let mut frows = Vec::new();
+        let mut s = c;
+        loop {
+            let st = r.station(s);
+            let w = m.far_half_m * ONE;
+            let row: Vec<(V3, Field, Fx)> = (0..=8)
+                .map(|l| {
+                    let across = -w + fx::mul(2 * w, l * ONE / 8);
+                    let mut p = r.point(s, across);
+                    p.y = st.at.y;
+                    let f = Field {
+                        height: st.at.y,
+                        vel: st.dir.scale(st.speed),
+                        white: 0,
+                        rough: ONE / 6,
+                    };
+                    (p, f, ONE)
+                })
+                .collect();
+            frows.push(row);
+            if s >= end {
+                break;
+            }
+            s = (s + m.far_along_m.max(1) * ONE).min(end);
+        }
+        let fk = crate::lod::unit_for(span * 3 / 2 + w_far(m));
+        out.push(Piece {
+            name: "river far".into(),
+            vertices: grid(&frows, centre, fk),
+            at: crate::lod::placed(centre, fk),
+            centre,
+            radius: (span * 3 / 2 + w_far(m)) as Fx,
+            far: true,
+            fade,
+        });
+        c = end;
+    }
+    // the pond: a grid a cell a side over its bowl and banks
+    for (pc, radius, bank) in land.ponds() {
+        let cell = cm(m.pond_cell_cm).max(ONE / 4);
+        let reach = radius + bank + ONE;
+        let n = (2 * reach / cell) as usize + 1;
+        let still = Field {
+            height: pc.y,
+            vel: V3::ZERO,
+            white: 0,
+            rough: ONE * 15 / 100,
+        };
+        let rows: Vec<Vec<(V3, Field, Fx)>> = (0..=n)
+            .map(|j| {
+                (0..=n)
+                    .map(|i| {
+                        let p = v3(pc.x - reach + i as i32 * cell, pc.y, pc.z - reach + j as i32 * cell);
+                        let ground = land.height(p.x, p.z);
+                        (p, still, pc.y - ground)
+                    })
+                    .collect()
+            })
+            .collect();
+        // rows run south, each from west to east: counter-clockwise from above
+        let k = crate::lod::unit_for(reach as i64 * 2);
+        out.push(Piece {
+            name: "pond".into(),
+            vertices: grid(&rows, pc, k),
+            at: crate::lod::placed(pc, k),
+            centre: pc,
+            radius: reach * 3 / 2,
+            far: false,
+            fade: (fx::int(1200), fx::int(1400)),
+        });
+    }
+    out
+}
+
+fn w_far(m: &MeshSpec) -> i64 {
+    m.far_half_m as i64 * ONE as i64
+}
+
+// ---- the shader's numbers ----
+
+/// The water program's own uniforms, uploaded once, in the order
+/// `uniform_values` writes them: name, the WebGL call, how many floats. It
+/// also takes the look's (`look::UNIFORMS`), which the page uploads to every
+/// program.
+pub const UNIFORMS: &[(&str, &str, usize)] = &[
+    ("uWaveA", "uniformMatrix4fv", 16),
+    ("uWaveB", "uniformMatrix4fv", 16),
+    ("uTau", "uniform1fv", 1),
+    ("uDeep", "uniform3fv", 3),
+    ("uShallow", "uniform3fv", 3),
+    ("uCrest", "uniform3fv", 3),
+    ("uFoamColour", "uniform3fv", 3),
+    ("uLook", "uniform4fv", 4),
+    ("uGlint", "uniform4fv", 4),
+    ("uBody", "uniform4fv", 4),
+    ("uCrestLight", "uniform4fv", 4),
+    ("uFoam", "uniform4fv", 4),
+    ("uFoamEdge", "uniform4fv", 4),
+    ("uDetail", "uniform4fv", 4),
+    ("uFlowK", "uniform4fv", 4),
+    ("uStreak", "uniform4fv", 4),
+    ("uHash", "uniform4fv", 4),
+    ("uSee", "uniform4fv", 4),
+    ("uShore", "uniform4fv", 4),
+    ("uLod", "uniform4fv", 4),
+];
+
+/// What changes each frame: each wave's phase in turns; the ripples' drift
+/// and the foam's (in the noise's lattice, wrapped at its period so the
+/// shader's noise, periodic too, never jumps), the flow map's cycle (0 to 1)
+/// and the noise's period; the origin the positions are relative to (x, z)
+/// and, per layer, the nearest distance this layer draws water at.
+pub const FRAME: &[(&str, &str, usize)] = &[
+    ("uPhase", "uniform4fv", 4),
+    ("uDrift", "uniform4fv", 4),
+    ("uOrigin", "uniform2fv", 2),
+];
+
+fn thousandths(v: i32) -> Fx {
+    (v as i64 * ONE as i64 / 1000) as Fx
+}
+
+/// The water program's uniforms' values, Q16, in `UNIFORMS` order.
+pub fn uniform_values(land: &crate::terrain::Land) -> Vec<i32> {
+    use crate::look::rgb;
+    let l = &land.waters.look;
+    let mut out = Vec::new();
+    // the waves, a column each: direction x, z, turns a metre, none; then
+    // height, sway, slope, none
+    for w in &land.waves {
+        out.extend([w.dx, w.dz, fx::div(ONE, w.length.max(1)), 0]);
+    }
+    for w in &land.waves {
+        out.extend([w.amp, w.sway, w.slope, 0]);
+    }
+    out.push(TAU);
+    out.extend(rgb(l.deep));
+    out.extend(rgb(l.shallow));
+    out.extend(rgb(l.crest));
+    out.extend(rgb(l.foam));
+    out.extend([0, thousandths(l.fresnel_base), thousandths(l.fresnel_power), thousandths(l.crest_power)]);
+    for v in [l.glint, l.body, l.crest_light, l.foam_fold, l.foam_edge, l.detail] {
+        out.extend(v.map(thousandths));
+    }
+    let f = l.flow.map(thousandths);
+    out.extend(f);
+    out.extend(l.streak.map(thousandths));
+    out.extend(l.hash.map(thousandths));
+    let [k, least, most] = l.see_through.map(thousandths);
+    // opacity a metre, at the edge, at the most; and how fast the waves calm
+    // in the shallows (1 / calm depth)
+    out.extend([k, least, most, fx::div(ONE, (l.calm_cm * ONE / 100).max(1))]);
+    // shore foam: from and to (metres), strength, and the ripples' fade distance
+    out.extend([l.shore[0] * ONE / 1000, l.shore[1] * ONE / 1000, thousandths(l.shore[2]), l.detail_fade_m * ONE]);
+    let [spacing, per_km, from, to] = l.lod_waves;
+    out.extend([spacing * ONE / 100, per_km * ONE / 1000, thousandths(from), thousandths(to)]);
+    out
+}
+
+/// This frame's values, in `FRAME` order: the waves' phases at the last
+/// tick (the waves move a tick at a time, as the core floats things on
+/// them), the drifts, and the origin.
+pub fn frame_values(land: &crate::terrain::Land, s: &State, origin: V3) -> Vec<i32> {
+    let l = &land.waters.look;
+    let mut out: Vec<i32> = s.phase.iter().map(|p| (p >> 16) as i32).collect();
+    let period = l.noise_period.max(1) as i64;
+    let ticks = s.ticks as i64;
+    let tps = crate::ticks::TICKS_PER_SECOND as i64;
+    // the ripples drift uDetail.z lattice cells a second (thousandths)
+    let wrap = |speed_x1000: i64| ((ticks * speed_x1000 * ONE as i64 / 1000 / tps).rem_euclid(period * ONE as i64)) as i32;
+    let ripple = wrap(l.detail[2] as i64);
+    let foam = wrap(1000);
+    // the flow map's cycle: uFlowK.w seconds (thousandths) a turn
+    let cycle = (l.flow[3] as i64 * tps / 1000).max(1);
+    let phase = ((ticks.rem_euclid(cycle)) * ONE as i64 / cycle) as i32;
+    out.extend([ripple, foam, phase, (period * ONE as i64) as i32]);
+    out.extend([origin.x, origin.z]);
+    out
 }

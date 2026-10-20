@@ -43,6 +43,9 @@
     "_see_through": "how much more opaque a metre of water makes it, the least opacity at the edge, the most it ever has (thousandths)",
     "shore": [60, 220, 450],
     "_shore": "foam where the water is shallower than the first (mm), gone by the second, at this strength (thousandths)",
-    "lod_waves": [2000, 5000]
+    "lod_waves": [200, 3, 2000, 5000],
+    "_lod_waves": "a wave fades out as its length falls from the last but one to the last share (thousandths) of the spacing the eye can see: the mesh's (cm) plus metres for every km away",
+    "calm_cm": 30,
+    "_calm_cm": "the waves die away in water shallower than this"
   }
 }

@@ -54,7 +54,7 @@ use crate::fx::{self, Fx, ONE};
 use crate::geom::{v3, Affine, V3};
 use crate::look;
 use crate::prim::MeshId;
-use crate::render::{Pass, Shape, Shapes, FAR};
+use crate::render::{Group, Pass, Shape, Shapes, FAR};
 use crate::terrain::{Land, LodSpec};
 
 /// What a slot holds.
@@ -134,7 +134,28 @@ pub struct Detail {
     /// kept from frame to frame: the frame number each key was last wanted
     wanted: BTreeMap<Key, u64>,
     frame: u64,
+    /// what is drawn whole near and handed over by distance: the places'
+    /// props and the water's pieces
+    pub faded: Vec<Faded>,
+    water_built: bool,
+    /// under test, every mesh is kept too, for the flicker scan
+    kept: BTreeMap<u32, Vec<i32>>,
 }
+
+/// A group drawn by distance: whole inside `fade.0` of its centre, handed
+/// over through the dither to `fade.1`; a far one the other way, coming in
+/// as its near twin goes (both measured to one centre, so between them every
+/// pixel is drawn once).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Faded {
+    pub name: String,
+    pub centre: V3,
+    pub shapes: Vec<Shape>,
+    pub fade: (Fx, Fx),
+    pub far: bool,
+}
+
+pub const WATER: u8 = 1;
 
 /// A level's cell, Q16 metres.
 pub fn cell(level: u32) -> Fx {
@@ -177,6 +198,114 @@ impl Detail {
             drawn: Vec::new(),
             wanted: BTreeMap::new(),
             frame: 0,
+            faded: Vec::new(),
+            water_built: false,
+            kept: BTreeMap::new(),
+        }
+    }
+
+    /// The mesh table with every detail mesh kept so far after it, at its
+    /// id: what the flicker scan reads (only under test, where meshes are kept).
+    pub fn scan_table(&self, base: &crate::prim::MeshTable) -> crate::prim::MeshTable {
+        let mut t = base.clone();
+        let top = self.kept.keys().next_back().copied().unwrap_or(0);
+        for id in self.first..=top {
+            t.world.push(self.kept.get(&id).cloned().unwrap_or_default());
+        }
+        t
+    }
+
+    /// Takes the places' groups (`places::FADED`) out of the static ones to
+    /// draw by distance; returns the rest.
+    pub fn take_faded(&mut self, groups: Vec<Group>) -> Vec<Group> {
+        let mut rest = Vec::new();
+        for g in groups {
+            if g.name.starts_with(crate::places::FADED) {
+                self.faded.push(Faded {
+                    name: g.name.clone(),
+                    centre: g.centre,
+                    shapes: g.shapes.list,
+                    fade: crate::places::PROPS_TO,
+                    far: false,
+                });
+            } else {
+                rest.push(g);
+            }
+        }
+        rest
+    }
+
+    /// The water's pieces, built once into slots of their own.
+    fn build_water(&mut self, land: &Land) {
+        for (n, p) in crate::water::pieces(land).into_iter().enumerate() {
+            let key = Key {
+                kind: WATER,
+                level: 0,
+                i: n as i32,
+                j: 0,
+                part: 0,
+            };
+            self.put(
+                key,
+                Built {
+                    vertices: p.vertices,
+                    at: p.at,
+                    pass: Pass::Water,
+                },
+            );
+            let id = self.id_of(&key).unwrap_or(0);
+            self.faded.push(Faded {
+                name: p.name,
+                centre: p.centre,
+                shapes: vec![Shape {
+                    mesh: MeshId(id),
+                    at: p.at,
+                    rgb: [ONE; 3],
+                    value: ONE,
+                    pass: Pass::Water,
+                }],
+                fade: p.fade,
+                far: p.far,
+            });
+        }
+        self.water_built = true;
+    }
+
+    /// The faded groups' share of a frame.
+    fn faded_frame(&mut self, eye: V3, out: &mut Shapes) {
+        for f in &self.faded {
+            let d = to_square(eye.x as i64, eye.z as i64, f.centre.x as i64, f.centre.z as i64, 0);
+            let (a, b) = (f.fade.0 as i64, f.fade.1 as i64);
+            // t: the share of the way from near to far
+            let t = ((d - a) * ONE as i64 / (b - a).max(1)).clamp(0, ONE as i64) as Fx;
+            let (coming, going) = look::hand_over(t);
+            let fade = if f.far { coming } else if t == 0 { ONE } else { going };
+            // nothing to draw: a far piece not yet coming in, a near one gone
+            if (f.far && t == 0) || (!f.far && t == ONE) || (f.far && d > FAR as i64) {
+                continue;
+            }
+            for s in &f.shapes {
+                let mut s = *s;
+                if fade != ONE {
+                    // the share of pixels kept: a fade f ≥ 0 keeps f, below 0 keeps −f
+                    let keep = if fade >= 0 { fade } else { -fade };
+                    s = match s.pass {
+                        Pass::Solid => Shape {
+                            pass: Pass::Dither,
+                            value: fade,
+                            ..s
+                        },
+                        Pass::Dither | Pass::Ink | Pass::Water => Shape { value: fade, ..s },
+                        Pass::Shade | Pass::Glow => Shape {
+                            value: fx::mul(s.value, keep),
+                            ..s
+                        },
+                        Pass::Sky => s,
+                    };
+                }
+                out.push(s);
+                self.stats.drawn += 1;
+            }
         }
     }
 
@@ -224,6 +353,9 @@ impl Detail {
         };
         self.by_key.insert(key, index);
         let id = self.first + index as u32;
+        if cfg!(test) {
+            self.kept.insert(id, b.vertices.clone());
+        }
         // a slot taken again replaces what the page still had for it
         self.uploads.retain(|u| u.0 != id);
         self.uploads.push((id, b.vertices));
@@ -301,7 +433,11 @@ impl Detail {
     /// a few; the far ones forgotten.
     pub fn frame(&mut self, w: &crate::world::World, look: &crate::look::Look, eye: V3, out: &mut Shapes) {
         let _ = look;
+        if !self.water_built {
+            self.build_water(&w.land);
+        }
         self.terrain(&w.land, eye, out);
+        self.faded_frame(eye, out);
     }
 
     /// The terrain's part of a frame.
@@ -341,7 +477,7 @@ impl Detail {
         let stale: Vec<Key> = self
             .by_key
             .keys()
-            .filter(|k| self.wanted.get(k).copied() != Some(self.frame))
+            .filter(|k| k.kind == TERRAIN && self.wanted.get(k).copied() != Some(self.frame))
             .copied()
             .collect();
         for key in stale {
@@ -518,8 +654,10 @@ mod tests {
         assert!(d.stats.sync_builds > 0, "the first frame builds what it draws");
     }
 
-    /// Near the eye the cells are 2 m: inside 85% of level 0's ring every
-    /// point is drawn by a level 0 tile alone.
+    /// Near the eye the cells are 2 m: a level 1 tile is whole split inside
+    /// 85% of level 0's ring (217.6 m) to its middle, and holds points 90.5 m
+    /// from its middle (half its 128 m diagonal), so within 127 m every point
+    /// is drawn by a level 0 tile alone.
     #[test]
     fn two_metre_cells_reach_out_to_the_first_ring() {
         let l = land();
@@ -527,7 +665,7 @@ mod tests {
         let eye = v3(int(2000), int(2), int(2800));
         let mut out = Shapes::default();
         d.terrain(&l, eye, &mut out);
-        for (dx, dz) in [(0, 0), (150, 0), (0, -210), (-150, 150)] {
+        for (dx, dz) in [(0, 0), (126, 0), (0, -126), (-89, 89)] {
             let (px, pz) = (int(2000 + dx) as i64, int(2800 + dz) as i64);
             let levels: Vec<(u8, Fx)> = d
                 .drawn
