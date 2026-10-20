@@ -47,3 +47,24 @@ Merged main with M3 (models) and M4 (menus): health reaches M4's bars through `u
 
 Check: `./scripts/check.sh` passed all 9 steps on 2026-10-20 after merging M4 (223 tests by `./scripts/count-tests.sh`, 3 probes ignored; three engines). Breaks: `python3 scripts/break_tests.py` over M1's rows, the eight M0 rows M1 repaired and M4's full-health row: 55 of 55 caught.
 
+
+## 2026-10-20: M1 polish (task D2)
+
+Built:
+- **Bodies.** Ten capsules a body, sized to M3's figures (`blade::body`, R3.30). Bodies are kept apart capsule against capsule by an exact, mass-weighted pair shift that keeps momentum (R3.31). A guard held across the line keeps a walker off (R3.46).
+- **Blades and hands.** Every weapon is rails as M3 draws it, the cleaver's offset slab included. Weapons and hands are kept out of every body, their own included, with a 15 mm skin. They are swept so they cannot tunnel, then settled where another body is near (R3.23, R3.33, R3.34, R3.51).
+- **The blade's line** reads the mouse's path: overhead, side cut and thrust (R3.35).
+- **Reach.** Each foe keeps a band outside its own reach, steps in to attack and steps out to recover. Bandits use short swords; foes hold a middle guard to their left (R3.37 to R3.39, R3.49).
+- **Scabbard.** A scabbard on the left hip, with the draw and sheathe animated through it over 28 and 30 ticks (R3.40).
+- **Feel** (`feel.rs`): hit-stop, a camera knock, sparks, stagger, all decaying to nothing (R3.41).
+- **Death.** A fall onto the back with the weapon dropped and lying still. `World::player_down()` and `feel.downed` are M5's hooks (R3.42).
+- **Damage** is scaled to the faster cuts (R3.44).
+- **Staging.** Test duels move 30 m south, clear of the lantern (R3.43). New test act `duel.health` (R3.45). `tools/shoot.py` has eight D2 views.
+
+Check: `./scripts/check.sh` passed all 9 steps on 2026-10-20 (three engines); 242 tests by `./scripts/count-tests.sh` (3 probes ignored; M1: 223); `python3 scripts/break_tests.py M1`: 89 of 89 caught (M1's rows and D2's). Main had not moved since the M1 merge (`git merge main`: already up to date).
+
+Open: R3.37, R3.41 and R3.44 are first numbers for play. R3.50 needs a test that a blade pressed along a body takes no second blow.
+
+For the coordinator:
+- R3.30 copies M3's figure millimetres into `blade.rs`, and R3.40 copies M3's blade widths into the scabbard. A change to M3's sizes needs these changed too; a door from M3 giving the sizes would remove the copy.
+- The block view's spark is not caught in a still from the browser; the spark is covered by `blades_that_meet_throw_a_spark_that_burns_out`.

@@ -49,6 +49,19 @@ The machine: Sam's Mac, Apple M2 Max, macOS (Darwin 25.3). Frame budget (journal
 | Tip speed of a swing from a high guard to a low strike (one arm, a scratch probe over `arm::Arm`) | scratch probe, not kept | plain / committed: short sword 7.4 / 10.7 m/s, sword 6.4 / 9.4, cleaver 4.9 / 7.5; the blade holds its guard line to under 1° at rest | 2026-10-20, M1 |
 | A still fighter settling after a walk | scratch probe | every point still (under 0.37 mm a tick, then held exactly) within about a second (R3.7) | 2026-10-20, M1 |
 
+## M1 polish (task D2)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| The core's tick with eight fighters (the raid), native release | `cargo test --release -p tool_core --test frame_probe -- --ignored --nocapture` (`probe_raid_tick_cost`) | 0.466 ms mean, 1.121 ms worst over 600 ticks (M1: 0.143 / 0.362), against the core's 2 ms (CW-11): the fences, the sweep against every body and the separation's capsules | 2026-10-20, D2 |
+| One frame, one fighter, native release | same command, `probe_frame_cost` | 0.063 ms mean, 0.109 ms worst; start 5.0 ms | 2026-10-20, D2 |
+| How deep a blade or hand sits in a body at a tick's end, over 3 600 ticks of recorded duels (an orc, a bandit, a leader, three bandits) | `no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel` (a scratch count over the same duels) | worst 21 units (0.3 mm) into the 15 mm skin the fences keep, so never inside a capsule (M1: a cleaver sat through the player's head) | 2026-10-20, D2 |
+| How deep two bodies' trunks and legs sink into each other over a shove, a duel and a group | `no_two_bodies_sink_into_each_other_in_a_shove_a_duel_or_a_group` | worst 1 unit; bound 200 (3 mm) | 2026-10-20, D2 |
+| Reach, shoulder to tip at full stretch | `a_fighter_s_reach_is_its_arm_at_full_stretch_and_its_blade` | player and short sword 1.388 m, orc and cleaver 1.435, bandit and short sword 1.405, leader and sword 1.771 | 2026-10-20, D2 |
+| Where an orc keeps to against a still player | a scratch run over `pilot::decide` | holds 158 to 188 cm, lunges to about 125, back at 165 after each attack | 2026-10-20, D2 |
+| A side cut and an overhead through the arm | `an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path` (a scratch print of the tip) | side cut: 2.5 m across, within 9 cm of one height; the edge meets a body at 10 to 13 m/s | 2026-10-20, D2 |
+| A guard held at a body walking into it | `a_body_cannot_walk_into_a_blade_held_at_it` | the walker held 1.37 m off a still orc | 2026-10-20, D2 |
+
 ## Not measured
 
 - The headroom under 16.7 ms on Metal: requestAnimationFrame is held to the display's 60 Hz, and the page keeps no timer of its own. A GPU timer query (`EXT_disjoint_timer_query_webgl2`) in a probe would give it.
