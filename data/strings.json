@@ -150,6 +150,7 @@
   "look_speed": "Look speed",
   "mouse_sensitivity": "Mouse sensitivity",
   "invert_y": "Invert Y",
+  "blood": "Blood",
   "volume": "Volume",
   "on": "On",
   "off": "Off",
@@ -192,5 +193,6 @@
   "trainer_again": "Not yet. Watch the pattern, and swing through each orb as it comes.",
   "trainer_pass_1": "That is it. You turned them yourself.",
   "trainer_pass_2": "The imbue is yours now. Press Q and your sword turns magic for a while; then it needs time before the next.",
-  "trainer_done": "Keep the blade moving. Magic does not wait for you."
+  "trainer_done": "Keep the blade moving. Magic does not wait for you.",
+  "wound_take_up": "X · Take up your sword in your other hand"
 }

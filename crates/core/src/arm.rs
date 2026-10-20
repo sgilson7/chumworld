@@ -1157,6 +1157,8 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
             f.health.fall(),
             w.ground(b.pos.x, b.pos.z),
         );
+        // M7 (P4): the weapon in the left hand once it has changed hands
+        let frame = crate::wounds::sided(f, frame);
         let near = fences_of(w, id, &caps, false);
         let f = player::parts_mut(w, id).1;
         f.sheath = sheath;

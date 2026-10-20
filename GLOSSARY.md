@@ -18,6 +18,12 @@ Not: tap, dispenser, nozzle
 
 Wraps a wound and gives back {bandage.heals} health. The merchant sells them.
 
+### Blood
+
+What a hit sheds: faceted drops that fly from the cut and mark the ground, then fade. A setting turns it off.
+
+Not: claret
+
 ### Boomerang
 
 A weapon thrown from the free hand. It flies an arc up to {boomerang.reach} metres out and comes back. It lies in the chest at the bandit camp.

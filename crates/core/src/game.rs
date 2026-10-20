@@ -182,6 +182,8 @@ impl Game {
                 let duel = crate::player::hud_stamp(&self.world);
                 // M5: the story's line, the prompt and the fade
                 let story = crate::story::stamp(&self.world);
+                // M7 (P4): the line for taking up a dropped weapon
+                let wound = crate::wounds::stamp(&self.world);
                 for (k, b) in ticks.iter().enumerate() {
                     // M4: Tab and M open the menu ring before the tick runs
                     if let Some(face) = crate::ui::menu_pressed(&mut self.menu, *b) {
@@ -205,6 +207,7 @@ impl Game {
                 if hinted != self.hint_shown()
                     || duel != crate::player::hud_stamp(&self.world)
                     || story != crate::story::stamp(&self.world)
+                    || wound != crate::wounds::stamp(&self.world)
                 {
                     self.ui_version += 1;
                 }

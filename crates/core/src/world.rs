@@ -112,6 +112,8 @@ pub struct World {
     // M6: the orbs in flight and the casts under way; the imbue
     pub orbs: crate::orbs::State,
     pub imbue: crate::imbue::State,
+    // M7 (P4): blood in flight and on the ground, parts taken off, the cues
+    pub wounds: crate::wounds::State,
 }
 
 impl World {
@@ -148,7 +150,8 @@ impl World {
             // M6
             orbs: crate::orbs::State::default(),
             imbue: crate::imbue::State::default(),
-            solid: std::rc::Rc::default(), // M5: below
+            wounds: crate::wounds::State::default(), // M7 (P4)
+            solid: std::rc::Rc::default(),           // M5: below
             story: crate::story::State::default(),
             merchant: crate::merchant::State::default(),
             camp: crate::camp::State::default(),
@@ -183,6 +186,7 @@ impl World {
         if self.feel.stop > 0 {
             crate::feel::hold(self, input);
             crate::orbs::hold(self); // M6: the orbs hold still too
+            crate::wounds::hold(self); // M7 (P4): and the blood and pieces
             crate::ui::step(self);
             return;
         }
@@ -202,6 +206,8 @@ impl World {
         // 3. bodies (M1: motion; M5: walls, the bridge's deck, the house's floor)
         crate::motion::step(self, input, &inputs);
         crate::solid::step(self);
+        // M7 (P4): wounds tick; a dropped weapon settles or is taken up
+        crate::wounds::steer(self, input, &inputs);
         // 4. M1:
         crate::arm::step(self, input, &inputs);
         crate::blade::step(self);
@@ -210,6 +216,8 @@ impl World {
                                  // 5. M1/M5: throwables, the boomerang
         crate::throwables::step(self, input, &inputs);
         crate::boomerang::step(self, input);
+        // M7 (P4): blood flies and lands, parts taken off fall and rest
+        crate::wounds::step(self);
         crate::player::finish(self, input, &inputs);
         crate::pilot::remember(self);
         // 6. M6: the imbue (Q), then the orbs, which the imbued edge turns
@@ -229,8 +237,9 @@ impl World {
         crate::player::draw(self, alpha, look, out);
         crate::throwables::draw(self, alpha, look, out);
         crate::feel::draw(self, alpha, look, out); // M1:
-                                                   // M5: the player's house and bed, villagers, pickups, the cart, the
-                                                   // chest, the boomerang
+        crate::wounds::draw(self, alpha, look, out); // M7 (P4):
+                                                     // M5: the player's house and bed, villagers, pickups, the cart, the
+                                                     // chest, the boomerang
         crate::story::draw(self, alpha, look, out);
         crate::boomerang::draw(self, alpha, look, out);
         crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
@@ -257,6 +266,8 @@ impl World {
         // (M1's health reaches the HUD through `ui::health` and `ui::foe`)
         // M5: the story's line, the prompt for E, the fade
         crate::story::hud(self, strings, out);
+        // M7 (P4): taking up a dropped weapon in the other hand
+        crate::wounds::hud(self, strings, out);
     }
 
     /// A setting or flag named `module.name`.
@@ -278,6 +289,7 @@ impl World {
             Some(("trainer", rest)) => crate::trainer::act(self, rest, value),
             Some(("merchant", rest)) => crate::merchant::act(self, rest, value),
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
+            Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

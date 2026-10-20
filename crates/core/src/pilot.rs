@@ -90,6 +90,15 @@ pub enum Cond {
     Chance(u32),
     /// the one I fight is down
     FoeDown,
+    /// M7 (P4): my weapon has dropped from my hand
+    Unarmed,
+    /// my weapon has dropped and I have a whole hand to take it up in
+    CanTakeUp,
+    /// my dropped weapon lies within this of my feet
+    WeaponWithin(i32),
+    /// the arm that holds my weapon is lost, or a leg
+    LostSwordArm,
+    LostLeg,
 }
 
 /// What a rule does: a move the pilot plays for some ticks.
@@ -114,6 +123,10 @@ pub enum Move {
     BackOff,
     /// M6's hook: the leader's pattern. Until then it guards.
     Cast,
+    /// M7 (P4): go to my dropped weapon and take it up in the other hand
+    TakeUp,
+    /// turn and run from the one I fight
+    RunAway,
 }
 
 impl Move {
@@ -525,6 +538,19 @@ fn holds(c: &Cond, v: &View, rng: &mut Rng) -> bool {
         }
         Cond::Chance(pct) => rng.below(100) < *pct,
         Cond::FoeDown => v.they.down,
+        Cond::Unarmed => v.f.health.limbs.loose,
+        Cond::CanTakeUp => {
+            let l = &v.f.health.limbs;
+            l.loose && !l.prone && !crate::wounds::arm_lost(l.lost, 1 - l.sword_side())
+        }
+        Cond::WeaponWithin(c) => {
+            v.f.health.limbs.loose && v.f.arm.grip_point().sub(v.me.feet).len_xz() < cm(*c)
+        }
+        Cond::LostSwordArm => {
+            let l = &v.f.health.limbs;
+            crate::wounds::arm_lost(l.lost, l.sword_side())
+        }
+        Cond::LostLeg => crate::wounds::legs_lost(v.f.health.limbs.lost) > 0,
     }
 }
 
@@ -595,6 +621,19 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
         Move::BackOff if t <= 20 => plain(GUARD, input::BACK),
         Move::Flee if t <= 48 => plain((-20, -30, 60), input::BACK | side_key),
         Move::Throw if t <= 14 => plain(GUARD, if t == 0 { input::THROW } else { 0 }),
+        // M7 (P4): to the weapon, then the draw key on it, every other tick
+        Move::TakeUp if t <= 120 => {
+            if crate::wounds::can_take_up(v.w, v.id) {
+                plain(GUARD, if t.is_multiple_of(2) { input::DRAW } else { 0 })
+            } else if v.f.health.limbs.take_up > 0 {
+                plain(GUARD, 0)
+            } else if v.f.health.limbs.loose {
+                plain(GUARD, toward(v, v.f.arm.grip_point()))
+            } else {
+                return None;
+            }
+        }
+        Move::RunAway if t <= 60 => plain(GUARD, input::BACK | input::RUN | side_key),
         Move::Ring if t <= 40 => {
             let gap = v.gap_cm();
             let keys = if gap > 900 {
@@ -633,6 +672,31 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
         },
         _ => return None,
     })
+}
+
+/// The movement keys that walk a pilot toward `at`: its keys turn by the way
+/// it looks (`player::look_yaw`), as the player's turn by the camera's.
+fn toward(v: &View, at: V3) -> u32 {
+    let d = at.sub(v.me.feet);
+    let d = crate::geom::v3(d.x, 0, d.z).norm();
+    let yaw = v.f.look_yaw;
+    let (ahead, right) = (
+        d.dot(crate::geom::facing(yaw, 0)),
+        d.dot(crate::geom::right_of(yaw)),
+    );
+    let lean = ONE * 38 / 100;
+    let mut keys = 0;
+    if ahead > lean {
+        keys |= input::FORWARD;
+    } else if ahead < -lean {
+        keys |= input::BACK;
+    }
+    if right > lean {
+        keys |= input::RIGHT;
+    } else if right < -lean {
+        keys |= input::LEFT;
+    }
+    keys
 }
 
 /// Where to put the hand to block: on the line from the sword shoulder to

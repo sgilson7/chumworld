@@ -1,5 +1,5 @@
 {
-  "_note": "Each kind of foe and the behaviour trees they duel with (crates/core/src/pilot.rs). A tree is checked every 6 ticks on the duel as it was reaction_ticks ago; the first rule whose conditions all hold picks a move, and the move plays until it ends. A rule marked interrupt may break into a move under way, but never into a committed swing. Distances are centimetres, speeds centimetres a second, shares percent. hand_px is how far the pilot moves its mouse a tick, strike_px in a swing. keep_cm is the band a foe keeps to in a duel, that far outside its own reach (pilot::reach, shoulder to tip at full stretch: an orc's cleaver 144 cm, a bandit's short sword 140, the leader's sword 177); beyond_reach and within_reach count from the same reach. An attack steps in to 10 cm inside its reach and steps back out to the band after. The others in a group, all but the one nearest the player, run the ring tree.",
+  "_note": "Each kind of foe and the behaviour trees they duel with (crates/core/src/pilot.rs). A tree is checked every 6 ticks on the duel as it was reaction_ticks ago; the first rule whose conditions all hold picks a move, and the move plays until it ends. A rule marked interrupt may break into a move under way, but never into a committed swing. Distances are centimetres, speeds centimetres a second, shares percent. hand_px is how far the pilot moves its mouse a tick, strike_px in a swing. keep_cm is the band a foe keeps to in a duel, that far outside its own reach (pilot::reach, shoulder to tip at full stretch: an orc's cleaver 144 cm, a bandit's short sword 140, the leader's sword 177); beyond_reach and within_reach count from the same reach. An attack steps in to 10 cm inside its reach and steps back out to the band after. The others in a group, all but the one nearest the player, run the ring tree. M7 (wounds, T9): a foe whose sword hand is lost drops its weapon (unarmed); with the other hand whole it can take it up (can_take_up, weapon_within) and fights on with it, weaker. Orcs take theirs up when near and otherwise keep coming; bandits run; the leader goes back for its sword and switches hands.",
   "kinds": {
     "orc": {
       "held": "cleaver",
@@ -41,6 +41,8 @@
   "trees": {
     "orc": [
       { "if": ["foe_down"], "do": "guard" },
+      { "if": ["can_take_up", { "weapon_within": 400 }], "do": "take_up", "interrupt": true },
+      { "if": ["unarmed"], "do": "close_in", "interrupt": true },
       { "if": [{ "beyond_reach": 100 }], "do": "close_in" },
       { "if": [{ "swing_coming": 500 }, { "chance": 40 }], "do": "block", "interrupt": true },
       { "if": [{ "within_reach": 60 }, { "chance": 35 }], "do": "attack", "interrupt": true },
@@ -48,6 +50,9 @@
     ],
     "bandit": [
       { "if": ["foe_down"], "do": "guard" },
+      { "if": ["lost_sword_arm"], "do": "run_away", "interrupt": true },
+      { "if": ["unarmed"], "do": "run_away", "interrupt": true },
+      { "if": ["lost_leg"], "do": "flee", "interrupt": true },
       { "if": [{ "hurt_below": 25 }], "do": "flee" },
       { "if": ["has_throwable", { "gap_above": 550 }, { "gap_below": 1500 }], "do": "throw" },
       { "if": [{ "beyond_reach": 100 }], "do": "close_in" },
@@ -59,6 +64,8 @@
     ],
     "leader": [
       { "if": ["foe_down"], "do": "guard" },
+      { "if": ["can_take_up", { "weapon_within": 900 }], "do": "take_up", "interrupt": true },
+      { "if": ["unarmed"], "do": "back_off", "interrupt": true },
       { "if": ["has_throwable", { "gap_above": 700 }, { "gap_below": 1500 }, { "chance": 50 }], "do": "throw" },
       { "if": [{ "beyond_reach": 100 }], "do": "close_in" },
       { "if": [{ "tip_near_head": 35 }], "do": "raise_guard", "interrupt": true },
@@ -69,6 +76,7 @@
     ],
     "ring": [
       { "if": ["foe_down"], "do": "guard" },
+      { "if": ["unarmed"], "do": "run_away", "interrupt": true },
       { "if": ["has_throwable", { "gap_above": 500 }, { "gap_below": 1500 }, { "chance": 30 }], "do": "throw" },
       { "do": "ring" }
     ]

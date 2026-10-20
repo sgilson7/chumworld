@@ -136,6 +136,12 @@ pub fn figure_dressed(kind: Kind, pose: &Pose, dress: Dress, look: &Look, out: &
     figure::shadow(kind, pose, look, out);
 }
 
+/// The soft shadow `figure_dressed` lays under a figure, alone (M7's
+/// `wounds::figure` draws the figure's parts itself).
+pub fn figure_shadow(kind: Kind, pose: &Pose, look: &Look, out: &mut Shapes) {
+    figure::shadow(kind, pose, look, out);
+}
+
 /// Draws what a hand holds from its grip (the middle of the hilt, where
 /// the hands close) to its tip.
 pub fn held(item: Held, grip: V3, tip: V3, look: &Look, out: &mut Shapes) {
