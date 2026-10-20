@@ -1,11 +1,13 @@
 #version 300 es
 // One shape: the mesh vertex placed by the instance's three columns and
 // translation (iA, iB, iC; translation in .w), coloured by iD (rgb, and in
-// .a the pass's own value). Every value arrives as the core's Q16 integer
-// and is scaled by uQ. No number lives here: the pass flags, the biases and
-// the scale are uniforms from the core (crates/core/src/look.rs, render.rs).
+// .a the pass's own value), in metres, as floats from the shim. No number
+// lives here: the pass flags and the biases are uniforms from the core
+// (crates/core/src/look.rs, render.rs).
 in vec3 aPos;
 in vec3 aNormal;
+// the vertex's own colour: white on a primitive, a facet's colour on a world mesh
+in vec3 aColor;
 in vec4 iA;
 in vec4 iB;
 in vec4 iC;
@@ -27,18 +29,18 @@ out vec3 vNormal;
 out vec4 vColor;
 out vec3 vLocal;
 void main() {
-  vec3 a = iA.xyz * uQ;
-  vec3 b = iB.xyz * uQ;
-  vec3 c = iC.xyz * uQ;
-  vec3 t = vec3(iA.w, iB.w, iC.w) * uQ;
-  vec3 p = aPos * uQ;
-  vec3 n = aNormal * uQ;
+  vec3 a = iA.xyz;
+  vec3 b = iB.xyz;
+  vec3 c = iC.xyz;
+  vec3 t = vec3(iA.w, iB.w, iC.w);
+  vec3 p = aPos;
+  vec3 n = aNormal;
   vec3 w = a * p.x + b * p.y + c * p.z + t;
   // the columns carry a scale that differs by axis, so normals take the
   // inverse scale: each axis divided by its column's squared length
   vNormal = a * (n.x / dot(a, a)) + b * (n.y / dot(b, b)) + c * (n.z / dot(c, c));
   vWorld = w;
-  vColor = iD * uQ;
+  vColor = vec4(iD.rgb * aColor, iD.a);
   vLocal = p;
   gl_Position = uVP * vec4(w - uEye, 1.0);
   gl_Position.z += (uModeA.y * uBias.x - (uModeA.z + uModeB.x) * uBias.y) * uQ * gl_Position.w;

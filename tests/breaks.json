@@ -357,6 +357,13 @@
     "test": "the_capsule_is_round_ended_and_its_normals_point_out"
   },
   {
+    "name": "a world mesh is numbered after the primitives",
+    "file": "crates/core/src/prim.rs",
+    "find": "        MeshId((Mesh::ALL.len() + self.world.len() - 1) as u32)",
+    "replace": "        MeshId(self.world.len() as u32 - 1)",
+    "test": "a_world_mesh_is_numbered_after_the_primitives_and_read_back"
+  },
+  {
     "name": "every uniform gets its values",
     "file": "crates/core/src/look.rs",
     "find": "        out.push(fx::int(BAYER_SIZE));",

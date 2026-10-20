@@ -7,7 +7,7 @@
 //! faces in one plane are swept in order along one axis, so ground made of
 //! tens of thousands of coplanar triangles scans in a moment.
 //!
-//! A face is one triangle of a flat-sided mesh (`prim::Mesh::flat_faced`)
+//! A face is one triangle of a flat-sided mesh (`prim::MeshTable::flat_faced`)
 //! drawn as an opaque solid, placed. Two faces fight when they face the same
 //! way, overlap by more than `MIN_AREA`, differ in colour, value or pass
 //! (same-coloured faces in one plane fight invisibly), and their planes are
@@ -32,7 +32,7 @@ use std::collections::BTreeMap;
 use crate::fx::{Fx, ONE};
 use crate::geom::{v3, Affine, V3};
 use crate::look::Rgb;
-use crate::prim::{self, Mesh};
+use crate::prim::{self, Mesh, MeshId, MeshTable};
 use crate::render::{self, Pass, Scene, INSTANCE_VALUES};
 
 /// Planes nearer than this are one plane wherever they are seen from (two
@@ -45,7 +45,7 @@ const SAME_WAY: i64 = (ONE as i64) - (ONE as i64) / 5000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Inst {
-    pub mesh: Mesh,
+    pub mesh: MeshId,
     pub at: Affine,
     pub rgb: Rgb,
     pub value: Fx,
@@ -134,8 +134,8 @@ fn solid(s: &Inst) -> bool {
 fn closed(s: &Inst) -> bool {
     solid(s)
         && matches!(
-            s.mesh,
-            Mesh::Cube | Mesh::Cyl | Mesh::Sphere | Mesh::Blob | Mesh::Capsule
+            s.mesh.prim(),
+            Some(Mesh::Cube | Mesh::Cyl | Mesh::Sphere | Mesh::Blob | Mesh::Capsule)
         )
 }
 
@@ -143,14 +143,14 @@ fn closed(s: &Inst) -> bool {
 /// centimetre) is a sliver.
 const SLIVER: i128 = (ONE as i128) * (ONE as i128) / 10_000;
 
-fn faces(insts: &[Inst]) -> Vec<Face> {
-    let mut meshes: BTreeMap<Mesh, Vec<i32>> = BTreeMap::new();
+fn faces(insts: &[Inst], table: &MeshTable) -> Vec<Face> {
+    let mut meshes: BTreeMap<MeshId, Vec<i32>> = BTreeMap::new();
     let mut out = Vec::new();
     for (i, s) in insts.iter().enumerate() {
-        if !s.mesh.flat_faced() || !solid(s) {
+        if !table.flat_faced(s.mesh) || !solid(s) {
             continue;
         }
-        let vs = meshes.entry(s.mesh).or_insert_with(|| prim::vertices(s.mesh));
+        let vs = meshes.entry(s.mesh).or_insert_with(|| table.vertices(s.mesh));
         let stride = prim::VERTEX_VALUES;
         for t in vs.chunks(stride * 3) {
             let p = |k: usize| place(&s.at, (t[k * stride], t[k * stride + 1], t[k * stride + 2]));
@@ -201,9 +201,9 @@ fn inside(s: &Inst, p: P3) -> bool {
     }
     let half = (ONE / 2) as i128;
     let quarter = half * half;
-    match s.mesh {
-        Mesh::Cube => local.iter().all(|l| l.abs() < half),
-        Mesh::Cyl => local[1].abs() < half && local[0] * local[0] + local[2] * local[2] < quarter,
+    match s.mesh.prim() {
+        Some(Mesh::Cube) => local.iter().all(|l| l.abs() < half),
+        Some(Mesh::Cyl) => local[1].abs() < half && local[0] * local[0] + local[2] * local[2] < quarter,
         _ => local.iter().map(|l| l * l).sum::<i128>() < quarter,
     }
 }
@@ -322,7 +322,7 @@ impl Seen {
 }
 
 /// Every pair of instances that fight, with the area they share.
-pub fn fights(insts: &[Inst], seen: &Seen) -> Vec<Fight> {
+pub fn fights(insts: &[Inst], table: &MeshTable, seen: &Seen) -> Vec<Fight> {
     let bottom = seen.bottom;
     // the widest gap the depth buffer cannot tell apart, short of the far plane
     let window = if seen.eyes.is_empty() {
@@ -330,7 +330,7 @@ pub fn fights(insts: &[Inst], seen: &Seen) -> Vec<Fight> {
     } else {
         PLANE_TOL.max(Seen::apart(seen.far as i64))
     };
-    let all = faces(insts);
+    let all = faces(insts, table);
     let boxes: Vec<usize> = (0..insts.len()).filter(|&k| closed(&insts[k])).collect();
     // faces facing one way, by plane
     let q = |x: i64| (x * 64 + (ONE as i64) / 2).div_euclid(ONE as i64);
@@ -519,7 +519,7 @@ mod tests {
 
     fn cube(at: V3, size: V3, rgb: Rgb) -> Inst {
         Inst {
-            mesh: Mesh::Cube,
+            mesh: Mesh::Cube.into(),
             at: Affine::translate(at).then(&Affine::scale(size)),
             rgb,
             value: 0,
@@ -532,7 +532,7 @@ mod tests {
         let floor = cube(v3(0, -ONE / 2, 0), v3(int(4), ONE, int(4)), [ONE, 0, 0]);
         // a rug flush with the floor's top
         let rug = cube(v3(0, -ONE / 20, 0), v3(int(2), ONE / 10, int(2)), [0, ONE, 0]);
-        let f = fights(&[floor.clone(), rug], &Seen::near());
+        let f = fights(&[floor.clone(), rug], &MeshTable::default(), &Seen::near());
         assert_eq!(f.len(), 1, "a rug flush with the floor fights it: {f:?}");
         // the overlap is the rug's top, 2 m by 2 m
         assert!(
@@ -545,7 +545,7 @@ mod tests {
             [0, ONE, 0],
         );
         assert!(
-            fights(&[floor, lifted], &Seen::near()).is_empty(),
+            fights(&[floor, lifted], &MeshTable::default(), &Seen::near()).is_empty(),
             "two centimetres up, it does not"
         );
     }
@@ -554,18 +554,26 @@ mod tests {
     fn a_band_in_a_walls_side_fights_and_one_colour_a_halo_or_a_crevice_does_not() {
         let wall = cube(v3(0, 0, 0), v3(int(2), int(2), int(2)), [ONE, 0, 0]);
         let band = cube(v3(0, 0, 0), v3(int(2), ONE / 5, int(3)), [0, 0, ONE]);
-        assert_eq!(fights(&[wall.clone(), band.clone()], &Seen::near()).len(), 1);
+        assert_eq!(
+            fights(
+                &[wall.clone(), band.clone()],
+                &MeshTable::default(),
+                &Seen::near()
+            )
+            .len(),
+            1
+        );
         let halo = Inst {
             pass: Pass::Glow,
             ..band
         };
         assert!(
-            fights(&[wall.clone(), halo], &Seen::near()).is_empty(),
+            fights(&[wall.clone(), halo], &MeshTable::default(), &Seen::near()).is_empty(),
             "the shader settles a halo"
         );
         let twin = cube(v3(0, ONE / 2, 0), v3(int(2), int(1), int(2)), [ONE, 0, 0]);
         assert!(
-            fights(&[wall, twin], &Seen::near()).is_empty(),
+            fights(&[wall, twin], &MeshTable::default(), &Seen::near()).is_empty(),
             "one colour in one plane shows no fight"
         );
         // two crates' backs against a wall, in one plane, face into it
@@ -573,11 +581,11 @@ mod tests {
         let a = cube(v3(-ONE, ONE, 0), v3(int(2), int(2), int(2)), [ONE, ONE, 0]);
         let b = cube(v3(-ONE / 2, ONE * 3 / 4, 0), v3(ONE, ONE, ONE), [0, ONE, ONE]);
         assert!(
-            !fights(&[a.clone(), b.clone()], &Seen::near()).is_empty(),
+            !fights(&[a.clone(), b.clone()], &MeshTable::default(), &Seen::near()).is_empty(),
             "alone, their backs fight"
         );
         assert!(
-            fights(&[back, a, b], &Seen::near()).is_empty(),
+            fights(&[back, a, b], &MeshTable::default(), &Seen::near()).is_empty(),
             "backs pressed on a wall are never seen"
         );
     }
@@ -586,7 +594,7 @@ mod tests {
     fn planes_apart_fight_only_where_the_depth_buffer_cannot_tell_them_apart() {
         // two squares 5 mm apart: told apart from 10 m, not from 10 km
         let sq = |y: i32, c: Rgb| Inst {
-            mesh: Mesh::Square,
+            mesh: Mesh::Square.into(),
             at: Affine::translate(v3(0, y, 0)).then(&Affine::scale(v3(int(50), ONE, int(50)))),
             rgb: c,
             value: 0,
@@ -598,12 +606,12 @@ mod tests {
             eyes: vec![v3(0, int(10), 0)],
             far: render::FAR,
         };
-        assert!(fights(&pair, &near).is_empty());
+        assert!(fights(&pair, &MeshTable::default(), &near).is_empty());
         let far = Seen {
             eyes: vec![v3(0, int(10_000), 0)],
             ..near
         };
-        assert_eq!(fights(&pair, &far).len(), 1);
+        assert_eq!(fights(&pair, &MeshTable::default(), &far).len(), 1);
     }
 
     #[test]
@@ -624,7 +632,14 @@ mod tests {
     fn the_static_scene_draws_no_two_surfaces_in_one_plane() {
         let g = crate::game::tests::game();
         let insts = instances(&g.scene);
-        assert!(insts.len() > 10_000, "{}", insts.len());
+        let tris: usize = insts
+            .iter()
+            .map(|i| g.meshes.vertices(i.mesh).len() / (3 * prim::VERTEX_VALUES))
+            .sum();
+        assert!(
+            tris > 15_000,
+            "the scan reads the ground's triangles, {tris} in all"
+        );
         let start = crate::world::START;
         let mut eyes = Vec::new();
         for dx in [-60, 0, 60] {
@@ -637,7 +652,7 @@ mod tests {
             eyes,
             far: render::FAR,
         };
-        let f = fights(&insts, &seen);
+        let f = fights(&insts, &g.meshes, &seen);
         let report: Vec<String> = f.iter().take(8).map(|x| describe(&insts, x)).collect();
         assert!(f.is_empty(), "{} pairs fight:\n{}", f.len(), report.join("\n"));
     }

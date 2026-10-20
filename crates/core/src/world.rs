@@ -30,9 +30,13 @@
 //!   Shapes)` for what moves, called from `World::draw`: push shapes in world
 //!   coordinates, placed `alpha` of the way between the last two ticks
 //!   (`prev.lerp(now, alpha)`), in a fixed order (CW-18).
-//! - **Scene.** `pub fn scene(w: &World, look: &Look, out: &mut Vec<Group>)`
-//!   for what never moves, called from `World::scene`: one `Group` per place,
-//!   with a centre and a radius that holds it.
+//! - **Scene.** `pub fn scene(w: &World, look: &Look, meshes: &mut
+//!   MeshTable, out: &mut Vec<Group>)` for what never moves, called from
+//!   `World::scene`: one `Group` per place, with a centre and a radius that
+//!   holds it. Many triangles that never move (ground, terrain, a house's
+//!   walls) go in one mesh the module builds (`MeshTable::add`, a colour per
+//!   vertex) and are drawn as one shape: a software renderer draws a few
+//!   frames a second when they are thousands of instances.
 //! - **Screen.** `pub fn hud(w: &World, s: &Strings, out: &mut Vec<HudItem>)`
 //!   for lines over the game, called from `World::hud`; M4's `ui.rs` adds
 //!   panels in `api::ui`. Text comes from `data/strings.json` by key.
@@ -47,6 +51,7 @@ use crate::input::{Input, Mouse};
 use crate::look::Look;
 use crate::page::Strings;
 use crate::player::Body;
+use crate::prim::MeshTable;
 use crate::render::{Group, Shapes};
 use crate::rng::Rng;
 
@@ -122,10 +127,10 @@ impl World {
         // M1: crate::arm::draw(self, alpha, look, out); …
     }
 
-    /// What never moves: the static groups.
-    pub fn scene(&self, look: &Look) -> Vec<Group> {
+    /// What never moves: the static groups, and the meshes they draw.
+    pub fn scene(&self, look: &Look, meshes: &mut MeshTable) -> Vec<Group> {
         // M2: replace the test field with terrain, scatter and places
-        crate::field::groups(look, START)
+        crate::field::groups(look, START, meshes)
         // M2/M5: crate::places::scene(self, look, &mut out); …
     }
 

@@ -2,8 +2,7 @@
 // Spheres' (instanced, one draw per mesh and pass). It uploads what the core
 // returns and draws it; every size, stride, offset, pass state and uniform
 // name comes from the core's numbers(), so this file holds no layout and no
-// rule of its own. Meshes and instances are the core's Q16 integers, read as
-// integer attributes and scaled in the shader by a uniform the core sends.
+// rule of its own. Meshes and instances arrive as floats from the shim.
 //
 // The draw list names a depth layer for each draw: when the layer changes,
 // the depth buffer is cleared and that layer's matrix set (the core draws
@@ -31,7 +30,7 @@ function link(gl, vertexSource, fragmentSource) {
 }
 
 // Returns null when the browser has no WebGL 2; the page then says so.
-export function makeRenderer(canvas, N, shaders, meshData) {
+export function makeRenderer(canvas, N, shaders, meshList, meshData) {
   const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, powerPreference: "high-performance" });
   if (!gl) return null;
 
@@ -46,7 +45,7 @@ export function makeRenderer(canvas, N, shaders, meshData) {
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
-  const meshes = N.meshes.map((m) => {
+  const meshes = meshList.map((m) => {
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, meshData(m.id), gl.STATIC_DRAW);
@@ -144,11 +143,11 @@ export function makeRenderer(canvas, N, shaders, meshData) {
         const mesh = meshes[meshId];
         gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buffer);
         for (const a of vertexAttributes) {
-          gl.vertexAttribPointer(a.loc, a.size, gl.INT, false, N.vertex.stride, a.offset);
+          gl.vertexAttribPointer(a.loc, a.size, gl.FLOAT, false, N.vertex.stride, a.offset);
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, buffers[buffer]);
         for (const a of instanceAttributes) {
-          gl.vertexAttribPointer(a.loc, a.size, gl.INT, false, N.instance.stride, a.offset + byteOffset);
+          gl.vertexAttribPointer(a.loc, a.size, gl.FLOAT, false, N.instance.stride, a.offset + byteOffset);
         }
         gl.drawArraysInstanced(gl.TRIANGLES, 0, mesh.vertices, count);
       }

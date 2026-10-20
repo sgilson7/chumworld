@@ -19,7 +19,7 @@ use serde::Serialize;
 use crate::game::{Game, Screen};
 use crate::input;
 use crate::look;
-use crate::prim::{self, Mesh};
+use crate::prim::{self, MeshId};
 use crate::render;
 use crate::world::HudItem;
 
@@ -190,13 +190,9 @@ pub fn numbers() -> String {
     let vec4 = 4 * b;
     serde_json::json!({
         "actions": input::ACTIONS.iter().map(|(n, bit)| (n.to_string(), serde_json::json!(bit))).collect::<serde_json::Map<_, _>>(),
-        "meshes": Mesh::ALL.iter().map(|m| serde_json::json!({
-            "id": *m as u32,
-            "vertices": prim::vertices(*m).len() / prim::VERTEX_VALUES,
-        })).collect::<Vec<_>>(),
         "vertex": {
             "stride": prim::VERTEX_VALUES * b,
-            "attributes": [["aPos", 3, 0], ["aNormal", 3, 3 * b]],
+            "attributes": [["aPos", 3, 0], ["aNormal", 3, 3 * b], ["aColor", 3, 6 * b]],
         },
         "instance": {
             "stride": render::INSTANCE_VALUES * b,
@@ -212,19 +208,28 @@ pub fn numbers() -> String {
     .to_string()
 }
 
-/// One mesh's vertex values by id (its place in `Mesh::ALL`); none for an
-/// id past the end.
-pub fn mesh(id: u32) -> Vec<i32> {
-    Mesh::ALL
-        .get(id as usize)
-        .map(|m| prim::vertices(*m))
-        .unwrap_or_default()
+/// Every mesh the page uploads, by number, with its vertex count: the
+/// primitives, then the world's.
+pub fn meshes(g: &Game) -> String {
+    let list: Vec<serde_json::Value> = (0..g.meshes.count() as u32)
+        .map(|id| {
+            let n = g.meshes.vertices(MeshId(id)).len() / prim::VERTEX_VALUES;
+            serde_json::json!({ "id": id, "vertices": n })
+        })
+        .collect();
+    serde_json::Value::Array(list).to_string()
+}
+
+/// One mesh's vertex values by number; none for a number past the end.
+pub fn mesh(g: &Game, id: u32) -> Vec<i32> {
+    g.meshes.vertices(MeshId(id))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::game::tests::game;
+    use crate::prim::Mesh;
 
     fn json(text: &str) -> serde_json::Value {
         serde_json::from_str(text).unwrap()
@@ -288,10 +293,21 @@ mod tests {
         }
     }
 
+    const RINGS: usize = crate::field::RINGS.len();
+
     #[test]
     fn numbers_name_every_mesh_pass_and_uniform_the_page_needs() {
         let n = json(&numbers());
-        assert_eq!(n["meshes"].as_array().unwrap().len(), Mesh::ALL.len());
+        let g = game();
+        let m: serde_json::Value = serde_json::from_str(&meshes(&g)).unwrap();
+        let list = m.as_array().unwrap();
+        assert_eq!(
+            list.len(),
+            Mesh::ALL.len() + RINGS,
+            "the primitives and the ground's {RINGS} rings"
+        );
+        assert_eq!(list[0]["vertices"], 36, "the cube's 12 triangles");
+        assert_eq!(n["vertex"]["stride"], 36);
         assert_eq!(n["passes"].as_array().unwrap().len(), render::Pass::ORDER.len());
         assert_eq!(n["instance"]["stride"], 64);
         assert_eq!(n["actions"]["forward"], 1);

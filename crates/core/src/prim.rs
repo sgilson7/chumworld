@@ -1,13 +1,22 @@
-//! The mesh table: the primitive shapes everything is drawn from. Each is a
-//! triangle list of (position, normal) pairs in Q16, centred on the origin
-//! and inside the unit cube, so an instance's affine carries its size.
+//! The mesh table: the primitive shapes everything is drawn from, and the
+//! meshes the core builds for the world (`MeshTable`). Each is a triangle
+//! list of (position, normal, colour) in Q16. A primitive is centred on the
+//! origin and inside the unit cube, so an instance's affine carries its size,
+//! and its colour is white, so the instance's colour is the shape's.
 //! Ported from Long Time Comin's `mesh.rs`, with a capsule, a ground
 //! triangle and a flat square added, and the round shapes split into smooth
 //! (`Sphere`, `Capsule`) and faceted (`Blob`, `Cone`, `Cyl`), the faceted
 //! look of Protection of the Spheres' rocks and trees.
 //!
-//! The page uploads every mesh once (`numbers().meshes`, the shim's `mesh`),
-//! in the order of `Mesh::ALL`, and an instance names its mesh by number.
+//! The page uploads every mesh once (the shim's `meshes` and `mesh`), the
+//! primitives in the order of `Mesh::ALL` and then the world's, and an
+//! instance names its mesh by number (`MeshId`).
+//!
+//! A world mesh is for many triangles drawn as one: the test field's ground
+//! rings now, M2's terrain next. A software renderer (SwiftShader) drew 3
+//! frames a second when the ground was 17 500 instances of one triangle and
+//! 60 when they were four meshes (SECOND-ORDER.md R2.16). Its colours are
+//! baked per vertex, multiplied by the instance's.
 //!
 //! Extension (M3, `mesh.rs` and `models.rs`): a new shape is a new variant
 //! here, appended to `Mesh::ALL` (ids are positions, so append, never
@@ -61,8 +70,78 @@ impl Mesh {
     }
 }
 
-/// Values per vertex: position xyz, normal xyz.
-pub const VERTEX_VALUES: usize = 6;
+/// Values per vertex: position xyz, normal xyz, colour rgb.
+pub const VERTEX_VALUES: usize = 9;
+
+const WHITE: [i32; 3] = [ONE; 3];
+
+/// A mesh by number: a primitive's place in `Mesh::ALL`, or a world mesh's
+/// after them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MeshId(pub u32);
+
+impl From<Mesh> for MeshId {
+    fn from(m: Mesh) -> MeshId {
+        MeshId(m as u32)
+    }
+}
+
+impl MeshId {
+    /// The primitive this names, if it names one.
+    pub fn prim(self) -> Option<Mesh> {
+        Mesh::ALL.get(self.0 as usize).copied()
+    }
+}
+
+/// Every mesh the page uploads: the primitives, then the meshes the world
+/// built (`World::scene` adds them).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MeshTable {
+    pub world: Vec<Vec<i32>>,
+}
+
+impl MeshTable {
+    /// Adds a world mesh (a triangle list of `VERTEX_VALUES` a vertex) and
+    /// returns its number.
+    pub fn add(&mut self, vertices: Vec<i32>) -> MeshId {
+        self.world.push(vertices);
+        MeshId((Mesh::ALL.len() + self.world.len() - 1) as u32)
+    }
+
+    pub fn count(&self) -> usize {
+        Mesh::ALL.len() + self.world.len()
+    }
+
+    /// A mesh's vertex values; none for a number past the end.
+    pub fn vertices(&self, id: MeshId) -> Vec<i32> {
+        match id.prim() {
+            Some(m) => vertices(m),
+            None => self
+                .world
+                .get(id.0 as usize - Mesh::ALL.len())
+                .cloned()
+                .unwrap_or_default(),
+        }
+    }
+
+    /// Whether a mesh's faces are flat, so one can lie in another's plane:
+    /// the flat primitives, and every world mesh (ground and terrain are
+    /// flat triangles).
+    pub fn flat_faced(&self, id: MeshId) -> bool {
+        id.prim().map(Mesh::flat_faced).unwrap_or(true)
+    }
+}
+
+/// A flat triangle of a world mesh with its own colour, counter-clockwise
+/// seen from the side it faces.
+pub fn push_coloured(out: &mut Vec<i32>, a: V3, b: V3, c: V3, rgb: [i32; 3]) {
+    // the edges made unit first: a world triangle's edges are long enough
+    // that their Q16 cross product would overflow
+    let n = b.sub(a).norm().cross(c.sub(a).norm()).norm();
+    for p in [a, b, c] {
+        out.extend_from_slice(&[p.x, p.y, p.z, n.x, n.y, n.z, rgb[0], rgb[1], rgb[2]]);
+    }
+}
 
 /// The capsule's radius as a share of its height.
 pub const CAPSULE_RADIUS: i32 = ONE * 18 / 100;
@@ -70,10 +149,7 @@ pub const CAPSULE_RADIUS: i32 = ONE * 18 / 100;
 const H: i32 = ONE / 2;
 
 fn push_flat(out: &mut Vec<i32>, a: V3, b: V3, c: V3) {
-    let n = b.sub(a).cross(c.sub(a)).norm();
-    for p in [a, b, c] {
-        out.extend_from_slice(&[p.x, p.y, p.z, n.x, n.y, n.z]);
-    }
+    push_coloured(out, a, b, c, WHITE);
 }
 
 fn push_quad(out: &mut Vec<i32>, a: V3, b: V3, c: V3, d: V3) {
@@ -84,7 +160,7 @@ fn push_quad(out: &mut Vec<i32>, a: V3, b: V3, c: V3, d: V3) {
 /// A triangle whose normals are given per vertex (smooth shading).
 fn push_smooth(out: &mut Vec<i32>, p: [(V3, V3); 3]) {
     for (q, n) in p {
-        out.extend_from_slice(&[q.x, q.y, q.z, n.x, n.y, n.z]);
+        out.extend_from_slice(&[q.x, q.y, q.z, n.x, n.y, n.z, WHITE[0], WHITE[1], WHITE[2]]);
     }
 }
 
@@ -246,8 +322,8 @@ mod tests {
             .map(|t| {
                 let v = |i: usize| v3(t[i], t[i + 1], t[i + 2]);
                 // the winding's own normal, not the stored one
-                let n = v(6).sub(v(0)).cross(v(12).sub(v(0)));
-                [v(0), v(6), v(12), n]
+                let n = v(VERTEX_VALUES).sub(v(0)).cross(v(2 * VERTEX_VALUES).sub(v(0)));
+                [v(0), v(VERTEX_VALUES), v(2 * VERTEX_VALUES), n]
             })
             .collect()
     }
@@ -278,6 +354,31 @@ mod tests {
     }
 
     #[test]
+    fn a_world_mesh_is_numbered_after_the_primitives_and_read_back() {
+        let mut t = MeshTable::default();
+        let mut tri = Vec::new();
+        push_coloured(
+            &mut tri,
+            v3(0, 0, ONE),
+            v3(ONE, 0, ONE),
+            v3(ONE, 0, 0),
+            [ONE, 0, 0],
+        );
+        let id = t.add(tri.clone());
+        assert_eq!(
+            id,
+            MeshId(Mesh::ALL.len() as u32),
+            "the first world mesh follows the primitives"
+        );
+        assert_eq!(t.vertices(id), tri);
+        assert_eq!(t.vertices(MeshId(Mesh::Cube as u32)), vertices(Mesh::Cube));
+        assert!(t.vertices(MeshId(99)).is_empty());
+        assert_eq!(&tri[3..6], &[0, ONE, 0], "it faces up");
+        assert_eq!(&tri[6..9], &[ONE, 0, 0], "with its own colour");
+        assert_eq!(t.count(), Mesh::ALL.len() + 1);
+    }
+
+    #[test]
     fn every_mesh_fits_in_the_unit_cube() {
         for m in Mesh::ALL {
             for p in vertices(m).chunks(VERTEX_VALUES) {
@@ -292,7 +393,8 @@ mod tests {
         assert_eq!(tris(Mesh::Tri).len(), 1);
         for m in [Mesh::Tri, Mesh::Square] {
             for p in vertices(m).chunks(VERTEX_VALUES) {
-                assert_eq!(&p[3..], &[0, ONE, 0], "{m:?} faces up");
+                assert_eq!(&p[3..6], &[0, ONE, 0], "{m:?} faces up");
+                assert_eq!(&p[6..], &[ONE; 3], "{m:?} is white");
             }
         }
     }

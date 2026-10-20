@@ -23,7 +23,8 @@
 //! sets the GL state each pass needs from `pass_states()`, so it knows no
 //! pass by name.
 //!
-//! Instance values (16 integers, Q16): the three columns of the shape's
+//! Instance values (16 Q16 integers; the shim hands the page floats): the
+//! three columns of the shape's
 //! linear part with the translation's x, y, z in each fourth slot, then the
 //! colour and one value whose meaning is the pass's: Solid, the glow (0 lit,
 //! `ONE` unlit); Dither and Ink, the dither fade (`look::keeps`; `ONE` keeps
@@ -41,7 +42,7 @@ use std::collections::BTreeMap;
 use crate::fx::{self, Fx, ONE};
 use crate::geom::{v3, Affine, Mat4, V3};
 use crate::look::Rgb;
-use crate::prim::Mesh;
+use crate::prim::{Mesh, MeshId};
 
 pub const INSTANCE_VALUES: usize = 16;
 /// buffer, mesh, byte offset, count, pass, layer
@@ -136,7 +137,7 @@ const INK_THINNEST: Fx = ONE / 100;
 /// One shape to draw.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Shape {
-    pub mesh: Mesh,
+    pub mesh: MeshId,
     /// in world coordinates
     pub at: Affine,
     pub rgb: Rgb,
@@ -157,9 +158,9 @@ impl Shapes {
     }
 
     /// A lit solid. `glow` 0 is fully lit; `ONE` shows its colour unlit.
-    pub fn solid(&mut self, mesh: Mesh, at: Affine, rgb: Rgb, glow: Fx) {
+    pub fn solid(&mut self, mesh: impl Into<MeshId>, at: Affine, rgb: Rgb, glow: Fx) {
         self.push(Shape {
-            mesh,
+            mesh: mesh.into(),
             at,
             rgb,
             value: glow,
@@ -168,16 +169,17 @@ impl Shapes {
     }
 
     /// A lit solid with an ink outline in `ink`.
-    pub fn inked(&mut self, mesh: Mesh, at: Affine, rgb: Rgb, ink: Rgb) {
+    pub fn inked(&mut self, mesh: impl Into<MeshId>, at: Affine, rgb: Rgb, ink: Rgb) {
+        let mesh = mesh.into();
         self.solid(mesh, at, rgb, 0);
         self.outline(mesh, &at, ink, ONE);
     }
 
     /// The outline alone: the shape grown by the ink's width, `fade` as the
     /// dither's (`ONE`: whole).
-    pub fn outline(&mut self, mesh: Mesh, at: &Affine, ink: Rgb, fade: Fx) {
+    pub fn outline(&mut self, mesh: impl Into<MeshId>, at: &Affine, ink: Rgb, fade: Fx) {
         self.push(Shape {
-            mesh,
+            mesh: mesh.into(),
             at: inflate(at),
             rgb: ink,
             value: fade,
@@ -188,9 +190,9 @@ impl Shapes {
     /// A solid drawn on the pixels the ordered dither keeps at `fade`
     /// (`look::keeps`; `look::hand_over` gives a pair of fades): the detail
     /// hand-over M2 draws its seams with.
-    pub fn dithered(&mut self, mesh: Mesh, at: Affine, rgb: Rgb, fade: Fx) {
+    pub fn dithered(&mut self, mesh: impl Into<MeshId>, at: Affine, rgb: Rgb, fade: Fx) {
         self.push(Shape {
-            mesh,
+            mesh: mesh.into(),
             at,
             rgb,
             value: fade,
@@ -199,9 +201,9 @@ impl Shapes {
     }
 
     /// A soft halo, added to what is behind it.
-    pub fn glow(&mut self, mesh: Mesh, at: Affine, rgb: Rgb, strength: Fx) {
+    pub fn glow(&mut self, mesh: impl Into<MeshId>, at: Affine, rgb: Rgb, strength: Fx) {
         self.push(Shape {
-            mesh,
+            mesh: mesh.into(),
             at,
             rgb,
             value: strength,
@@ -213,7 +215,7 @@ impl Shapes {
     /// toward `rgb` by `strength` at its middle.
     pub fn shadow(&mut self, centre: V3, width: Fx, rgb: Rgb, strength: Fx) {
         self.push(Shape {
-            mesh: Mesh::Square,
+            mesh: Mesh::Square.into(),
             at: Affine::translate(centre).then(&Affine::scale(v3(width, ONE, width))),
             rgb,
             value: strength,
@@ -225,7 +227,7 @@ impl Shapes {
     /// everything; the shader colours it by direction.
     pub fn sky(&mut self, eye: V3) {
         self.push(Shape {
-            mesh: Mesh::Sphere,
+            mesh: Mesh::Sphere.into(),
             at: Affine::translate(eye).then(&Affine::scale(v3(fx::int(100), fx::int(100), fx::int(100)))),
             rgb: [ONE; 3],
             value: 0,
@@ -288,7 +290,7 @@ fn values(s: &Shape, origin: V3) -> [i32; INSTANCE_VALUES] {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Run {
     pub pass: Pass,
-    pub mesh: Mesh,
+    pub mesh: MeshId,
     pub offset: u32,
     pub count: u32,
 }
@@ -296,7 +298,7 @@ pub struct Run {
 /// Writes shapes into `out` grouped by (pass, mesh) in draw order, keeping
 /// the push order within each, and returns the runs.
 fn pack<'a>(shapes: impl Iterator<Item = &'a Shape>, origin: V3, out: &mut Vec<i32>) -> Vec<Run> {
-    let mut lists: BTreeMap<(Pass, Mesh), Vec<&Shape>> = BTreeMap::new();
+    let mut lists: BTreeMap<(Pass, MeshId), Vec<&Shape>> = BTreeMap::new();
     for s in shapes {
         lists.entry((s.pass, s.mesh)).or_default().push(s);
     }
@@ -499,7 +501,7 @@ impl Frame {
                     for run in g.runs.iter().filter(|run| run.pass == pass) {
                         draws.extend([
                             STATIC_BUFFER,
-                            run.mesh as u32,
+                            run.mesh.0,
                             run.offset,
                             run.count,
                             pass as u32,
@@ -510,7 +512,7 @@ impl Frame {
                 for run in moving_runs.iter().filter(|run| run.pass == pass) {
                     draws.extend([
                         DYNAMIC_BUFFER,
-                        run.mesh as u32,
+                        run.mesh.0,
                         run.offset,
                         run.count,
                         pass as u32,

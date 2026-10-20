@@ -15,6 +15,7 @@ use crate::glossary::Entry;
 use crate::input::{Input, Mouse, Pending};
 use crate::look::Look;
 use crate::page::Strings;
+use crate::prim::MeshTable;
 use crate::render::{self, Camera, Frame, Group, Scene, Shapes};
 use crate::ticks::Clock;
 use crate::world::World;
@@ -70,6 +71,8 @@ pub struct Game {
     dpr_pct: i32,
     pub software: bool,
     groups: Vec<Group>,
+    /// the primitives and the meshes the world built, uploaded once
+    pub meshes: MeshTable,
     pub scene: Scene,
     pub frame: Frame,
     /// share of a tick the drawing is past the last tick
@@ -90,7 +93,8 @@ impl Game {
         let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;
         let look = Look::parse(look_json)?;
         let world = World::new(seed as u64);
-        let groups = world.scene(&look);
+        let mut meshes = MeshTable::default();
+        let groups = world.scene(&look, &mut meshes);
         let mut g = Game {
             strings,
             glossary,
@@ -105,6 +109,7 @@ impl Game {
             dpr_pct: 100,
             software: false,
             groups,
+            meshes,
             scene: Scene::default(),
             frame: Frame::default(),
             alpha: 0,

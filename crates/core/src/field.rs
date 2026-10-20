@@ -20,7 +20,7 @@
 use crate::fx::{self, Fx, ONE};
 use crate::geom::{v3, Affine, V3};
 use crate::look::{mix, rgb, Look, Rgb};
-use crate::prim::Mesh;
+use crate::prim::{push_coloured, Mesh, MeshTable};
 use crate::render::Group;
 use crate::rng::Rng;
 
@@ -80,13 +80,14 @@ fn grass(look: &Look, x: i32, z: i32, ring: usize, half: bool, rng: &mut Rng) ->
 }
 
 /// The ground: the rings of triangles, the bands beyond, the floor beneath.
-fn ground(look: &Look, centre: V3) -> Vec<Group> {
+fn ground(look: &Look, centre: V3, table: &mut MeshTable) -> Vec<Group> {
     let mut groups = Vec::new();
     let mut rng = Rng::new(SEED);
     let mut inner = 0;
+    let m = fx::int;
     for (ring, &(w, outer)) in RINGS.iter().enumerate() {
-        // the ring's corner is √2 × its half-width from the centre
-        let mut g = Group::new("ground ring", centre, diag(fx::int(outer)));
+        // one mesh a ring, its facets' colours baked in, drawn as one shape
+        let mut tris = Vec::new();
         let n = outer / w;
         for i in -n..n {
             for j in -n..n {
@@ -95,17 +96,24 @@ fn ground(look: &Look, centre: V3) -> Vec<Group> {
                 if inside {
                     continue;
                 }
-                let mid = centre.add(v3(fx::int(x) + fx::int(w) / 2, 0, fx::int(z) + fx::int(w) / 2));
-                let size = Affine::scale(v3(fx::int(w), ONE, fx::int(w)));
                 let a = grass(look, x, z, ring, false, &mut rng);
                 let b = grass(look, x, z, ring, true, &mut rng);
-                g.shapes
-                    .solid(Mesh::Tri, Affine::translate(mid).then(&size), a, 0);
-                let turned = Affine::rot_y(fx::HALF_TURN).then(&size);
-                g.shapes
-                    .solid(Mesh::Tri, Affine::translate(mid).then(&turned), b, 0);
+                // the square's south-west, south-east and north-east
+                // corners, then the north-east, north-west and south-west
+                let (sw, se, ne, nw) = (
+                    v3(m(x), 0, m(z + w)),
+                    v3(m(x + w), 0, m(z + w)),
+                    v3(m(x + w), 0, m(z)),
+                    v3(m(x), 0, m(z)),
+                );
+                push_coloured(&mut tris, sw, se, ne, a);
+                push_coloured(&mut tris, ne, nw, sw, b);
             }
         }
+        // the ring's corner is √2 × its half-width from the centre
+        let mut g = Group::new("ground ring", centre, diag(fx::int(outer)));
+        g.shapes
+            .solid(table.add(tris), Affine::translate(centre), [ONE; 3], 0);
         groups.push(g);
         inner = outer;
     }
@@ -289,8 +297,8 @@ fn props(look: &Look, centre: V3) -> Vec<Group> {
 }
 
 /// Every static group of the test field round `centre`.
-pub fn groups(look: &Look, centre: V3) -> Vec<Group> {
-    let mut g = ground(look, centre);
+pub fn groups(look: &Look, centre: V3, table: &mut MeshTable) -> Vec<Group> {
+    let mut g = ground(look, centre, table);
     g.extend(props(look, centre));
     g
 }
@@ -308,33 +316,54 @@ mod tests {
     fn the_ground_rings_tile_without_gaps_or_overlaps() {
         // the area of every ground triangle adds up to the field's square:
         // 32 km × 32 km, the floor aside
-        let gs = ground(&look(), centre());
+        let mut table = MeshTable::default();
+        let gs = ground(&look(), centre(), &mut table);
         let mut area: i128 = 0;
         for g in gs.iter().filter(|g| g.name != "floor") {
             for s in &g.shapes.list {
-                let a = s.at.c0.len() as i128 * s.at.c2.len() as i128;
-                area += if s.mesh == Mesh::Tri { a / 2 } else { a };
+                if s.mesh.prim() == Some(Mesh::Square) {
+                    area += s.at.c0.len() as i128 * s.at.c2.len() as i128;
+                    continue;
+                }
+                // a ring's mesh: each triangle's area from its corners
+                for t in table.vertices(s.mesh).chunks(3 * crate::prim::VERTEX_VALUES) {
+                    let p = |k: usize| {
+                        (
+                            t[k * crate::prim::VERTEX_VALUES] as i128,
+                            t[k * crate::prim::VERTEX_VALUES + 2] as i128,
+                        )
+                    };
+                    let (a, b, c) = (p(0), p(1), p(2));
+                    let cross = (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0);
+                    area += cross.abs() / 2;
+                }
             }
         }
         let want = (2 * HALF as i128) * (2 * HALF as i128);
-        // within a millionth: the rounding of the triangles' columns
+        // within a millionth: the rounding of halving each triangle
         assert!((area - want).abs() < want / 1_000_000, "{area} vs {want}");
     }
 
     #[test]
     fn the_same_seed_lays_out_the_same_field() {
-        assert_eq!(groups(&look(), centre()), groups(&look(), centre()));
+        let (mut a, mut b) = (MeshTable::default(), MeshTable::default());
+        assert_eq!(
+            groups(&look(), centre(), &mut a),
+            groups(&look(), centre(), &mut b)
+        );
+        assert_eq!(a, b);
     }
 
     #[test]
     fn the_far_ground_is_one_even_colour() {
-        let gs = ground(&look(), centre());
-        let outer = &gs[RINGS.len() - 1];
-        let first = outer.shapes.list[0].rgb;
+        let mut table = MeshTable::default();
+        let gs = ground(&look(), centre(), &mut table);
+        let outer = table.vertices(gs[RINGS.len() - 1].shapes.list[0].mesh);
+        let far = rgb(look().palette.grass_far);
+        assert!(!outer.is_empty());
         assert!(
-            outer.shapes.list.iter().all(|s| s.rgb == first),
+            outer.chunks(crate::prim::VERTEX_VALUES).all(|v| v[6..] == far),
             "the outer ring shimmers if it varies"
         );
-        assert_eq!(first, rgb(look().palette.grass_far));
     }
 }

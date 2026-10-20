@@ -8,7 +8,7 @@
 // back through `act`, the core's one door. Esc, a lost pointer and a hidden
 // tab are reported to the core as they happen; the core decides what each
 // means.
-import init, { Game, numbers, mesh } from "./pkg/tool_shim.js";
+import init, { Game, numbers } from "./pkg/tool_shim.js";
 import { makeRenderer } from "./gl.js";
 import { makeInput } from "./input.js";
 
@@ -64,7 +64,8 @@ async function main() {
   }
 
   const canvas = el("view");
-  const renderer = makeRenderer(canvas, N, { vertex, fragment, software: display.software }, mesh);
+  const meshes = JSON.parse(game.meshes());
+  const renderer = makeRenderer(canvas, N, { vertex, fragment, software: display.software }, meshes, (id) => game.mesh(id));
   if (!renderer) {
     body.dataset.webgl = "none";
     el("message").textContent = JSON.parse(game.ui()).ok.no_webgl;

@@ -176,3 +176,12 @@ body:not([data-screen="play"]) #hud { display: none; }
   font-weight: 600;
 }
 [data-term] { text-decoration: underline dotted rgba(43, 33, 64, 0.45); text-underline-offset: 3px; cursor: help; }
+/* a short window: the panel keeps inside it */
+.panel { max-height: calc(100vh - 32px); overflow: auto; }
+@media (max-height: 640px) {
+  .panel { padding: 18px 22px 16px; }
+  #title h1 { font-size: 32px; margin-bottom: 12px; }
+  .panel h2 { margin-top: 12px; }
+  table.controls td { padding: 2px 0; }
+  body[data-screen="title"] #overlay { padding: 0 0 3vh 4vw; }
+}

@@ -6,7 +6,9 @@
 //! the uniforms, the clear colour) are divided by the core's own `ONE` here,
 //! and the page's millisecond clock and pixel movement become the whole
 //! microseconds and hundredths of a pixel the core expects. Instance and
-//! mesh values stay integers: the shader scales them (`uQ`).
+//! mesh values become floats here too: a 32-bit integer vertex attribute is
+//! converted on the CPU by some drivers for every draw (SECOND-ORDER.md
+//! R2.16), and a float one never is.
 //! `crates/core/tests/boundary.rs` fails if a branch, a loop or the `?`
 //! operator appears in this file.
 
@@ -58,16 +60,16 @@ impl Game {
         floats(self.inner.frame.view.clone())
     }
 
-    pub fn instances(&self) -> Vec<i32> {
-        self.inner.frame.instances.clone()
+    pub fn instances(&self) -> Vec<f32> {
+        floats(self.inner.frame.instances.clone())
     }
 
     pub fn draws(&self) -> Vec<u32> {
         self.inner.frame.draws.clone()
     }
 
-    pub fn static_values(&self) -> Vec<i32> {
-        self.inner.scene.values.clone()
+    pub fn static_values(&self) -> Vec<f32> {
+        floats(self.inner.scene.values.clone())
     }
 
     pub fn static_version(&self) -> u32 {
@@ -80,6 +82,16 @@ impl Game {
 
     pub fn clear_color(&self) -> Vec<f32> {
         floats(self.inner.look.clear_color())
+    }
+
+    /// Every mesh to upload, by number, with its vertex count, as JSON.
+    pub fn meshes(&self) -> String {
+        api::meshes(&self.inner)
+    }
+
+    /// One mesh's vertex values.
+    pub fn mesh(&self, id: u32) -> Vec<f32> {
+        floats(api::mesh(&self.inner, id))
     }
 
     /// The view model, as JSON.
@@ -101,10 +113,4 @@ impl Game {
 #[wasm_bindgen]
 pub fn numbers() -> String {
     api::numbers()
-}
-
-/// One mesh's vertex values.
-#[wasm_bindgen]
-pub fn mesh(id: u32) -> Vec<i32> {
-    api::mesh(id)
 }
