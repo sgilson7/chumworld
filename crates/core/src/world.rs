@@ -82,6 +82,8 @@ pub struct World {
     /// where the player looks
     pub aim: Aim,
     pub player: Body,
+    // M3: the model lineup for review (`models.lineup`), off in play
+    pub lineup: crate::models::Lineup,
     // M1: the player's arms, health and footing (its feet are `player`),
     // the foes, their pilots' book and memory, the blades' contacts, what
     // is thrown, the speedster setting, and the physics view
@@ -104,6 +106,7 @@ impl World {
             rng: Rng::new(seed),
             aim: Aim::new(START_YAW),
             player: Body::new(START, START_YAW),
+            lineup: crate::models::Lineup::default(), // M3:
             // M1:
             me: {
                 let mut me = crate::player::Fighter::new(
@@ -162,6 +165,7 @@ impl World {
         // M1: every fighter and everything thrown
         crate::player::draw(self, alpha, look, out);
         crate::throwables::draw(self, alpha, look, out);
+        crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
     }
 
     /// What never moves: the static groups, and the meshes they draw.
@@ -180,6 +184,7 @@ impl World {
     /// A setting or flag named `module.name`.
     pub fn act(&mut self, name: &str, value: &str) -> Result<(), String> {
         match name.split_once('.') {
+            Some(("models", rest)) => crate::models::act(self, rest, value), // M3:
             // M1:
             Some(("duel", rest)) => crate::player::act(self, rest, value),
             Some(("motion", rest)) => crate::motion::act(self, rest, value),

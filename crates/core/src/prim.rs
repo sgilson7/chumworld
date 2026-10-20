@@ -45,10 +45,25 @@ pub enum Mesh {
     /// a smooth capsule standing on end: bodies, limbs
     Capsule = 7,
     Octa = 8,
+    // M3 (`mesh.rs`): the faceted shapes the characters and props are built from
+    /// a ball of 80 flat faces: heads, bodies, joints (Protection of the Spheres)
+    Facet = 9,
+    /// a low smooth globe: eyes, catch-lights, blush, buttons
+    Dot = 10,
+    /// a triangular prism, ridge along z: roofs, tents
+    Wedge = 11,
+    /// a half cylinder along z, flat side down: lids, canopies
+    HalfCyl = 12,
+    /// an eight-sided column narrowing upward: skirts, coats, trunks
+    Taper = 13,
+    /// a ring of sixteen sides: a well's wall, a wheel's rim
+    Tube = 14,
+    /// four sides to an apex: roofs, caps
+    Pyramid = 15,
 }
 
 impl Mesh {
-    pub const ALL: [Mesh; 9] = [
+    pub const ALL: [Mesh; 16] = [
         Mesh::Cube,
         Mesh::Tri,
         Mesh::Square,
@@ -58,6 +73,13 @@ impl Mesh {
         Mesh::Cone,
         Mesh::Capsule,
         Mesh::Octa,
+        Mesh::Facet,
+        Mesh::Dot,
+        Mesh::Wedge,
+        Mesh::HalfCyl,
+        Mesh::Taper,
+        Mesh::Tube,
+        Mesh::Pyramid,
     ];
 
     /// Shapes whose faces are flat: one of them can lie in another's plane,
@@ -65,7 +87,17 @@ impl Mesh {
     pub fn flat_faced(self) -> bool {
         matches!(
             self,
-            Mesh::Cube | Mesh::Tri | Mesh::Square | Mesh::Cyl | Mesh::Octa
+            Mesh::Cube
+                | Mesh::Tri
+                | Mesh::Square
+                | Mesh::Cyl
+                | Mesh::Octa
+                | Mesh::Facet
+                | Mesh::Wedge
+                | Mesh::HalfCyl
+                | Mesh::Taper
+                | Mesh::Tube
+                | Mesh::Pyramid
         )
     }
 }
@@ -308,6 +340,13 @@ pub fn vertices(mesh: Mesh) -> Vec<i32> {
                 push_flat(&mut o, b, ny, a);
             }
         }
+        Mesh::Facet => o = crate::mesh::facet(),
+        Mesh::Dot => o = crate::mesh::dot(),
+        Mesh::Wedge => o = crate::mesh::wedge(),
+        Mesh::HalfCyl => o = crate::mesh::half_cyl(),
+        Mesh::Taper => o = crate::mesh::taper(),
+        Mesh::Tube => o = crate::mesh::tube(),
+        Mesh::Pyramid => o = crate::mesh::pyramid(),
     }
     o
 }

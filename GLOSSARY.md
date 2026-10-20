@@ -28,6 +28,12 @@ Not: unsheathe
 
 How much more you can take. A blow takes health by how fast the blade was moving when it landed; at none you fall.
 
+### Lineup
+
+Every character and prop stood in rows in front of the player, for looking at the models. It changes nothing in play and is off until asked for.
+
+Not: gallery, showcase
+
 ### Look
 
 Turning the view with the mouse. The camera stays over the player's right shoulder while it turns.

@@ -1020,5 +1020,124 @@
     "find": "        if still && settled && g.in_hand == before.2 {",
     "replace": "        if false && still && settled && g.in_hand == before.2 {",
     "test": "two_still_ticks_give_identical_frames_and_static_arrays"
+  },
+  {
+    "name": "M3 mesh: every new shape winds its faces outward",
+    "file": "crates/core/src/mesh.rs",
+    "find": "if n.dot(a.add(b).add(c)) >= 0 {",
+    "replace": "if n.dot(a.add(b).add(c)) < 0 {",
+    "test": "every_new_shape_winds_its_faces_outward"
+  },
+  {
+    "name": "M3 mesh: the tube's hole is the size it says",
+    "file": "crates/core/src/mesh.rs",
+    "find": "pub const TUBE_HOLE_PCT: i32 = 72;",
+    "replace": "pub const TUBE_HOLE_PCT: i32 = 60;",
+    "test": "the_new_shapes_have_the_counts_and_sizes_they_say"
+  },
+  {
+    "name": "M3 models: a colour the file lacks is found",
+    "file": "data/models.json",
+    "find": "\"orc_tusk\": [",
+    "replace": "\"orc_tusks\": [",
+    "test": "every_model_draws_in_the_file_s_colours"
+  },
+  {
+    "name": "M3 models: the forearm runs from elbow to hand",
+    "file": "crates/core/src/models/figure.rs",
+    "find": "f.limb(p.elbow[s], p.hand[s], f.w(FOREARM), cl.forearm);",
+    "replace": "f.limb(p.elbow[s], p.chest, f.w(FOREARM), cl.forearm);",
+    "test": "limbs_run_between_the_pose_s_joints"
+  },
+  {
+    "name": "M3 models: the head faces the pose's way",
+    "file": "crates/core/src/models/figure.rs",
+    "find": "let back0 = fwd.neg();",
+    "replace": "let back0 = fwd;",
+    "test": "the_head_sits_at_the_pose_s_head_and_faces_its_way"
+  },
+  {
+    "name": "M3 models: the rest pose bends its elbows and knees to keep their lengths",
+    "file": "crates/core/src/models/figure.rs",
+    "find": "a.add(u.scale(x)).add(side.scale(h))",
+    "replace": "a.add(u.scale(x))",
+    "test": "the_rest_pose_keeps_the_build_s_lengths"
+  },
+  {
+    "name": "M3 models: the hilt sits at the grip",
+    "file": "crates/core/src/models/held.rs",
+    "find": "at(0, 0, v3(mm(32), mm(2 * b.hilt), mm(32))),",
+    "replace": "at(0, mm(30), v3(mm(32), mm(2 * b.hilt), mm(32))),",
+    "test": "a_held_item_runs_from_its_grip_to_its_tip"
+  },
+  {
+    "name": "M3 models: the lift a mark needs takes the near layer's worst step",
+    "file": "crates/core/src/models.rs",
+    "find": "let near_worst = render::layered_depth_step(far.min(render::NEAR_LAYER_FAR));",
+    "replace": "let near_worst = render::layered_depth_step(far);",
+    "test": "the_lift_a_mark_needs_is_four_depth_steps_at_the_worst_distance"
+  },
+  {
+    "name": "M3 models: a mark stands off its surface",
+    "file": "crates/core/src/models.rs",
+    "find": "let centre = p.add(n.scale(lift - size.z / 2));",
+    "replace": "let centre = p.add(n.scale(-size.z / 2));",
+    "test": "every_mark_stands_off_its_surface_by_the_lift_the_depth_buffer_needs"
+  },
+  {
+    "name": "M3 models: a cuff on a limb stands off it, out of its planes",
+    "file": "crates/core/src/models/figure.rs",
+    "find": "let rr = r + fx::div(DECAL_LIFT, ONE * 951 / 1000) + mm(1);",
+    "replace": "let rr = r;",
+    "test": "no_two_parts_of_any_figure_share_a_plane"
+  },
+  {
+    "name": "M3 models: a chest's bands stand proud of its sides",
+    "file": "crates/core/src/models/props.rs",
+    "find": "k.bx((x, 255, 0), (80, 530, 620), iron);",
+    "replace": "k.bx((x, 255, 0), (80, 530, 560), iron);",
+    "test": "no_two_parts_of_any_prop_share_a_plane"
+  },
+  {
+    "name": "M3 models: a prop's mesh reaches the static array the scan reads",
+    "file": "crates/core/src/models.rs",
+    "find": "group.shapes.solid(body, place, [ONE; 3], 0);",
+    "replace": "let _ = (body, place);",
+    "test": "the_flicker_scan_reads_every_prop_in_the_static_array"
+  },
+  {
+    "name": "M3 models: a prop's mesh is reused, not added again",
+    "file": "crates/core/src/models.rs",
+    "find": "match meshes.world.iter().position(|m| m.as_slice() == values) {",
+    "replace": "match None::<usize> {",
+    "test": "a_prop_bakes_to_one_mesh_reused_by_every_later_placement"
+  },
+  {
+    "name": "M3 models: a prop turns by its yaw",
+    "file": "crates/core/src/models.rs",
+    "find": "let place = Affine::translate(at).then(&Affine::rot_y(yaw));",
+    "replace": "let place = Affine::translate(at);",
+    "test": "a_prop_s_base_sits_at_its_place_and_turns_by_its_yaw"
+  },
+  {
+    "name": "M3 models: gloves worn colour the hands",
+    "file": "crates/core/src/models/figure.rs",
+    "find": "cl.hand = speed;",
+    "replace": "let _ = speed;",
+    "test": "each_speedster_piece_shows_on_its_own_part_of_the_body"
+  },
+  {
+    "name": "M3 models: the donkey's legs swing with its step",
+    "file": "crates/core/src/models/props.rs",
+    "find": "let swing = fx::mul(fx::sin(step_phase + offset), deg(22));",
+    "replace": "let swing = fx::mul(fx::sin(offset), deg(22));",
+    "test": "the_donkey_s_legs_swing_with_its_step"
+  },
+  {
+    "name": "M3 models: the lineup turns off",
+    "file": "crates/core/src/models/lineup.rs",
+    "find": "if what == \"off\" {",
+    "replace": "if false {",
+    "test": "the_lineup_comes_when_asked_for_and_goes_when_turned_off"
   }
 ]

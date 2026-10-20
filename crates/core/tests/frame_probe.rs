@@ -114,6 +114,11 @@ fn probe_raid_tick_cost() {
     let _ = w.hash();
     let hash_ms = h.elapsed().as_secs_f64() * 1000.0;
     println!("raid tick, 8 fighters: {mean:.3} ms mean, {worst:.3} ms worst; World::hash {hash_ms:.3} ms ({} bytes of debug text)", format!("{w:?}").len());
-    println!("blows {} and clashes {} in the last tick; foes standing {}", w.blades.hits.len(), w.blades.clashes.len(), w.foes.iter().filter(|f| !f.fighter.health.down()).count());
+    println!(
+        "blows {} and clashes {} in the last tick; foes standing {}",
+        w.blades.hits.len(),
+        w.blades.clashes.len(),
+        w.foes.iter().filter(|f| !f.fighter.health.down()).count()
+    );
     assert!(mean < 2.0, "the raid's tick is over the core's 2 ms");
 }

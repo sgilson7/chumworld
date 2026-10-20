@@ -162,11 +162,22 @@ impl Weapon {
 /// the right hand; the sword (100 cm) and the orc's cleaver in both. The
 /// cleaver's weight is in its head.
 pub fn weapon(item: Held) -> Weapon {
+    // the model's own grip-to-tip length (M3's door, R5.5), so the drawn
+    // blade ends where the simulated one does
+    let w = sized(item);
+    Weapon {
+        len: w.grip[1] + crate::models::grip_to_tip(w.item).max(cm(30)),
+        ..w
+    }
+}
+
+/// The hilt, the hands and the masses of each weapon (the length is the
+/// model's, `weapon`).
+fn sized(item: Held) -> Weapon {
     match item {
         Held::Sword => Weapon {
             item,
-            // grip to tip 1.138 m, M3's `models::grip_to_tip` (R3.19)
-            len: cm(16) + ONE * 1138 / 1000,
+            len: 0,
             hilt: cm(22),
             grip: [cm(5), cm(16)],
             mass: [3, 3],
@@ -174,7 +185,7 @@ pub fn weapon(item: Held) -> Weapon {
         },
         Held::Cleaver => Weapon {
             item,
-            len: cm(108),
+            len: 0,
             hilt: cm(24),
             grip: [cm(5), cm(17)],
             mass: [2, 8],
@@ -182,8 +193,7 @@ pub fn weapon(item: Held) -> Weapon {
         },
         _ => Weapon {
             item,
-            // grip to tip 0.806 m, M3's `models::grip_to_tip` (R3.19)
-            len: cm(8) + ONE * 806 / 1000,
+            len: 0,
             hilt: cm(15),
             grip: [-1, cm(8)],
             mass: [2, 1],
@@ -741,7 +751,13 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
         let (sheath, goals) = player::goals(w, id, &inp);
         let b = *player::body(w, id);
         let f = player::fighter(w, id);
-        let frame = player::frame_of(&b, &f.build(), &f.gait, f.health.fall(), w.ground(b.pos.x, b.pos.z));
+        let frame = player::frame_of(
+            &b,
+            &f.build(),
+            &f.gait,
+            f.health.fall(),
+            w.ground(b.pos.x, b.pos.z),
+        );
         let f = player::parts_mut(w, id).1;
         f.sheath = sheath;
         f.arm.step(&frame, &goals);

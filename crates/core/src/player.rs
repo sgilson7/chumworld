@@ -34,10 +34,8 @@ use crate::world::{HudItem, World};
 
 pub use crate::motion::{RUN, WALK};
 
-/// The soft shadow under a body: its width at the player's girth.
-pub const SHADOW_WIDTH: Fx = ONE * 11 / 10;
-/// The shadow's height over the ground: above it by more than the depth
-/// buffer needs at any distance the shadow is drawn from.
+/// A shadow's height over the ground: above it by more than the depth
+/// buffer needs at any distance a shadow is drawn from (M3's figures read it).
 pub const SHADOW_LIFT: Fx = ONE * 2 / 100;
 /// A drawn fighter holds on the nearest foe this near (journal).
 pub const HOLD_RANGE: Fx = fx::int(15);
@@ -376,11 +374,12 @@ fn leaning(b: &Body, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
     let base = local(b, fall);
     let by = (SLIDE_LEAN as i64 * g.slide.min(fx::int(5)) as i64 / fx::int(5) as i64) as i32;
     let way = crate::geom::yaw_of(b.vel);
-    let tilt = Affine::rot_y(way).then(&Affine::rot_x(by)).then(&Affine::rot_y(-way));
+    let tilt = Affine::rot_y(way)
+        .then(&Affine::rot_x(by))
+        .then(&Affine::rot_y(-way));
     let feet = b.pos;
     move |p: V3| feet.add(tilt.apply_dir(base(p).sub(feet)))
 }
-
 
 /// The scabbard's hilt and blade for a body: where a sheathed weapon is.
 pub fn sheath_points(b: &Body, build: &Build, wpn: &arm::Weapon) -> (V3, V3) {
@@ -571,18 +570,18 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     for id in 0..count(w) {
         let f = fighter(w, id);
         let p = f.prev_pose.lerp(&f.pose, alpha);
-        crate::models::figure(f.kind, &p, look, out);
-        if f.held != Held::Nothing {
+        // the player wears as many speedster pieces as it has on (M4's
+        // inventory will say which, R5.4); the figure draws its own shadow
+        let worn = if id == 0 {
+            (1u8 << crate::motion::pieces(w)) - 1
+        } else {
+            0
+        };
+        let dress = crate::models::Dress { worn, variant: 0 };
+        crate::models::figure_dressed(f.kind, &p, dress, look, out);
+        if f.held != Held::Nothing && !w.sticks {
             crate::models::held(f.held, p.grip, p.tip, look, out);
         }
-        let feet = body(w, id).feet(alpha);
-        let wide = (SHADOW_WIDTH as i64 * f.build().girth_pct as i64 / 100) as Fx;
-        out.shadow(
-            feet.add(v3(0, SHADOW_LIFT, 0)),
-            wide,
-            rgb(look.palette.shadow),
-            ONE,
-        );
     }
     if w.me.sheath == Sheath::Drawn && !w.me.health.down() {
         let a = &w.me.arm;
@@ -727,7 +726,9 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
                 .parse()
                 .ok()
                 .filter(|c| (40..=4000).contains(c))
-                .ok_or_else(|| format!("A gap is a whole number of centimetres from 40 to 4000, not \"{value}\"."))?;
+                .ok_or_else(|| {
+                    format!("A gap is a whole number of centimetres from 40 to 4000, not \"{value}\".")
+                })?;
             let ahead = facing(w.aim.yaw, 0);
             let feet = w.player.pos;
             for k in 0..w.foes.len() {
@@ -748,7 +749,11 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             let control = match value.trim() {
                 "tree" => crate::pilot::Control::Tree,
                 "still" => crate::pilot::Control::Still,
-                other => return Err(format!("A foe's pilot is \"tree\" or \"still\", not \"{other}\".")),
+                other => {
+                    return Err(format!(
+                        "A foe's pilot is \"tree\" or \"still\", not \"{other}\"."
+                    ))
+                }
             };
             w.pilots.control = control.clone();
             for f in &mut w.foes {

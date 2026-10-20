@@ -28,6 +28,26 @@ SECOND-ORDER.md R3.4):
     orc       a duel with an orc that fights back
     slide     the speedster's five pieces: a run let go, sliding on ice
 
+Model views (M3), each the core's lineup (`act("models.lineup", ...)`)
+seen from the player's shoulder, the camera pitched to frame it:
+
+    models-front      every figure in a row, facing the camera
+    models-quarter    the same row turned 40 degrees
+    models-player     the player close, at 3.5 m
+    models-player-q   the player close, turned 40 degrees
+    models-orc        an orc close
+    models-leader     the bandit leader close
+    models-merchant   the merchant close
+    models-trainer    the trainer close
+    models-props      every prop in two rows
+    models-weapons    every held item, stacked
+    models-speedster  the speedster pieces worn, and lying on the ground
+    models-cart       the merchant's cart and its donkey
+
+The page has no reader-facing way to send a lineup act (R5.8), so for these
+views this tool serves app.js with one line added, `window.__act = act;`,
+and calls it; everything else the page does is unchanged.
+
 The page is driven the way a reader drives it: the URL a reader can open
 (?pointer=free, the realtime kit's mode without pointer lock), clicks on the
 core's own buttons, key presses, and mouse movement dispatched as the kit's
@@ -53,6 +73,21 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 VIEWS = ["loading", "title", "standing", "turn", "run", "paused"]
 DUEL_VIEWS = ["sheathed", "drawn", "swing", "block", "hit", "rock", "orc", "slide"]
+# view: (lineup value, camera pitch change in CSS pixels, + looks down)
+MODEL_VIEWS = {
+    "models-front": ("all", 70),
+    "models-quarter": ("all:40", 70),
+    "models-player": ("player", 75),
+    "models-player-q": ("player:40", 75),
+    "models-orc": ("orc", 70),
+    "models-leader": ("leader", 72),
+    "models-merchant": ("merchant", 72),
+    "models-trainer": ("trainer", 72),
+    "models-props": ("props", -20),
+    "models-weapons": ("weapons", 40),
+    "models-speedster": ("speedster", 150),
+    "models-cart": ("cart", 20),
+}
 SIZE = {"width": 1920, "height": 1080}
 GPU = ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"]
 SOFT = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
@@ -125,6 +160,23 @@ def renderer_name(page):
     )
 
 
+HOOK = 'if (lookSpeed) act("look.speed", lookSpeed);'
+
+
+def expose_act(route):
+    """Serves app.js with the page's own `act` exposed to this tool."""
+    response = route.fetch()
+    text = response.text()
+    if text.count(HOOK) != 1:
+        raise SystemExit("shoot.py: app.js no longer has the line the model views hook onto")
+    route.fulfill(response=response, body=text.replace(HOOK, "window.__act = act;\n  " + HOOK))
+
+
+def pitch(page, px):
+    """Looks down by `px` CSS pixels of mouse movement (up when negative)."""
+    page.evaluate("(px) => window.dispatchEvent(new MouseEvent('mousemove', {movementX: 0, movementY: px}))", px)
+
+
 def open_game(browser, base, logs, held=None):
     """The game at its reader-openable URL. With `held` (a list), the
     WebAssembly module's request is held in it, not answered, until the
@@ -134,6 +186,8 @@ def open_game(browser, base, logs, held=None):
     page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
     if held is not None:
         page.route("**/*_bg.wasm*", lambda route: held.append(route))
+    else:
+        page.route("**/app.js*", expose_act)
     t0 = time.perf_counter()
     page.goto(base + "/index.html?pointer=free", wait_until="commit")
     return page, t0
@@ -271,6 +325,9 @@ def main(argv):
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
     views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS]
+    if unknown:
+        sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
     measure = "--measure" in argv
     if not (DIST / "index.html").exists():
@@ -327,6 +384,25 @@ def main(argv):
                 page.screenshot(path=str(out / "run.png"))
             page.keyboard.up("KeyW")
             page.keyboard.up("ShiftLeft")
+        if any(v in MODEL_VIEWS for v in views):
+            # a quarter turn right, so the lineup stands clear of the test
+            # field's lantern in front of the start (it anchors to this view)
+            turn(page, 25, 30)
+            page.wait_for_timeout(300)
+        for name, (value, down) in MODEL_VIEWS.items():
+            if name not in views:
+                continue
+            page.evaluate("([v]) => window.__act('models.lineup', v)", [value])
+            result = page.text_content("#message") or None
+            pitch(page, down)
+            page.wait_for_timeout(500)
+            page.screenshot(path=str(out / f"{name}.png"))
+            pitch(page, -down)
+            page.wait_for_timeout(200)
+            if result is not None:
+                logs.append(f"error: {result}")
+        if any(v in MODEL_VIEWS for v in views):
+            page.evaluate("() => window.__act('models.lineup', 'off')")
         if "paused" in views:
             page.wait_for_timeout(700)
             page.keyboard.press("Escape")

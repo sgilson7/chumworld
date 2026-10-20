@@ -27,6 +27,15 @@ The machine: Sam's Mac, Apple M2 Max, macOS (Darwin 25.3). Frame budget (journal
 | Flicker: the same pan at full look speed (0.84 px a frame at 640 wide) | scratch script, A-B-A count | before camera-relative drawing (R2.8): 1 064 of 921 600 on Metal; after: 112 on Metal, 172 of 230 400 on SwiftShader, on cone tips, far trunks and a pole's top (R2.9) | 2026-10-20, M0 |
 | Depth precision | `cargo test depth_precision_holds_at_every_ring_distance` | worst step (24-bit, two layers): 2.4 mm at 128 m (near layer), 0.14 m at 16 384 m (far layer). One layer from 0.4 m would be 40 m at the horizon | 2026-10-20, M0 |
 
+## M3 Models (task A)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Triangles and instances a model draws | `cargo test -p tool_core --test model_counts -- --ignored --nocapture` | Figures 2 252 (bandit) to 3 216 (trainer) solid triangles, drawn twice with their outlines; 64 to 91 instances with the shadow; the player in all five speedster pieces 3 184 and 91. Held items 80 (rock) to 640 (boomerang) triangles, 2 to 12 instances. Donkey 1 916 triangles, 53 instances | 2026-10-20, M3 |
+| A prop's static cost | same probe | One body mesh and one outline mesh per kind, two instances a placement plus its glowing parts (campfire 2, shrine 5, cart 1). Body triangles: fence 78, tent 192, signpost 194, chest 250, bed 292, barn 396, well 592, scarecrow 724, bridge 780, hut 848, campfire 872, shrine 926, hollow tree 1 144, house 1 160, cart 1 168 | 2026-10-20, M3 |
+| The lift a mark needs | `cargo test the_lift_a_mark_needs` | 4 depth steps at the worst distance out to 1 km: 636 Q16 units, 9.7 mm (near layer at 128 m); out to 3 km 19 mm. Marks stand 10 mm off, prop details 25 mm | 2026-10-20, M3 |
+| WebAssembly size | printed by `./scripts/build.sh` | 502 KB (M0: 343 KB): the models' code and `data/models.json` compiled in | 2026-10-20, M3 |
+
 ## Not measured
 
 - The headroom under 16.7 ms on Metal: requestAnimationFrame is held to the display's 60 Hz, and the page keeps no timer of its own. A GPU timer query (`EXT_disjoint_timer_query_webgl2`) in a probe would give it.

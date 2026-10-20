@@ -760,7 +760,10 @@ mod tests {
         assert_eq!(a, b);
         assert_eq!(wa, wb);
         // the duel was a duel: blades met or a blow landed somewhere in it
-        assert!(wa.me.health.hp < wa.me.health.most || wa.foes[0].fighter.health.hp < wa.foes[0].fighter.health.most);
+        assert!(
+            wa.me.health.hp < wa.me.health.most
+                || wa.foes[0].fighter.health.hp < wa.foes[0].fighter.health.most
+        );
         let mut other = record.clone();
         other[300].dx += 1;
         let (c, _) = run(&other);

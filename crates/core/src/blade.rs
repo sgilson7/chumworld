@@ -485,7 +485,9 @@ fn strike(w: &mut World, i: usize, j: usize, body: &[(Part, Swept, Fx)]) {
             let d = pa.sub(pb);
             dot(d, d)
         };
-        let deep = body.iter().any(|(_, s, r)| gap(s) < (*r as i64 / 2) * (*r as i64 / 2));
+        let deep = body
+            .iter()
+            .any(|(_, s, r)| gap(s) < (*r as i64 / 2) * (*r as i64 / 2));
         if deep {
             let arm = &mut player::parts_mut(w, i).1.arm;
             rewind(arm, 0, 1);
@@ -656,14 +658,21 @@ mod tests {
             }
             if after == Some(t - 1) {
                 // the tick after the blow the tip has all but stopped
-                assert!(w.me.arm.pts[arm::TIP].vel().len() * 60 < 2 * ONE, "the blade went on");
+                assert!(
+                    w.me.arm.pts[arm::TIP].vel().len() * 60 < 2 * ONE,
+                    "the blade went on"
+                );
             }
             // pressed on, the edge never sinks more than half into the torso
             let torso = (ONE as i64 * 16 / 100 * 135 / 100) as Fx;
             let f = &w.foes[0].fighter.pose;
             let a = &w.me.arm;
             let (_, _, p, q) = closest(a.pts[arm::POMMEL].p, a.pts[arm::TIP].p, f.pelvis, f.chest);
-            assert!(p.dist(q) >= torso / 2 - ONE / 100, "tick {t}: {} into the torso", torso - p.dist(q));
+            assert!(
+                p.dist(q) >= torso / 2 - ONE / 100,
+                "tick {t}: {} into the torso",
+                torso - p.dist(q)
+            );
         }
         assert_eq!(blows.len(), 1, "one blow a contact: {blows:?}");
         let h = blows[0];
@@ -683,7 +692,12 @@ mod tests {
             let speed = w.me.arm.pts[arm::TIP].vel().len();
             w.step(&sweep_left());
             let (a, b) = (&w.me.arm, &w.foes[0].fighter.arm);
-            let (_, _, p, q) = closest(a.pts[arm::POMMEL].p, a.pts[arm::TIP].p, b.pts[arm::POMMEL].p, b.pts[arm::TIP].p);
+            let (_, _, p, q) = closest(
+                a.pts[arm::POMMEL].p,
+                a.pts[arm::TIP].p,
+                b.pts[arm::POMMEL].p,
+                b.pts[arm::TIP].p,
+            );
             if met.is_none() && !w.blades.clashes.is_empty() {
                 met = Some(t);
                 before = speed;
@@ -692,17 +706,27 @@ mod tests {
             if met.is_some_and(|m| t == m + 1) {
                 // within a tick of the contact the swing has stopped: under
                 // half the speed it had
-                assert!(a.pts[arm::TIP].vel().len() < before / 2, "{} of {before}", a.pts[arm::TIP].vel().len());
+                assert!(
+                    a.pts[arm::TIP].vel().len() < before / 2,
+                    "{} of {before}",
+                    a.pts[arm::TIP].vel().len()
+                );
             }
             if let Some(n) = normal {
                 // from the contact on, my blade stays on its own side of theirs
                 let d = p.sub(q);
-                assert!(dot(d, n) >= 0 || p.dist(q) > BLADE_GAP * 2, "tick {t}: the blades passed through");
+                assert!(
+                    dot(d, n) >= 0 || p.dist(q) > BLADE_GAP * 2,
+                    "tick {t}: the blades passed through"
+                );
             }
         }
         assert!(met.is_some(), "the blades met");
         assert!(before > ONE * 8 / 60, "the swing was under way: {before}");
-        assert_eq!(w.foes[0].fighter.health.hp, w.foes[0].fighter.health.most, "a block takes nothing");
+        assert_eq!(
+            w.foes[0].fighter.health.hp, w.foes[0].fighter.health.most,
+            "a block takes nothing"
+        );
     }
 
     #[test]
