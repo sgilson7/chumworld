@@ -45,7 +45,7 @@ struct MenusData {
 fn spec() -> &'static Spec {
     static SPEC: OnceLock<Spec> = OnceLock::new();
     SPEC.get_or_init(|| {
-        let f: File =
+        let f: MenusData =
             serde_json::from_str(include_str!("../../../data/menus.json")).expect("data/menus.json");
         f.figure
     })
@@ -173,6 +173,14 @@ mod tests {
         let mut hooded = Shapes::default();
         shapes(&g, &mut hooded);
         assert_ne!(hooded, plain, "the hood worn is drawn");
+        // the ring held open 30 ticks: the figure has turned by 30 ticks
+        crate::game::tests::frames(&mut g, 30, 0, 0);
+        assert_eq!(g.menu.open_ticks, 30);
+        assert_eq!(frame(&g, fx::ONE), {
+            let mut turned = Shapes::default();
+            shapes(&g, &mut turned);
+            Frame::build(&Scene::default(), &turned, &camera(), fx::ONE)
+        });
         let mut dressed = Shapes::default();
         let hood = Dress {
             worn: models::HOOD,

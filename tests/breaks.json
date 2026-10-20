@@ -2679,5 +2679,89 @@
     "find": "                    Some(n) => no_sale_word(s, n),",
     "replace": "                    Some(_) => price(sale_price(i)),",
     "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 figure: the figure does not turn",
+    "file": "crates/core/src/stage.rs",
+    "find": "    let spun = (ticks as i64 % per_turn) * fx::TURN as i64 / per_turn;",
+    "replace": "    let spun = 0i64;",
+    "test": "the_figure_turns_once_every_sixteen_seconds_from_a_quarter_view"
+  },
+  {
+    "name": "M7 figure: the figure shows on every screen of the ring",
+    "file": "crates/core/src/stage.rs",
+    "find": "    g.screen == Screen::Menu && g.menu.face() == crate::ui::EQUIPMENT",
+    "replace": "    g.screen == Screen::Menu",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: no sword in hand",
+    "file": "crates/core/src/stage.rs",
+    "find": "    if held != Held::Nothing {",
+    "replace": "    if false {",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: undressed",
+    "file": "crates/core/src/stage.rs",
+    "find": "        worn: crate::items::speedster_mask(w),",
+    "replace": "        worn: 0,",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: the ring's open time stands still",
+    "file": "crates/core/src/game.rs",
+    "find": "                self.menu.open_ticks = self.menu.open_ticks.wrapping_add(ticks.len() as u32);",
+    "replace": "",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: the camera too close",
+    "file": "data/menus.json",
+    "find": "\"eye_mm\": [0, 1250, 5700]",
+    "replace": "\"eye_mm\": [0, 1250, 2500]",
+    "test": "the_stage_s_camera_frames_the_whole_figure"
+  },
+  {
+    "name": "M7 quick: a key described before it is pointed at",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let k = g.menu.quick_hover?;",
+    "replace": "    let k = g.menu.quick_hover.or(Some(0))?;",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 quick: the bandage described as readied",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let how = if i == Item::Bandage {\n        \"quick_use\"",
+    "replace": "    let how = if false {\n        \"quick_use\"",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 quick: the pointed key kept when the ring reopens",
+    "file": "crates/core/src/ui.rs",
+    "find": "    g.menu.quick_hover = None;\n    g.menu.open_ticks = 0;",
+    "replace": "    g.menu.open_ticks = 0;",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 bandage: health past the most",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    h.hp = (h.hp + Item::Bandage.def().heals).min(h.most);",
+    "replace": "    h.hp += Item::Bandage.def().heals;",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 bandage: its key readies it",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if pressed && inv.quick[k] == Some(Item::Bandage) {",
+    "replace": "        if false {",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 bandage: used unhurt",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if h.hp >= h.most {",
+    "replace": "    if false {",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
   }
 ]
