@@ -413,17 +413,6 @@ fn tent(k: &mut Kit) {
     k.up(Mesh::Wedge, (0, 1050, 0), (2800, 2100, 3400), canvas);
     // the doorway, a dark triangle standing off the front
     k.up(Mesh::Wedge, (0, 630, -1700), (1500, 1300, 60), dark);
-    // the flaps tied back either side of it
-    for s in [-1, 1] {
-        let turn = Affine::rot_z(-s * deg(34));
-        k.shape(
-            Mesh::Cube,
-            (s * 760, 700, -1760),
-            (200, 1300, 50),
-            turn,
-            k.c("canvas_patch"),
-        );
-    }
     for z in [-1760, 1760] {
         k.bx((0, 1250, z), (80, 2500, 80), pole);
     }

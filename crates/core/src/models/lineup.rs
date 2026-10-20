@@ -145,7 +145,7 @@ pub fn draw(w: &World, _alpha: Fx, look: &Look, out: &mut Shapes) {
             stand(Kind::Player, all, spot(2600, 500), back, look, out);
             stand(Kind::Player, Dress::default(), spot(2600, 1700), back, look, out);
             for (i, item) in Pickup::ALL.iter().enumerate() {
-                let across = -250 + 560 * i as i32;
+                let across = 150 + 560 * i as i32;
                 pickup(
                     *item,
                     spot(1300, across),

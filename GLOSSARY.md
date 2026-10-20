@@ -14,6 +14,12 @@ Where slush comes out. Each line has up to {line.spouts} spouts.
 Not: tap, dispenser, nozzle
 -->
 
+### Lineup
+
+Every character and prop stood in rows in front of the player, for looking at the models. It changes nothing in play and is off until asked for.
+
+Not: gallery, showcase
+
 ### Look
 
 Turning the view with the mouse. The camera stays over the player's right shoulder while it turns.
