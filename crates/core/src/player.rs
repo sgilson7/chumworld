@@ -494,7 +494,7 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Goals) {
         ))
     };
     let shell_hand = f.arm.shell.point(f.arm.frame.shoulder[1], b.facing);
-    let blade = arm::blade_dir(b.facing, &f.arm.shell);
+    let blade = arm::blade_dir(b.facing, &f.arm.shell, f.arm.reach());
     let two = wpn.two_handed();
     let winding = f.throw.winding();
     let mut g = Goals {
@@ -523,7 +523,7 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Goals) {
             } else {
                 free(0)
             });
-            g.tip = Some(shell_hand.add(blade.scale(wpn.len - wpn.grip[1])));
+            g.tip = Some(shell_hand.add(through_front(&f.arm, blade, b.facing).scale(wpn.len - wpn.grip[1])));
         }
         Sheath::Sheathing(_) => {
             g.in_hand = true;
@@ -547,6 +547,25 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Goals) {
         g.target = None;
     }
     (sheath, g)
+}
+
+/// The line the blade's servo turns it toward this tick: the line asked
+/// for, or, while the blade points more than a quarter turn away from it,
+/// a line between the two and ahead of the body. A cut from one side to
+/// the other, or from up behind the head down to the front, so passes
+/// through the space in front, as a cut does, rather than in whatever
+/// plane a straight pull across happens to find.
+pub fn through_front(a: &Arm, want: V3, yaw: i32) -> V3 {
+    let now = a.pts[arm::TIP].p.sub(a.grip_point()).norm();
+    if now.dot(want) >= 0 {
+        return want;
+    }
+    let mid = now.add(want).add(facing(yaw, 0));
+    if mid == V3::ZERO {
+        want
+    } else {
+        mid.norm()
+    }
 }
 
 /// The end of the tick: last tick's pose kept for drawing between, this

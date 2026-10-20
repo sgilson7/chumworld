@@ -80,6 +80,9 @@ pub const ELBOW_POLE: Fx = ONE * 12 / 6000;
 /// (0.37 mm) holds still instead: rounding would otherwise rock it by a
 /// unit or two for ever.
 pub const REST: Fx = 24;
+/// An elbow's and a hand's ball, millimetres on the player (M3's figure).
+pub const ELBOW_MM: i32 = 57;
+pub const HAND_MM: i32 = 64;
 /// No point goes nearer the ground than this.
 pub const FLOOR: Fx = ONE * 2 / 100;
 /// The shell's edges: how far right and left of straight ahead the hand's
@@ -99,16 +102,33 @@ pub const GUARD_REACH_PCT: i32 = 82;
 pub const UNITS_PER_100_PX: i64 = fx::TURN as i64 * 15 / 360;
 /// The wheel moves it 3 cm a notch (100 of the browser's units).
 pub const REACH_PER_NOTCH: Fx = ONE * 3 / 100;
-/// The blade's line for a hand on the shell: raised this far, plus this
-/// share of the hand's pitch, and fanned this much wider than the hand's
-/// side.
-pub const BLADE_RISE: i32 = deg(40);
+/// The blade's line for a hand on the shell (`blade_dir`): raised this far,
+/// plus this share of the hand's pitch, and fanned this much wider than the
+/// hand's side.
+pub const BLADE_RISE: i32 = deg(30);
 pub const BLADE_FOLLOW_PCT: i32 = 70;
 pub const BLADE_FAN_PCT: i32 = 125;
-/// Above this pitch the blade swings over to a high guard across the head,
-/// fully by `HIGH_FULL` above it.
+/// Out to the side, or swept sideways, the rise falls by this share: a side
+/// cut lies flat. Fully at `SIDE_FLAT` out, or at `SWING_FLAT` a tick of
+/// the hand's sideways movement (eased, `Shell::swing`).
+pub const FLAT_PCT: i32 = 75;
+pub const SIDE_FLAT: i32 = deg(70);
+pub const SWING_FLAT: i32 = deg(5);
+/// Above `HIGH_FROM` the blade rises this share faster than the hand: raised
+/// high, it stands up and back over the head, ready to come down.
 pub const HIGH_FROM: i32 = deg(28);
+pub const OVER_PCT: i32 = 60;
+/// Raised high and to the left, it lies across above the head instead (a
+/// high guard against a blow from above), fully by `HIGH_FULL` up and
+/// `LEFT_FULL` left.
 pub const HIGH_FULL: i32 = deg(50);
+pub const LEFT_FULL: i32 = -deg(25);
+/// Drawn in, reached out past the guard, or moving in or out, the blade
+/// comes near level, at this share of the hand's pitch: a thrust's line.
+/// Fully at the shell's nearest and farthest, or at `THRUST_FLAT` a tick of
+/// the hand's reach changing.
+pub const CHAMBER_PCT: i32 = 50;
+pub const THRUST_FLAT: Fx = ONE * 15 / 1000;
 
 /// Centimetres to `fx` metres.
 const fn cm(c: i32) -> Fx {
@@ -156,6 +176,97 @@ impl Weapon {
     pub fn blade(&self) -> Fx {
         self.len - self.hilt
     }
+}
+
+/// One solid line of a weapon, as M3 draws it (`models/held.rs`): `across`
+/// its width from the pommel-to-tip line (along the item's right, as near
+/// the world's up as stays at right angles to the blade: `models::along`),
+/// from `from` along it to the tip, and `r` thick. Against another body
+/// the whole rail is solid; against its own, only from `own_from` (the
+/// guard), since the hands that hold the hilt are against the body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Rail {
+    pub across: Fx,
+    pub from: Fx,
+    pub own_from: Fx,
+    pub r: Fx,
+}
+
+/// Millimetres to `fx` metres.
+const fn mm(v: i32) -> Fx {
+    (v as i64 * ONE as i64 / 1000) as Fx
+}
+
+/// Each weapon's rails. A sword's blade is one, 46 mm (54 mm for the
+/// sword) wide on its line, its guard ending 106 mm past the grip (138 mm
+/// for the sword). The cleaver's slab hangs off the haft's line from 150 mm
+/// past the grip, from 20 mm one side of it to 194 mm the other (its edge),
+/// 13 mm thick: three rails across it and the haft's own.
+pub fn rails(item: Held) -> &'static [Rail] {
+    const SHORT: [Rail; 1] = [Rail {
+        across: 0,
+        from: 0,
+        own_from: cm(8) + mm(106),
+        r: mm(23),
+    }];
+    const SWORD: [Rail; 1] = [Rail {
+        across: 0,
+        from: 0,
+        own_from: cm(16) + mm(138),
+        r: mm(27),
+    }];
+    const CLEAVER: [Rail; 4] = [
+        Rail {
+            across: 0,
+            from: 0,
+            own_from: cm(17) + mm(150),
+            r: mm(22),
+        },
+        Rail {
+            across: mm(40),
+            from: cm(17) + mm(150),
+            own_from: cm(17) + mm(150),
+            r: mm(34),
+        },
+        Rail {
+            across: mm(105),
+            from: cm(17) + mm(150),
+            own_from: cm(17) + mm(150),
+            r: mm(34),
+        },
+        Rail {
+            across: mm(168),
+            from: cm(17) + mm(150),
+            own_from: cm(17) + mm(150),
+            r: mm(30),
+        },
+    ];
+    match item {
+        Held::Sword => &SWORD,
+        Held::Cleaver => &CLEAVER,
+        _ => &SHORT,
+    }
+}
+
+/// A capsule of a body an arm keeps its weapon and hands out of: another
+/// fighter's every part, or its own head, torso and legs (`own`: only the
+/// blade from the guard keeps out of those, and the hands out of the head).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Fence {
+    pub a: V3,
+    pub b: V3,
+    pub r: Fx,
+    pub own: bool,
+    pub head: bool,
+    /// the weapon keeps out of it too: always its own body; another body
+    /// only once the blades' sweep has found what each blade met
+    /// (`blade::step`), so a blow lands at the speed it was swung
+    pub blade: bool,
+    /// where the body it belongs to stands: the way out of its trunk across
+    /// the ground, for a part pressed between two of its capsules; none for
+    /// an arm held out more level than upright, whose own way out is across
+    /// it
+    pub axis: Option<V3>,
 }
 
 /// Each weapon's sizes. The short sword (70 cm blade, PLAN.md) is held in
@@ -211,6 +322,11 @@ pub struct Shell {
     pub pitch: i32,
     pub reach: Fx,
     pub rest: (i32, i32),
+    /// how fast the target moves across and up (angle units a tick) and in
+    /// and out (metres a tick), eased (two thirds of it kept each tick, so
+    /// it comes to exactly nothing): the mouse's path, which lays a sweep
+    /// flat and holds a thrust to its line
+    pub swing: (i32, i32, Fx),
 }
 
 impl Shell {
@@ -220,7 +336,14 @@ impl Shell {
             pitch: GUARD_PITCH,
             reach: arm * GUARD_REACH_PCT / 100,
             rest: (0, 0),
+            swing: (0, 0, 0),
         }
+    }
+
+    /// The swing eased one tick toward a movement of `d`.
+    pub fn eased(swing: (i32, i32, Fx), d: (i32, i32, Fx)) -> (i32, i32, Fx) {
+        let e = |a: i32, b: i32| (a * 2 + b) / 3;
+        (e(swing.0, d.0), e(swing.1, d.1), e(swing.2, d.2))
     }
 
     /// The shell after mouse movement `m` (right moves right, down moves
@@ -237,12 +360,16 @@ impl Shell {
         let side = self.side + dside;
         let clamped = side.clamp(SIDE_MIN, SIDE_MAX);
         let reach = self.reach - (m.wheel as i64 * REACH_PER_NOTCH as i64 / 10_000) as Fx;
+        let reach = reach.clamp(arm * REACH_MIN_PCT / 100, arm * REACH_MAX_PCT / 100);
+        let pitch = (self.pitch - dpitch).clamp(PITCH_MIN, PITCH_MAX);
+        let moved = (clamped - self.side, pitch - self.pitch, reach - self.reach);
         (
             Shell {
                 side: clamped,
-                pitch: (self.pitch - dpitch).clamp(PITCH_MIN, PITCH_MAX),
-                reach: reach.clamp(arm * REACH_MIN_PCT / 100, arm * REACH_MAX_PCT / 100),
+                pitch,
+                reach,
                 rest: (rx, ry),
+                swing: Shell::eased(self.swing, moved),
             },
             side - clamped,
         )
@@ -262,19 +389,39 @@ pub fn mouse_for(dside: i32, dpitch: i32) -> (i32, i32) {
     (px(dside), -px(dpitch))
 }
 
-/// The line the blade is asked to hold for a hand at `shell`, the body
-/// facing `yaw`: raised above the hand and fanned out with it, so a hand
-/// in front points the blade a little up, at a foe's face; a hand to the
-/// right lays it out
-/// to the right, and a hand high swings it across above the head.
-pub fn blade_dir(yaw: i32, shell: &Shell) -> V3 {
-    let mid = facing(
-        yaw - shell.side * BLADE_FAN_PCT / 100,
-        BLADE_RISE + shell.pitch * BLADE_FOLLOW_PCT / 100,
-    );
+/// `x` from `a` (0) to `b` (`ONE`), held between.
+fn ramp(x: i32, a: i32, b: i32) -> Fx {
+    if a == b {
+        return 0;
+    }
+    ((x - a) as i64 * ONE as i64 / (b - a) as i64).clamp(0, ONE as i64) as Fx
+}
+
+/// The line the blade is asked to hold for a hand at `shell` on an arm
+/// `arm` long, the body facing `yaw`, so each cut reads from the mouse's
+/// path. At the guard the blade points a little up, at a foe's face, fanned
+/// out with the hand. Out to the side, or swept sideways, it lies flat: a
+/// side cut. Raised, it stands up and back over the head, and brought down
+/// it falls through the upright plane in front: an overhead. Raised and to
+/// the left, it lies across above the head: the high guard. Drawn in it is
+/// near level, and reached out it lies along the arm: a thrust.
+pub fn blade_dir(yaw: i32, shell: &Shell, arm: Fx) -> V3 {
+    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT).max(ramp(shell.swing.0.abs(), 0, SWING_FLAT));
+    let rise = BLADE_RISE - fx::mul(BLADE_RISE * FLAT_PCT / 100, flat);
+    let mut up =
+        rise + shell.pitch * BLADE_FOLLOW_PCT / 100 + (shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;
+    let at = |pct: i32| arm * pct / 100;
+    let guard = at(GUARD_REACH_PCT);
+    let line = ramp(shell.reach, guard, at(REACH_MAX_PCT))
+        .max(ramp(shell.reach, guard, at(REACH_MIN_PCT)))
+        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));
+    up = fx::lerp(up, shell.pitch * CHAMBER_PCT / 100, line);
+    let mid = facing(yaw - shell.side * BLADE_FAN_PCT / 100, up);
     let top = facing(yaw + deg(80), deg(10)).add(facing(yaw, 0).scale(ONE / 3));
-    let high = ((shell.pitch - HIGH_FROM) as i64 * ONE as i64 / (HIGH_FULL - HIGH_FROM) as i64)
-        .clamp(0, ONE as i64) as Fx;
+    let high = fx::mul(
+        ramp(shell.pitch, HIGH_FROM, HIGH_FULL),
+        ramp(shell.side, 0, LEFT_FULL),
+    );
     mid.lerp(top.norm(), high).norm()
 }
 
@@ -327,6 +474,10 @@ pub struct Arm {
     /// the shell's target this tick and last, for the reticle
     pub target: V3,
     pub prev_target: V3,
+    /// the bodies near enough to meet this tick (`step` sets them)
+    pub fences: Vec<Fence>,
+    /// how round an elbow and a hand are, as M3 draws them
+    pub joint_r: (Fx, Fx),
 }
 
 /// `v` × `num` / `den`, in i64.
@@ -367,6 +518,11 @@ impl Arm {
             hold: [false, false],
             target: frame.shoulder[1],
             prev_target: frame.shoulder[1],
+            fences: Vec::new(),
+            joint_r: (
+                (ELBOW_MM as i64 * build.height as i64 * build.girth_pct as i64 / 170_000) as Fx,
+                (HAND_MM as i64 * build.height as i64 * build.girth_pct as i64 / 170_000) as Fx,
+            ),
         }
     }
 
@@ -374,7 +530,7 @@ impl Arm {
     pub fn take_in_hand(&mut self, frame: &Frame) {
         let w = self.weapon;
         let hand = self.shell.point(frame.shoulder[1], frame.yaw);
-        let dir = blade_dir(frame.yaw, &self.shell);
+        let dir = blade_dir(frame.yaw, &self.shell, self.reach());
         let pommel = hand.sub(dir.scale(w.grip[1]));
         self.pts[POMMEL] = Point::at(pommel, w.mass[0]);
         self.pts[TIP] = Point::at(pommel.add(dir.scale(w.len)), w.mass[1]);
@@ -601,6 +757,7 @@ impl Arm {
                 self.keep_out(k, f.head, f.head, f.head_r + ONE / 25);
             }
         }
+        self.fence();
         for pt in &mut self.pts {
             if pt.m > 0 && pt.p.y < f.ground + FLOOR {
                 // the ground stops a point dead downward and gives it
@@ -652,6 +809,148 @@ impl Arm {
         self.pts[hand].p = self.pts[hand].p.add(times(k, mg));
         for g in [POMMEL, TIP] {
             self.pts[g].p = self.pts[g].p.sub(times(k, mh));
+        }
+    }
+
+    /// The weapon's right, across its width, as M3 draws it (`models::along`
+    /// from the grip to the tip, the world's up for a hint), now or a tick
+    /// ago.
+    pub fn across(&self, prev: bool) -> V3 {
+        let (g, t) = if prev {
+            (self.grip_was(), self.pts[TIP].q)
+        } else {
+            (self.grip_point(), self.pts[TIP].p)
+        };
+        crate::models::along(g, t, V3::UP).c0
+    }
+
+    /// A rail's segment (against its own body, `own`), now or a tick ago,
+    /// and the share of the way from the pommel to the tip each end is at.
+    pub fn rail(&self, r: &Rail, own: bool, prev: bool) -> (V3, V3, Fx) {
+        self.rail_at(r, own, prev, self.across(prev))
+    }
+
+    /// The same, with the weapon's right already found.
+    fn rail_at(&self, r: &Rail, own: bool, prev: bool, right: V3) -> (V3, V3, Fx) {
+        let (p, t) = if prev {
+            (self.pts[POMMEL].q, self.pts[TIP].q)
+        } else {
+            (self.pts[POMMEL].p, self.pts[TIP].p)
+        };
+        let side = right.scale(r.across);
+        let from = if own { r.own_from } else { r.from };
+        let len = self.weapon.len.max(1) as i64;
+        let a = p.add(mul_div(t.sub(p), from as i64, len)).add(side);
+        (a, t.add(side), (from as i64 * ONE as i64 / len) as Fx)
+    }
+
+    /// Every hand, elbow and the weapon's rails kept out of the fences: each
+    /// pushed back the way it came (out of the side of the fence it was on a
+    /// tick ago, so a fast blade is never pushed through to the far side),
+    /// with where it was moved alike so the push adds no speed, and its
+    /// speed into the fence taken away (Vagrancy's D9: the body stops it,
+    /// inelastically). A weapon riding in its scabbard is the scabbard's.
+    fn fence(&mut self) {
+        if self.fences.is_empty() {
+            return;
+        }
+        let fences = std::mem::take(&mut self.fences);
+        let mut rails = self.rail_lines();
+        // rounds until nothing moves (at most `FENCE_ROUNDS`), so a hand or a
+        // blade pressed between two parts of a body comes out of both; from
+        // halfway, still in, it goes straight out across the ground from the
+        // body's upright axis, which leads out of all of its parts at once
+        for round in 0..FENCE_ROUNDS {
+            let away = round >= FENCE_ROUNDS / 2;
+            let mut moved = false;
+            for f in &fences {
+                if !f.own || f.head {
+                    for (k, r) in [
+                        (ELBOW[0], self.joint_r.0),
+                        (ELBOW[1], self.joint_r.0),
+                        (HAND[0], self.joint_r.1),
+                        (HAND[1], self.joint_r.1),
+                    ] {
+                        if f.own && k != HAND[0] && k != HAND[1] {
+                            continue;
+                        }
+                        let (p, q) = (self.pts[k].p, self.pts[k].q);
+                        if let Some(d) = push_out(p, q, f, r, away) {
+                            let pt = &mut self.pts[k];
+                            pt.p = pt.p.add(d.0);
+                            pt.q = pt.q.add(d.0);
+                            let into = pt.vel().dot(d.1);
+                            if into < 0 {
+                                pt.q = pt.q.add(d.1.scale(into));
+                            }
+                            moved = true;
+                        }
+                    }
+                }
+                for k in 0..rails.len() {
+                    if !f.blade {
+                        break;
+                    }
+                    let (rail, now, was) = rails[k];
+                    let (a, b, t0) = now[f.own as usize];
+                    let (a0, b0, _) = was[f.own as usize];
+                    let Some((d, out, s)) = push_rail(a, b, a0, b0, f, rail.r, away) else {
+                        continue;
+                    };
+                    // the share of the way along the weapon the push lands at
+                    let t = t0 + fx::mul(ONE - t0, s);
+                    self.shove(t, d, out);
+                    rails = self.rail_lines();
+                    moved = true;
+                }
+            }
+            if !moved {
+                break;
+            }
+        }
+        self.fences = fences;
+    }
+
+    /// Each rail now and a tick ago, against another body and its own; none
+    /// for a weapon in its scabbard.
+    #[allow(clippy::type_complexity)]
+    fn rail_lines(&self) -> Vec<(Rail, [(V3, V3, Fx); 2], [(V3, V3, Fx); 2])> {
+        if !self.in_hand {
+            return Vec::new();
+        }
+        let (now, was) = (self.across(false), self.across(true));
+        rails(self.weapon.item)
+            .iter()
+            .map(|r| {
+                let at = |own| (self.rail_at(r, own, false, now), self.rail_at(r, own, true, was));
+                let (a, a0) = at(false);
+                let (b, b0) = at(true);
+                (*r, [a, b], [a0, b0])
+            })
+            .collect()
+    }
+
+    /// The weapon moved so its point `t` of the way from the pommel to the
+    /// tip moves by `d`, as a turn and a slide that move it least: the
+    /// pommel by `(1 − t)·k·d`, the tip by `t·k·d`, `k = 1 / ((1 − t)² + t²)`.
+    /// Where it was moves alike (no speed added), and the speed of that
+    /// point along `out` into the fence is taken away.
+    fn shove(&mut self, t: Fx, d: V3, out: V3) {
+        let t = t.clamp(0, ONE) as i64;
+        let u = ONE as i64 - t;
+        let den = ((u * u + t * t) >> 16).max(1);
+        let wp = (u * ONE as i64 / den) as Fx;
+        let wt = (t * ONE as i64 / den) as Fx;
+        let v = self.pts[POMMEL]
+            .vel()
+            .scale(ONE - t as Fx)
+            .add(self.pts[TIP].vel().scale(t as Fx));
+        let stop = out.scale(v.dot(out).min(0));
+        for (k, w) in [(POMMEL, wp), (TIP, wt)] {
+            let pt = &mut self.pts[k];
+            let m = d.scale(w);
+            pt.p = pt.p.add(m);
+            pt.q = pt.q.add(m).add(stop.scale(w));
         }
     }
 
@@ -716,6 +1015,90 @@ pub fn nearest_on(a: V3, b: V3, p: V3) -> V3 {
     a.add(mul_div(ab, t, ONE as i64))
 }
 
+/// How far and which way to move a point (`p`, a tick ago `q`) of radius
+/// `r` out of a fence: to the fence's surface on the side the point was a
+/// tick ago, or (`away`) straight out across the ground from its body's
+/// axis. `None` when it is clear.
+fn push_out(p: V3, q: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3)> {
+    let room = f.r + r;
+    if !near_box(p, p, f, room) {
+        return None;
+    }
+    let c = nearest_on(f.a, f.b, p);
+    let d = p.sub(c);
+    if sq(d) >= room as i64 * room as i64 {
+        return None;
+    }
+    if let (true, Some(axis)) = (away, f.axis) {
+        return Some(escape(p, d, axis, room));
+    }
+    let c0 = nearest_on(f.a, f.b, q);
+    let was = q.sub(c0);
+    let out = side(d, was);
+    Some((c.add(out.scale(room)).sub(p), out))
+}
+
+/// The same for a rail `a`–`b` (a tick ago `a0`–`b0`): the move of its
+/// nearest point, the way out, and how far along the rail that point is.
+fn push_rail(a: V3, b: V3, a0: V3, b0: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3, Fx)> {
+    let room = f.r + r;
+    if !near_box(a, b, f, room) {
+        return None;
+    }
+    let (s, _, pr, pf) = crate::blade::closest(a, b, f.a, f.b);
+    let d = pr.sub(pf);
+    if sq(d) >= room as i64 * room as i64 {
+        return None;
+    }
+    if let (true, Some(axis)) = (away, f.axis) {
+        let (m, out) = escape(pr, d, axis, room);
+        return Some((m, out, s));
+    }
+    let (_, _, pr0, pf0) = crate::blade::closest(a0, b0, f.a, f.b);
+    let out = side(d, pr0.sub(pf0));
+    Some((pf.add(out.scale(room)).sub(pr), out, s))
+}
+
+/// A point `p`, `d` from the fence's nearest point and `room` needed, moved
+/// straight out across the ground from the fence's body's axis: by the
+/// sink, over the share of that way that leads out of this capsule (at
+/// least a third), and a unit more.
+fn escape(p: V3, d: V3, axis: V3, room: Fx) -> (V3, V3) {
+    let flat = v3(p.x - axis.x, 0, p.z - axis.z);
+    let out = if flat == V3::ZERO { side(d, d) } else { flat.norm() };
+    let sink = room - d.len();
+    let lead = if d == V3::ZERO {
+        ONE
+    } else {
+        out.dot(d.norm()).max(ONE / 3)
+    };
+    (out.scale(fx::div(sink, lead) + 1), out)
+}
+
+/// The way out of a fence: the way the point is from it now, unless a tick
+/// ago it was on the other side (it came through the middle), then that
+/// side; straight up when there is neither.
+fn side(now: V3, was: V3) -> V3 {
+    let through = now.dot(was) < 0 || now == V3::ZERO;
+    let pick = if through && was != V3::ZERO { was } else { now };
+    if pick == V3::ZERO {
+        V3::UP
+    } else {
+        pick.norm()
+    }
+}
+
+/// Whether a segment's box, grown by `room`, meets a fence's.
+fn near_box(a: V3, b: V3, f: &Fence, room: Fx) -> bool {
+    let lo = |x: i32, y: i32, u: i32, v: i32| x.min(y) - room <= u.max(v);
+    lo(a.x, b.x, f.a.x, f.b.x)
+        && lo(f.a.x, f.b.x, a.x, b.x)
+        && lo(a.y, b.y, f.a.y, f.b.y)
+        && lo(f.a.y, f.b.y, a.y, b.y)
+        && lo(a.z, b.z, f.a.z, f.b.z)
+        && lo(f.a.z, f.b.z, a.z, b.z)
+}
+
 /// The servo's change of velocity this tick for a point and its target: the
 /// speed it asks for is `GAIN` of the distance, at most `speed`; the change
 /// toward that speed is at most `accel`.
@@ -727,30 +1110,12 @@ pub fn servo(pt: &Point, target: V3, speed: Fx, accel: Fx) -> V3 {
 /// Step 4 of the tick: every fighter's sword state moves on, the mouse moves
 /// its hand's target, and its arms are pulled, moved and relaxed.
 pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
+    // the bodies as they stand after the feet, each arm as it moves: each
+    // arm keeps out of them
+    let mut caps = all_capsules(w);
     for id in 0..player::count(w) {
         let inp = if id == 0 { *input } else { foes[id - 1] };
-        // the shell takes the mouse unless it is looking
-        let f = player::fighter(w, id);
-        if f.sheath == Sheath::Drawn && !f.mouse_looks && !f.health.down() {
-            // the player's hand moves at the reader's setting (M4's
-            // mouse sensitivity, percent); a pilot's at its own
-            let pct = if id == 0 { w.ui.settings.hand_pct } else { 100 };
-            let (shell, over) = f.arm.shell.moved(
-                Mouse {
-                    dx: (inp.dx as i64 * pct as i64 / 100) as i32,
-                    dy: (inp.dy as i64 * pct as i64 / 100) as i32,
-                    wheel: inp.wheel,
-                },
-                f.arm.reach(),
-            );
-            let free = f.engaged.is_none();
-            player::parts_mut(w, id).1.arm.shell = shell;
-            if id == 0 && free && over != 0 {
-                // pushed past the side edge, holding on no one: the view
-                // turns, and the body after it
-                w.aim.yaw = fx::wrap(w.aim.yaw - over);
-            }
-        }
+        move_shell(w, id, &inp);
         let (sheath, goals) = player::goals(w, id, &inp);
         let b = *player::body(w, id);
         let f = player::fighter(w, id);
@@ -761,10 +1126,100 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
             f.health.fall(),
             w.ground(b.pos.x, b.pos.z),
         );
+        let near = fences_of(w, id, &caps, false);
         let f = player::parts_mut(w, id).1;
         f.sheath = sheath;
+        f.arm.fences = near;
         f.arm.step(&frame, &goals);
+        caps[id] = crate::blade::body(player::fighter(w, id).kind, &player::pose_of(w, id));
     }
+}
+
+/// Times each relaxation pass goes over the fences.
+pub const FENCE_ROUNDS: usize = 8;
+/// Fighter `id`'s mouse moves its hand's target on the shell, unless it is
+/// looking; otherwise the target's swing eases to nothing.
+pub fn move_shell(w: &mut World, id: usize, inp: &Input) {
+    let f = player::fighter(w, id);
+    if f.sheath == Sheath::Drawn && !f.mouse_looks && !f.health.down() {
+        // the player's hand moves at the reader's setting (M4's mouse
+        // sensitivity, percent); a pilot's at its own
+        let pct = if id == 0 { w.ui.settings.hand_pct } else { 100 };
+        let (shell, over) = f.arm.shell.moved(
+            Mouse {
+                dx: (inp.dx as i64 * pct as i64 / 100) as i32,
+                dy: (inp.dy as i64 * pct as i64 / 100) as i32,
+                wheel: inp.wheel,
+            },
+            f.arm.reach(),
+        );
+        let free = f.engaged.is_none();
+        player::parts_mut(w, id).1.arm.shell = shell;
+        if id == 0 && free && over != 0 {
+            // pushed past the side edge, holding on no one: the view turns,
+            // and the body after it
+            w.aim.yaw = fx::wrap(w.aim.yaw - over);
+        }
+    } else {
+        let s = &mut player::parts_mut(w, id).1.arm.shell;
+        s.swing = Shell::eased(s.swing, (0, 0, 0));
+    }
+}
+
+/// Bodies this far apart, feet to feet, cannot meet each other's arms.
+pub const FENCE_RANGE: Fx = fx::int(4);
+
+/// The fences each fighter's arm keeps out of: its own head, torso and
+/// legs, and every part of each body within `FENCE_RANGE`, standing or
+/// down, as they stand now (`blade::body`), by fighter.
+pub fn fences(w: &World) -> Vec<Vec<Fence>> {
+    let caps = all_capsules(w);
+    (0..caps.len()).map(|id| fences_of(w, id, &caps, true)).collect()
+}
+
+/// Every body's capsules as it stands now.
+pub fn all_capsules(w: &World) -> Vec<[crate::blade::Capsule; crate::blade::PARTS]> {
+    (0..player::count(w))
+        .map(|k| crate::blade::body(player::fighter(w, k).kind, &player::pose_of(w, k)))
+        .collect()
+}
+
+/// The fences of fighter `id` among bodies standing as `caps`; the weapon
+/// keeps out of other bodies only with `blades`.
+pub fn fences_of(
+    w: &World,
+    id: usize,
+    caps: &[[crate::blade::Capsule; crate::blade::PARTS]],
+    blades: bool,
+) -> Vec<Fence> {
+    let me = player::body(w, id).pos;
+    let mut out = Vec::new();
+    for (k, caps) in caps.iter().enumerate() {
+        let at = player::body(w, k).pos;
+        if k != id && v3(at.x - me.x, 0, at.z - me.z).len() > FENCE_RANGE {
+            continue;
+        }
+        for (n, c) in caps.iter().enumerate() {
+            let own = k == id;
+            if own && !crate::blade::TRUNK.contains(&n) {
+                continue;
+            }
+            out.push(Fence {
+                a: c.a,
+                b: c.b,
+                r: c.r,
+                own,
+                head: c.part == crate::blade::Part::Head,
+                blade: own || blades,
+                axis: (crate::blade::TRUNK.contains(&n) || {
+                    let d = c.b.sub(c.a);
+                    d.y.abs() >= d.len_xz()
+                })
+                .then_some(at),
+            });
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -773,6 +1228,7 @@ mod tests {
     use crate::fx::int;
     use crate::player::{Body, Fighter};
     use crate::pose::Kind;
+    use crate::world::World;
 
     fn frame() -> Frame {
         let b = Body::new(v3(0, 0, 0), 0);
@@ -785,7 +1241,7 @@ mod tests {
     }
 
     fn goals(a: &Arm, target: V3, swing: bool) -> Goals {
-        let dir = blade_dir(0, &a.shell);
+        let dir = blade_dir(0, &a.shell, a.reach());
         Goals {
             hand: [None, Some(target)],
             tip: Some(target.add(dir.scale(a.weapon.len - a.weapon.grip[1]))),
@@ -1051,31 +1507,174 @@ mod tests {
         assert_eq!(s.reach - m.reach, ONE * 3 / 100);
     }
 
+    /// The player alone, the sword drawn and settled at the guard, facing
+    /// north; then `path`, and the tip each tick in the body's own frame
+    /// (right, up, ahead) from the feet.
+    fn cut(path: &[Input]) -> Vec<V3> {
+        let mut w = World::new(1);
+        w.aim.yaw = 0;
+        w.player.facing = 0;
+        let draw = Input {
+            keys: crate::input::DRAW,
+            ..Input::default()
+        };
+        w.step(&draw);
+        for _ in 0..60 {
+            w.step(&Input::default());
+        }
+        path.iter()
+            .map(|i| {
+                w.step(i);
+                let t = w.me.arm.pts[TIP].p.sub(w.player.pos);
+                v3(t.x, t.y, -t.z)
+            })
+            .collect()
+    }
+
+    fn mouse(dx: i32, dy: i32, wheel: i32, swing: bool, ticks: usize) -> Vec<Input> {
+        vec![
+            Input {
+                dx: dx * 100,
+                dy: dy * 100,
+                wheel,
+                buttons: if swing { crate::input::SWING } else { 0 },
+                ..Input::default()
+            };
+            ticks
+        ]
+    }
+
+    /// Each cut reads from the mouse's path, the tip followed through the
+    /// whole arm. Overhead: the mouse up 600 px, then down 900 px with the
+    /// button: the tip comes from over 2 m up and behind the feet down through
+    /// the space in front, more than 1.2 m, and keeps within 0.35 m of its
+    /// line across. Side: the mouse right 450 px, then left 1 000 px: the
+    /// tip crosses more than 1.3 m and keeps within 0.4 m of one height.
+    /// Thrust: the wheel draws the hand in ten notches (as near as the shell
+    /// goes), then out twelve (as far): the tip goes 0.25 m ahead or more,
+    /// under 0.15 m across and under 0.25 m up or down.
     #[test]
-    fn the_blade_points_ahead_from_the_guard_out_to_the_side_and_across_a_high_guard() {
-        let at = |side: i32, pitch: i32| {
+    fn an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path() {
+        let span = |v: &[V3], f: fn(&V3) -> i32| {
+            let (lo, hi) = (v.iter().map(f).min().unwrap(), v.iter().map(f).max().unwrap());
+            hi - lo
+        };
+        // overhead
+        let mut path = mouse(0, -60, 0, false, 10);
+        path.extend(mouse(0, 0, 0, false, 30));
+        let n = path.len();
+        path.extend(mouse(0, 150, 0, true, 6));
+        path.extend(mouse(0, 0, 0, true, 14));
+        let tips = cut(&path);
+        let (raised, chop) = (tips[n - 1], &tips[n..]);
+        assert!(
+            raised.y > fx::int(2) && raised.z < -ONE / 10,
+            "raised above and behind: {raised:?}"
+        );
+        let low = chop.iter().map(|t| t.y).min().unwrap();
+        let ahead = chop.iter().map(|t| t.z).max().unwrap();
+        assert!(
+            raised.y - low > ONE * 12 / 10,
+            "fell {} from {raised:?}",
+            raised.y - low
+        );
+        assert!(ahead > ONE, "came down in front: {ahead}");
+        assert!(
+            span(chop, |t| t.x) < ONE * 35 / 100,
+            "kept to its line: {}",
+            span(chop, |t| t.x)
+        );
+        // side
+        let mut path = mouse(45, 0, 0, false, 10);
+        path.extend(mouse(0, 0, 0, false, 30));
+        let n = path.len();
+        path.extend(mouse(-170, 0, 0, true, 6));
+        path.extend(mouse(0, 0, 0, true, 20));
+        let tips = cut(&path);
+        let sweep = &tips[n - 1..];
+        assert!(
+            span(sweep, |t| t.x) > ONE * 13 / 10,
+            "crossed {}",
+            span(sweep, |t| t.x)
+        );
+        assert!(
+            span(sweep, |t| t.y) < ONE * 4 / 10,
+            "rose and fell {}",
+            span(sweep, |t| t.y)
+        );
+        // thrust
+        let mut path = mouse(0, 0, 10_000, false, 10);
+        path.extend(mouse(0, 0, 0, false, 30));
+        let n = path.len();
+        path.extend(mouse(0, 0, -10_000, true, 12));
+        path.extend(mouse(0, 0, 0, true, 10));
+        let tips = cut(&path);
+        let thrust = &tips[n - 1..];
+        assert!(
+            span(thrust, |t| t.z) > ONE / 4,
+            "went {} ahead",
+            span(thrust, |t| t.z)
+        );
+        assert!(
+            span(thrust, |t| t.x) < ONE * 15 / 100,
+            "moved {} across",
+            span(thrust, |t| t.x)
+        );
+        assert!(
+            span(thrust, |t| t.y) < ONE / 4,
+            "rose and fell {}",
+            span(thrust, |t| t.y)
+        );
+    }
+
+    /// Worked by hand for an arm 1 m long, the hand at the guard's reach
+    /// (82%) unless given: angles to sines through `fx::deg`'s units.
+    #[test]
+    fn the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust() {
+        let at = |side: i32, pitch: i32, pct: i32, swing: i32| {
             blade_dir(
                 0,
                 &Shell {
-                    side,
-                    pitch,
-                    reach: ONE / 2,
+                    side: deg(side),
+                    pitch: deg(pitch),
+                    reach: ONE * pct / 100,
                     rest: (0, 0),
+                    swing: (deg(swing), 0, 0),
                 },
+                ONE,
             )
         };
-        let guard = at(0, -deg(14));
-        // 40° + 70% of −14° = 30.2° up: sin 30.2° = 0.503, 32 971 units
+        let near = |a: Fx, b: Fx| (a - b).abs() < 40;
+        // the guard: 30° less 70% of 14° (5 461 − 1 783 units) = 20.2° up,
+        // sin 20.2° = 0.345: 22 630
+        let guard = at(0, -14, 82, 0);
+        assert!(near(guard.y, 22_630) && guard.z < -ONE * 9 / 10, "{guard:?}");
+        // 70° out: flat, 30° less 75% = 7.5° up, fanned to 87.5° right
+        let right = at(70, 0, 82, 0);
+        assert!(right.x > ONE * 9 / 10 && near(right.y, 8_554), "{right:?}");
+        // swept sideways at 6° a tick, in front: flat the same, sin 7.5° =
+        // 0.1305: 8 554
+        let sweep = at(0, 0, 82, 6);
+        assert!(near(sweep.y, 8_554), "{sweep:?}");
+        // raised to 78°, 10° right: 30° less 75% of a seventh = 26.8°, plus
+        // 70% of 78° (54.6°) and 60% of 50° (30°): 111.4°, up and back over
+        // the head (cos 111.4° = −0.365 behind, sin = 0.931 up)
+        let raised = at(10, 78, 82, 0);
+        assert!(raised.y > ONE * 9 / 10 && raised.z > ONE * 3 / 10, "{raised:?}");
+        // raised and to the left: across above the head, the high guard:
+        // (facing 80° left, 10° up) + a third ahead, normalised to
+        // (−0.876, 0.157, −0.455)
+        let high = at(-30, 70, 82, 0);
+        assert!(high.x < -ONE * 85 / 100 && high.y.abs() < ONE / 5, "{high:?}");
+        // reached out all the way: on the thrust's line, half the hand's 6°
+        // down (−1 092 units, −546)
+        let thrust = at(0, -6, 97, 0);
+        assert!(thrust.dist(facing(0, -546)) < 40, "{thrust:?}");
+        // drawn in all the way: half the hand's 20° down, sin −10° = −0.174
+        let drawn_in = at(0, -20, 45, 0);
         assert!(
-            (guard.y - 32_971).abs() < 40 && guard.z < -ONE * 4 / 5,
-            "ahead, a little up: {guard:?}"
-        );
-        let right = at(deg(70), 0);
-        assert!(right.x > ONE / 2, "out to the right: {right:?}");
-        let high = at(0, deg(70));
-        assert!(
-            high.x < -ONE * 3 / 4 && high.y.abs() < ONE / 2,
-            "across to the left: {high:?}"
+            near(drawn_in.y, -11_380) && drawn_in.z < -ONE * 9 / 10,
+            "{drawn_in:?}"
         );
     }
 }

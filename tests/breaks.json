@@ -814,9 +814,9 @@
   {
     "name": "M1 arm: the blade rises above the hand",
     "file": "crates/core/src/arm.rs",
-    "find": "pub const BLADE_RISE: i32 = deg(40);",
-    "replace": "pub const BLADE_RISE: i32 = deg(20);",
-    "test": "the_blade_points_ahead_from_the_guard_out_to_the_side_and_across_a_high_guard"
+    "find": "pub const BLADE_RISE: i32 = deg(30);",
+    "replace": "pub const BLADE_RISE: i32 = deg(10);",
+    "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
   },
   {
     "name": "M1 health: a blow takes by speed over 1.5 m/s",
@@ -865,13 +865,13 @@
     "file": "crates/core/src/blade.rs",
     "find": "    rewind(arm, c.k.saturating_sub(1) as i64, c.s as i64);",
     "replace": "    rewind(arm, c.s as i64, c.s as i64);",
-    "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
+    "test": "a_blade_that_crosses_a_body_in_one_tick_is_stopped_on_the_near_side"
   },
   {
     "name": "M1 blade: one blow a contact",
     "file": "crates/core/src/blade.rs",
-    "find": "                let r = (*r + COME_AWAY) as i64;",
-    "replace": "                let r = (*r - COME_AWAY) as i64;",
+    "find": "                pa.dist(pb) <= *re + *r + COME_AWAY",
+    "replace": "                pa.dist(pb) <= *re + *r - COME_AWAY",
     "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
   },
   {
@@ -1433,5 +1433,82 @@
     "find": "    for _ in 0..SEPARATE_PASSES {",
     "replace": "    for _ in 0..0 {",
     "test": "no_two_bodies_sink_into_each_other_in_a_shove_a_duel_or_a_group"
+  },
+  {
+    "name": "M1b arm: the fences keep blades and hands out of bodies",
+    "file": "crates/core/src/arm.rs",
+    "find": "        if self.fences.is_empty() {",
+    "replace": "        if true {",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M1b arm: a shoved weapon's rails are found again",
+    "file": "crates/core/src/arm.rs",
+    "find": "                    rails = self.rail_lines();",
+    "replace": "                    let _ = 0;",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M1b arm: a part wedged in a body leaves across the ground",
+    "file": "crates/core/src/arm.rs",
+    "find": "            let away = round >= FENCE_ROUNDS / 2;",
+    "replace": "            let away = round > FENCE_ROUNDS;",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M1b blade: every arm settles against the bodies at the end",
+    "file": "crates/core/src/blade.rs",
+    "find": "        for _ in 0..SETTLE_PASSES {",
+    "replace": "        for _ in 0..0 {",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M1b blade: a blow lands at the speed it was swung",
+    "file": "crates/core/src/arm.rs",
+    "find": "                blade: own || blades,",
+    "replace": "                blade: true || blades,",
+    "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
+  },
+  {
+    "name": "M1b player: a cut passes through the front",
+    "file": "crates/core/src/player.rs",
+    "find": "    if now.dot(want) >= 0 {",
+    "replace": "    if true {",
+    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a sweep lays the blade flat",
+    "file": "crates/core/src/arm.rs",
+    "find": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT).max(ramp(shell.swing.0.abs(), 0, SWING_FLAT));",
+    "replace": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT);",
+    "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
+  },
+  {
+    "name": "M1b arm: raised high, the blade stands up and back",
+    "file": "crates/core/src/arm.rs",
+    "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
+    "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
+    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a moving reach holds the thrust's line",
+    "file": "crates/core/src/arm.rs",
+    "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
+    "replace": "        .max(0);",
+    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: the high guard is high and to the left",
+    "file": "crates/core/src/arm.rs",
+    "find": "        ramp(shell.side, 0, LEFT_FULL),",
+    "replace": "        ONE + 0 * ramp(shell.side, 0, LEFT_FULL),",
+    "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
+  },
+  {
+    "name": "M1b blade: a resting blade is solid to a body",
+    "file": "crates/core/src/blade.rs",
+    "find": "            let held = f.arm.in_hand && (f.arm.hold[0] || f.arm.hold[1]);",
+    "replace": "            let held = false && f.arm.in_hand && (f.arm.hold[0] || f.arm.hold[1]);",
+    "test": "a_blade_that_crosses_a_body_in_one_tick_is_stopped_on_the_near_side"
   }
 ]
