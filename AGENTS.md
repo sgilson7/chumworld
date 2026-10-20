@@ -48,7 +48,7 @@ From the journal's opening entry (`../chumworld-journal/index.html#opening`) and
 - CW-13 Every visible change appears in the journal with screenshots of the running build.
 - CW-14 Publishing is granted (T5): public repo `sgilson7/chumworld`, GitHub Pages, after `./scripts/check.sh` passes.
 - CW-15 The camera is over the right shoulder, third person, always (T1).
-- CW-16 No limb cutting in the MVP (CW-Q12): a hit takes health by blade speed and weakens a hit arm's servo for a while.
+- CW-16 Hits read on the body (T9, superseding CW-Q12's "keep limb cutting out" at the person's request of 2026-10-20): a hit takes health by blade speed, flashes the struck part red and sheds blood, weakens that limb, and enough damage to one limb takes it off; a body that has lost a leg crawls or hops, one that has lost its sword arm fights one-handed or flees.
 - CW-17 Heads are about 25% of a character's height (CW-Q6).
 - CW-18 Nothing flickers (T3): no coplanar overlapping faces, depth precision checked at every ring distance, detail changes only through the dithered hand-over, instance order stable between frames, and a browser test that a still view renders identical pixels on consecutive frames.
 - CW-19 Water uses a solver ported from Extremely Lifelike Fishing (T4).
