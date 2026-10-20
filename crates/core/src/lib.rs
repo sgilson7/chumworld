@@ -23,6 +23,7 @@ pub mod input;
 pub mod look;
 pub mod page;
 pub mod player;
+pub mod pose;
 pub mod prim;
 pub mod render;
 pub mod rng;
