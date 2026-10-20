@@ -165,3 +165,105 @@ fn probe_draws() {
     println!("(buffer, pass, layer, tile mesh) -> instances: {by:?}");
     println!("eye {:?}", g.camera().eye);
 }
+
+#[test]
+#[ignore]
+fn probe_normals() {
+    let land = Land::shipped();
+    for i in [30, 31, 32, 33] {
+        let t = land.tile(0, i, 42);
+        let k = t.at.c0.x as f64 / 65536.0;
+        let mut ny = 0.0;
+        let mut n = 0.0;
+        for v in t.vertices.chunks(9).take(2048 * 3) {
+            let (x, y, z) = (v[3] as f64 / k, v[4] as f64, v[5] as f64 / k);
+            ny += y / (x * x + y * y + z * z).sqrt();
+            n += 1.0;
+        }
+        println!("tile {i}: k {k}, mean decoded ny {:.4}, centre {:?}", ny / n, t.centre);
+    }
+}
+
+#[test]
+#[ignore]
+fn probe_tile_colours() {
+    let land = Land::shipped();
+    for j in [40, 41, 42] {
+        let mut row = String::new();
+        for i in [29, 30, 31, 32, 33] {
+            let t = land.tile(0, i, j);
+            let mut c = [0i64; 3];
+            let mut n = 0;
+            for v in t.vertices.chunks(9).take(2048 * 3) {
+                for k in 0..3 { c[k] += v[6 + k] as i64; }
+                n += 1;
+            }
+            row += &format!(" {:?}", c.map(|x| x * 255 / n / 65536));
+        }
+        println!("j {j}:{row}");
+    }
+}
+
+/// A top-down picture of the land's colours, lit from the sun's side: the
+/// overview for the journal. Writes a PPM; `sips` turns it into a PNG.
+///
+/// M2_MAP="x0 z0 size px path" picks the square (metres) and the file.
+#[test]
+#[ignore]
+fn probe_map() {
+    let land = Land::shipped();
+    let spec = std::env::var("M2_MAP").unwrap_or_else(|_| "-200 -200 4400 1100 shots/m2/overview.ppm".into());
+    let p: Vec<&str> = spec.split_whitespace().collect();
+    let (x0, z0, size, px) = (p[0].parse::<i32>().unwrap(), p[1].parse::<i32>().unwrap(), p[2].parse::<i32>().unwrap(), p[3].parse::<i32>().unwrap());
+    let step = (size as i64 * ONE as i64 / px as i64) as i32;
+    let mut out = format!("P6 {px} {px} 255\n").into_bytes();
+    let cell = step.max(2 * ONE);
+    for j in 0..px {
+        for i in 0..px {
+            let (x, z) = (int(x0) + i * step, int(z0) + j * step);
+            let sc = land.scope(x - cell, z - cell, x + cell, z + cell);
+            let h = land.height_in(x, z, &sc);
+            let near = land.near(x, z, &sc);
+            let mut c = land.colour_in(x, z, h, 0, cell, &sc, near);
+            if land.is_water(x, z) {
+                c = [ONE / 4, ONE * 2 / 5, ONE * 9 / 20];
+            }
+            // light from the west-south-west: brighter where the land faces it
+            let e = land.height_in(x - step, z + step / 2, &sc) as i64;
+            let slope = ((h as i64 - e) * 4 * ONE as i64 / step as i64).clamp(-(ONE as i64) / 2, ONE as i64 / 2);
+            for k in 0..3 {
+                let v = (c[k] as i64 * (ONE as i64 + slope) / ONE as i64 * 255 / ONE as i64).clamp(0, 255);
+                out.push(v as u8);
+            }
+        }
+    }
+    std::fs::write(format!("../../{}", p[4]), out).unwrap();
+}
+
+#[test]
+#[ignore]
+fn probe_game_view() {
+    let mut g = tool_core::game::Game::new(
+        include_str!("../../../data/strings.json"),
+        include_str!("../../../GLOSSARY.md"),
+        include_str!("../../../data/look.json"),
+        7,
+    )
+    .unwrap();
+    g.resize(1920, 1080, 100);
+    g.act("places.go", "2000,2800,20,-8").unwrap();
+    g.act("screen.show", "play").unwrap();
+    let mut now = 0;
+    for _ in 0..200 { now += 16_667; g.advance(now, 0, 0, 0, 0); }
+    let eye = g.camera().eye;
+    println!("eye ({:.1}, {:.1}, {:.1})", eye.x as f64 / 65536.0, eye.y as f64 / 65536.0, eye.z as f64 / 65536.0);
+    for (x, z) in [(2030, 2700), (2060, 2700), (2040, 2600), (2070, 2600)] {
+        let (px, pz) = (int(x) as i64, int(z) as i64);
+        let hits: Vec<_> = g.detail.drawn.iter().filter(|dr| {
+            let side = g.detail.tile_side(dr.key.level as u32);
+            let (x0, z0) = (dr.key.i as i64 * side, dr.key.j as i64 * side);
+            px >= x0 && px < x0 + side && pz >= z0 && pz < z0 + side
+        }).map(|dr| (dr.key.level, dr.key.i, dr.key.j, dr.fade)).collect();
+        println!("({x}, {z}): {hits:?}");
+    }
+}
