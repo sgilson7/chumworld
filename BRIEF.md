@@ -20,6 +20,11 @@ Draft conditions, to be settled with the person through the journal's questions 
 - The plains, village, bandit camp and merchant route exist and can be walked between without a loading screen.
 - A throwable that hits the merchant's cart stops it and opens the shop.
 - The items are the short sword (start, no bonus), a normal sword, a boomerang (arc flight, always returns) and the speedster's armour pieces, each acquired in its own way, and all shown in an Ocarina-of-Time-style inventory menu beside a map menu.
+- The camera is over the shoulder, third person, at all times.
+- The deflect (imbue) is not known at the start: a trainer teaches it and makes the player practise it with them before the player can use it alone.
+- The water uses a solver like Extremely Lifelike Fishing's.
+- Tests show there is no flickering: no z-fighting, no popping between detail levels, no frame-to-frame shimmer on a still or slowly moving view.
+- The look and feel are clean and complete to the standard of Ape Race and Protection of the Spheres.
 - Each speedster piece worn adds 20% to movement speed and makes footing more like ice, worse with each piece.
 - The sword-imbue ability lasts 10 seconds, has a 20 second cooldown, and lets the sword deflect individual magic projectiles, which fly in bullet patterns of coloured shapes.
 - The landscape is visible to a large distance, with distant terrain simplified and dithered, and the game holds its frame rate on the person's machine (target in `MEASUREMENTS.md`).
@@ -47,7 +52,11 @@ Terms from the description: *duel*, *arm* (the simulated arm), *throwable*, *beh
 
 ## Autonomy
 
-Not yet granted. The person asked for the journal's opening entry and a page reading the description back before anything is built. The agent stops after the journal until the person answers the questions there. The agent may not loosen a Builder requirement or a boundary test, and may not add a server, an account, analytics or any off-origin request. Publishing to GitHub Pages is the goal, but no repository is named and no grant is given, so the agent does not create a repository or publish (see CW-Q2).
+The person's grant, word for word (2026-10-20):
+
+> publish to a public github repo, and a public github pages for the deployment, i give approval for all make deploy, now follow the journal to build the mvp
+
+The plan is approved in advance. The agent may create the public repository `sgilson7/chumworld`, push to it, and publish it to GitHub Pages at `https://sgilson7.github.io/chumworld/` with `./scripts/publish.sh` once `./scripts/check.sh` passes, as often as each milestone warrants. Where this brief is silent, the agent decides, records the decision in `SECOND-ORDER.md`, and continues. The agent may not loosen a Builder requirement or a boundary test, and may not add a server, an account, analytics or any off-origin request. The work is split among subagents, each bound by this project's `CLAUDE.md`; the main agent coordinates, reviews their work and keeps the design journal.
 
 ## Journal
 

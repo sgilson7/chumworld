@@ -31,7 +31,32 @@
 
 ## Rules agreed for this project
 
-None yet. When the person answers the opening entry's questions, add each rule that applies to every later session here, with its journal ID.
+From the journal's opening entry (`../chumworld-journal/index.html#opening`) and the person's answers of 2026-10-20 (`DECISIONS.md`):
+
+- CW-1 Every rule of the game lives in the core: arm physics, blade contact, enemy decisions, items, patterns, the opening, the merchant, the trainer, terrain heights, water, and the choice of detail level.
+- CW-2 The core uses one fixed-point unit, Q16.16 metres (`fx.rs`), and no float.
+- CW-3 An enemy (a pilot) acts only through the player's input record. No pilot moves a body directly.
+- CW-4 The same seed and inputs give the same world, tick for tick; a recorded duel and a recorded raid hash the same every run.
+- CW-5 The page replays one instance array per frame and holds no number; detail-level and dithering thresholds reach shaders as uniforms.
+- CW-6 Every weapon and armour piece has exactly one way to be acquired and one mechanic no other item has (test over `data/items.json`).
+- CW-7 The starting gear changes nothing.
+- CW-8 Each speedster piece adds 20% speed and multiplies grip by 55/100; values pinned for 0 to 5 pieces.
+- CW-9 The imbue lasts 600 ticks; its cooldown is 1,200 ticks counted from the cast. It works only after the trainer's practice is passed (T2).
+- CW-10 Each kind of magic projectile has its own shape.
+- CW-11 Each milestone is measured against the frame budget in `MEASUREMENTS.md`.
+- CW-12 No request to another site, and no browser storage (CW-Q3: no save in the MVP).
+- CW-13 Every visible change appears in the journal with screenshots of the running build.
+- CW-14 Publishing is granted (T5): public repo `sgilson7/chumworld`, GitHub Pages, after `./scripts/check.sh` passes.
+- CW-15 The camera is over the right shoulder, third person, always (T1).
+- CW-16 No limb cutting in the MVP (CW-Q12): a hit takes health by blade speed and weakens a hit arm's servo for a while.
+- CW-17 Heads are about 25% of a character's height (CW-Q6).
+- CW-18 Nothing flickers (T3): no coplanar overlapping faces, depth precision checked at every ring distance, detail changes only through the dithered hand-over, instance order stable between frames, and a browser test that a still view renders identical pixels on consecutive frames.
+- CW-19 Water uses a solver ported from Extremely Lifelike Fishing (T4).
+- CW-20 Names of places and people stay out of strings until the person gives them (CW-Q1); use descriptive names ("the village", "the trainer").
+
+## Working with subagents
+
+The main agent coordinates. Each subagent works in its own git worktree on its own branch, owns the files its task names, and edits a shared file (`api.rs`, `lib.rs`, `data/strings.json`, `GLOSSARY.md`, `tests/breaks.json`) only by adding entries. Before reporting done, a subagent runs `cargo test`, `python3 scripts/break_tests.py` for its new rows, and `./scripts/check.sh`, writes its `SECOND-ORDER.md` rows (numbered in its round, R2.x and on, as the task says), and saves screenshots of what it changed under `shots/<task>/` in its worktree (never committed). The main agent merges, reruns the check, looks at every screenshot, and writes the journal entry.
 
 ## Stopping
 
