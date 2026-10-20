@@ -68,6 +68,9 @@ pub struct HudItem {
     pub id: String,
     pub text: String,
     pub shown: bool,
+    // M1: a bar's share, percent (health); none for a line of text alone
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,7 +82,16 @@ pub struct World {
     /// where the player looks
     pub aim: Aim,
     pub player: Body,
-    // M1: pub arms: arm::State, pub pilots: pilot::State, pub health: health::State, …
+    // M1: the player's arms, health and footing (its feet are `player`),
+    // the foes, their pilots' book and memory, the blades' contacts, what
+    // is thrown, the speedster setting, and the physics view
+    pub me: crate::player::Fighter,
+    pub foes: Vec<crate::pilot::Foe>,
+    pub pilots: crate::pilot::State,
+    pub blades: crate::blade::State,
+    pub throwables: crate::throwables::State,
+    pub motion: crate::motion::State,
+    pub sticks: bool,
     // M2: pub water: water::State, …
     // M5: pub story: story::State, pub merchant: merchant::State, …
     // M6: pub orbs: orbs::State, pub imbue: imbue::State
@@ -92,6 +104,25 @@ impl World {
             rng: Rng::new(seed),
             aim: Aim::new(START_YAW),
             player: Body::new(START, START_YAW),
+            // M1:
+            me: {
+                let mut me = crate::player::Fighter::new(
+                    crate::pose::Kind::Player,
+                    crate::pose::Held::ShortSword,
+                    0,
+                    START,
+                    START_YAW,
+                    false,
+                );
+                me.pouch = crate::throwables::Pouch::player();
+                me
+            },
+            foes: Vec::new(),
+            pilots: crate::pilot::State::new(),
+            blades: crate::blade::State::default(),
+            throwables: crate::throwables::State::default(),
+            motion: crate::motion::State::default(),
+            sticks: false,
         }
     }
 
@@ -104,18 +135,23 @@ impl World {
     /// One tick, in the order the module doc gives.
     pub fn step(&mut self, input: &Input) {
         self.tick += 1;
-        // 1. the aim
-        self.aim = self.aim.turned(Mouse {
-            dx: input.dx,
-            dy: input.dy,
-            wheel: input.wheel,
-        });
-        // 2. M1: let inputs = crate::pilot::step(self);
-        // 3. bodies
-        let ground = self.ground(self.player.pos.x, self.player.pos.z);
-        self.player.step(input, self.aim.yaw, ground);
-        // 4. M1: crate::arm::step(self, input); crate::blade::step(self); crate::health::step(self);
+        // 1. the aim (M1: drawn, the mouse moves the hand instead, and the
+        // view holds on the foe)
+        let look = crate::player::look_mouse(self, input);
+        self.aim = self.aim.turned(look);
+        crate::player::hold_on(self);
+        // 2. M1:
+        let inputs = crate::pilot::step(self);
+        // 3. bodies (M1: motion)
+        crate::motion::step(self, input, &inputs);
+        // 4. M1:
+        crate::arm::step(self, input, &inputs);
+        crate::blade::step(self);
+        crate::health::step(self);
         // 5. M1/M5: throwables, crate::boomerang::step(self, input);
+        crate::throwables::step(self, input, &inputs);
+        crate::player::finish(self, input, &inputs);
+        crate::pilot::remember(self);
         // 6. M6: crate::orbs::step(self); crate::imbue::step(self, input);
         // 7. M5: crate::story::step(self); crate::merchant::step(self); …
         // 8. M2: crate::water::step(self);
@@ -123,8 +159,9 @@ impl World {
 
     /// What moves, drawn `alpha` of the way from the last tick to this one.
     pub fn draw(&self, alpha: Fx, look: &Look, out: &mut Shapes) {
-        self.player.draw(alpha, &look.palette, look.ink(), out);
-        // M1: crate::arm::draw(self, alpha, look, out); …
+        // M1: every fighter and everything thrown
+        crate::player::draw(self, alpha, look, out);
+        crate::throwables::draw(self, alpha, look, out);
     }
 
     /// What never moves: the static groups, and the meshes they draw.
@@ -135,14 +172,19 @@ impl World {
     }
 
     /// Lines over the game.
-    pub fn hud(&self, _strings: &Strings, _out: &mut Vec<HudItem>) {
-        // M4: crate::ui::hud(self, strings, out); M1: health, M6: the imbue's cooldown
+    pub fn hud(&self, strings: &Strings, out: &mut Vec<HudItem>) {
+        // M4: crate::ui::hud(self, strings, out); M6: the imbue's cooldown
+        crate::player::hud(self, strings, out); // M1: health
     }
 
     /// A setting or flag named `module.name`.
-    pub fn act(&mut self, name: &str, _value: &str) -> Result<(), String> {
-        // M1: Some(("arm", rest)) => crate::arm::act(self, rest, value), …
-        Err(format!("Unknown action \"{name}\"."))
+    pub fn act(&mut self, name: &str, value: &str) -> Result<(), String> {
+        match name.split_once('.') {
+            // M1:
+            Some(("duel", rest)) => crate::player::act(self, rest, value),
+            Some(("motion", rest)) => crate::motion::act(self, rest, value),
+            _ => Err(format!("Unknown action \"{name}\".")),
+        }
     }
 
     /// One number for the whole state, for replays and determinism tests: an
@@ -161,7 +203,12 @@ impl World {
     /// applied as the next tick will apply it, over the feet at `alpha`,
     /// `back` from the shoulder's pivot (`camera::BACK` in play).
     pub fn camera(&self, alpha: Fx, pending: Mouse, back: Fx) -> crate::render::Camera {
-        let aim = self.aim.turned(pending);
+        // M1: drawn, the mouse moves the hand, not the view
+        let aim = if self.me.mouse_looks {
+            self.aim.turned(pending)
+        } else {
+            self.aim
+        };
         camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z))
     }
 }

@@ -20,7 +20,7 @@
   "Digit3": "item_3",
   "Tab": "menu",
   "KeyM": "map",
-  "Mouse0": "two_hands",
-  "Mouse2": "wrist",
+  "Mouse0": "swing",
+  "Mouse2": "hold_look",
   "Mouse1": "lock_on"
 }

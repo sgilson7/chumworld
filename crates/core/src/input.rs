@@ -20,7 +20,7 @@ pub const FORWARD: u32 = 1 << 0;
 pub const BACK: u32 = 1 << 1;
 pub const LEFT: u32 = 1 << 2;
 pub const RIGHT: u32 = 1 << 3;
-/// Shift: run when the sword is sheathed (M1: step in when it is drawn).
+/// Shift: run when the sword is sheathed; drawn, it does nothing (M1).
 pub const RUN: u32 = 1 << 4;
 /// Space: a short sidestep (M1).
 pub const DODGE: u32 = 1 << 5;
@@ -44,12 +44,14 @@ pub const MAP: u32 = 1 << 14;
 pub const BUTTON_SHIFT: u32 = 24;
 const KEY_MASK: u32 = (1 << BUTTON_SHIFT) - 1;
 
-/// Mouse buttons, one bit each, as `Input::buttons` holds them.
-/// Left: hold for two hands on the hilt (M1).
-pub const TWO_HANDS: u32 = 1 << 0;
-/// Right: hold to turn the wrist (M1).
-pub const WRIST: u32 = 1 << 1;
-/// Middle: lock on to the nearest foe (M1).
+/// Mouse buttons, one bit each, as `Input::buttons` holds them. M1 gave
+/// them the journal's "controls" defaults as the coordinator's brief set
+/// them (SECOND-ORDER.md R3.2): the left button swings, the right looks.
+/// Left: hold for a committed swing, the hand's servo stronger (M1).
+pub const SWING: u32 = 1 << 0;
+/// Right: hold to look with the mouse while the sword is drawn (M1).
+pub const HOLD_LOOK: u32 = 1 << 1;
+/// Middle: hold on to the next foe in reach (M1).
 pub const LOCK_ON: u32 = 1 << 2;
 
 /// Every action's name and its bit in the page's bit set, in the order
@@ -70,8 +72,8 @@ pub const ACTIONS: &[(&str, u32)] = &[
     ("item_3", ITEM_3),
     ("menu", MENU),
     ("map", MAP),
-    ("two_hands", TWO_HANDS << BUTTON_SHIFT),
-    ("wrist", WRIST << BUTTON_SHIFT),
+    ("swing", SWING << BUTTON_SHIFT),
+    ("hold_look", HOLD_LOOK << BUTTON_SHIFT),
     ("lock_on", LOCK_ON << BUTTON_SHIFT),
 ];
 
@@ -80,7 +82,7 @@ pub const ACTIONS: &[(&str, u32)] = &[
 pub struct Input {
     /// Key actions held this tick (`FORWARD`, `RUN`, ...).
     pub keys: u32,
-    /// Mouse buttons held this tick (`TWO_HANDS`, `WRIST`, `LOCK_ON`).
+    /// Mouse buttons held this tick (`SWING`, `HOLD_LOOK`, `LOCK_ON`).
     pub buttons: u32,
     /// Mouse movement this tick, hundredths of a CSS pixel; right and down
     /// are positive.
@@ -170,8 +172,8 @@ mod tests {
         let i = Input::from_page(bits, Mouse::default());
         assert_eq!(i.keys, 0b1_0001);
         assert_eq!(i.buttons, 0b10);
-        assert!(i.key(FORWARD) && i.key(RUN) && i.button(WRIST));
-        assert!(!i.button(TWO_HANDS) && !i.key(BACK));
+        assert!(i.key(FORWARD) && i.key(RUN) && i.button(HOLD_LOOK));
+        assert!(!i.button(SWING) && !i.key(BACK));
     }
 
     #[test]

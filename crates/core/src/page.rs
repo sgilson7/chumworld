@@ -28,6 +28,27 @@ pub const REQUIRED: &[&str] = &[
     "control_look",
     "control_pause",
     "hint_pause",
+    // M1: the duel's controls and health
+    "key_draw",
+    "control_draw",
+    "key_hand",
+    "control_hand",
+    "key_swing",
+    "control_swing",
+    "key_hold_look",
+    "control_hold_look",
+    "key_lock",
+    "control_lock",
+    "key_reach",
+    "control_reach",
+    "key_throw",
+    "control_throw",
+    "key_dodge",
+    "control_dodge",
+    "health_you",
+    "foe_orc",
+    "foe_bandit",
+    "foe_leader",
 ];
 
 /// The reader-visible strings the page needs. They live in data, not source.

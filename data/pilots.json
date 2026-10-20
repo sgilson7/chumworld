@@ -1,0 +1,73 @@
+{
+  "_note": "Each kind of foe and the behaviour trees they duel with (crates/core/src/pilot.rs). A tree is checked every 6 ticks on the duel as it was reaction_ticks ago; the first rule whose conditions all hold picks a move, and the move plays until it ends. A rule marked interrupt may break into a move under way, but never into a committed swing. Distances are centimetres, speeds centimetres a second, shares percent. hand_px is how far the pilot moves its mouse a tick, strike_px in a swing. The others in a group, all but the one nearest the player, run the ring tree.",
+  "kinds": {
+    "orc": {
+      "held": "cleaver",
+      "health": 140,
+      "reaction_ticks": 14,
+      "servo_pct": 130,
+      "hand_px": 30,
+      "strike_px": 90,
+      "rocks": 0,
+      "knives": 0,
+      "tree": "orc"
+    },
+    "bandit": {
+      "held": "sword",
+      "health": 90,
+      "reaction_ticks": 10,
+      "servo_pct": 100,
+      "hand_px": 36,
+      "strike_px": 100,
+      "rocks": 3,
+      "knives": 0,
+      "tree": "bandit"
+    },
+    "leader": {
+      "held": "sword",
+      "health": 130,
+      "reaction_ticks": 7,
+      "servo_pct": 120,
+      "hand_px": 44,
+      "strike_px": 120,
+      "rocks": 2,
+      "knives": 1,
+      "tree": "leader"
+    }
+  },
+  "trees": {
+    "orc": [
+      { "if": ["foe_down"], "do": "guard" },
+      { "if": [{ "gap_above": 260 }], "do": "close_in" },
+      { "if": [{ "swing_coming": 500 }, { "chance": 40 }], "do": "block", "interrupt": true },
+      { "if": [{ "gap_below": 235 }, { "chance": 35 }], "do": "attack", "interrupt": true },
+      { "do": "circle" }
+    ],
+    "bandit": [
+      { "if": ["foe_down"], "do": "guard" },
+      { "if": [{ "hurt_below": 25 }], "do": "flee" },
+      { "if": ["has_throwable", { "gap_above": 550 }, { "gap_below": 1500 }], "do": "throw" },
+      { "if": [{ "gap_above": 260 }], "do": "close_in" },
+      { "if": [{ "tip_near_head": 70 }], "do": "raise_guard", "interrupt": true },
+      { "if": [{ "swing_coming": 450 }], "do": "block", "interrupt": true },
+      { "if": [{ "gap_below": 235 }, { "opening": 55 }, { "chance": 30 }], "do": "attack", "interrupt": true },
+      { "if": [{ "chance": 20 }], "do": "feint" },
+      { "do": "circle" }
+    ],
+    "leader": [
+      { "if": ["foe_down"], "do": "guard" },
+      { "if": ["has_throwable", { "gap_above": 700 }, { "gap_below": 1500 }, { "chance": 50 }], "do": "throw" },
+      { "if": [{ "gap_above": 260 }], "do": "close_in" },
+      { "if": [{ "tip_near_head": 75 }], "do": "raise_guard", "interrupt": true },
+      { "if": [{ "swing_coming": 400 }, { "chance": 80 }], "do": "block", "interrupt": true },
+      { "if": [{ "gap_below": 235 }, { "opening": 45 }, { "chance": 35 }], "do": "attack", "interrupt": true },
+      { "if": [{ "chance": 25 }], "do": "feint" },
+      { "do": "circle" }
+    ],
+    "ring": [
+      { "if": ["foe_down"], "do": "guard" },
+      { "if": ["has_throwable", { "gap_above": 500 }, { "gap_below": 1500 }, { "chance": 30 }], "do": "throw" },
+      { "do": "ring" }
+    ]
+  }
+}
