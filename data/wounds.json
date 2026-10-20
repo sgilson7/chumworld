@@ -1,5 +1,5 @@
 {
-  "_note": "Wounds (crates/core/src/wounds.rs, T9, CW-16). Damage is kept on each of a body's ten parts (blade.rs's capsules: head, torso, left upper arm, left forearm, right upper arm, right forearm, left thigh, left shin, right thigh, right shin). A part comes off at its joint once its damage reaches take_off, or at once to one blow at least one_cut_cms fast (centimetres a second at contact). The player's take_off is player_pct of a foe's. Ticks are 1/60 s; sizes millimetres; shares percent. Colours are 0-255.",
+  "_note": "Wounds (crates/core/src/wounds.rs, T9, CW-16). Damage is kept on each of a body's ten parts (blade.rs's capsules: head, torso, left upper arm, left forearm, right upper arm, right forearm, left thigh, left shin, right thigh, right shin). A part comes off at its joint once its damage reaches take_off, or at once to one blow at least one_cut_cms fast (centimetres a second at contact). The player's take_off is player_pct of a foe's. Splats lie at one of layers heights (layer_mm apart, from lift_mm); a pool at one of the two above them. Ticks are 1/60 s; sizes millimetres; shares percent. Colours are 0-255.",
   "take_off": {
     "head": 48,
     "upper_arm": 30,
@@ -22,14 +22,14 @@
   "stump_drain_every": 40,
   "drops": {
     "most": 160,
-    "per_mps": 70,
+    "per_mps": 100,
     "fewest": 3,
-    "most_a_blow": 14,
+    "most_a_blow": 18,
     "carry_pct": 32,
     "spread_cms": 110,
     "rise_cms": 90,
-    "mm": [11, 20],
-    "take_off_burst": 18
+    "mm": [22, 40],
+    "take_off_burst": 24
   },
   "splats": {
     "most": 64,

@@ -304,6 +304,24 @@ fn blood_never_passes_its_caps() {
 }
 
 #[test]
+fn pieces_never_pass_their_cap_and_the_oldest_fade_out() {
+    // 12 kept: 3 below that, the oldest begins its 30-tick dither out
+    let mut w = duel("orc");
+    let parts = ["forearm_l", "forearm_r", "shin_l", "shin_r", "head"];
+    let mut faded = false;
+    for k in 0..40 {
+        w.foes[0].fighter.health = crate::health::Health::new(140);
+        w.act("wounds.take_off", parts[k % parts.len()]).unwrap();
+        assert!(w.wounds.pieces.len() <= 12, "{} pieces", w.wounds.pieces.len());
+        idle(&mut w, 4);
+        faded |= w.wounds.pieces.iter().any(|p| p.fade > 0);
+        assert!(w.wounds.pieces.iter().all(|p| p.fade <= 30));
+    }
+    assert!(faded, "the oldest faded");
+    assert!(w.wounds.pieces.len() >= 9);
+}
+
+#[test]
 fn overlapping_marks_never_lie_at_one_height() {
     let mut w = duel("orc");
     for t in 0..400 {
@@ -552,4 +570,30 @@ fn a_blade_s_contact_names_the_capsule_it_struck() {
         let l = player::fighter(&w, h.on as usize).health.limbs;
         assert!(l.dmg[h.seg as usize] > 0, "the struck part took it: {h:?}");
     }
+}
+
+#[test]
+fn a_fallen_body_bleeds_a_pool_that_spreads_to_its_size_and_no_more() {
+    let mut w = duel("orc");
+    w.act("duel.health", "0").unwrap();
+    // begun 30 ticks after the fall, spread over 200: 560 mm is 36 700 units
+    idle(&mut w, 30 + 200 + 40);
+    let pools: Vec<&Splat> = w
+        .wounds
+        .splats
+        .iter()
+        .filter(|s| s.layer >= spec().splats.layers)
+        .collect();
+    assert_eq!(pools.len(), 1);
+    assert_eq!((pools[0].r, pools[0].goal), (36_700, 36_700));
+    let pelvis = w.foes[0].fighter.pose.pelvis;
+    assert!(pools[0].at.sub(pelvis).len_xz() < ONE / 2, "under the body");
+    idle(&mut w, 100);
+    let pools: Vec<&Splat> = w
+        .wounds
+        .splats
+        .iter()
+        .filter(|s| s.layer >= spec().splats.layers)
+        .collect();
+    assert_eq!(pools[0].r, 36_700, "and no more");
 }

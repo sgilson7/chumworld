@@ -449,8 +449,10 @@ pub struct Splat {
 pub struct Piece {
     pub kind: Kind,
     pub dress: (u8, u8),
-    /// the body's pose when it came off: the piece is drawn from it
+    /// the body's pose when it came off, and the model's parts it carries,
+    /// placed as they were then: the piece is drawn from them
     pub pose: Pose,
+    pub parts: Vec<models::Part>,
     /// the parts it carries, and the one it was cut at
     pub segs: u16,
     pub root: u8,
@@ -467,6 +469,9 @@ pub struct Piece {
     /// ticks into its fade out (0: whole)
     pub fade: u8,
 }
+
+/// Pieces kept below `pieces.most` for those fading out.
+pub const PIECE_ROOM: usize = 3;
 
 /// What a sound would play: a cut that drew blood, a part taken off, gore
 /// (a head off, a piece landing).
@@ -655,11 +660,19 @@ pub fn take_off(w: &mut World, id: usize, s: usize, vel: V3, speed: Fx) {
     for (k, share) in [(0, ONE / 3), (1, ONE), (2, ONE * 2 / 3)] {
         piece.q[k] = piece.q[k].sub(kick.scale(share)).sub(rise);
     }
-    // more pieces than are kept: the oldest fades out
-    if w.wounds.pieces.iter().filter(|p| p.fade == 0).count() >= sp.pieces.most {
+    // near the most kept, the oldest begins to fade out; at the most, the
+    // one furthest faded (or the oldest) goes, so there are never more
+    let most = sp.pieces.most;
+    if w.wounds.pieces.iter().filter(|p| p.fade == 0).count() + PIECE_ROOM >= most {
         if let Some(old) = w.wounds.pieces.iter_mut().find(|p| p.fade == 0) {
             old.fade = 1;
         }
+    }
+    if w.wounds.pieces.len() >= most {
+        let k = (0..w.wounds.pieces.len())
+            .max_by_key(|&k| (w.wounds.pieces[k].fade, std::cmp::Reverse(k)))
+            .unwrap_or(0);
+        w.wounds.pieces.remove(k);
     }
     let joint = piece.p[0];
     w.wounds.pieces.push(piece);
@@ -761,10 +774,27 @@ fn piece_of(kind: Kind, dress: (u8, u8), now: &Pose, before: &Pose, s: usize, se
         _ => mm(blade::SHIN_MM) * b.height / pose::build(Kind::Player).height,
     };
     let len = [p[0].dist(p[1]), p[1].dist(p[2]), p[0].dist(p[2])];
+    let d = Dress {
+        worn: dress.0,
+        variant: dress.1,
+    };
+    let m = models::figure_model(kind, now, d);
+    let labels = labels(kind, d);
+    let parts = if labels.len() == m.parts.len() {
+        m.parts
+            .iter()
+            .zip(labels.iter())
+            .filter(|(_, &l)| segs & bit(l as usize) != 0)
+            .map(|(p, _)| *p)
+            .collect()
+    } else {
+        Vec::new()
+    };
     Piece {
         kind,
         dress,
         pose: *now,
+        parts,
         segs,
         root: s as u8,
         at0: p,
@@ -1146,8 +1176,11 @@ pub fn step(w: &mut World) {
         w.wounds.pools.clear();
     }
     if blood {
-        for &id in &w.feel.downed.clone() {
-            w.wounds.pools.push((id, sp.pool.after));
+        // a body's first tick down, however it went down
+        for id in 0..player::count(w) {
+            if player::fighter(w, id).health.down_ticks == 1 {
+                w.wounds.pools.push((id as u8, sp.pool.after));
+            }
         }
         bleed(w);
         pools(w);
@@ -1204,10 +1237,10 @@ fn pools(w: &mut World) {
     let sp = spec();
     let mut due = Vec::new();
     for (id, left) in &mut w.wounds.pools {
+        *left = left.saturating_sub(1);
         if *left == 0 {
             due.push(*id);
         }
-        *left = left.saturating_sub(1);
     }
     w.wounds.pools.retain(|(_, left)| *left > 0);
     for id in due {
@@ -1257,6 +1290,9 @@ fn drops(w: &mut World) {
     }
 }
 
+/// Places among `splats.most` that only a pool may take.
+pub const POOL_ROOM: usize = 4;
+
 /// A mark of blood at `at`, `r` round (a pool grows to `r`): it spreads an
 /// old mark it lands in, or lies at a height no mark it overlaps lies at.
 fn lay(w: &mut World, at: V3, r: Fx, pool: bool) {
@@ -1274,24 +1310,50 @@ fn lay(w: &mut World, at: V3, r: Fx, pool: bool) {
             .iter()
             .find(|&&k| w.wounds.splats[k].at.sub(at).len_xz() < w.wounds.splats[k].r)
         {
+            // it spreads unless that would reach a mark at its own height
+            let s = w.wounds.splats[k];
+            let grown = (s.r + mm(ss.grow_mm)).min(mm(ss.most_mm)).max(s.r);
+            let clear = w.wounds.splats.iter().enumerate().all(|(j, o)| {
+                j == k || o.layer != s.layer || o.at.sub(s.at).len_xz() >= o.goal.max(o.r) + grown
+            });
             let s = &mut w.wounds.splats[k];
-            if s.goal == s.r {
-                s.r = (s.r + mm(ss.grow_mm)).min(mm(ss.most_mm)).max(s.r);
-                s.goal = s.r;
+            if s.goal == s.r && clear {
+                s.r = grown;
+                s.goal = grown;
             }
             s.age = s.age.min(ss.life / 2);
             return;
         }
     }
     let used: Vec<u8> = overlapping.iter().map(|&k| w.wounds.splats[k].layer).collect();
-    let Some(layer) = (0..ss.layers).find(|l| !used.contains(l)) else {
+    // a drop's mark takes the lowest height free among those it overlaps; a
+    // pool one of the two above every drop's, so the small marks it spreads
+    // over never take its height
+    let heights = if pool {
+        ss.layers..ss.layers + 2
+    } else {
+        0..ss.layers
+    };
+    let Some(layer) = heights.into_iter().find(|l| !used.contains(l)) else {
         return;
     };
-    if w.wounds.splats.len() >= ss.most {
-        // the oldest goes to make room
-        if let Some(k) = (0..w.wounds.splats.len()).max_by_key(|&k| (w.wounds.splats[k].age, k)) {
-            w.wounds.splats.remove(k);
+    // the last `POOL_ROOM` places are kept for pools
+    let room = if pool {
+        ss.most
+    } else {
+        ss.most.saturating_sub(POOL_ROOM)
+    };
+    if w.wounds.splats.len() >= room {
+        // full: this mark is not made, and unless one is already going,
+        // the oldest begins its fade to make room
+        let fade_from = ss.life - ss.fade;
+        let going = w.wounds.splats.iter().any(|s| s.age >= fade_from);
+        if !going {
+            if let Some(k) = (0..w.wounds.splats.len()).max_by_key(|&k| (w.wounds.splats[k].age, k)) {
+                w.wounds.splats[k].age = fade_from;
+            }
         }
+        return;
     }
     let h = |x: Fx, z: Fx| crate::solid::surface(w, x, z);
     let e = r.max(ONE / 10);
@@ -1372,6 +1434,20 @@ fn pieces(w: &mut World) {
                 }
             }
         }
+        // a piece come down on its end would stand balanced: lying, its top
+        // end is nudged over, the way it leans or along its third point
+        if pc.landed {
+            let (lo, hi) = if pc.p[0].y < pc.p[1].y { (0, 1) } else { (1, 0) };
+            if pc.p[hi].y - pc.p[lo].y > pc.r * 2 {
+                let lean = pc.p[hi].sub(pc.p[lo]);
+                let side = pc.p[2].sub(pc.p[lo]);
+                let way = [v3(lean.x, 0, lean.z), v3(side.x, 0, side.z), v3(ONE, 0, 0)]
+                    .into_iter()
+                    .find(|v| v.len() > ONE / 100)
+                    .unwrap_or(v3(ONE, 0, 0));
+                pc.p[hi] = pc.p[hi].add(way.norm().scale(ONE / 400));
+            }
+        }
         let quiet = (0..3).all(|k| {
             let d = pc.p[k].sub(pc.was[k]);
             d.x.abs() <= arm::REST && d.y.abs() <= arm::REST && d.z.abs() <= arm::REST
@@ -1395,7 +1471,21 @@ fn pieces(w: &mut World) {
 /// built on a pose with the arms and legs spread wide, each model part goes
 /// to the capsule whose surface its centre is nearest (the joint balls to the
 /// part above: the elbow to the upper arm, the knee to the thigh).
-pub fn labels(kind: Kind, dress: Dress) -> Vec<u8> {
+pub fn labels(kind: Kind, dress: Dress) -> std::borrow::Cow<'static, [u8]> {
+    // worked out once for each kind and set of speedster pieces worn (a
+    // villager's looks are not cut: they are not fighters)
+    let at = models::KINDS.iter().position(|&k| k == kind);
+    match at {
+        Some(k) if dress.variant == 0 && dress.worn < 32 => std::borrow::Cow::Borrowed(
+            LABELS[k * 32 + dress.worn as usize].get_or_init(|| labels_of(kind, dress)),
+        ),
+        _ => std::borrow::Cow::Owned(labels_of(kind, dress)),
+    }
+}
+
+static LABELS: [OnceLock<Vec<u8>>; 8 * 32] = [const { OnceLock::new() }; 8 * 32];
+
+fn labels_of(kind: Kind, dress: Dress) -> Vec<u8> {
     let p = spread_pose(kind);
     let caps = blade::body(kind, &p);
     let m = models::figure_model(kind, &p, dress);
@@ -1681,16 +1771,11 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     for pc in &w.wounds.pieces {
         let now: [V3; 3] = [0, 1, 2].map(|k| pc.was[k].lerp(pc.p[k], alpha));
         let place = carried(&pc.at0, &now);
-        let dress = Dress {
-            worn: pc.dress.0,
-            variant: pc.dress.1,
-        };
-        let m = models::figure_model(pc.kind, &pc.pose, dress);
-        let labels = labels(pc.kind, dress);
-        if labels.len() != m.parts.len() {
-            continue;
+        let kept = Model {
+            parts: pc.parts.clone(),
+            decals: Vec::new(),
         }
-        let kept = tinted(&m, &labels, pc.segs, &Limbs::default(), false).placed(&place);
+        .placed(&place);
         let fade = if pc.fade > 0 {
             ONE - pc.fade as i32 * ONE / sp.pieces.fade.max(1) as i32
         } else {
@@ -1796,7 +1881,8 @@ fn part_named(name: &str) -> Result<usize, String> {
 /// `act("wounds.<name>", value)`, for tests and views: `cut` strikes every foe
 /// on a part at a speed (`forearm_r,10`: metres a second) as a blade of the
 /// player's would; `take_off` takes a part off every foe, `take_off_me` off
-/// the player; `freeze` holds blood, pieces and every body's wounds still
+/// the player; `left_hand_me` takes the player's right forearm off and puts
+/// the sword in the left hand at once; `freeze` holds blood, pieces and every body's wounds still
 /// (`on`, `off`, or a whole number of ticks from now); `blood` turns blood
 /// on or off as the setting does.
 pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
@@ -1850,6 +1936,25 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
                 let way = right_of(player::body(w, id).facing).scale(ONE / 10);
                 take_off(w, id, s, way, fx::int(12));
             }
+            Ok(())
+        }
+        // the player's right forearm off and the sword in the left hand at
+        // once, as if taken up: a view of fighting one-handed
+        "left_hand_me" => {
+            take_off(
+                w,
+                0,
+                FOREARM[1],
+                right_of(w.player.facing).scale(ONE / 10),
+                fx::int(12),
+            );
+            let f = &mut w.me;
+            swap(f);
+            f.health.limbs.loose = false;
+            f.health.limbs.settled = false;
+            f.sheath = Sheath::Drawn;
+            let frame = f.arm.frame;
+            f.arm.take_in_hand(&frame);
             Ok(())
         }
         "freeze" => {

@@ -176,6 +176,22 @@ def run(page, check, engine):
     page.evaluate(WAIT_FRAMES, [90, 1500])
     duel = page.evaluate(GRAB, [2, 0, False])
     check(duel["frames"][0]["hash"] == duel["frames"][1]["hash"], "a still duel draws the same frame twice: nothing jitters")
+
+    # M7 (P4, wounds): an orc's forearm taken off and its torso cut from the
+    # address, the duel held still; once the part has come to rest, the
+    # cleaver lies where it fell and the wounds are frozen (wounds.freeze:420,
+    # ticks from the start of play), a still view with the stump, the piece,
+    # the dropped weapon and the blood on the ground draws the same pixels
+    # on consecutive frames (CW-18)
+    page.goto(base + "?pointer=free&duel=orc&foe=still&gap=260&act=story.still:on&act=wounds.take_off:forearm_r&act=wounds.cut:torso,14&act=wounds.freeze:420")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+    page.locator("#title button").click()
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.keyboard.press("KeyX")
+    page.evaluate(WAIT_FRAMES, [480, 8000])
+    check(page.inner_text("#message") == "", "the wounds' acts on the address are taken without an error")
+    cut = page.evaluate(GRAB, [2, 0, False])
+    check(cut["frames"][0]["hash"] == cut["frames"][1]["hash"], f"a frozen view after a part is taken off draws the same pixels on consecutive frames ({cut['w']}x{cut['h']})")
     menus(page, check, engine, base)
 
 
