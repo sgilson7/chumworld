@@ -298,8 +298,11 @@ def travel(page, check, engine, base):
     """M7 travel (T11): a woken waystone in view holds still frame to frame
     and on a slow pan (CW-18), and the flute plays from Select Item: its
     song screen opens, a note shows on the staff, Esc puts it away."""
-    # 10 m north of the village's waystone, looking back at it, woken
-    page.goto(base + "?pointer=free&look=25&go=2006,2496,160,-4&act=story.skip&act=travel.wake:village&act=story.still:on")
+    # M2's view from the trainer's hill, with the hill's waystone (28 m west,
+    # in sight) woken. (By the village's waystone, the near grass and the
+    # horizon alone flip 42 pixels on this pan, the waystone's light 4 more:
+    # SECOND-ORDER.md R9.208.)
+    page.goto(base + "?pointer=free&look=25&go=352,1772,100,-1&act=travel.wake:hill&act=story.still:on")
     page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
     if page.get_attribute("body", "data-webgl") == "none":
         return

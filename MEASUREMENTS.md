@@ -125,3 +125,11 @@ What the leader's whole pattern takes from a player at full health, by how it is
 | imbued, defending (`orbs::defend`) | not measured | 10 (23 of 41 turned, 56%) |
 
 Thrown: 66 orbs before, 62 after (41 turnable). The tick through the pattern, the player imbued and swinging: 0.11 ms mean, 0.24 ms worst, native release. WebAssembly 1 531 KB.
+
+## M7 travel (P6, T11)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Travel's own tick (five waystones' nearness, the gift's check, a journey), native release | `cargo test --release -p tool_core --test frame_probe -- --ignored --nocapture probe_travel_tick_cost` | 0.32 µs a tick with nothing reached (the worst case: five distances), 0.013 µs with every waystone woken; against the core's 2 ms (CW-11): negligible. A first version read the ground under each waystone every tick: 6.7 µs, so the nearness now reads the layout's centres | 2026-10-20, P6 |
+| Drawing the woken waystones' light and the traveller | same probe | 11.4 µs a frame, 30 shapes (two waystones in reach of the glow and the traveller from where the probe ends) | 2026-10-20, P6 |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 740 KB | 2026-10-20, P6 |

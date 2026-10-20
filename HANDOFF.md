@@ -118,3 +118,22 @@ Waiting on the person: R7.8 (what death after the opening does), R7.14 (where th
 For the coordinator: R7.2 and R7.3 changed M2's `places.rs` (a `moving` flag) and `places.json` (the bed's place); R7.9 the browser check's first view and new test acts (with R6.7); R7.12 the practice depends on standing in front of the trainer (M6's guard rule, R8.3); R7.13 the lookout's gloves are not drawn on it; R7.11 the cart's box; R7.4 throwables and orbs still pass through buildings (R8.13).
 
 Check, 2026-10-20 after merging main at a205e91 (M1 polish and M6): `./scripts/check.sh` steps 1 to 7 pass (format, lint, 344 core tests by `./scripts/count-tests.sh` with 10 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R7.8, R7.14 and R7.22 have status *person* and the journal, which M5 does not edit, does not name them yet; step 9, the browser check run on its own, passes in Chromium, Firefox and WebKit (Chromium's slow pan on the green at 23 of 230 400 pixels, at the bound's edge: R7.9). Breaks: `python3 scripts/break_tests.py M5`, 41 of 41 caught. Screenshots in `shots/m5/` (not committed).
+
+## 2026-10-20: M7 travel (part P6, branch `m7-travel`, T11)
+
+Built (`crates/core/src/travel.rs`, `data/travel.json`, `web/menus/song.js`):
+- **The flute.** The trainer gives it the tick after the practice is passed, in a three-line talk whose second line teaches the travel song with its notes on the dialogue box (its one route, `trainer_gift`; CW-6's test now covers it). It sits in Select Item's fifth cell and goes on a quick key; its key plays it, it is never held ready.
+- **The song screen** (`Screen::Song`, the world held still): five notes on the arrows (or W A S D) and Space, shown on a five-line staff as they sound; at six notes the phrase is judged: the travel song (↑ → ← ↑ → Space) holds, then the map lists the woken waystones; anything else fades and clears. Esc puts the flute away.
+- **Five waystones** (`Prop::Waystone`, places `waystone_<id>` in `data/places.json`): by the village outside the boundary, by the bridge, on the trainer's hill, on the shrine's islet, down the trail from the camp outside the lookout's sight. E wakes one: its marks glow (no blending to sort, nothing pulses), the map marks it. A journey fades out, puts the player 4 m in front of the waystone facing out, and fades back.
+- **Refusals**, each with its line: during the opening, with a foe's blade out within 32 m or a foe holding on the player, and mid-dialogue.
+- **The traveller** at the crossroads with a pack mule: E, a greeting, then the waystones not yet been near, 10 coins and one more every 80 m (13 to 32); a ride takes exactly its price, refuses a short purse, says a line, fades, and wakes the waystone on arrival; a place been near is never offered.
+- **Quest**: `quest_flute` from the gift until a waystone is woken; the Quest screen's Songs card shows the song's notes.
+- Sound events for P1: `ui().travel_sound` (R9.202).
+
+Rows R9.190 to R9.208 in `SECOND-ORDER.md`; the strings under "### M7 travel" at its foot.
+
+Check (2026-10-20, main still at fa69349, so nothing to merge): `cargo fmt`, `cargo test` (376 passed, 11 ignored, by `./scripts/count-tests.sh`), `python3 scripts/break_tests.py M7`: 35 of 35 travel breaks caught (one missed on the first run and its test split, R9.198). `./scripts/check.sh`: see below.
+
+Waiting on the person: R9.190 (the flute's route: the trainer's gift), R9.193 (the song's notes), R9.194 (where the waystones stand, and their look), R9.195 (the traveller: place, look, prices), R9.207 (the strings).
+
+For the coordinator: R9.200 (the files P6 added entries to: `places::markers` for P2, `web/menus/` for P3, `models` for M3's owner), R9.202 (sound events for P1), R9.205 (four stale `field.rs` rows in `tests/breaks.json`).
