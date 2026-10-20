@@ -189,6 +189,13 @@
     "test": "the_same_world_gives_the_same_frame_byte_for_byte"
   },
   {
+    "name": "the same seed lays out the same field",
+    "file": "crates/core/src/field.rs",
+    "find": "    let mut r = Rng::new(SEED ^ ((x as u32 as u64) << 32) ^ (z as u32 as u64));",
+    "replace": "    static RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);\n    let mut r = Rng::new(SEED ^ RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) ^ ((x as u32 as u64) << 32) ^ (z as u32 as u64));",
+    "test": "the_same_seed_lays_out_the_same_field"
+  },
+  {
     "name": "the strings file holds every key",
     "file": "data/strings.json",
     "find": "\"hint_pause\": \"Esc pauses\"",
@@ -490,6 +497,20 @@
     "test": "the_body_is_drawn_between_ticks"
   },
   {
+    "name": "ground rings leave the inner ring out",
+    "file": "crates/core/src/field.rs",
+    "find": "                if inside {\n                    continue;\n                }",
+    "replace": "",
+    "test": "the_ground_rings_tile_without_gaps_or_overlaps"
+  },
+  {
+    "name": "the far ground is one colour",
+    "file": "crates/core/src/field.rs",
+    "find": "const PATCHWORK_PCT: [i32; 4] = [100, 30, 8, 0];",
+    "replace": "const PATCHWORK_PCT: [i32; 4] = [100, 30, 8, 5];",
+    "test": "the_far_ground_is_one_even_colour"
+  },
+  {
     "name": "the world's hash reads its state",
     "file": "crates/core/src/world.rs",
     "find": "        for b in text.bytes() {",
@@ -665,6 +686,13 @@
     "test": "the_static_array_read_back_is_the_shapes_pushed"
   },
   {
+    "name": "the field's floor lies below the ground",
+    "file": "crates/core/src/field.rs",
+    "find": "pub const UNDER: Fx = -fx::int(2);",
+    "replace": "pub const UNDER: Fx = 0;",
+    "test": "the_static_scene_draws_no_two_surfaces_in_one_plane"
+  },
+  {
     "name": "heads are drawn at a fifth of the height",
     "file": "crates/core/src/pose.rs",
     "find": "    head: cm(42),",
@@ -786,15 +814,15 @@
   {
     "name": "M1 arm: the blade rises above the hand",
     "file": "crates/core/src/arm.rs",
-    "find": "pub const BLADE_RISE: i32 = deg(40);",
-    "replace": "pub const BLADE_RISE: i32 = deg(20);",
-    "test": "the_blade_points_ahead_from_the_guard_out_to_the_side_and_across_a_high_guard"
+    "find": "pub const BLADE_RISE: i32 = deg(30);",
+    "replace": "pub const BLADE_RISE: i32 = deg(10);",
+    "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
   },
   {
     "name": "M1 health: a blow takes by speed over 1.5 m/s",
     "file": "crates/core/src/health.rs",
-    "find": "    (over * PER_MPS as i64 * pct / 100 / ONE as i64) as i32",
-    "replace": "    (over * 4 * pct / 100 / ONE as i64) as i32",
+    "find": "    (over * PER_MPS_PCT as i64 * pct / 10_000 / ONE as i64) as i32",
+    "replace": "    (over * PER_MPS_PCT as i64 * pct / 5_000 / ONE as i64) as i32",
     "test": "a_blow_takes_health_by_its_speed_and_where_it_lands"
   },
   {
@@ -837,14 +865,7 @@
     "file": "crates/core/src/blade.rs",
     "find": "    rewind(arm, c.k.saturating_sub(1) as i64, c.s as i64);",
     "replace": "    rewind(arm, c.s as i64, c.s as i64);",
-    "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
-  },
-  {
-    "name": "M1 blade: one blow a contact",
-    "file": "crates/core/src/blade.rs",
-    "find": "                let r = (*r + COME_AWAY) as i64;",
-    "replace": "                let r = (*r - COME_AWAY) as i64;",
-    "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
+    "test": "a_blade_that_crosses_a_body_in_one_tick_is_stopped_on_the_near_side"
   },
   {
     "name": "M1 blade: a block rewinds both blades",
@@ -982,8 +1003,8 @@
   {
     "name": "M1 arm: a still arm holds still",
     "file": "crates/core/src/arm.rs",
-    "find": "        if still && settled && g.in_hand == before.2 {",
-    "replace": "        if false && still && settled && g.in_hand == before.2 {",
+    "find": "        if still && settled && g.in_hand == before.2 && !self.riding {",
+    "replace": "        if false && still && settled && g.in_hand == before.2 && !self.riding {",
     "test": "two_still_ticks_give_identical_frames_and_static_arrays"
   },
   {
@@ -1379,6 +1400,321 @@
     "test": "the_lineup_comes_when_asked_for_and_goes_when_turned_off"
   },
   {
+    "name": "M1b motion: a press parts by mass",
+    "file": "crates/core/src/motion.rs",
+    "find": "        v3(-k.x * mb, -k.y * mb, -k.z * mb),",
+    "replace": "        v3(-k.x * ma, -k.y * ma, -k.z * ma),",
+    "test": "two_bodies_pressed_together_part_by_mass_and_keep_their_momentum"
+  },
+  {
+    "name": "M1b motion: a push clears across the ground",
+    "file": "crates/core/src/motion.rs",
+    "find": "        let need = (clear - d.len_xz()).min(most);",
+    "replace": "        let need = (r as Fx - d.len() + 0 * clear).min(most);",
+    "test": "two_bodies_pressed_together_part_by_mass_and_keep_their_momentum"
+  },
+  {
+    "name": "M1b motion: the closing speed is taken out",
+    "file": "crates/core/src/motion.rs",
+    "find": "let (ui, uj) = if closing < 0 {",
+    "replace": "let (ui, uj) = if closing < -ONE * 100 {",
+    "test": "two_bodies_pressed_together_part_by_mass_and_keep_their_momentum"
+  },
+  {
+    "name": "M1b motion: bodies are kept apart",
+    "file": "crates/core/src/motion.rs",
+    "find": "    for _ in 0..SEPARATE_PASSES {",
+    "replace": "    for _ in 0..0 {",
+    "test": "no_two_bodies_sink_into_each_other_in_a_shove_a_duel_or_a_group"
+  },
+  {
+    "name": "M1b arm: the fences keep blades and hands out of bodies",
+    "file": "crates/core/src/arm.rs",
+    "find": "        if self.fences.is_empty() {",
+    "replace": "        if true {",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M1b arm: a shoved weapon's rails are found again",
+    "file": "crates/core/src/arm.rs",
+    "find": "                    rails = self.rail_lines();",
+    "replace": "                    let _ = 0;",
+    "test": "a_blade_inside_a_body_is_pushed_out_to_its_skin_and_no_further"
+  },
+  {
+    "name": "M1b blade: every arm settles against the bodies at the end",
+    "file": "crates/core/src/blade.rs",
+    "find": "        for _ in 0..SETTLE_PASSES {",
+    "replace": "        for _ in 0..0 {",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M1b blade: a blow lands at the speed it was swung",
+    "file": "crates/core/src/arm.rs",
+    "find": "                blade: own || blades,",
+    "replace": "                blade: true || blades,",
+    "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
+  },
+  {
+    "name": "M1b player: a cut passes through the front",
+    "file": "crates/core/src/player.rs",
+    "find": "    if now.dot(want) >= 0 {",
+    "replace": "    if true {",
+    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a sweep lays the blade flat",
+    "file": "crates/core/src/arm.rs",
+    "find": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT).max(ramp(shell.swing.0.abs(), 0, SWING_FLAT));",
+    "replace": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT);",
+    "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
+  },
+  {
+    "name": "M1b arm: raised high, the blade stands up and back",
+    "file": "crates/core/src/arm.rs",
+    "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
+    "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
+    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a moving reach holds the thrust's line",
+    "file": "crates/core/src/arm.rs",
+    "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
+    "replace": "        .max(0);",
+    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: the high guard is high and to the left",
+    "file": "crates/core/src/arm.rs",
+    "find": "        ramp(shell.side, 0, LEFT_FULL),",
+    "replace": "        ONE + 0 * ramp(shell.side, 0, LEFT_FULL),",
+    "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
+  },
+  {
+    "name": "M1b blade: a resting blade is solid to a body",
+    "file": "crates/core/src/blade.rs",
+    "find": "            let held = f.arm.in_hand && (f.arm.hold[0] || f.arm.hold[1]);",
+    "replace": "            let held = false && f.arm.in_hand && (f.arm.hold[0] || f.arm.hold[1]);",
+    "test": "a_blade_that_crosses_a_body_in_one_tick_is_stopped_on_the_near_side"
+  },
+  {
+    "name": "M1b pilot: reach is the arm at full stretch and the blade",
+    "file": "crates/core/src/pilot.rs",
+    "find": "    f.arm.reach() * arm::REACH_MAX_PCT / 100 + (w.len - w.grip[1])",
+    "replace": "    f.arm.reach() * arm::REACH_MAX_PCT / 100 + (w.len - w.hilt)",
+    "test": "a_fighter_s_reach_is_its_arm_at_full_stretch_and_its_blade"
+  },
+  {
+    "name": "M1b pilot: a foe keeps to its band outside its reach",
+    "file": "crates/core/src/pilot.rs",
+    "find": "        (self.reach_cm() + k[0], self.reach_cm() + k[1])",
+    "replace": "        (150 + 0 * k[0], 205 + 0 * k[1])",
+    "test": "a_foe_keeps_a_little_outside_its_reach_steps_in_to_attack_and_out_to_recover"
+  },
+  {
+    "name": "M1b pilot: an attack steps in",
+    "file": "crates/core/src/pilot.rs",
+    "find": "    if v.gap_cm() > v.reach_cm() - LUNGE_CM {",
+    "replace": "    if false && v.gap_cm() > v.reach_cm() - LUNGE_CM {",
+    "test": "a_foe_keeps_a_little_outside_its_reach_steps_in_to_attack_and_out_to_recover"
+  },
+  {
+    "name": "M1b pilot: an attack steps back out",
+    "file": "crates/core/src/pilot.rs",
+    "find": "    if v.gap_cm() < v.band().0 {",
+    "replace": "    if false && v.gap_cm() < v.band().0 {",
+    "test": "a_foe_keeps_a_little_outside_its_reach_steps_in_to_attack_and_out_to_recover"
+  },
+  {
+    "name": "M1b pilots.json: the orc's band",
+    "file": "data/pilots.json",
+    "find": "\"keep_cm\": [15, 45],",
+    "replace": "\"keep_cm\": [70, 100],",
+    "test": "a_foe_keeps_a_little_outside_its_reach_steps_in_to_attack_and_out_to_recover"
+  },
+  {
+    "name": "M1b player: the hand holds the hilt as the blade slides",
+    "file": "crates/core/src/arm.rs",
+    "find": "                        self.pts[hand].p = self.hilt_at(self.weapon.grip[s]);",
+    "replace": "                        let _ = self.hilt_at(self.weapon.grip[s]);",
+    "test": "the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump"
+  },
+  {
+    "name": "M1b player: the blade slides out eased, not snapped",
+    "file": "crates/core/src/player.rs",
+    "find": "            let (p, q) = sc.holds(fx::mul(sc.pull(), ease(u)));",
+    "replace": "            let (p, q) = sc.holds(sc.pull() + 0 * u);",
+    "test": "the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump"
+  },
+  {
+    "name": "M1b player: the scabbard swings back",
+    "file": "crates/core/src/player.rs",
+    "find": "        _ => (f.tilt - TILT_STEP).max(0),",
+    "replace": "        _ => f.tilt,",
+    "test": "the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump"
+  },
+  {
+    "name": "M1b player: sheathing turns the blade as quickly as a swing",
+    "file": "crates/core/src/player.rs",
+    "find": "            g.swing = true;\n            g.hand = [Some(steady), Some(grip)];",
+    "replace": "            g.swing = false;\n            g.hand = [Some(steady), Some(grip)];",
+    "test": "the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump"
+  },
+  {
+    "name": "M1b player: the scabbard holds the blade with room",
+    "file": "crates/core/src/player.rs",
+    "find": "        _ => (66, 30),",
+    "replace": "        _ => (46, 9),",
+    "test": "a_scabbard_is_wider_and_thicker_than_the_blade_it_hides"
+  },
+  {
+    "name": "M1b feel: a hard blow stops 2 to 4 ticks by its speed",
+    "file": "crates/core/src/feel.rs",
+    "find": "    (STOP_MIN as i32 + (speed - HARD) / STOP_PER).min(STOP_MAX as i32) as u8",
+    "replace": "    (STOP_MIN as i32 + (speed - HARD) / STOP_PER).min(STOP_MAX as i32 + 2) as u8",
+    "test": "a_hard_blow_stops_the_world_two_to_four_ticks_by_its_speed"
+  },
+  {
+    "name": "M1b feel: the knock is held to 5 cm",
+    "file": "crates/core/src/feel.rs",
+    "find": "    way.norm().scale(fx::mul(KNOCK_PER_MPS, speed).min(KNOCK_MAX))",
+    "replace": "    way.norm().scale(fx::mul(KNOCK_PER_MPS, speed))",
+    "test": "the_camera_s_knock_rings_back_through_the_middle_to_exactly_nothing"
+  },
+  {
+    "name": "M1b feel: the knock rings back through the middle",
+    "file": "crates/core/src/feel.rs",
+    "find": "        -k.x * RING_PCT / 100,",
+    "replace": "        k.x * RING_PCT / 100,",
+    "test": "the_camera_s_knock_rings_back_through_the_middle_to_exactly_nothing"
+  },
+  {
+    "name": "M1b feel: the knock comes to exactly nothing",
+    "file": "crates/core/src/feel.rs",
+    "find": "    if n.len() < QUIET {",
+    "replace": "    if n.len() < 1 {",
+    "test": "the_camera_s_knock_rings_back_through_the_middle_to_exactly_nothing"
+  },
+  {
+    "name": "M1b world: the hit-stop holds the world",
+    "file": "crates/core/src/world.rs",
+    "find": "        if self.feel.stop > 0 {",
+    "replace": "        if false && self.feel.stop > 0 {",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b feel: the struck is shoved back",
+    "file": "crates/core/src/feel.rs",
+    "find": "        b.vel = b.vel.add(way.scale(shove));",
+    "replace": "        b.vel = b.vel.add(way.scale(-shove));",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b feel: the struck staggers",
+    "file": "crates/core/src/feel.rs",
+    "find": "        f.gait.stagger = STAGGER_TICKS;",
+    "replace": "        f.gait.stagger = 0;",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b motion: the stagger wears off",
+    "file": "crates/core/src/motion.rs",
+    "find": "        f.gait.stagger -= 1;",
+    "replace": "        let _ = 1;",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b feel: blades that meet spark",
+    "file": "crates/core/src/feel.rs",
+    "find": "        if c.speed >= SPARK_MIN {",
+    "replace": "        if c.speed >= SPARK_MIN * 100 {",
+    "test": "blades_that_meet_throw_a_spark_that_burns_out"
+  },
+  {
+    "name": "M1b feel: a spark burns out",
+    "file": "crates/core/src/feel.rs",
+    "find": "    s.sparks.retain(|sp| sp.age < SPARK_TICKS);",
+    "replace": "    s.sparks.retain(|sp| sp.age < SPARK_TICKS * 3);",
+    "test": "blades_that_meet_throw_a_spark_that_burns_out"
+  },
+  {
+    "name": "M1b health: the down event fires once",
+    "file": "crates/core/src/health.rs",
+    "find": "        .filter(|&id| up[id] && player::fighter(w, id).health.down())",
+    "replace": "        .filter(|&id| up[id] || player::fighter(w, id).health.down())",
+    "test": "the_player_at_no_health_is_down_and_the_event_names_them"
+  },
+  {
+    "name": "M1b player: a fallen body lies on its back off the ground",
+    "file": "crates/core/src/player.rs",
+    "find": "        feet.add(turn.apply_dir(v3(p.x, p.y, -p.z))).add(v3(0, lift, 0))",
+    "replace": "        feet.add(turn.apply_dir(v3(p.x, p.y, -p.z))).add(v3(0, lift * 0, 0))",
+    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+  },
+  {
+    "name": "M1b player: a fallen fighter's weapon drops",
+    "file": "crates/core/src/player.rs",
+    "find": "        g.hold = [false, false];\n    }",
+    "replace": "    }",
+    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+  },
+  {
+    "name": "M1b arm: a point on the ground drags to rest",
+    "file": "crates/core/src/arm.rs",
+    "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
+    "replace": "                v.x -= v.x * 0 / 100;",
+    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+  },
+  {
+    "name": "M1b player: a staggered body leans back along the blow",
+    "file": "crates/core/src/player.rs",
+    "find": "tip(crate::geom::yaw_of(g.stagger_way), -shaken)",
+    "replace": "tip(crate::geom::yaw_of(g.stagger_way), shaken)",
+    "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
+  },
+  {
+    "name": "M1b player: a test duel stands clear of the lantern",
+    "file": "crates/core/src/player.rs",
+    "find": "pub const DUEL_SOUTH: Fx = fx::int(30);",
+    "replace": "pub const DUEL_SOUTH: Fx = fx::int(0);",
+    "test": "a_test_duel_spawns_six_metres_ahead_facing_the_player_and_reset_clears_it"
+  },
+  {
+    "name": "M1b arm: blades keep a skin off bodies",
+    "file": "crates/core/src/arm.rs",
+    "find": "pub const SKIN: Fx = ONE * 15 / 1000;",
+    "replace": "pub const SKIN: Fx = 0;",
+    "test": "a_blade_inside_a_body_is_pushed_out_to_its_skin_and_no_further"
+  },
+  {
+    "name": "M1b health: a blow takes 2.5 a metre a second",
+    "file": "crates/core/src/health.rs",
+    "find": "pub const PER_MPS_PCT: i32 = 250;",
+    "replace": "pub const PER_MPS_PCT: i32 = 500;",
+    "test": "a_blow_takes_health_by_its_speed_and_where_it_lands"
+  },
+  {
+    "name": "M1b motion: a blade held at a body keeps it off",
+    "file": "crates/core/src/motion.rs",
+    "find": "        let mut held: Vec<Vec<(V3, V3, Fx)>> = (0..n).map(|id| held_rails(player::fighter(w, id))).collect();",
+    "replace": "        let mut held: Vec<Vec<(V3, V3, Fx)>> = (0..n).map(|_| Vec::new()).collect();",
+    "test": "a_body_cannot_walk_into_a_blade_held_at_it"
+  },
+  {
+    "name": "M1b blade: the head's capsule covers a cap",
+    "file": "crates/core/src/blade.rs",
+    "find": "pub const HEAD_TOP_MM: i32 = 70;",
+    "replace": "pub const HEAD_TOP_MM: i32 = 0;",
+    "test": "the_head_s_capsule_takes_in_a_cap"
+  },
+  {
+    "name": "M1b blade: no settle with no other body near",
+    "file": "crates/core/src/blade.rs",
+    "find": "        if near.iter().all(|f| f.own) {",
+    "replace": "        if false && near.iter().all(|f| f.own) {",
+    "test": "a_still_duel_holds_every_arm_exactly_still"
+  },
+  {
     "name": "M2 terrain: the village plateau is at 0",
     "file": "crates/core/src/terrain.rs",
     "find": "                let level = if k == 0 {\n                    0\n                } else {",
@@ -1731,7 +2067,7 @@
   {
     "name": "M6 orbs: one orb turned leaves its neighbours",
     "file": "crates/core/src/orbs.rs",
-    "find": "        let gap = r + blade::BLADE_GAP / 2 + FORGIVE;",
+    "find": "        let gap = r + edge_r + FORGIVE;",
     "replace": "        let gap = r * 5 + FORGIVE;",
     "test": "turning_one_orb_leaves_its_neighbours_alone"
   },
@@ -1895,5 +2231,33 @@
     "find": "        let p = if dot64(n, p[0].1) < 0 {\n            [p[0], p[2], p[1]]",
     "replace": "        let p = if dot64(n, p[0].1) > 0 {\n            [p[0], p[2], p[1]]",
     "test": "the_orb_shapes_wind_outward_and_fit_the_unit_cube"
+  },
+  {
+    "name": "M1b player: held on a foe the view frames the duel",
+    "file": "crates/core/src/player.rs",
+    "find": "pub const FRAMING_RIGHT: Fx = ONE * 40 / 100;",
+    "replace": "pub const FRAMING_RIGHT: Fx = ONE * 0 / 100;",
+    "test": "held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head"
+  },
+  {
+    "name": "M1b player: the duel framing eases in",
+    "file": "crates/core/src/player.rs",
+    "find": "    w.me.framing = fx::approach(w.me.framing, goal, FRAMING_STEP);",
+    "replace": "    w.me.framing = fx::approach(w.me.framing, goal * 0, FRAMING_STEP);",
+    "test": "held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head"
+  },
+  {
+    "name": "M6 orbs: a turn throws M1's spark and a hit-stop",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    w.feel.stop = w.feel.stop.max(TURN_STOP);",
+    "replace": "",
+    "test": "an_imbued_edge_turns_an_orb_back_once_and_counts_it"
+  },
+  {
+    "name": "M6 orbs: a hit-stop holds the orbs where they stand",
+    "file": "crates/core/src/world.rs",
+    "find": "            crate::orbs::hold(self); // M6: the orbs hold still too\n",
+    "replace": "",
+    "test": "a_hit_stop_holds_every_orb_where_it_stands"
   }
 ]

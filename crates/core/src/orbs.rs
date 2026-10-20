@@ -40,7 +40,7 @@ use serde::Deserialize;
 use crate::blade::{self, Swept};
 use crate::fx::{self, Fx, ONE};
 use crate::geom::{facing, right_of, v3, yaw_of, Affine, V3};
-use crate::look::{mix, rgb, Look, Rgb};
+use crate::look::{mix, rgb, Look};
 use crate::player;
 use crate::prim::Mesh;
 use crate::render::Shapes;
@@ -283,7 +283,7 @@ pub const HANDS_UP: Fx = ONE / 10;
 /// The edge turns an orb that comes within its radius, plus the blade's
 /// half thickness (`blade::BLADE_GAP` / 2), plus this: a little
 /// forgiveness, so a near miss with the edge counts.
-pub const FORGIVE: Fx = ONE * 4 / 100;
+pub const FORGIVE: Fx = ONE * 8 / 100;
 /// A body is hit by an orb within this share of its radius.
 pub const BODY_PCT: i32 = 90;
 /// An edge moving under this a tick (0.3 m/s) is still: it turns an orb
@@ -298,6 +298,13 @@ pub const TURNED_MIN: Fx = ONE * 9 / 60;
 /// A turned orb takes this share of its kind's damage from what it hits
 /// (200% let a well-swung imbue fell the leader with its own pattern).
 pub const TURNED_DAMAGE_PCT: i32 = 100;
+/// M1's spark (`feel::Spark`) is this big where an orb is turned, and
+/// this where one lands.
+pub const TURN_SPARK: Fx = ONE / 4;
+pub const BURST: Fx = ONE / 10;
+/// Turning an orb holds the world still this many ticks (M1's hit-stop,
+/// `feel::STOP_MIN`).
+pub const TURN_STOP: u8 = crate::feel::STOP_MIN;
 /// The most substeps an orb and the edge are swept in.
 pub const SWEEP_MAX: u32 = 32;
 
@@ -342,33 +349,19 @@ pub struct Cast {
     pub age: u32,
 }
 
-/// A flash where an orb was turned (`turn` true: the ping) or where one
-/// landed, burning out over `TURN_SPARK` or `BURST` ticks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Spark {
-    pub id: u32,
-    pub at: V3,
-    pub dir: V3,
-    pub kind: u8,
-    pub turn: bool,
-    pub age: u8,
-}
-
-pub const TURN_SPARK: u8 = 20;
-pub const BURST: u8 = 12;
-
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct State {
     pub casts: Vec<Cast>,
     pub flying: Vec<Orb>,
     /// orbs turned from each caster since its last cast, by caster
     pub turned: Vec<(u8, u32)>,
-    pub sparks: Vec<Spark>,
     /// held still for a view (`magic.freeze`): nothing moves or lands
     pub frozen: bool,
     /// freeze once the newest cast's clock reaches this
     pub freeze_at: Option<u32>,
     pub next: u32,
+    /// this tick was M1's hit-stop (`hold`): drawn where they stand
+    pub held: bool,
 }
 
 // ---- the doors ------------------------------------------------------------
@@ -555,6 +548,10 @@ pub fn imbued_edge(w: &World) -> Option<Swept> {
 /// An arm's edge, from the guard to the tip, at the start and end of the
 /// tick (as `blade.rs` sweeps it).
 pub fn edge(a: &crate::arm::Arm) -> Swept {
+    // M1's rails (`blade::rails_swept`, from the guard): the blade as drawn
+    if let Some((s, _)) = blade::rails_swept(a, true).first() {
+        return *s;
+    }
     let (p, t) = (&a.pts[crate::arm::POMMEL], &a.pts[crate::arm::TIP]);
     let share = fx::div(a.weapon.hilt, a.weapon.len.max(1));
     Swept {
@@ -608,18 +605,16 @@ fn turn(w: &mut World, o: &mut Orb, e: &Swept, c: &blade::Contact) {
         }
         Effect::None | Effect::Stun => {}
     }
-    spark(w, o, c.on_b, dir, true);
+    // M1's feel: the turn lands like a block, a hit-stop, M1's spark where
+    // the edge met it and a knock of the camera along the orb's flight
+    w.feel.stop = w.feel.stop.max(TURN_STOP);
+    spark(w, c.on_b, TURN_SPARK);
+    w.feel.knock = crate::feel::knock(player::mps(o.speed), came);
 }
 
-fn spark(w: &mut World, o: &Orb, at: V3, dir: V3, turn: bool) {
-    w.orbs.sparks.push(Spark {
-        id: o.id,
-        at,
-        dir,
-        kind: o.kind,
-        turn,
-        age: 0,
-    });
+/// M1's spark (`feel::Spark`), this big, where an orb turned or landed.
+fn spark(w: &mut World, at: V3, size: Fx) {
+    w.feel.sparks.push(crate::feel::Spark { at, age: 0, size });
 }
 
 /// Orb `o` lands on fighter `id`: health by its kind (`TURNED_DAMAGE_PCT`
@@ -681,7 +676,10 @@ fn fly(w: &mut World, o: &mut Orb, edge: Option<&Swept>, bodies: &[(bool, Vec<Sw
         }
     };
     if let Some(e) = edge.filter(|_| o.turned.is_none() && k.turnable) {
-        let gap = r + blade::BLADE_GAP / 2 + FORGIVE;
+        let edge_r = crate::arm::rails(w.me.arm.weapon.item)
+            .first()
+            .map_or(blade::BLADE_GAP / 2, |x| x.r);
+        let gap = r + edge_r + FORGIVE;
         if let Some(c) = blade::sweep(&path, e, gap, SWEEP_MAX, 0) {
             consider(c.k as i64 * ONE as i64 / c.s as i64, Meets::Edge(c));
         }
@@ -719,12 +717,16 @@ fn fly(w: &mut World, o: &mut Orb, edge: Option<&Swept>, bodies: &[(bool, Vec<Sw
         Some((share, Meets::Body(id))) => {
             let at = o.prev.lerp(o.pos, share as Fx);
             land_on(w, o, id);
-            spark(w, o, at, o.dir, false);
+            if id == 0 {
+                // M1's feel: the view takes a knock along the orb's flight
+                w.feel.knock = crate::feel::knock(player::mps(o.speed), o.dir);
+            }
+            spark(w, at, BURST);
             return false;
         }
         Some((share, Meets::Ground)) => {
             let at = o.prev.lerp(o.pos, share as Fx);
-            spark(w, o, at, o.dir, false);
+            spark(w, at, BURST);
             return false;
         }
         None => {}
@@ -737,6 +739,15 @@ fn fly(w: &mut World, o: &mut Orb, edge: Option<&Swept>, bodies: &[(bool, Vec<Sw
         return false;
     }
     true
+}
+
+/// A tick of M1's hit-stop (`feel::hold`), in place of `step`: nothing
+/// moves, so each orb is drawn where it stands.
+pub fn hold(w: &mut World) {
+    for o in &mut w.orbs.flying {
+        o.prev = o.pos;
+    }
+    w.orbs.held = true;
 }
 
 /// Step 6, after the imbue: the casts throw what is due, every orb flies a
@@ -752,6 +763,7 @@ pub fn advance(w: &mut World, edge: Option<Swept>) {
     if w.orbs.frozen {
         return;
     }
+    w.orbs.held = false;
     // the casts' clocks: each volley's repeats on their ticks
     let mut casts = std::mem::take(&mut w.orbs.casts);
     let aim = target(w);
@@ -788,7 +800,7 @@ pub fn advance(w: &mut World, edge: Option<Swept>) {
     let bodies: Vec<(bool, Vec<Swept>, Vec<Fx>)> = (0..player::count(w))
         .map(|id| {
             let f = player::fighter(w, id);
-            let caps = blade::capsules(&f.prev_pose, &f.pose, f.build().girth_pct, f.build().head);
+            let caps = blade::capsules(f.kind, &f.prev_pose, &f.pose);
             (
                 !f.health.down(),
                 caps.iter().map(|(_, s, _)| *s).collect(),
@@ -803,12 +815,6 @@ pub fn advance(w: &mut World, edge: Option<Swept>) {
         }
     }
     w.orbs.flying = keep;
-    for s in &mut w.orbs.sparks {
-        s.age += 1;
-    }
-    w.orbs
-        .sparks
-        .retain(|s| s.age < if s.turn { TURN_SPARK } else { BURST });
 }
 
 // ---- drawing ----------------------------------------------------------------
@@ -843,7 +849,7 @@ fn size(s: Fx) -> Affine {
 
 /// Every orb in the order thrown, then the sparks in the order struck.
 pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
-    let alpha = if w.orbs.frozen { ONE } else { alpha };
+    let alpha = if w.orbs.frozen || w.orbs.held { ONE } else { alpha };
     let s = spec();
     let ink = look.ink();
     let (turned_body, turned_halo) = (rgb(s.turned.colour), rgb(s.turned.halo));
@@ -891,67 +897,6 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
             halo,
             HALO,
         );
-    }
-    for sp in &w.orbs.sparks {
-        spark_shapes(sp, alpha, turned_halo, out);
-    }
-}
-
-/// Six ways out from a spark, turned by its number so no two look alike.
-const SHARDS: [(i32, i32, i32); 6] = [
-    (100, 20, 0),
-    (-60, 70, 30),
-    (-40, -50, 75),
-    (30, 80, -50),
-    (10, -70, -70),
-    (-90, 10, -40),
-];
-
-fn spark_shapes(sp: &Spark, alpha: Fx, turned_halo: Rgb, out: &mut Shapes) {
-    let k = &spec().kinds[sp.kind as usize];
-    let life = if sp.turn { TURN_SPARK } else { BURST } as i32;
-    let t = sp.age as i32 * ONE + alpha;
-    // 1 at the strike, 0 burnt out
-    let left = (ONE - t / life).max(0);
-    if left == 0 {
-        return;
-    }
-    let colour = if sp.turn { turned_halo } else { rgb(k.halo) };
-    let turn = Affine::rot_y(sp.id as i32 * 9_973).then(&Affine::rot_x(sp.id as i32 * 4_211));
-    if sp.turn {
-        // the ping: a flash, a ring that opens across the new flight, and
-        // shards thrown out
-        let flash = fx::mul(ONE * 5 / 10, fx::mul(left, left));
-        out.glow(
-            Mesh::Sphere,
-            Affine::translate(sp.at).then(&size(ONE * 7 / 10)),
-            colour,
-            flash,
-        );
-        let open = ONE * 15 / 100 + fx::mul(ONE - left, ONE * 85 / 100);
-        let ring = Affine::translate(sp.at)
-            .then(&Affine::looking(sp.dir))
-            .then(&Affine::scale(v3(open, open, ONE * 4 / 10)));
-        out.glow(Mesh::Torus, ring, colour, fx::mul(ONE * 9 / 10, left));
-    } else {
-        out.glow(
-            Mesh::Sphere,
-            Affine::translate(sp.at).then(&size(ONE * 45 / 100)),
-            colour,
-            fx::mul(ONE * 6 / 10, left),
-        );
-    }
-    let n = if sp.turn { 6 } else { 4 };
-    let reach = if sp.turn { ONE * 7 / 10 } else { ONE * 4 / 10 };
-    let gone = fx::mul(ONE - fx::mul(left, left), reach);
-    for (x, y, z) in SHARDS.iter().take(n) {
-        let way = turn
-            .apply_dir(v3(x * ONE / 100, y * ONE / 100, z * ONE / 100))
-            .norm();
-        let at = sp.at.add(way.scale(gone));
-        let d = fx::mul(ONE * 6 / 100, left);
-        let place = Affine::translate(at).then(&Affine::looking(way)).then(&size(d));
-        out.solid(Mesh::Tetra, place, colour, ONE);
     }
 }
 

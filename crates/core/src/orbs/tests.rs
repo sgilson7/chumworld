@@ -151,8 +151,9 @@ fn an_imbued_edge_turns_an_orb_back_once_and_counts_it() {
     assert_eq!(o.dir, v3(0, 0, -ONE));
     assert_eq!(o.speed, 18_349);
     assert_eq!(deflected(&w, 0), 1);
-    assert_eq!(w.orbs.sparks.len(), 1, "a ping where it turned");
-    assert!(w.orbs.sparks[0].turn);
+    assert_eq!(w.feel.sparks.len(), 1, "M1's spark where it turned");
+    assert_eq!(w.feel.sparks[0].size, TURN_SPARK);
+    assert_eq!(w.feel.stop, TURN_STOP, "and a hit-stop");
     // the edge swept back through it the other way, twice more
     let back = upright_edge(o.pos, v3(-ONE / 10, 0, 0));
     for _ in 0..2 {
@@ -498,8 +499,13 @@ fn the_practice_round_does_no_harm() {
     let mut landed = 0;
     while flying(&w, 1) {
         w.step(&Input::default());
-        // a spark struck this tick has burnt a tick by the step's end
-        landed += w.orbs.sparks.iter().filter(|s| !s.turn && s.age == 1).count();
+        // M1's sparks age at step 4, so one struck by an orb at step 6 is new
+        landed += w
+            .feel
+            .sparks
+            .iter()
+            .filter(|s| s.size == BURST && s.age == 0)
+            .count();
     }
     assert!(landed >= 5, "orbs landed on the player: {landed}");
     assert_eq!(w.me.health.hp, 100);
@@ -564,7 +570,7 @@ fn a_recorded_volley_hashes_the_same_every_run() {
     };
     let (a, orbs) = run(&record);
     assert_eq!(run(&record).0, a);
-    assert!(!orbs.flying.is_empty() || !orbs.sparks.is_empty() || orbs.next > 0);
+    assert!(orbs.next > 0);
     let mut other = record.clone();
     other[300].dx += 1;
     assert_ne!(run(&other).0.last(), a.last());
@@ -584,7 +590,6 @@ fn every_orb_of_a_kind_is_one_draw() {
         w.step(&Input::default());
         if w.orbs.flying.len() > most.0 {
             let mut s = Shapes::default();
-            w.orbs.sparks.clear();
             draw(&w, 0, &crate::look::tests::look(), &mut s);
             most = (w.orbs.flying.len(), s);
         }
@@ -654,4 +659,30 @@ fn magic_acts_refuse_what_they_do_not_know() {
     assert_eq!(w.foes[0].body.pos.dist(w.player.pos) / ONE, 9);
     w.act("magic.clear", "").unwrap();
     assert!(!flying(&w, 1));
+}
+
+/// M1's hit-stop, which a turn sets off: while it holds, no orb moves, and
+/// each is drawn where it stands at any share of a tick.
+#[test]
+fn a_hit_stop_holds_every_orb_where_it_stands() {
+    let mut w = World::new(5);
+    w.act("magic.leader", "").unwrap();
+    for _ in 0..80 {
+        w.step(&Input::default());
+    }
+    assert!(!w.orbs.flying.is_empty());
+    w.feel.stop = 2;
+    w.step(&Input::default());
+    let held = w.orbs.flying.clone();
+    let look = crate::look::tests::look();
+    let shot = |w: &World, alpha: Fx| {
+        let mut s = Shapes::default();
+        draw(w, alpha, &look, &mut s);
+        s
+    };
+    assert_eq!(shot(&w, 0), shot(&w, ONE / 2));
+    w.step(&Input::default());
+    assert_eq!(w.orbs.flying, held, "held a second tick");
+    w.step(&Input::default());
+    assert_ne!(w.orbs.flying[0].pos, held[0].pos, "then on");
 }

@@ -94,6 +94,8 @@ pub struct World {
     pub throwables: crate::throwables::State,
     pub motion: crate::motion::State,
     pub sticks: bool,
+    // M1: the hit-stop, the camera's knock, sparks and the tick's events
+    pub feel: crate::feel::State,
     // M2: the land (heights, layout, river), shared by every copy of the
     // world; the water's waves; a place to put the player when play starts
     pub land: std::rc::Rc<crate::terrain::Land>,
@@ -131,6 +133,7 @@ impl World {
             throwables: crate::throwables::State::default(),
             motion: crate::motion::State::default(),
             sticks: false,
+            feel: crate::feel::State::default(), // M1:
             // M2
             land: crate::terrain::shipped(),
             water: crate::water::State::new(),
@@ -150,6 +153,13 @@ impl World {
     /// One tick, in the order the module doc gives.
     pub fn step(&mut self, input: &Input) {
         self.tick += 1;
+        // M1: a hard blow holds the world still for a few ticks
+        if self.feel.stop > 0 {
+            crate::feel::hold(self, input);
+            crate::orbs::hold(self); // M6: the orbs hold still too
+            crate::ui::step(self);
+            return;
+        }
         // 1. the aim (M1: drawn, the mouse moves the hand instead, and the
         // view holds on the foe)
         let look = crate::player::look_mouse(self, input);
@@ -165,7 +175,8 @@ impl World {
         crate::arm::step(self, input, &inputs);
         crate::blade::step(self);
         crate::health::step(self);
-        // 5. M1/M5: throwables, crate::boomerang::step(self, input);
+        crate::feel::step(self); // M1:
+                                 // 5. M1/M5: throwables, crate::boomerang::step(self, input);
         crate::throwables::step(self, input, &inputs);
         crate::player::finish(self, input, &inputs);
         crate::pilot::remember(self);
@@ -184,6 +195,7 @@ impl World {
         // M1: every fighter and everything thrown
         crate::player::draw(self, alpha, look, out);
         crate::throwables::draw(self, alpha, look, out);
+        crate::feel::draw(self, alpha, look, out); // M1:
         crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
                                                      // M6: the imbued blade's glow, then the orbs and their sparks
         crate::imbue::draw(self, alpha, look, out);
@@ -245,7 +257,20 @@ impl World {
         } else {
             self.aim
         };
-        camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z))
+        let mut cam = camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z));
+        // M1: a hard blow knocks the view a little; held on a foe, the view
+        // frames the duel from a little higher and further right
+        cam.eye = cam
+            .eye
+            .add(crate::feel::knock_at(self, alpha))
+            .add(crate::player::framing(self, alpha, aim.yaw));
+        cam
+    }
+
+    /// M1: the player is down (at no health, fallen): M5's hook for waking
+    /// in bed. `feel.downed` names everyone who went down this tick.
+    pub fn player_down(&self) -> bool {
+        self.me.health.down()
     }
 }
 

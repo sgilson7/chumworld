@@ -61,10 +61,16 @@ fn probe_leader_volley_tick_cost() {
 #[test]
 #[ignore]
 fn probe_what_the_leader_s_pattern_takes() {
-    for (name, how) in [("still", 0), ("side to side", 1), ("still, imbued, swinging", 2)] {
+    for (name, how) in [
+        ("still", 0),
+        ("side to side", 1),
+        ("still, imbued, swinging", 2),
+        ("still, imbued, guard held", 3),
+        ("side to side, imbued, guard held", 4),
+    ] {
         let mut w = World::new(9);
         leader(&mut w);
-        if how == 2 {
+        if how >= 2 {
             w.step(&Input {
                 keys: tool_core::input::DRAW,
                 ..Input::default()
@@ -75,8 +81,8 @@ fn probe_what_the_leader_s_pattern_takes() {
         let mut thrown = 0u32;
         while tool_core::orbs::flying(&w, 1) {
             let keys = match how {
-                1 if (k / 50).is_multiple_of(2) => LEFT,
-                1 => RIGHT,
+                1 | 4 if (k / 50).is_multiple_of(2) => LEFT,
+                1 | 4 => RIGHT,
                 _ => 0,
             };
             let i = Input {

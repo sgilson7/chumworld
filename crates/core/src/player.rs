@@ -40,9 +40,27 @@ pub const SHADOW_LIFT: Fx = ONE * 2 / 100;
 pub const HOLD_RANGE: Fx = fx::int(15);
 /// A foe holds on the player from this far: it was set on them.
 pub const FOE_RANGE: Fx = fx::int(40);
-/// Ticks the hand takes to reach the hilt, and to put the sword away.
-pub const DRAW_TICKS: u8 = 9;
-pub const SHEATHE_TICKS: u8 = 12;
+/// A draw: the hand takes `REACH_TICKS` to reach the hilt at the left hip
+/// while the scabbard tips its hilt toward the sword shoulder, then the
+/// blade slides out along it over `PULL_TICKS`. Sheathing: the point is
+/// brought to the scabbard's mouth over `ALIGN_TICKS`, then slides home
+/// over `SLIDE_TICKS`. The scabbard swings back to hang on the hip by
+/// `TILT_STEP` a tick.
+pub const REACH_TICKS: u8 = 18;
+pub const PULL_TICKS: u8 = 10;
+pub const DRAW_TICKS: u8 = REACH_TICKS + PULL_TICKS;
+pub const ALIGN_TICKS: u8 = 18;
+pub const SLIDE_TICKS: u8 = 12;
+pub const SHEATHE_TICKS: u8 = ALIGN_TICKS + SLIDE_TICKS;
+pub const TILT_STEP: Fx = ONE / 10;
+/// The scabbard's leather, the brass at its mouth and its tip, as M3's
+/// colours name them, and how far the throat and the chape run, mm.
+const SCABBARD: &str = "hilt_leather";
+const SCABBARD_BRASS: &str = "brass";
+const THROAT_MM: i32 = 34;
+const CHAPE_MM: i32 = 60;
+/// The scabbard narrows over this much at its tip, where the point sits.
+const TIP_MM: i32 = 141;
 /// The camera's turn toward the foe held on: this share of the way a tick,
 /// at most `HOLD_TURN`.
 pub const HOLD_SHARE: Fx = ONE / 5;
@@ -54,12 +72,29 @@ pub const HOLD_PITCH_MIN: i32 = -deg(24);
 pub const HOLD_PITCH_MAX: i32 = deg(10);
 /// A foe spawned for a test duel stands this far ahead of the player.
 pub const SPAWN_AHEAD: Fx = fx::int(6);
+/// The first foe of a test duel at the start moves the player this far
+/// south first: M0's test field has its lantern, rocks and the fence round
+/// the start, and the view on Play looks wherever the title's drift left it,
+/// so the duel is moved, not turned (R3.43).
+pub const DUEL_SOUTH: Fx = fx::int(30);
 /// A body sliding faster than its feet leans back by up to this.
 pub const SLIDE_LEAN: i32 = deg(14);
-/// Where the scabbard sits on the left hip, in the body's frame (right, up,
-/// forward), and which way its blade points (down and back).
-const SHEATH_AT: (i32, i32, i32) = (-19, 92, 6);
-const SHEATH_DIR: (i32, i32, i32) = (-18, -72, -62);
+/// A staggered body leans back along the blow by up to this, and its arms
+/// lose up to this share of their strength, both wearing off with it.
+pub const STAGGER_LEAN: i32 = deg(16);
+pub const STAGGER_WEAK_PCT: i32 = 50;
+/// Where the scabbard holds the hilt's grip on the left hip, in the body's
+/// frame (right, up, forward, centimetres on the player), which way its
+/// blade points hanging (down 40° and back, close along the leg: the
+/// short sword's tip 0.45 m up, above the back of the knee at 0.37), and
+/// tipped for a draw (down,
+/// left and back: the hilt toward the sword shoulder, so the pull ends
+/// within the arm's reach, 0.43 m from the shoulder for the short sword).
+const SHEATH_AT: (i32, i32, i32) = (-18, 96, 10);
+const SHEATH_DIR: (i32, i32, i32) = (-6, -64, -77);
+/// Where the hanger meets the belt, above the mouth.
+const BELT_AT: (i32, i32, i32) = (-17, 104, 6);
+const DRAW_DIR: (i32, i32, i32) = (-61, -66, -44);
 const TICKS: i32 = crate::ticks::TICKS_PER_SECOND as i32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -132,6 +167,12 @@ pub struct Fighter {
     /// rocks and knives carried, and the throw under way (`throwables.rs`)
     pub pouch: crate::throwables::Pouch,
     pub throw: crate::throwables::Throw,
+    /// how far the scabbard is tipped for a draw (`ONE`: fully)
+    pub tilt: Fx,
+    /// how far the view has eased to its duel framing (`framing`), this
+    /// tick and last
+    pub framing: Fx,
+    pub prev_framing: Fx,
 }
 
 impl Fighter {
@@ -139,7 +180,7 @@ impl Fighter {
         let build = pose::build(kind);
         let body = Body::new(feet, yaw);
         let frame = frame_of(&body, &build, &Gait::default(), 0, feet.y);
-        let (pommel, tip) = sheath_points(&body, &build, &arm::weapon(held));
+        let (pommel, tip) = Scabbard::of(&body, &build, &Gait::default(), 0, 0, &arm::weapon(held)).holds(0);
         let mut a = Arm::new(&frame, arm::weapon(held), &build, pommel, tip);
         if drawn {
             a.take_in_hand(&frame);
@@ -162,6 +203,9 @@ impl Fighter {
             mouse_looks: !drawn,
             pouch: crate::throwables::Pouch::default(),
             throw: crate::throwables::Throw::default(),
+            tilt: 0,
+            framing: 0,
+            prev_framing: 0,
         };
         f.pose = pose_from(&body, &f);
         f.prev_pose = f.pose;
@@ -307,9 +351,31 @@ fn toward_chest(w: &World, from: V3, k: usize) -> (i32, i32) {
     (yaw_of(d), fx::wrap(fx::atan2(d.y, d.len_xz())))
 }
 
+/// Drawn and held on a foe, the view's eye moves this much further right
+/// (R3.54), still over the right shoulder (CW-15): a foe's blade pointed
+/// at the player then crosses the view beside the player's head rather than
+/// over it. (Raising the eye too was tried: it brought the blade nearer the
+/// head on screen.) It eases in and out by `FRAMING_STEP` a tick.
+pub const FRAMING_RIGHT: Fx = ONE * 40 / 100;
+pub const FRAMING_STEP: Fx = ONE / 12;
+
+/// The eye's move for the duel framing, `alpha` of the way from the last
+/// tick to this, for a view facing `yaw`.
+pub fn framing(w: &World, alpha: Fx, yaw: i32) -> V3 {
+    let f = fx::lerp(w.me.prev_framing, w.me.framing, alpha);
+    right_of(yaw).scale(fx::mul(FRAMING_RIGHT, f))
+}
+
 /// Still step 1: held on a foe, the view eases round to frame them unless
 /// the right button looks; every foe looks straight at whom it holds on.
 pub fn hold_on(w: &mut World) {
+    let goal = if w.me.engaged.is_some() && w.me.sheath == Sheath::Drawn && !w.me.mouse_looks {
+        ONE
+    } else {
+        0
+    };
+    w.me.prev_framing = w.me.framing;
+    w.me.framing = fx::approach(w.me.framing, goal, FRAMING_STEP);
     if let (Some(k), false) = (w.me.engaged, w.me.mouse_looks) {
         let from = pivot(w.player.pos, w.aim.yaw);
         let (yaw, pitch) = toward_chest(w, from, k as usize);
@@ -341,7 +407,7 @@ pub fn hold_on(w: &mut World) {
 /// The shoulders and chest for a body this tick, `fall` of the way to lying
 /// on its back (`ONE`: down), over ground at `ground`.
 pub fn frame_of(b: &Body, build: &Build, gait: &Gait, fall: Fx, ground: Fx) -> Frame {
-    let place = leaning(b, gait, fall);
+    let place = leaning(b, build, gait, fall);
     let shoulder = [-1, 1].map(|s| place(v3(s * build.shoulder_x, build.shoulder_y, 0)));
     let chest_r = (ONE as i64 * 15 / 100 * build.girth_pct as i64 / 100) as Fx;
     Frame {
@@ -360,40 +426,128 @@ pub fn frame_of(b: &Body, build: &Build, gait: &Gait, fall: Fx, ground: Fx) -> F
 }
 
 /// A point in the body's frame (right, up, forward) in the world, the body
-/// tipped `fall` of a quarter turn onto its back about its heels.
-fn local(b: &Body, fall: Fx) -> impl Fn(V3) -> V3 {
-    let turn = Affine::rot_y(b.facing).then(&Affine::rot_x(fx::mul(fall, deg(84))));
+/// tipped `fall` of a quarter turn onto its back about its heels, and
+/// raised as it goes so it comes to lie on its back and the back of its
+/// head, not in the ground: the trunk by the belly's depth (M3's 122 mm),
+/// the head by its own radius, the legs less toward the heels.
+fn local(b: &Body, build: &Build, fall: Fx) -> impl Fn(V3) -> V3 {
+    let turn = Affine::rot_y(b.facing).then(&Affine::rot_x(fx::mul(fall, deg(90))));
     let feet = b.pos;
-    move |p: V3| feet.add(turn.apply_dir(v3(p.x, p.y, -p.z)))
+    let mm = |v: i32| (v as i64 * build.height as i64 / 1700) as Fx;
+    let back = fx::mul(mm(LIE_BACK_MM) * build.girth_pct / 100, fall);
+    let head = fx::mul(mm(crate::blade::HEAD_MM), fall);
+    let (hips, neck, crown) = (build.hip_y, build.shoulder_y, build.height - build.head / 2);
+    move |p: V3| {
+        let lift = if p.y <= hips {
+            fx::mul(back, fx::div(p.y.max(0), hips.max(1)))
+        } else if p.y <= neck {
+            back
+        } else {
+            fx::lerp(
+                back,
+                head,
+                fx::div((p.y - neck).min(crown - neck), (crown - neck).max(1)),
+            )
+        };
+        feet.add(turn.apply_dir(v3(p.x, p.y, -p.z))).add(v3(0, lift, 0))
+    }
 }
 
+/// How high a body lying on its back holds its trunk off the ground, mm on
+/// the player: M3's belly is 122 mm deep.
+const LIE_BACK_MM: i32 = 122;
+
 /// The same, leaning back against a slide (`Gait::slide`): up to `SLIDE_LEAN`
-/// at 5 m/s of slide, the head away from the way the body slides.
-fn leaning(b: &Body, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
-    let base = local(b, fall);
+/// at 5 m/s of slide, the head away from the way the body slides; and
+/// staggered (`Gait::stagger`), the head knocked back along the blow by up
+/// to `STAGGER_LEAN`, easing off as the stagger wears off.
+fn leaning(b: &Body, build: &Build, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
+    let base = local(b, build, fall);
     let by = (SLIDE_LEAN as i64 * g.slide.min(fx::int(5)) as i64 / fx::int(5) as i64) as i32;
-    let way = crate::geom::yaw_of(b.vel);
-    let tilt = Affine::rot_y(way)
-        .then(&Affine::rot_x(by))
-        .then(&Affine::rot_y(-way));
+    let tip = |way: i32, by: i32| {
+        Affine::rot_y(way)
+            .then(&Affine::rot_x(by))
+            .then(&Affine::rot_y(-way))
+    };
+    let shaken = STAGGER_LEAN * g.stagger as i32 / crate::feel::STAGGER_TICKS as i32;
+    let tilt = tip(crate::geom::yaw_of(b.vel), by).then(&tip(crate::geom::yaw_of(g.stagger_way), -shaken));
     let feet = b.pos;
     move |p: V3| feet.add(tilt.apply_dir(base(p).sub(feet)))
 }
 
-/// The scabbard's hilt and blade for a body: where a sheathed weapon is.
-pub fn sheath_points(b: &Body, build: &Build, wpn: &arm::Weapon) -> (V3, V3) {
-    let place = local(b, 0);
-    let scale = |c: i32| c * ONE / 100;
-    let grip = place(v3(
-        scale(SHEATH_AT.0) * build.girth_pct / 100,
-        (scale(SHEATH_AT.1) as i64 * build.height as i64 / pose::build(Kind::Player).height as i64) as Fx,
-        scale(SHEATH_AT.2),
-    ));
-    let dir = place(v3(scale(SHEATH_DIR.0), scale(SHEATH_DIR.1), scale(SHEATH_DIR.2)))
-        .sub(b.pos)
-        .norm();
-    let pommel = grip.sub(dir.scale(wpn.grip[1]));
-    (pommel, pommel.add(dir.scale(wpn.len)))
+/// Where a fighter's scabbard is this tick: the grip of a sheathed hilt,
+/// the way its blade points, and the weapon it holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Scabbard {
+    pub grip: V3,
+    pub dir: V3,
+    pub wpn: arm::Weapon,
+    /// where its hanger meets the belt
+    pub belt: V3,
+}
+
+impl Scabbard {
+    /// On a body's left hip, standing, sliding or fallen (`fall`), tipped
+    /// `tilt` of the way toward a draw.
+    pub fn of(b: &Body, build: &Build, gait: &Gait, fall: Fx, tilt: Fx, wpn: &arm::Weapon) -> Scabbard {
+        let place = leaning(b, build, gait, fall);
+        let scale = |c: i32| c * ONE / 100;
+        let tall =
+            |c: i32| (scale(c) as i64 * build.height as i64 / pose::build(Kind::Player).height as i64) as Fx;
+        let grip = place(v3(
+            scale(SHEATH_AT.0) * build.girth_pct / 100,
+            tall(SHEATH_AT.1),
+            scale(SHEATH_AT.2),
+        ));
+        let way = |d: (i32, i32, i32)| v3(scale(d.0), scale(d.1), scale(d.2)).norm();
+        let local = way(SHEATH_DIR).lerp(way(DRAW_DIR), tilt);
+        let dir = place(local).sub(place(V3::ZERO)).norm();
+        let belt = place(v3(
+            scale(BELT_AT.0) * build.girth_pct / 100,
+            tall(BELT_AT.1),
+            scale(BELT_AT.2),
+        ));
+        Scabbard {
+            grip,
+            dir,
+            wpn: *wpn,
+            belt,
+        }
+    }
+
+    /// How far the blade slides before its point clears the mouth: from the
+    /// grip to the tip, less the hilt and guard above the mouth.
+    pub fn pull(&self) -> Fx {
+        (self.wpn.len - self.wpn.grip[1]) - mouth(self.wpn.item)
+    }
+
+    /// The pommel and the tip of the weapon slid `s` out of the scabbard.
+    pub fn holds(&self, s: Fx) -> (V3, V3) {
+        let grip = self.grip.sub(self.dir.scale(s));
+        let pommel = grip.sub(self.dir.scale(self.wpn.grip[1]));
+        (pommel, pommel.add(self.dir.scale(self.wpn.len)))
+    }
+
+    /// The scabbard's mouth: where the guard sits when the sword is home.
+    pub fn throat(&self) -> V3 {
+        self.grip.add(self.dir.scale(mouth(self.wpn.item)))
+    }
+}
+
+/// From the grip to the guard's far side (M3's hilt and guard, mm): where a
+/// scabbard's mouth sits.
+fn mouth(item: Held) -> Fx {
+    match item {
+        Held::Sword => ONE * 138 / 1000,
+        Held::Cleaver => ONE * 150 / 1000,
+        _ => ONE * 106 / 1000,
+    }
+}
+
+/// `x` from 0 to `ONE`, eased in and out (3x² − 2x³).
+fn ease(x: Fx) -> Fx {
+    let x = x.clamp(0, ONE);
+    fx::mul(fx::mul(x, x), 3 * ONE - 2 * x)
 }
 
 fn blank_pose(feet: V3, yaw: i32) -> Pose {
@@ -418,7 +572,7 @@ fn blank_pose(feet: V3, yaw: i32) -> Pose {
 pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
     let build = f.build();
     let fall = f.health.fall();
-    let place = leaning(b, &f.gait, fall);
+    let place = leaning(b, &build, &f.gait, fall);
     let bob = fx::mul(
         fx::cos(f.gait.phase.wrapping_mul(2)).abs(),
         fx::mul(ONE / 40, f.gait.swing.min(ONE)),
@@ -457,16 +611,15 @@ pub fn pose_of(w: &World, id: usize) -> Pose {
 }
 
 /// What each fighter's arms aim at this tick, from its sword's state, its
-/// shell, its throw and its health. Also moves the sheath on a tick.
-pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Goals) {
+/// shell, its throw and its health: the sword's next state, how far the
+/// scabbard is tipped, and the arms' goals.
+pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Fx, Goals) {
     let b = body(w, id);
     let f = fighter(w, id);
     let build = f.build();
-    let place = local(b, 0);
+    let place = local(b, &build, 0);
     let wpn = f.arm.weapon;
     let reach = build.upper_arm + build.forearm;
-    let (pommel, tip) = sheath_points(b, &build, &wpn);
-    let sheath_grip = pommel.add(tip.sub(pommel).norm().scale(wpn.grip[1]));
     // the sword's state: X toggles, the hand moves, the sword changes hands
     let down = f.health.down();
     let press = !down && f.pressed(input, input::DRAW);
@@ -479,6 +632,14 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Goals) {
         Sheath::Sheathing(t) => Sheath::Sheathing(t + 1),
         s => s,
     };
+    // the scabbard tips for a draw or a sheathing and swings back after
+    let tilt = match sheath {
+        Sheath::Drawing(t) => ease(((t as i32 + 1) * ONE / REACH_TICKS as i32).min(ONE)).max(f.tilt),
+        Sheath::Sheathing(t) => ease(((t as i32 + 1) * ONE / ALIGN_TICKS as i32).min(ONE)).max(f.tilt),
+        _ => (f.tilt - TILT_STEP).max(0),
+    };
+    let sc = Scabbard::of(b, &build, &f.gait, f.health.fall(), tilt, &wpn);
+    let (pommel, tip) = sc.holds(0);
     let rest = |s: usize| {
         place(v3(
             (2 * s as i32 - 1) * (build.shoulder_x + ONE / 25),
@@ -494,43 +655,79 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Goals) {
         ))
     };
     let shell_hand = f.arm.shell.point(f.arm.frame.shoulder[1], b.facing);
-    let blade = arm::blade_dir(b.facing, &f.arm.shell);
+    let blade = arm::blade_dir(b.facing, &f.arm.shell, f.arm.reach());
     let two = wpn.two_handed();
     let winding = f.throw.winding();
+    let shaken = 100 - STAGGER_WEAK_PCT * f.gait.stagger as i32 / crate::feel::STAGGER_TICKS as i32;
+    let full = [0, 1].map(|s| f.servo_pct * f.health.strength(s) / 100 * shaken / 100);
     let mut g = Goals {
         hand: [Some(rest(0)), Some(rest(1))],
         tip: None,
-        strength: [0, 1].map(|s| f.servo_pct * f.health.strength(s) / 100),
+        strength: full,
         swing: input.button(input::SWING) && !down,
         in_hand: false,
         hold: [false, false],
         sheath: (pommel, tip),
+        ride: None,
+        grasp: false,
         target: None,
     };
+    // the free hand steadies the scabbard at its mouth while the sword
+    // goes in or out
+    let steady = sc.throat().add(right_of(b.facing).scale(-ONE / 25));
     match sheath {
         Sheath::Sheathed => {}
-        Sheath::Drawing(_) => {
-            g.hand[1] = Some(sheath_grip);
+        Sheath::Drawing(t) if t < REACH_TICKS => {
+            // the sword hand reaches across for the hilt at full strength,
+            // round in front of the belly first rather than through it
+            let round = rest(1)
+                .lerp(sc.grip, ONE / 2)
+                .add(facing(b.facing, 0).scale(ONE / 4));
+            let to = if t < REACH_TICKS / 2 { round } else { sc.grip };
+            g.hand = [Some(steady), Some(to)];
+            g.grasp = true;
+        }
+        Sheath::Drawing(t) => {
+            // the blade slides out along the tipped scabbard, the hand on it
+            let u = ((t - REACH_TICKS) as i32 + 1) * ONE / PULL_TICKS as i32;
+            let (p, q) = sc.holds(fx::mul(sc.pull(), ease(u)));
+            g.in_hand = true;
+            g.hold = [false, true];
+            g.hand = [Some(steady), Some(sc.grip)];
+            g.ride = Some((p, q, ONE));
         }
         Sheath::Drawn => {
             g.in_hand = true;
-            g.hold = [two && !winding, true];
+            // the second hand takes the hilt once it has come to it
+            let second = shell_hand.sub(blade.scale(wpn.grip[1] - wpn.grip[0]));
+            let near = f.arm.pts[arm::HAND[0]].p.dist(f.arm.hilt_at(wpn.grip[0])) < ONE / 20;
+            let both = two && !winding;
+            g.hold = [both && (f.arm.hold[0] || near), true];
             g.hand[1] = Some(shell_hand);
             g.target = Some(shell_hand);
-            // the second hand on the hilt goes where the hilt is asked to be
-            g.hand[0] = Some(if two && !winding {
-                shell_hand.sub(blade.scale(wpn.grip[1] - wpn.grip[0]))
-            } else {
-                free(0)
-            });
-            g.tip = Some(shell_hand.add(blade.scale(wpn.len - wpn.grip[1])));
+            g.hand[0] = Some(if both { second } else { free(0) });
+            g.tip = Some(shell_hand.add(through_front(&f.arm, blade, b.facing).scale(wpn.len - wpn.grip[1])));
         }
-        Sheath::Sheathing(_) => {
+        Sheath::Sheathing(t) if t < ALIGN_TICKS => {
+            // the point brought to the mouth, the blade along the scabbard,
+            // turned with the quickness of a swing
+            let (p, q) = sc.holds(sc.pull());
+            let grip = p.add(sc.dir.scale(wpn.grip[1]));
             g.in_hand = true;
             g.hold = [false, true];
-            g.hand[1] = Some(sheath_grip);
-            // the scabbard's own line: the blade goes in point first
-            g.tip = Some(tip);
+            g.swing = true;
+            g.hand = [Some(steady), Some(grip)];
+            g.tip = Some(q);
+        }
+        Sheath::Sheathing(t) => {
+            // and slid home, eased over from where the arm brought it
+            let k = (t - ALIGN_TICKS) as i32 + 1;
+            let u = k * ONE / SLIDE_TICKS as i32;
+            let (p, q) = sc.holds(fx::mul(sc.pull(), ONE - ease(u)));
+            g.in_hand = true;
+            g.hold = [false, true];
+            g.hand = [Some(steady), Some(sc.grip)];
+            g.ride = Some((p, q, (k * ONE / 4).min(ONE)));
         }
     }
     if winding {
@@ -542,11 +739,33 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Goals) {
         )));
     }
     if down {
+        // the arms go limp and a weapon in hand falls from them
         g.hand = [None, None];
         g.tip = None;
         g.target = None;
+        g.ride = None;
+        g.hold = [false, false];
     }
-    (sheath, g)
+    (sheath, tilt, g)
+}
+
+/// The line the blade's servo turns it toward this tick: the line asked
+/// for, or, while the blade points more than a quarter turn away from it,
+/// a line between the two and ahead of the body. A cut from one side to
+/// the other, or from up behind the head down to the front, so passes
+/// through the space in front, as a cut does, rather than in whatever
+/// plane a straight pull across happens to find.
+pub fn through_front(a: &Arm, want: V3, yaw: i32) -> V3 {
+    let now = a.pts[arm::TIP].p.sub(a.grip_point()).norm();
+    if now.dot(want) >= 0 {
+        return want;
+    }
+    let mid = now.add(want).add(facing(yaw, 0));
+    if mid == V3::ZERO {
+        want
+    } else {
+        mid.norm()
+    }
 }
 
 /// The end of the tick: last tick's pose kept for drawing between, this
@@ -581,6 +800,16 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
         if f.held != Held::Nothing && !w.sticks {
             crate::models::held(f.held, p.grip, p.tip, look, out);
         }
+        if matches!(f.held, Held::ShortSword | Held::Sword) && !w.sticks {
+            let b = body(w, id);
+            let at = Body {
+                pos: b.feet(alpha),
+                facing: fx::lerp_angle(b.prev_facing, b.facing, alpha),
+                ..*b
+            };
+            let sc = Scabbard::of(&at, &f.build(), &f.gait, f.health.fall(), f.tilt, &f.arm.weapon);
+            scabbard(&sc, out, look);
+        }
     }
     if w.me.sheath == Sheath::Drawn && !w.me.health.down() {
         let a = &w.me.arm;
@@ -596,6 +825,62 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     if w.sticks {
         sticks(w, alpha, look, out);
     }
+}
+
+/// A scabbard drawn on the hip: a leather sheath from the mouth to past
+/// where the sheathed point sits, wider and thicker than M3's blade by more
+/// than its outline (so a sheathed blade is hidden inside and no face lies
+/// on another, CW-18), set across the same way as the blade (`models::along`
+/// with the world's up), brass at its mouth and its tip.
+/// A scabbard's width and thickness at its mouth, mm: M3's blade (46 by 9
+/// mm for the short sword, 54 by 10 for the sword) and its 4 mm outline,
+/// with room.
+pub fn scabbard_size(item: Held) -> (i32, i32) {
+    match item {
+        Held::Sword => (74, 32),
+        _ => (66, 30),
+    }
+}
+
+fn scabbard(sc: &Scabbard, out: &mut Shapes, look: &Look) {
+    let t = crate::models::table();
+    let (wide, thick) = scabbard_size(sc.wpn.item);
+    let mm = crate::models::mm;
+    let along = |d: Fx| sc.grip.add(sc.dir.scale(d));
+    // from the mouth (the guard's far side) to past where the point sits:
+    // the scabbard is as long as the blade it carries
+    let (mouth, end) = (mouth(sc.wpn.item), sc.wpn.len - sc.wpn.grip[1] + mm(25));
+    let point = end - mm(TIP_MM);
+    let mut m = crate::models::Model::default();
+    let ink = t.ink_item;
+    let bar = |a: Fx, b: Fx, w: i32, k: i32| crate::models::bar(along(a), along(b), (mm(w), mm(k)), V3::UP);
+    // the straight body, then the last part narrowing to 60% over the point
+    m.add(
+        Mesh::Cube,
+        bar(mouth, point + mm(4), wide, thick),
+        t.c(SCABBARD),
+        ink,
+    );
+    m.add(Mesh::Taper, bar(point, end, wide, thick), t.c(SCABBARD), ink);
+    // brass at the mouth and a chape over the tip
+    m.add(
+        Mesh::Cube,
+        bar(mouth - mm(4), mouth + mm(THROAT_MM), wide + 10, thick + 10),
+        t.c(SCABBARD_BRASS),
+        ink,
+    );
+    let chape_w = |w: i32| w * (100 - 40 * (TIP_MM - CHAPE_MM) / TIP_MM) / 100 + 8;
+    m.add(
+        Mesh::Taper,
+        bar(end - mm(CHAPE_MM), end + mm(6), chape_w(wide), chape_w(thick)),
+        t.c(SCABBARD_BRASS),
+        ink,
+    );
+    // and a leather hanger from the throat up to the belt
+    let belt = sc.belt;
+    let hang = crate::models::bar(belt, along(mouth + mm(THROAT_MM / 2)), (mm(26), mm(10)), V3::UP);
+    m.add(Mesh::Cube, hang, t.c(SCABBARD), ink);
+    m.emit(look.ink(), out);
 }
 
 /// The physics view (`act("duel.sticks", "on")`, `?sticks=1`): every arm's
@@ -657,8 +942,9 @@ pub fn hud_stamp(w: &World) -> (i32, Option<(u8, i32)>) {
 /// `act("duel.<name>", value)`: `spawn` puts an `orc`, `bandit` or `leader`
 /// 6 m ahead of the player; `reset` clears the duel; `sticks` shows the
 /// physics view (`on`, `off`); `pilot` runs every foe by its tree (`tree`)
-/// or holds it still (`still`), and `gap` stands every foe that many
-/// centimetres ahead of the player, both for tests and screenshots.
+/// or holds it still (`still`), `gap` stands every foe that many
+/// centimetres ahead of the player, and `health` sets every foe's health
+/// (0 puts them down), all for tests and screenshots.
 pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
     match name {
         "spawn" => {
@@ -702,6 +988,39 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             }
             Ok(())
         }
+        // every foe's hand target on its shell, degrees right and up
+        // ("-40,-10"): staging a guard (a still foe holds it) for a test or a
+        // picture
+        "guard" => {
+            let parsed: Option<Vec<i32>> = value.split(',').map(|v| v.trim().parse().ok()).collect();
+            let [side, pitch] = parsed.as_deref().unwrap_or(&[]) else {
+                return Err(format!(
+                    "A guard is degrees right and up, as \"-40,-10\", not \"{value}\"."
+                ));
+            };
+            for f in &mut w.foes {
+                let a = &mut f.fighter.arm;
+                a.shell.side = deg(*side).clamp(arm::SIDE_MIN, arm::SIDE_MAX);
+                a.shell.pitch = deg(*pitch).clamp(arm::PITCH_MIN, arm::PITCH_MAX);
+            }
+            Ok(())
+        }
+        // every foe's health set, 0 to put them down: staging a fall for a
+        // test or a picture
+        "health" => {
+            let hp: i32 = value
+                .trim()
+                .parse()
+                .ok()
+                .filter(|h| (0..=1000).contains(h))
+                .ok_or_else(|| {
+                    format!("A foe's health is a whole number from 0 to 1000, not \"{value}\".")
+                })?;
+            for f in &mut w.foes {
+                f.fighter.health.hp = hp.min(f.fighter.health.most);
+            }
+            Ok(())
+        }
         // every foe's pilot on (`tree`) or off (`still`): a test, a picture
         "pilot" => {
             let control = match value.trim() {
@@ -726,6 +1045,17 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
 /// A foe of `kind` ahead of the player, facing them, sword drawn. A second
 /// and later foe stands to one side or the other of the first.
 pub fn spawn(w: &mut World, kind: Kind) {
+    if w.foes.is_empty() && w.player.pos == crate::world::START {
+        let mut at = duel_spot();
+        at.y = w.ground(at.x, at.z);
+        w.player.pos = at;
+        w.player.prev_pos = at;
+        let frame = frame_of(&w.player, &w.me.build(), &w.me.gait, 0, w.ground(at.x, at.z));
+        w.me.arm.carry(&frame);
+        w.me.arm.frame = frame;
+        w.me.pose = pose_from(&w.player, &w.me);
+        w.me.prev_pose = w.me.pose;
+    }
     let k = w.foes.len() as i32;
     let side = if k % 2 == 0 { 1 } else { -1 } * ((k + 1) / 2) * deg(28);
     let way = fx::wrap(w.aim.yaw + side);
@@ -736,6 +1066,13 @@ pub fn spawn(w: &mut World, kind: Kind) {
     let mut foe = crate::pilot::foe(&w.pilots.book, kind, at, yaw, salt);
     foe.brain.control = w.pilots.control.clone();
     w.foes.push(foe);
+}
+
+/// Where a test duel is staged: 30 m south of the start (`DUEL_SOUTH`), on
+/// M2's level ground in the village, 17 m from the nearest house and 35 m
+/// from the well (R3.52).
+pub fn duel_spot() -> V3 {
+    crate::world::START.add(v3(0, 0, DUEL_SOUTH))
 }
 
 /// The duel cleared: every foe gone, the player whole, sheathed, nothing in
@@ -866,6 +1203,20 @@ mod tests {
         act(&mut w, "spawn", "bandit").unwrap();
         let f = &w.foes[0];
         assert_eq!(f.fighter.kind, Kind::Bandit);
+        // 30 m south of the start, clear of the test field's lantern (2.2 m
+        // west and 4.5 m north of it): the player 34.6 m from it, the foe at
+        // least 28.6
+        let lantern = crate::world::START.add(v3(-ONE * 22 / 10, 0, -ONE * 45 / 10));
+        assert!(
+            w.player.pos.dist(lantern) > fx::int(34),
+            "{}",
+            w.player.pos.dist(lantern)
+        );
+        assert!(
+            f.body.pos.dist(lantern) > fx::int(28),
+            "{}",
+            f.body.pos.dist(lantern)
+        );
         let d = f.body.pos.sub(w.player.pos);
         assert!((d.len() - fx::int(6)).abs() <= 2, "{}", d.len());
         assert!(
@@ -879,6 +1230,24 @@ mod tests {
         assert_eq!(
             act(&mut w, "spawn", "dragon"),
             Err("A test duel is with an orc, a bandit or a leader, not \"dragon\".".into())
+        );
+        act(&mut w, "guard", "-40,-10").unwrap();
+        assert_eq!(
+            (
+                w.foes[0].fighter.arm.shell.side,
+                w.foes[0].fighter.arm.shell.pitch
+            ),
+            (deg(-40), deg(-10))
+        );
+        assert_eq!(
+            act(&mut w, "guard", "low"),
+            Err("A guard is degrees right and up, as \"-40,-10\", not \"low\".".into())
+        );
+        act(&mut w, "health", "0").unwrap();
+        assert!(w.foes[0].fighter.health.down(), "health 0 puts a foe down");
+        assert_eq!(
+            act(&mut w, "health", "lots"),
+            Err("A foe's health is a whole number from 0 to 1000, not \"lots\".".into())
         );
         w.me.health.hp = 3;
         act(&mut w, "reset", "").unwrap();
@@ -903,6 +1272,174 @@ mod tests {
         assert_eq!((who.as_str(), g.now, g.most), ("orc", 90, 140));
         w.me.health.hp = -9;
         assert_eq!(crate::ui::health(&w).now, 0, "never below none");
+    }
+
+    /// CW-18: the sheathed sword, its scabbard and the figure share no
+    /// face: scanned as M3 scans its models (`flicker::fights`), seen from
+    /// near and from 992 m round, the farthest a figure is drawn.
+    #[test]
+    fn a_sheathed_sword_its_scabbard_and_the_figure_share_no_face() {
+        let w = World::new(1);
+        let look = crate::look::tests::look();
+        let mut out = Shapes::default();
+        draw(&w, ONE, &look, &mut out);
+        let insts: Vec<crate::flicker::Inst> = out
+            .list
+            .iter()
+            .filter(|s| s.pass == crate::render::Pass::Solid)
+            .map(|s| crate::flicker::Inst {
+                mesh: s.mesh,
+                at: s.at,
+                rgb: s.rgb,
+                value: s.value,
+                pass: s.pass,
+            })
+            .collect();
+        assert!(insts.len() > 30, "{} parts", insts.len());
+        let centre = w.player.pos;
+        let far = crate::models::FIGURE_FAR - fx::int(8);
+        let eyes = (0..8)
+            .flat_map(|k| {
+                let a = fx::TURN * k / 8;
+                [ONE * 2, far / 2]
+                    .map(|up| centre.add(v3(fx::mul(fx::cos(a), far), up, fx::mul(fx::sin(a), far))))
+            })
+            .collect();
+        let table = crate::prim::MeshTable::default();
+        for seen in [
+            crate::flicker::Seen {
+                bottom: centre.y,
+                ..crate::flicker::Seen::near()
+            },
+            crate::flicker::Seen {
+                bottom: centre.y,
+                eyes,
+                far: crate::models::FIGURE_FAR,
+            },
+        ] {
+            let bad: Vec<String> = crate::flicker::fights(&insts, &table, &seen)
+                .iter()
+                .map(|f| crate::flicker::describe(&insts, f))
+                .collect();
+            assert!(bad.is_empty(), "{bad:?}");
+        }
+    }
+
+    /// X draws through the scabbard: the hand reaches the hilt at the left
+    /// hip while the scabbard tips, then the blade slides out along it, the
+    /// hand on the hilt all the way, and nothing jumps: no point of the arm
+    /// or the weapon moves more than 25 cm in a tick (15 m/s) and the hand
+    /// is never more than 2 cm off the grip once it holds it. Sheathing
+    /// runs it back, the point into the mouth first.
+    #[test]
+    fn the_sword_slides_out_of_its_scabbard_and_back_in_without_a_jump() {
+        let mut w = World::new(1);
+        let mut last = w.me.arm.pts;
+        let mut tilted = 0;
+        for t in 0..(DRAW_TICKS as i32 + 30 + SHEATHE_TICKS as i32 + 20) {
+            let keys = if t == 0 || t == DRAW_TICKS as i32 + 30 {
+                DRAW
+            } else {
+                0
+            };
+            w.step(&press(keys));
+            for (k, (a, b)) in last.iter().zip(w.me.arm.pts.iter()).enumerate() {
+                assert!(
+                    a.p.dist(b.p) < ONE / 4,
+                    "tick {t}: point {k} jumped {}",
+                    a.p.dist(b.p)
+                );
+            }
+            if w.me.arm.riding {
+                let grip = w.me.arm.grip_point();
+                assert!(
+                    w.me.arm.pts[arm::HAND[1]].p.dist(grip) < ONE / 50,
+                    "tick {t}: the hand let go"
+                );
+            }
+            tilted = tilted.max(w.me.tilt);
+            last = w.me.arm.pts;
+        }
+        assert_eq!(tilted, ONE, "the scabbard tipped for the draw");
+        assert_eq!(w.me.sheath, Sheath::Sheathed);
+        assert_eq!(w.me.tilt, 0, "and swung back after");
+        // home: the hilt's grip where the scabbard holds it
+        let b = &w.player;
+        let sc = Scabbard::of(b, &w.me.build(), &w.me.gait, 0, 0, &w.me.arm.weapon);
+        assert!(
+            w.me.arm.grip_point().dist(sc.grip) < 2,
+            "{:?} {:?}",
+            w.me.arm.grip_point(),
+            sc.grip
+        );
+    }
+
+    /// R3.54: drawn and held on an orc standing still at its band (1.75 m),
+    /// the view eases fully into its duel framing, and on a 1920 × 1080
+    /// screen the nearest point of the orc's blade sits further from the
+    /// player's head (its capsule, cap and all) than it does without:
+    /// measured 107 px against 93.
+    #[test]
+    fn held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head() {
+        let mut w = World::new(1);
+        act(&mut w, "spawn", "orc").unwrap();
+        act(&mut w, "pilot", "still").unwrap();
+        act(&mut w, "gap", "175").unwrap();
+        w.step(&press(DRAW));
+        for _ in 0..120 {
+            w.step(&Input::default());
+        }
+        assert_eq!(w.me.framing, ONE, "eased fully in");
+        // the nearest a point of the blade comes to the head's capsule on
+        // screen, pixels of a 1920-wide view
+        let clear = |w: &World| {
+            let aspect = ONE * 16 / 9;
+            let cam = w.camera(ONE, Mouse::default(), crate::camera::BACK);
+            let head = crate::blade::body(Kind::Player, &w.me.pose)[0];
+            let hs: Vec<(Fx, Fx)> = (0..=4)
+                .filter_map(|k| cam.screen(aspect, head.a.lerp(head.b, ONE * k / 4)))
+                .collect();
+            let a = &w.foes[0].fighter.arm;
+            let mut best = i64::MAX;
+            for rail in arm::rails(a.weapon.item) {
+                let (p, q, _) = a.rail(rail, false, false);
+                for k in 0..=16 {
+                    if let Some(s) = cam.screen(aspect, p.lerp(q, ONE * k / 16)) {
+                        for h in &hs {
+                            let dx = (s.0 - h.0) as i64;
+                            let dy = (s.1 - h.1) as i64 * 9 / 16;
+                            best = best.min(fx::isqrt_u64((dx * dx + dy * dy) as u64) as i64);
+                        }
+                    }
+                }
+            }
+            best * 1920 / ONE as i64
+        };
+        let mut flat = w.clone();
+        flat.me.framing = 0;
+        flat.me.prev_framing = 0;
+        let (with, without) = (clear(&w), clear(&flat));
+        assert!(with > without + 10, "framed {with} px, unframed {without} px");
+        // a head is about 47 px round here: the blade clears it
+        assert!(with > 47, "{with} px");
+    }
+
+    /// By hand: a scabbard hides its blade and the blade's 4 mm outline
+    /// (M3's `ink_item`) all along. The short sword's blade is 46 by 9 mm,
+    /// so 54 by 17 with its outline; the sword's 54 by 10, so 62 by 18. The
+    /// scabbard narrows to 60% over its last 141 mm, from 690 mm past the
+    /// grip; the point begins at 714 (806 less twice the 46 mm width), 24
+    /// mm in, where the short sword's scabbard is 66 × (1 − 0.4 × 24 / 141)
+    /// = 61.5 mm wide and 28 thick, still round the 54 by 17 there.
+    #[test]
+    fn a_scabbard_is_wider_and_thicker_than_the_blade_it_hides() {
+        for (item, blade) in [(Held::ShortSword, (54, 17)), (Held::Sword, (62, 18))] {
+            let (w, t) = scabbard_size(item);
+            assert!(w > blade.0 && t > blade.1, "{item:?}: {w} by {t}");
+        }
+        let (w, t) = scabbard_size(Held::ShortSword);
+        let at = |x: i32| x * (100 - 40 * 24 / 141) / 100;
+        assert!(at(w) > 54 && at(t) > 17, "{} by {} at the point", at(w), at(t));
     }
 
     #[test]
