@@ -12,7 +12,8 @@
     "scarecrow": [1, 1],
     "signpost": [1, 1],
     "hollow_tree": [3, 3],
-    "bed": [1, 2]
+    "bed": [1, 2],
+    "waystone": [1, 1]
   },
   "flatten": {
     "_note": "How a footprint meets the ground round it: flat this far past its edge, then blending back to the land over the falloff.",
@@ -100,6 +101,40 @@
       "kind": "crossroads",
       "centre": [2000, 2250],
       "props": [{ "prop": "signpost", "at": [5, 5], "yaw_deg": 0 }]
+    },
+    {
+      "kind": "waystone_village",
+      "_": "M7 travel (T11): the waystone on the lane north of the village, 295 m from its centre, outside the opening's 250 m boundary; it faces north, up the lane",
+      "centre": [2002, 2505],
+      "clearing_m": 4,
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": 0 }]
+    },
+    {
+      "kind": "waystone_bridge",
+      "_": "north of the road just east of the bridge, facing east along the road",
+      "centre": [652, 2236],
+      "clearing_m": 4,
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": -90 }]
+    },
+    {
+      "kind": "waystone_hill",
+      "_": "on the trainer's hill beside the hut, facing east over the plains",
+      "centre": [324, 1764],
+      "clearing_m": 4,
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": -90 }]
+    },
+    {
+      "kind": "waystone_shrine",
+      "_": "on the shrine's islet, 3 m north-west of the shrine, facing east, so the arrival 4 m east is still on the islet; 'inside' keeps the islet's dome as it is (no footprint flattened under it, so no wall either: SECOND-ORDER.md R9.196)",
+      "centre": [735, 997],
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": -90, "inside": true }]
+    },
+    {
+      "kind": "waystone_camp",
+      "_": "beside the forest trail 141 m south of the camp's lookout (who sees 32 m), facing south-west down the trail",
+      "centre": [3157, 1140],
+      "clearing_m": 5,
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": 150 }]
     },
     {
       "kind": "trail_end",

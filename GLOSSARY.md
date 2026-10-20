@@ -60,6 +60,12 @@ The menu screen of what you wear and hold: the sword in your sword hand and the 
 
 Not: gear screen
 
+### Flute
+
+The trainer's gift once the practice is passed. Played from a quick key or from Select Item, it opens a staff: the arrows and Space play its {flute.keys} notes, and the travel song takes you to a waystone you have woken.
+
+Not: ocarina, whistle, pipe
+
 ### Footing
 
 How well your feet hold the ground. Each speedster piece worn keeps {speedster.grip_pct}% of the grip before it, so footing gets icier.
@@ -258,6 +264,16 @@ A small blade thrown from the free hand.
 
 Not: dagger
 
+### Travel song
+
+The song the trainer teaches with the flute, {song.notes} notes long. Played, it shows the waystones you have woken on the map; choose one and the view fades and you stand beside it.
+
+Not: warp song
+
+### Traveller
+
+Waits with a pack mule at the crossroads. For {ride.least} to {ride.most} coins, more for farther, the traveller takes you to a waystone you have not yet been near and sets you down beside it, woken.
+
 ### Volume
 
 A setting: how loud the game plays, as a percentage. No sound plays yet.
@@ -265,6 +281,12 @@ A setting: how loud the game plays, as a percentage. No sound plays yet.
 ### Walk
 
 Moving at {walk.speed} metres a second with W, A, S or D, the way the camera faces.
+
+### Waystone
+
+A carved standing slab at a travel spot: by the village, by the bridge, on the trainer's hill, at the shrine and below the bandit camp. It sleeps until you press E beside it; woken, its marks glow and the map shows it.
+
+Not: warp point, teleporter
 
 ### WebGL 2
 

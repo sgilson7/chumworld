@@ -162,6 +162,7 @@ pub fn ui(g: &Game) -> Ui {
         Screen::Play => {}
         // M4: drawn from `ui::views` below
         Screen::Menu | Screen::Settings | Screen::Dialogue | Screen::Shop => {}
+        Screen::Song => {} // M7 travel: drawn from `travel::view`
     }
     // M4: the settings button and the menu's keys on the title and pause
     crate::ui::panels(g, &mut panels);

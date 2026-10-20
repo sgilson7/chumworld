@@ -198,6 +198,24 @@ One row per assumption, surprise or open item. **Kind** is *divergence* (what wa
 | R7.20 | finding | Game-level tests start standing at the village centre. | The game now opens in bed during the raid. | Tests of M0 and M4 behaviour that walk from the start call `story.skip` first (`game.rs`, `ui.rs` tests), and the still-ticks test also `story.still`: the workaround is the finding. `tools/shoot.py`'s M0 and M3 views open with `story.skip`. | `game::tests`, `ui::tests` | done |
 | R7.21 | divergence | `?go=` and the test acts can skip the opening (R4.15, R6.7). | | Kept, as the coordinator asked. A plain load plays the opening; `?go=` past 250 m ends it without a line; a test duel steps the story aside (`story::step_aside`, from `World::act`). | `World::act` | done |
 | R7.22 | worklist | | Every string M5 wrote is listed under "### M5" below. | | | person |
+| R9.190 | worklist | The flute needs one acquisition route of its own (CW-6). | The candidates: the shrine on the islet (the boots' place already), a villager (none is left once the opening ends), the trainer. | The trainer gives it the tick after the practice's last line, in a talk of three lines; the second teaches the travel song with its notes on the dialogue box. It leads the player on: the trainer's hill has a waystone 11 m from the trainer, and the quest line says to wake it. Route id `trainer_gift` (the imbue's is `trainer`, a teaching). The merchant never buys it (`keep`). | `data/items.json`; `travel::step`; `the_trainer_gives_the_flute_and_teaches_the_song_with_its_notes` | person |
+| R9.191 | divergence | CW-6 covers "every weapon and armour piece". | The flute is neither. | Its test is extended to it anyway: one route, shared with no other item and not the imbue, and the mechanic `songs`, no other item's. | `items::tests::the_flute_has_one_route_and_one_mechanic_of_its_own` | done |
+| R9.192 | finding | How playing works was left to me. | | The world holds still while the flute plays (`Screen::Song`, as the menu ring). Play is free, as in Ocarina of Time: the phrase is judged once it is as long as the song (six notes), then the travel song holds 50 ticks on the staff and the map's list shows; any other phrase fades over 45 ticks and the staff clears, and notes played while it fades are not taken. Keys: the arrows (and W A S D) and Space, a held key one note; Enter or Space chooses on the list; Esc puts the flute away and returns to play (not to the pause screen), so the pointer is taken again on the next click. The flute's quick key plays it and never holds it ready, so F never throws it. | `data/travel.json`; `data/keys.json` (`travel`); `travel::note`, `song_ticks`; `playing_the_exact_song_opens_the_list_and_a_wrong_note_does_not` | done |
+| R9.193 | worklist | | The travel song's six notes (↑ → ← ↑ → Space), the five note icons and the staff are mine. | | `data/travel.json` `song`; `data/icons/note_*.svg` | person |
+| R9.194 | worklist | | Where the five waystones stand is mine: by the village on the lane north, 295 m from its centre (the opening ends at 250 m, so it cannot skip the raid); just east of the bridge, north of the road; on the trainer's hill 11 m from the trainer; on the shrine's islet, 3 m from the shrine; beside the forest trail 141 m south of the camp's lookout (who sees 32 m). Each a place `waystone_<id>` in `data/places.json` (adding entries), so terrain flattens a 1 m pad and `solid.rs` gives it a 1 m wall. The waystone's look (a pale slab on faceted boulders, a capstone, eight carved marks) is mine. | | `data/places.json`; `models/props.rs` `waystone` | person |
+| R9.195 | worklist | | The traveller is mine: at the crossroads, west of the lane (east of it lie the crossroads' rocks, which E would take first), facing east toward anyone coming up the lane; drawn as the villagers' old man (`Dress` variant 2) with a pack, a bedroll and a staff, beside M3's donkey with two bags. No new figure kind, so no change to `pose.rs` or the pilots; no wall, so the player can walk through them. Prices are 10 coins and one more every 80 m from the crossroads, at most 40: 13, 26, 31, 32 and 30 coins to the five, each affordable with the 84 coins the village and the camp leave. | | `data/travel.json` `traveller`, `price`; `each_ride_is_priced_by_its_distance` | person |
+| R9.196 | divergence | A waystone's footprint is flattened like any prop's. | On the shrine's islet the flattening pulled the islet's dome down under the shrine into the water (`terrain::tests` failed: the islet was water, the shrine's footprint uneven). | The shrine's waystone is `inside` (no footprint flattened, so no wall either: the player can walk through that one), and the waystone's boulders reach 14 cm under its foot to sit on the dome's slope. | `data/places.json` `waystone_shrine` | open |
+| R9.197 | divergence | Arriving 1.6 m in front of the waystone, facing out. | The over-the-shoulder camera, 2.6 m behind, sat inside the waystone: the arrival's first frame was its blank back (`shots/m7travel/09-arrival.png`, first run). | 4 m in front; the shrine's waystone moved 3 m north-west of the shrine so 4 m east of it is still the islet. | `data/travel.json` `arrive_cm`; `arrival_is_in_front_of_the_waystone_on_dry_ground_outside_any_wall` | done |
+| R9.198 | finding | "In a duel with a foe within its alarm range" needed a reading. | | Travel is refused while any foe is up with its blade out within 32 m (the camp lookout's sight), or holds on the player wherever it is; during the opening (before the boundary); while a dialogue or the shop is open; and during a journey. Each refusal has its own line, over the game in play and under the flute in Select Item. A ride is refused the same way, and for want of coins. | `travel::refusal`, `danger`; the three `travel_is_refused_*` tests | done |
+| R9.199 | finding | "A place you have not yet reached" needed a reading. | | Coming within 20 m of a waystone counts as having been there; waking it needs E. The traveller offers the waystones not yet been near; the flute lists the woken ones. So a waystone walked past but not woken is on neither list: the player walks back and presses E. A ride wakes its waystone on arrival. | `travel::listed`, `step`; `coming_within_twenty_metres_counts_as_having_been_there` | open |
+| R9.200 | divergence | P6 owns `travel.rs`, the flute, the song screen, the waystones and the traveller. | Joining them to the game needed entries in other files. | Added, not changed: `items.rs` (`Item::Flute`, `Kind::Instrument`, a test), `inventory.rs` (the flute's key plays it), `ui.rs` (`Screen::Song`'s keymap, Esc and `wanted`; Enter on the flute; the song on the dialogue box and the Quest screen; two view fields; `coins_view`, `coins_text`, `map_pct` made `pub(crate)`), `game.rs` (`Screen::Song`, its frame, `travel.*` acts, the stamp, the glossary's numbers), `api.rs`, `world.rs` (state, filter, step, draw), `story.rs` (`Use::Waystone`, `Use::Traveller`, `quest_flute`, the flute's pickup drawing, and the playthrough now takes the flute's route and wakes the hill's waystone), `places.rs` (the prop kind; woken waystones chained onto `markers`, for P2), `models.rs` and `models/props.rs` (`Prop::Waystone`, `waystone_glow`), `data/places.json`, `models.json`, `menus.json`, `keys.json`, `strings.json`, `GLOSSARY.md`, `tools/icons/make_icons.py`, `web/menus/menus.js` and `menus.css` (for P3), `tests/browser/interactions.py`, `crates/core/tests/frame_probe.rs`. | | open |
+| R9.201 | finding | The flute is given the tick after the practice's talk closes. | The last orb turned can start a hit-stop (M1's `feel`), which holds the world a few ticks first: the M5 playthrough waited one frame and found no flute; it now waits ten. The workaround is the finding. | | `story::playthrough` | done |
+| R9.202 | worklist | | Travel's sound events, for P1's sound table: `note_up`, `note_down`, `note_left`, `note_right`, `note_a` (each note played), `song_right` (the travel song played), `song_wrong` (a wrong phrase), `flute_away` (Esc), `waystone_wake`, `travel_out` (the fade begins), `travel_in` (the player is moved, in the dark), `ride_pay`. They reach the page as `ui().travel_sound` (`seq`, `id`; play each new `seq` once) and as `data-travel-sound` on `#menus`. Nothing plays them yet. | | `travel::sound`, `SoundView` | open |
+| R9.203 | finding | A woken waystone glows "softly, dithered, with no transparency sort". | | Its eight marks are drawn again 15 mm wider every way and unlit, enclosing the dark carved marks so no face lies in another's plane; a halo at the eye in the additive Glow pass (blending that needs no sort); a ring of light on the ground in the Dither pass at half fade. Nothing pulses, so a still view draws the same frame (core test and the browser check). Drawn to 2 550 m, where the waystone itself starts to dither out. | `models::waystone_glow`; `travel::draw`; `a_woken_waystone_in_view_draws_the_same_frame_tick_after_tick`; `tests/browser/interactions.py` `travel` | done |
+| R9.204 | finding | The quest line should mention the flute once relevant. | | From the flute's gift until the first waystone is woken the line is `quest_flute` (press E by the waystone beside the trainer's hut); then the camp's line as before. The Quest screen gains a Songs card with the travel song's notes once it is taught. | `story::task`; `travel::quest`, `known` | done |
+| R9.205 | finding | | Four rows in `tests/breaks.json` name `crates/core/src/field.rs`, which M2 removed (HANDOFF says they went with it); a full `break_tests.py` run reports them. Not P6's; `break_tests.py M7` does not run them. | | | open |
+| R9.206 | finding | | What still looks wrong in `shots/m7travel/`: the player holds no flute while it plays (the arms stay at rest behind the song screen); the waystone reads as a plain slab at a distance, its carved marks only up close; the eye's halo is a small pale blob; the traveller is the villagers' old man with a pack, so not a figure of their own; the mule's bags are boxes; the "Received: Flute" toast is hidden behind the dialogue box; the arrival faces away from the waystone, as asked, so the arrival's frame does not show where you are. | | | open |
+| R9.207 | worklist | | Every string P6 wrote is listed under "### M7 travel" below, and the glossary's Flute, Travel song, Traveller and Waystone. | | | person |
 
 ## Strings written by the agent
 
@@ -440,3 +458,68 @@ The menus, the HUD, dialogue, the shop and settings (task U). Item routes and me
 | core: `orbs.json` refused at start | The orbs file could not be read: …; The orbs file names the kind "…" twice.; The orbs file gives "…" and "…" one shape; each kind needs its own.; The orbs file's pattern throws a kind "…" it does not list.; The orbs file's volleys need a speed and at least a tick between repeats. |
 | core: `magic.*` refusals | Unknown action "magic.…".; Freeze takes on, off or a whole number of ticks, not "…".; A lend is a whole number of ticks, not "…".; Draw the sword first: a turn is staged at the drawn blade. |
 | `GLOSSARY.md` | Deflect, Magic, Orb (definitions there) |
+
+### M7 travel
+
+The flute, the waystones, the traveller (P6, T11).
+
+| Key | String |
+| --- | --- |
+| `item_flute` | Flute |
+| `item_flute_about` | A carved wooden flute, the trainer's gift. Play it from its key, or here with Enter: the travel song takes you to a waystone you have woken. |
+| `place_waystone_village` | Waystone by the village |
+| `place_waystone_bridge` | Waystone by the bridge |
+| `place_waystone_hill` | Waystone on the trainer's hill |
+| `place_waystone_shrine` | Waystone at the shrine |
+| `place_waystone_camp` | Waystone below the bandit camp |
+| `waystone_village` | The village |
+| `waystone_bridge` | The bridge |
+| `waystone_hill` | The trainer's hill |
+| `waystone_shrine` | The river shrine |
+| `waystone_camp` | The bandit camp's trail |
+| `note_up` | Up |
+| `note_down` | Down |
+| `note_left` | Left |
+| `note_right` | Right |
+| `note_a` | Space |
+| `key_note_up` | ↑ |
+| `key_note_down` | ↓ |
+| `key_note_left` | ← |
+| `key_note_right` | → |
+| `key_note_a` | Space |
+| `travel_song` | Travel song |
+| `travel_song_about` | Play it on the flute, then choose a waystone you have woken: it takes you there. |
+| `songs_heading` | Songs |
+| `flute_heading` | Flute |
+| `flute_hint` | Play notes with the arrows and Space. Esc puts the flute away. |
+| `flute_where` | Travel to a waystone |
+| `flute_pick_hint` | Choose with the arrows and Enter, or click a waystone. |
+| `flute_none_woken` | No waystone is awake yet. Walk up to one and press E to wake it. |
+| `flute_away` | Put the flute away |
+| `song_right` | The travel song. |
+| `song_wrong` | That is not a song you know. Play again. |
+| `traveller_heading` | Traveller |
+| `traveller_where` | Where to? |
+| `traveller_hint` | Choose a ride with the arrows and Enter, or click one. A place you have been is not on the list. |
+| `traveller_nowhere` | You have been everywhere I go. Walk on, and mind the orcs. |
+| `traveller_hello` | I go where you have not been yet, for coins. The farther, the dearer. |
+| `traveller_ride` | Climb up behind the packs. It is a long road, so rest your eyes. |
+| `traveller_arrived` | The traveller sets you down by the waystone and turns back. The waystone is awake. |
+| `traveller_short` | That ride needs {n} more coins. |
+| `traveller_short_one` | That ride needs {n} more coin. |
+| `who_traveller` | Traveller |
+| `does_wake_waystone` | Wake the waystone |
+| `does_talk_traveller` | Talk to the traveller |
+| `travel_woke` | The waystone wakes. Its marks glow, and your map shows it. |
+| `travel_refuse_opening` | The flute cannot carry you out of the raid. Run past the village's edge first. |
+| `travel_refuse_talk` | Finish talking first, then play. |
+| `travel_refuse_duel` | A foe is on you. Get clear of the fight, then play. |
+| `travel_refuse_busy` | You are on your way already. |
+| `trainer_flute_1` | One more thing. Take this flute. It carried me about these lands when I was young. |
+| `trainer_flute_2` | Learn this song. Play it, and the flute takes you to a waystone you have woken. |
+| `trainer_flute_3` | The waystones sleep until you touch one. There is one beside my hut: press E by it. |
+| `quest_flute` | Press E by the waystone beside the trainer's hut to wake it. The travel song on the flute takes you back to a waystone you have woken. |
+| core: `travel.*` refusals | The flute has no key "…".; A row is a whole number, not "…".; There is no waystone … on the list.; There is no waystone "…"; the waystones are village, bridge, hill, shrine and camp. |
+| core: `data/travel.json` refused at start | The travel file could not be read: …; The travel file names a note "…" the flute has not.; The travel file's song has no notes.; The travel file's staff must give each of the five notes a line.; The travel file's price needs a whole number of metres a coin. |
+| `GLOSSARY.md` | Flute, Travel song, Traveller, Waystone (definitions there) |
+| `data/icons/` | `flute.svg`, `note_up/down/left/right/a.svg`, `place_waystone_*.svg` (one mark for all five), `portrait_traveller.svg` |
