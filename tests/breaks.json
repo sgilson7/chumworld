@@ -691,5 +691,19 @@
     "find": "pub const UNDER: Fx = -fx::int(2);",
     "replace": "pub const UNDER: Fx = 0;",
     "test": "the_static_scene_draws_no_two_surfaces_in_one_plane"
+  },
+  {
+    "name": "heads are drawn at a fifth of the height",
+    "file": "crates/core/src/pose.rs",
+    "find": "    head: cm(42),",
+    "replace": "    head: cm(34),",
+    "test": "heads_are_a_quarter_of_the_height_give_or_take_two_points"
+  },
+  {
+    "name": "an orc is the player's height",
+    "file": "crates/core/src/pose.rs",
+    "find": "        Kind::Orc => (200, 135),",
+    "replace": "        Kind::Orc => (170, 135),",
+    "test": "the_player_is_one_metre_seventy_and_an_orc_two_metres"
   }
 ]

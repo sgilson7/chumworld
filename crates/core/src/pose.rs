@@ -82,3 +82,110 @@ impl Pose {
         }
     }
 }
+
+/// A figure's proportions in metres (`fx`), one set per `Kind`. The duel
+/// (M1) builds its arms and legs to these lengths and the models (M3) dress
+/// them; both read them here so the sword arm and the drawn arm agree. Heads
+/// are about a quarter of the height (CW-17).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Build {
+    /// feet to the crown
+    pub height: i32,
+    /// the head's height, crown to chin
+    pub head: i32,
+    /// feet to the shoulders' line
+    pub shoulder_y: i32,
+    /// centre to each shoulder
+    pub shoulder_x: i32,
+    pub upper_arm: i32,
+    /// elbow to the middle of the grip
+    pub forearm: i32,
+    /// feet to the hips' line
+    pub hip_y: i32,
+    /// centre to each hip
+    pub hip_x: i32,
+    pub thigh: i32,
+    pub shin: i32,
+    /// how broad the torso is, in percent of the player's
+    pub girth_pct: i32,
+}
+
+/// Centimetres to `fx` metres.
+const fn cm(c: i32) -> i32 {
+    c * crate::fx::ONE / 100
+}
+
+/// The player's proportions, from which the others are scaled: 1.70 m, a
+/// 0.42 m head (25%), long arms so the sword can pass over the head.
+const PLAYER: Build = Build {
+    height: cm(170),
+    head: cm(42),
+    shoulder_y: cm(124),
+    shoulder_x: cm(20),
+    upper_arm: cm(31),
+    forearm: cm(29),
+    hip_y: cm(72),
+    hip_x: cm(10),
+    thigh: cm(37),
+    shin: cm(35),
+    girth_pct: 100,
+};
+
+/// A kind's height in centimetres and girth in percent of the player's.
+fn size(kind: Kind) -> (i32, i32) {
+    match kind {
+        Kind::Player => (170, 100),
+        Kind::Orc => (200, 135),
+        Kind::Bandit => (175, 105),
+        Kind::Leader => (185, 115),
+        Kind::Lookout => (165, 90),
+        Kind::Merchant => (160, 125),
+        Kind::Trainer => (172, 100),
+        Kind::Villager => (165, 100),
+    }
+}
+
+/// The proportions of a kind: the player's scaled to its height, then
+/// widened by its girth. The head keeps the player's quarter of the height.
+pub fn build(kind: Kind) -> Build {
+    let (h, girth) = size(kind);
+    let s = |v: i32| (v as i64 * h as i64 / 170) as i32;
+    let w = |v: i32| (s(v) as i64 * girth as i64 / 100) as i32;
+    Build {
+        height: s(PLAYER.height),
+        head: s(PLAYER.head),
+        shoulder_y: s(PLAYER.shoulder_y),
+        shoulder_x: w(PLAYER.shoulder_x),
+        upper_arm: s(PLAYER.upper_arm),
+        forearm: s(PLAYER.forearm),
+        hip_y: s(PLAYER.hip_y),
+        hip_x: w(PLAYER.hip_x),
+        thigh: s(PLAYER.thigh),
+        shin: s(PLAYER.shin),
+        girth_pct: girth,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn heads_are_a_quarter_of_the_height_give_or_take_two_points() {
+        // CW-17: 42 cm of 170 cm is 24.7%; every kind scales both together.
+        for k in [Kind::Player, Kind::Orc, Kind::Bandit, Kind::Leader, Kind::Lookout, Kind::Merchant, Kind::Trainer, Kind::Villager] {
+            let b = build(k);
+            let pct = b.head as i64 * 100 / b.height as i64;
+            assert!((23..=27).contains(&pct), "{k:?}: {pct}%");
+        }
+    }
+
+    #[test]
+    fn the_player_is_one_metre_seventy_and_an_orc_two_metres() {
+        assert_eq!(build(Kind::Player).height, 170 * crate::fx::ONE / 100);
+        // 2 m, less the one unit (1/65536 m) that 170 cm loses to rounding
+        assert!((build(Kind::Orc).height - 2 * crate::fx::ONE).abs() <= 1);
+        // an orc's shoulders: 20 cm × 200/170 × 135% = 31.76 cm
+        assert_eq!(build(Kind::Orc).shoulder_x, ((20 * crate::fx::ONE / 100) as i64 * 200 / 170 * 135 / 100) as i32);
+    }
+}
