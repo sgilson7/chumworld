@@ -962,7 +962,8 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
 /// and later foe stands to one side or the other of the first.
 pub fn spawn(w: &mut World, kind: Kind) {
     if w.foes.is_empty() && w.player.pos == crate::world::START {
-        let at = crate::world::START.add(v3(0, 0, DUEL_SOUTH));
+        let mut at = duel_spot();
+        at.y = w.ground(at.x, at.z);
         w.player.pos = at;
         w.player.prev_pos = at;
         let frame = frame_of(&w.player, &w.me.build(), &w.me.gait, 0, w.ground(at.x, at.z));
@@ -981,6 +982,13 @@ pub fn spawn(w: &mut World, kind: Kind) {
     let mut foe = crate::pilot::foe(&w.pilots.book, kind, at, yaw, salt);
     foe.brain.control = w.pilots.control.clone();
     w.foes.push(foe);
+}
+
+/// Where a test duel is staged: 30 m south of the start (`DUEL_SOUTH`), on
+/// M2's level ground in the village, 17 m from the nearest house and 35 m
+/// from the well (R3.52).
+pub fn duel_spot() -> V3 {
+    crate::world::START.add(v3(0, 0, DUEL_SOUTH))
 }
 
 /// The duel cleared: every foe gone, the player whole, sheathed, nothing in

@@ -55,7 +55,10 @@ fn probe_frame_cost() {
     // a frame that rebuilds the static array (the origin moved)
     let t = Instant::now();
     let mut table = tool_core::prim::MeshTable::default();
-    let rebuild = tool_core::render::Scene::build(&g.world.scene(&g.look, &mut table), g.scene.origin, 99);
+    // M2: the places' groups are drawn by the detail levels, not the static array
+    let mut detail = tool_core::lod::Detail::new(&g.world.land.spec.lod, 0);
+    let groups = detail.take_faded(g.world.scene(&g.look, &mut table));
+    let rebuild = tool_core::render::Scene::build(&groups, g.scene.origin, 99);
     let rebuild_ms = t.elapsed().as_secs_f64() * 1000.0;
     println!("start (parse, lay out the field, first static array): {start_ms:.1} ms");
     println!("one frame (ticks, camera, instance array, draw list): {per_frame_ms:.3} ms mean, {worst:.3} ms worst");

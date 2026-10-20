@@ -59,15 +59,19 @@ pub enum Pass {
     Ink = 3,
     Shade = 4,
     Glow = 5,
+    /// M2: the river and the pond, in the water program (`water.vert`,
+    /// `water.frag`), blended over the bed it lets show through
+    Water = 6,
 }
 
 impl Pass {
     /// Draw order within a layer: every opaque pass before the blended ones.
-    pub const ORDER: [Pass; 6] = [
+    pub const ORDER: [Pass; 7] = [
         Pass::Sky,
         Pass::Solid,
         Pass::Dither,
         Pass::Ink,
+        Pass::Water,
         Pass::Shade,
         Pass::Glow,
     ];
@@ -546,12 +550,20 @@ pub fn pass_states() -> serde_json::Value {
                 Some("BACK"),
             ),
             Pass::Glow => (Some(["ONE", "ONE"]), false, true, Some("BACK")),
+            Pass::Water => (
+                Some(["SRC_ALPHA", "ONE_MINUS_SRC_ALPHA"]),
+                false,
+                true,
+                Some("BACK"),
+            ),
         };
         serde_json::json!({
             "id": p as u32,
             // sky, ink, glow, dither; then shade
             "mode_a": [flag(p == Pass::Sky), flag(p == Pass::Ink), flag(p == Pass::Glow), flag(p == Pass::Dither)],
             "mode_b": [flag(p == Pass::Shade), 0, 0, 0],
+            // M2: which program draws it
+            "program": if p == Pass::Water { "water" } else { "scene" },
             "blend": blend,
             "depth_write": write,
             "depth_test": test,

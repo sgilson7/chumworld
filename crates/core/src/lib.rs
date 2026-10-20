@@ -13,7 +13,6 @@
 
 pub mod api;
 pub mod camera;
-pub mod field;
 pub mod flicker;
 pub mod fx;
 pub mod game;

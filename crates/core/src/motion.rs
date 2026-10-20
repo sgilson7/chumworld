@@ -625,19 +625,23 @@ mod tests {
         assert!(k.z < foot.z.min(hip.z) + ONE / 100, "the knee is forward: {k:?}");
     }
 
-    /// The player at the origin facing north, an orc 0.3 m ahead facing
-    /// them, both still upright, walking into each other at 2.2 m/s.
+    /// The player at the test duels' spot (level ground in the village,
+    /// `player::duel_spot`) facing north, an orc 0.3 m ahead facing them
+    /// with its cleaver put away (a blade held at the player would keep
+    /// them off, R3.46: this is trunk against trunk), both upright, walking
+    /// into each other at 2.2 m/s.
     fn pressed() -> World {
         let mut w = World::new(1);
         crate::player::act(&mut w, "pilot", "still").unwrap();
         crate::player::act(&mut w, "spawn", "orc").unwrap();
-        w.player = Body::new(V3::ZERO, 0);
+        let base = crate::player::duel_spot();
+        w.player = Body::new(base, 0);
         w.aim.yaw = 0;
-        w.me = Fighter::new(Kind::Player, crate::pose::Held::ShortSword, 0, V3::ZERO, 0, false);
-        let at = v3(0, 0, -ONE * 3 / 10);
+        w.me = Fighter::new(Kind::Player, crate::pose::Held::ShortSword, 0, base, 0, false);
+        let at = base.add(v3(0, 0, -ONE * 3 / 10));
         w.foes[0].body = Body::new(at, fx::HALF_TURN);
         let orc = &mut w.foes[0].fighter;
-        *orc = Fighter::new(Kind::Orc, crate::pose::Held::Cleaver, 1, at, fx::HALF_TURN, true);
+        *orc = Fighter::new(Kind::Orc, crate::pose::Held::Cleaver, 1, at, fx::HALF_TURN, false);
         w.player.vel = v3(0, 0, -2402);
         w.foes[0].body.vel = v3(0, 0, 2402);
         w
@@ -666,8 +670,9 @@ mod tests {
         );
         assert_eq!(push, Some(v3(0, 0, -6643)));
         separate(&mut w);
-        assert_eq!(w.player.pos, v3(0, 0, 4420));
-        assert_eq!(w.foes[0].body.pos, v3(0, 0, -ONE * 3 / 10 - 2380));
+        let base = crate::player::duel_spot();
+        assert_eq!(w.player.pos, base.add(v3(0, 0, 4420)));
+        assert_eq!(w.foes[0].body.pos, base.add(v3(0, 0, -ONE * 3 / 10 - 2380)));
         assert_eq!(w.player.vel, v3(0, 0, 718));
         assert_eq!(w.foes[0].body.vel, v3(0, 0, 722));
         let momentum = |w: &World| 70 * w.player.vel.z as i64 + 130 * w.foes[0].body.vel.z as i64;

@@ -408,8 +408,8 @@
   {
     "name": "passes draw in order",
     "file": "crates/core/src/render.rs",
-    "find": "        Pass::Ink,\n        Pass::Shade,\n        Pass::Glow,\n    ];",
-    "replace": "        Pass::Glow,\n        Pass::Shade,\n        Pass::Ink,\n    ];",
+    "find": "        Pass::Ink,\n        Pass::Water,\n        Pass::Shade,\n        Pass::Glow,\n    ];",
+    "replace": "        Pass::Glow,\n        Pass::Water,\n        Pass::Shade,\n        Pass::Ink,\n    ];",
     "test": "draws_come_layer_by_layer_and_pass_by_pass_in_order"
   },
   {
@@ -1713,5 +1713,222 @@
     "find": "        if near.iter().all(|f| f.own) {",
     "replace": "        if false && near.iter().all(|f| f.own) {",
     "test": "a_still_duel_holds_every_arm_exactly_still"
+  },
+  {
+    "name": "M2 terrain: the village plateau is at 0",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                let level = if k == 0 {\n                    0\n                } else {",
+    "replace": "                let level = if k == 0 {\n                    ONE as i64\n                } else {",
+    "test": "the_village_plateau_stands_at_height_zero_where_the_game_opens"
+  },
+  {
+    "name": "M2 terrain: the noise eases between its lattice",
+    "file": "crates/core/src/terrain.rs",
+    "find": "    qmul(t3, qmul(t, 6 * t - 15 * O) + 10 * O)",
+    "replace": "    t",
+    "test": "noise_is_whole_and_eased_between_its_lattice_points"
+  },
+  {
+    "name": "M2 terrain: the quick root is the floor of the root",
+    "file": "crates/core/src/terrain.rs",
+    "find": "        if y >= x {\n            return x;\n        }",
+    "replace": "        if y >= x {\n            return x + 1;\n        }",
+    "test": "the_quick_square_root_is_the_floor_of_the_root"
+  },
+  {
+    "name": "M2 terrain: the ground follows the drawn diagonals",
+    "file": "crates/core/src/terrain.rs",
+    "find": "        let y = if (i + j) & 1 == 0 {",
+    "replace": "        let y = if (i + j) & 1 == 1 {",
+    "test": "the_ground_is_the_drawn_triangles_of_two_metre_cells"
+  },
+  {
+    "name": "M2 terrain: the bank meets the water",
+    "file": "crates/core/src/terrain.rs",
+    "find": "            w + qmul(bank, qmul(t, 2 * O - t))",
+    "replace": "            w + bank / 2 + qmul(bank, qmul(t, 2 * O - t))",
+    "test": "the_river_s_banks_meet_its_water_and_its_bed_lies_under_it"
+  },
+  {
+    "name": "M2 terrain: footprints are flattened",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                h = lerp(h, f.base, O - sstep(margin, margin + falloff, e));",
+    "replace": "                h = lerp(h, f.base, (O - sstep(margin, margin + falloff, e)) / 2);",
+    "test": "roads_are_flat_across_and_buildings_stand_on_flat_ground"
+  },
+  {
+    "name": "M2 terrain: roads are flattened",
+    "file": "crates/core/src/terrain.rs",
+    "find": "            h = lerp(h, level, O - sstep(s.half, s.half + SHOULDER, d));",
+    "replace": "            h = lerp(h, level, 0);",
+    "test": "roads_are_flat_across_and_buildings_stand_on_flat_ground"
+  },
+  {
+    "name": "M2 terrain: mountains rise beyond the square",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                h += qmul(qmul(rise, gap), m.base_m as i64 * O + ridge);",
+    "replace": "                h += qmul(qmul(rise, gap), m.base_m as i64 * O + ridge) / 8;",
+    "test": "the_land_rises_into_mountains_beyond_the_square"
+  },
+  {
+    "name": "M2 terrain: the pond holds water",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                h = h.min(p.level - qmul(p.depth, O - qmul(u, u)));",
+    "replace": "                h = h.min(p.level + O / 10);",
+    "test": "the_pond_and_the_river_are_water_and_the_village_is_not"
+  },
+  {
+    "name": "M2 terrain: tiles cover their square",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                    tri(&mut out, [na, se, ne], 0x22);",
+    "replace": "                    tri(&mut out, [na, sw, se], 0x22);",
+    "test": "a_tile_tiles_its_square_and_its_skirts_face_out"
+  },
+  {
+    "name": "M2 terrain: skirts face out",
+    "file": "crates/core/src/terrain.rs",
+    "find": "            [(n, 0), (0, 1)],\n            [(n, n), (-1, 0)],",
+    "replace": "            [(n, n), (0, -1)],\n            [(n, n), (-1, 0)],",
+    "test": "a_tile_tiles_its_square_and_its_skirts_face_out"
+  },
+  {
+    "name": "M2 lod: the rings double",
+    "file": "crates/core/src/lod.rs",
+    "find": "    (cell(level) as i64) * 128",
+    "replace": "    (cell(level) as i64) * 96",
+    "test": "the_rings_double_from_256_m_to_the_horizon"
+  },
+  {
+    "name": "M2 lod: the split band is the outer 15%",
+    "file": "crates/core/src/lod.rs",
+    "find": "            ((r - d) * ONE as i64 / (r - inner)) as Fx",
+    "replace": "            ONE / 2",
+    "test": "a_tile_splits_over_the_outer_fifteen_percent_of_its_children_s_ring"
+  },
+  {
+    "name": "M2 lod: a hand-over pair covers each point once",
+    "file": "crates/core/src/lod.rs",
+    "find": "        if s < ONE {\n            self.draw(key, going, out);\n        }",
+    "replace": "        if s < ONE {\n            self.draw(key, coming, out);\n        }",
+    "test": "the_tiles_drawn_cover_the_land_once_at_every_point"
+  },
+  {
+    "name": "M2 lod: two metre cells near the eye",
+    "file": "crates/core/src/lod.rs",
+    "find": "        let r = ring(level - 1);\n        let inner",
+    "replace": "        let r = ring(level - 1) / 2;\n        let inner",
+    "test": "two_metre_cells_reach_out_to_the_first_ring"
+  },
+  {
+    "name": "M2 lod: tiles are built ahead",
+    "file": "crates/core/src/lod.rs",
+    "find": "        if d < ring(level - 1) * self.spec.prefetch_pct as i64 / 100 {",
+    "replace": "        if d < ring(level - 1) * 90 / 100 {",
+    "test": "a_moving_camera_builds_ahead_and_never_waits"
+  },
+  {
+    "name": "M2 lod: a mesh is lent to the page once",
+    "file": "crates/core/src/lod.rs",
+    "find": "        self.lent = std::mem::take(&mut self.uploads);",
+    "replace": "        self.lent = self.uploads.clone();",
+    "test": "the_page_is_handed_each_new_mesh_once"
+  },
+  {
+    "name": "M2 lod: flicker test 3, a level changes only through the dither",
+    "file": "crates/core/src/lod.rs",
+    "find": "            } else if t == 0 {\n                ONE\n            } else {\n                going\n            };",
+    "replace": "            } else if t < ONE / 2 {\n                ONE\n            } else {\n                going\n            };",
+    "test": "no_surface_changes_level_without_passing_through_the_dither_band"
+  },
+  {
+    "name": "M2 lod: flicker test 3 catches a scatter pop",
+    "file": "crates/core/src/scatter.rs",
+    "find": "            _ => Some(crate::look::hand_over(s).1),\n        }",
+    "replace": "            _ => Some(ONE),\n        }",
+    "test": "no_surface_changes_level_without_passing_through_the_dither_band"
+  },
+  {
+    "name": "M2 places: a prop needs a model",
+    "file": "crates/core/src/places.rs",
+    "find": "                if prop_kind(&q.prop).is_none() {",
+    "replace": "                if prop_kind(&q.prop).is_none() && false {",
+    "test": "the_places_file_names_only_props_there_are_models_for"
+  },
+  {
+    "name": "M2 places: the map's places",
+    "file": "crates/core/src/places.rs",
+    "find": "        (\"hollow_tree\", \"tree\"),",
+    "replace": "        (\"hollow_tree\", \"hollow_tree\"),",
+    "test": "the_map_s_places_stand_where_the_journal_s_map_puts_them"
+  },
+  {
+    "name": "M2 places: the road follows the ground",
+    "file": "crates/core/src/places.rs",
+    "find": "    for p in &mut points {\n        p.y = w.ground(p.x, p.z);\n    }",
+    "replace": "    for p in &mut points {\n        p.y = 0;\n    }",
+    "test": "the_road_runs_from_the_west_edge_to_the_east_edge_over_the_bridge"
+  },
+  {
+    "name": "M2 places: go moves the player",
+    "file": "crates/core/src/places.rs",
+    "find": "            w.player = crate::player::Body::new(at, facing);",
+    "replace": "            let _ = facing;",
+    "test": "going_to_a_place_puts_the_player_there_when_play_starts"
+  },
+  {
+    "name": "M2 scatter: things stay off the road",
+    "file": "crates/core/src/scatter.rs",
+    "find": "    if rh > 0 && rd < rh + clear {",
+    "replace": "    if rh > 0 && rd < rh - clear {",
+    "test": "the_same_chunk_holds_the_same_things_and_none_on_the_road_or_in_water"
+  },
+  {
+    "name": "M2 scatter: the cone comes in as the tree goes",
+    "file": "crates/core/src/scatter.rs",
+    "find": "            Some(crate::look::hand_over(a).0)",
+    "replace": "            Some(crate::look::hand_over(a).1)",
+    "test": "each_level_hands_over_to_the_next_through_the_dither"
+  },
+  {
+    "name": "M2 sky: the edge ends before the far plane",
+    "file": "crates/core/src/sky.rs",
+    "find": "        if s.edge_m[1] as i64 * ONE as i64 > crate::render::FAR as i64 {",
+    "replace": "        if s.edge_m[1] as i64 * ONE as i64 > 2 * crate::render::FAR as i64 {",
+    "test": "the_haze_is_whole_before_the_far_plane_and_the_tint_is_gone_by_it"
+  },
+  {
+    "name": "M2 water: the banks meet the water steeply",
+    "file": "data/land.json",
+    "find": "\"river_dip_cm\": 200",
+    "replace": "\"river_dip_cm\": 10",
+    "test": "the_water_meets_its_banks_steeply_enough_for_the_depth_buffer"
+  },
+  {
+    "name": "M2 water: the solved depth",
+    "file": "crates/core/src/water.rs",
+    "find": "        let lift = cm(self.spec.level_at.cm) - (bed[at] + self.stations[at].depth);\n        for (i, st) in self.stations.iter_mut().enumerate() {\n            st.bed = bed[i] + lift;",
+    "replace": "        let lift = cm(self.spec.level_at.cm) - (bed[at] + self.stations[at].depth);\n        for (i, st) in self.stations.iter_mut().enumerate() {\n            st.depth += ONE / 5;\n            st.bed = bed[i] + lift;",
+    "test": "the_solved_river_runs_at_its_normal_depth_on_a_plain_stretch"
+  },
+  {
+    "name": "M2 water: the eddy behind a pier",
+    "file": "crates/core/src/water.rs",
+    "find": "                        slow = fx::mul(slow, ONE - fx::mul(ONE + ONE * 35 / 100, g));",
+    "replace": "                        slow = fx::mul(slow, ONE - fx::mul(ONE / 2, g));",
+    "test": "the_water_slows_and_turns_back_behind_a_pier_and_runs_fast_beside_it"
+  },
+  {
+    "name": "M2 water: a wave's phase step",
+    "file": "crates/core/src/water.rs",
+    "find": "    *p = p.wrapping_add(wave.step);",
+    "replace": "    *p = p.wrapping_add(wave.step / 2);",
+    "test": "a_wave_steps_its_phase_by_its_deep_water_period"
+  },
+  {
+    "name": "M2 flicker: a tile drawn whole over its children fights them",
+    "file": "crates/core/src/lod.rs",
+    "find": "            self.draw(key, going, out);\n",
+    "replace": "            self.draw(key, ONE, out);\n",
+    "test": "the_static_scene_draws_no_two_surfaces_in_one_plane"
   }
 ]

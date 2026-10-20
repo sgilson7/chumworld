@@ -82,6 +82,11 @@ pub struct Game {
     groups: Vec<Group>,
     /// the primitives and the meshes the world built, uploaded once
     pub meshes: MeshTable,
+    /// M2: the terrain and scatter drawn by detail level round the camera,
+    /// whose meshes reach the page as they are built (`lod.rs`)
+    pub detail: crate::lod::Detail,
+    /// M2: the water program's values this frame (`water::FRAME`)
+    pub water_frame: Vec<i32>,
     pub scene: Scene,
     pub frame: Frame,
     /// share of a tick the drawing is past the last tick
@@ -106,6 +111,9 @@ impl Game {
         let world = World::new(seed as u64);
         let mut meshes = MeshTable::default();
         let groups = world.scene(&look, &mut meshes);
+        // M2: the places' groups are drawn by distance, faded, from the detail levels
+        let mut detail = crate::lod::Detail::new(&world.land.spec.lod, meshes.count() as u32);
+        let groups = detail.take_faded(groups);
         let mut g = Game {
             strings,
             glossary,
@@ -121,6 +129,8 @@ impl Game {
             software: false,
             groups,
             meshes,
+            detail,
+            water_frame: Vec::new(),
             scene: Scene::default(),
             frame: Frame::default(),
             alpha: 0,
@@ -275,6 +285,9 @@ impl Game {
         let mut moving = Shapes::default();
         moving.sky(cam.eye);
         self.world.draw(self.alpha, &self.look, &mut moving);
+        // M2: the terrain and scatter round the eye, by detail level
+        self.detail.frame(&self.world, &self.look, cam.eye, &mut moving);
+        self.water_frame = crate::water::frame_values(&self.world.land, &self.world.water, self.scene.origin);
         self.frame = Frame::build(&self.scene, &moving, &cam, self.aspect);
     }
 
@@ -289,6 +302,8 @@ impl Game {
                 // to, and eases in from its distance
                 self.world.aim = self.title_aim();
                 self.zoom_ticks = 0;
+                // M2: a place asked for on the address (`places.go`)
+                crate::places::arrive(&mut self.world);
             }
             self.screen = s;
             self.pending.clear();

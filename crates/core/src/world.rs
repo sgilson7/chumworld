@@ -96,7 +96,11 @@ pub struct World {
     pub sticks: bool,
     // M1: the hit-stop, the camera's knock, sparks and the tick's events
     pub feel: crate::feel::State,
-    // M2: pub water: water::State, …
+    // M2: the land (heights, layout, river), shared by every copy of the
+    // world; the water's waves; a place to put the player when play starts
+    pub land: std::rc::Rc<crate::terrain::Land>,
+    pub water: crate::water::State,
+    pub arrival: Option<crate::places::Arrival>,
     // M5: pub story: story::State, pub merchant: merchant::State, …
     // M6: pub orbs: orbs::State, pub imbue: imbue::State
 }
@@ -128,13 +132,17 @@ impl World {
             motion: crate::motion::State::default(),
             sticks: false,
             feel: crate::feel::State::default(), // M1:
+            // M2
+            land: crate::terrain::shipped(),
+            water: crate::water::State::new(),
+            arrival: None,
         }
     }
 
-    /// The ground's height at (x, z). Flat in M0; M2's `terrain.rs` answers
-    /// from here.
-    pub fn ground(&self, _x: Fx, _z: Fx) -> Fx {
-        0
+    /// The ground's height at (x, z): M2's terrain, the triangles of its
+    /// finest tiles as drawn (`terrain::Land::ground`).
+    pub fn ground(&self, x: Fx, z: Fx) -> Fx {
+        self.land.ground(x, z)
     }
 
     /// One tick, in the order the module doc gives.
@@ -168,7 +176,8 @@ impl World {
         crate::pilot::remember(self);
         // 6. M6: crate::orbs::step(self); crate::imbue::step(self, input);
         // 7. M5: crate::story::step(self); crate::merchant::step(self); …
-        // 8. M2: crate::water::step(self);
+        // 8. M2: the water
+        crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
         crate::ui::step(self);
     }
@@ -184,9 +193,13 @@ impl World {
 
     /// What never moves: the static groups, and the meshes they draw.
     pub fn scene(&self, look: &Look, meshes: &mut MeshTable) -> Vec<Group> {
-        // M2: replace the test field with terrain, scatter and places
-        crate::field::groups(look, START, meshes)
-        // M2/M5: crate::places::scene(self, look, &mut out); …
+        // M2: the places' props, baked here; `Game::new` hands their groups
+        // (named `place:<kind>`) to the detail levels, which draw them to
+        // 3 km and the terrain, water and scatter round the camera (`lod.rs`)
+        let mut out = Vec::new();
+        crate::places::scene(self, look, meshes, &mut out);
+        // M5: …
+        out
     }
 
     /// Lines over the game.
@@ -203,6 +216,8 @@ impl World {
             // M1:
             Some(("duel", rest)) => crate::player::act(self, rest, value),
             Some(("motion", rest)) => crate::motion::act(self, rest, value),
+            // M2
+            Some(("places", rest)) => crate::places::act(self, rest, value),
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

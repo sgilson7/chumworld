@@ -77,7 +77,7 @@ impl Game {
     }
 
     pub fn uniforms(&self) -> Vec<f32> {
-        floats(self.inner.look.uniforms())
+        floats(tool_core::sky::all_uniforms(&self.inner.look))
     }
 
     pub fn clear_color(&self) -> Vec<f32> {
@@ -92,6 +92,22 @@ impl Game {
     /// One mesh's vertex values.
     pub fn mesh(&self, id: u32) -> Vec<f32> {
         floats(api::mesh(&self.inner, id))
+    }
+
+    /// The water program's own uniforms (M2, `water::UNIFORMS`).
+    pub fn water_uniforms(&self) -> Vec<f32> {
+        floats(tool_core::water::uniform_values(&self.inner.world.land))
+    }
+
+    /// The water program's values this frame (M2, `water::FRAME`).
+    pub fn water_frame(&self) -> Vec<f32> {
+        floats(self.inner.water_frame.clone())
+    }
+
+    /// The meshes built since the last call, as (id, vertex count) pairs:
+    /// each is read with `mesh` until the next call (M2, `lod.rs`).
+    pub fn uploads(&mut self) -> Vec<u32> {
+        self.inner.detail.uploads()
     }
 
     /// M4: the map menu's image, RGBA bytes, row by row.

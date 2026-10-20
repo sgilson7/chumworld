@@ -217,9 +217,19 @@ pub fn numbers() -> String {
         "draw_values": render::DRAW_VALUES,
         "buffers": { "static": render::STATIC_BUFFER, "dynamic": render::DYNAMIC_BUFFER },
         "passes": render::pass_states(),
-        "uniforms": look::UNIFORMS.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+        // the look's uniforms, then M2's sky's (`sky.rs`)
+        "uniforms": look::UNIFORMS.iter().chain(crate::sky::UNIFORMS).map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
         // the view values: each layer's matrix by layer number, then the eye
         "view": { "layers": [[0, 16], [16, 32]], "eye": [32, 35] },
+        // M2: `uploads` lists each new mesh as (id, vertex count); the water
+        // program's own uniforms (once) and its frame's (each frame), and the
+        // nearest distance each layer draws water at, by layer number
+        "upload_values": 2,
+        "water": {
+            "uniforms": crate::water::UNIFORMS.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+            "frame": crate::water::FRAME.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+            "cut": [render::NEAR_LAYER_FAR / crate::fx::ONE, 0],
+        },
     })
     .to_string()
 }
@@ -241,9 +251,14 @@ pub fn map_pixels(g: &Game) -> Vec<u8> {
     crate::ui::map_pixels(g)
 }
 
-/// One mesh's vertex values by number; none for a number past the end.
+/// One mesh's vertex values by number; none for a number past the end. A
+/// number past the static table is a mesh the detail levels built (M2,
+/// `lod.rs`), there while the page holds it after `uploads`.
 pub fn mesh(g: &Game, id: u32) -> Vec<i32> {
-    g.meshes.vertices(MeshId(id))
+    if (id as usize) < g.meshes.count() {
+        return g.meshes.vertices(MeshId(id));
+    }
+    g.detail.lent(id).cloned().unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -314,8 +329,6 @@ mod tests {
         }
     }
 
-    const RINGS: usize = crate::field::RINGS.len();
-
     #[test]
     fn numbers_name_every_mesh_pass_and_uniform_the_page_needs() {
         let n = json(&numbers());
@@ -324,8 +337,8 @@ mod tests {
         let list = m.as_array().unwrap();
         assert_eq!(
             list.len(),
-            Mesh::ALL.len() + RINGS,
-            "the primitives and the ground's {RINGS} rings"
+            Mesh::ALL.len() + g.meshes.world.len(),
+            "the primitives and the world's static meshes (the water's)"
         );
         assert_eq!(list[0]["vertices"], 36, "the cube's 12 triangles");
         assert_eq!(n["vertex"]["stride"], 36);
