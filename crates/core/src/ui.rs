@@ -344,6 +344,11 @@ pub struct Menu {
     pub settings_from: Screen,
     /// the keys held last tick of play, so Tab and M open once a press
     pub last_bits: u32,
+    /// M7: the quick key (0, 1 or 2) the pointer or the keyboard's focus is
+    /// on in the ring's foot, whose item the ring describes
+    pub quick_hover: Option<usize>,
+    /// M7: ticks the ring has been open, for the Equipment figure's turn
+    pub open_ticks: u32,
     hud: Option<HudView>,
 }
 
@@ -355,6 +360,8 @@ impl Default for Menu {
             note: None,
             settings_from: Screen::Title,
             last_bits: 0,
+            quick_hover: None,
+            open_ticks: 0,
             hud: None,
         }
     }
@@ -385,6 +392,8 @@ pub fn open(g: &mut Game, face: usize) {
     let d = (face as i32 - from).rem_euclid(4);
     g.menu.turn += if d == 3 { -1 } else { d };
     g.menu.note = None;
+    g.menu.quick_hover = None;
+    g.menu.open_ticks = 0;
     g.show(Screen::Menu);
 }
 
@@ -776,6 +785,9 @@ pub struct Face {
     pub hand_heading: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub figure: String,
+    /// M7: the screen holds the figure's canvas (`stage.rs`)
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub stage: bool,
     pub set: Option<SetView>,
     pub map: Option<MapView>,
     pub quest: Option<QuestView>,
@@ -797,6 +809,8 @@ pub struct MenuView {
     pub right: KeyHint,
     pub close: KeyHint,
     pub quick: Vec<Quick>,
+    /// M7: the item on the quick key pointed at, described over the keys
+    pub quick_info: Option<Info>,
     pub assign: String,
 }
 
@@ -1081,6 +1095,7 @@ fn select_face(g: &Game, front: bool) -> Face {
         info,
         hand_heading: String::new(),
         figure: String::new(),
+        stage: false,
         set: None,
         map: None,
         quest: None,
@@ -1141,7 +1156,9 @@ fn equipment_face(g: &Game, front: bool) -> Face {
         slots,
         info,
         hand_heading: s.get("sword_hand"),
-        figure: "data/icons/figure.svg".into(),
+        // M7: the player's own model, drawn by `stage.rs` on a canvas here
+        figure: String::new(),
+        stage: true,
         set: Some(SetView {
             heading: s.get("speedster_armour"),
             icon: "data/icons/boots.svg".into(),
@@ -1199,6 +1216,7 @@ fn map_face(g: &Game, front: bool) -> Face {
         info: None,
         hand_heading: String::new(),
         figure: String::new(),
+        stage: false,
         set: None,
         map: Some(MapView {
             version: w.ui.fog.version,
@@ -1233,6 +1251,7 @@ fn quest_face(g: &Game, front: bool) -> Face {
         info: None,
         hand_heading: String::new(),
         figure: String::new(),
+        stage: false,
         set: None,
         map: None,
         quest: Some(QuestView {
@@ -1289,8 +1308,39 @@ fn menu_view(g: &Game) -> MenuView {
             action: action(s, "menu.close", "", "close", true),
         },
         quick: quick_view(s, &g.world.inventory),
+        quick_info: quick_info(g),
         assign: s.get("assign_keys"),
     }
+}
+
+/// M7: the item on the quick key pointed at in the ring's foot: its name,
+/// what it does, how many, and how it is readied in play.
+fn quick_info(g: &Game) -> Option<Info> {
+    let (s, inv) = (&g.strings, &g.world.inventory);
+    let k = g.menu.quick_hover?;
+    let i = (*inv.quick.get(k)?)?;
+    let key = s.get(&format!("key_{}", k + 1));
+    let mut notes = Vec::new();
+    if i.def().stack > 1 {
+        notes.push(fill(
+            &s.get("carry_of"),
+            &[
+                ("n", inv.count(i).to_string()),
+                ("most", i.def().stack.to_string()),
+            ],
+        ));
+    }
+    let how = if i == Item::Bandage {
+        "quick_use"
+    } else {
+        "quick_ready"
+    };
+    notes.push(fill(&s.get(how), &[("key", key)]));
+    Some(Info {
+        name: s.get(&format!("item_{}", i.id())),
+        about: about(s, i),
+        notes,
+    })
 }
 
 fn turn(g: &mut Game, by: i32) {
@@ -1681,7 +1731,21 @@ pub fn act(g: &mut Game, name: &str, value: &str) -> Result<(), String> {
         }
         "menu.turn" if screen == Screen::Menu => turn(g, if value.trim() == "-1" { -1 } else { 1 }),
         "menu.close" if screen == Screen::Menu => g.show(Screen::Play),
-        "menu.open" | "menu.key" | "menu.point" | "menu.choose" | "menu.turn" | "menu.close" => {}
+        // M7: the pointer or focus on a quick key in the ring's foot, or off
+        // them (an empty value)
+        "menu.hover_quick" if screen == Screen::Menu => {
+            g.menu.quick_hover = match value.trim() {
+                "" => None,
+                v => Some(
+                    v.parse::<usize>()
+                        .ok()
+                        .filter(|k| *k < 3)
+                        .ok_or_else(|| format!("A quick key is 0, 1 or 2, not \"{value}\"."))?,
+                ),
+            }
+        }
+        "menu.open" | "menu.key" | "menu.point" | "menu.choose" | "menu.turn" | "menu.close"
+        | "menu.hover_quick" => {}
         "settings.open" if matches!(screen, Screen::Title | Screen::Paused) => {
             g.menu.settings_from = screen;
             g.show(Screen::Settings);
@@ -2416,6 +2480,69 @@ mod tests {
         assert_eq!(g.world.inventory.add_coins(5), 0);
         assert!(!g.world.inventory.spend(1000));
         assert_eq!(g.world.inventory.coins, 999);
+    }
+
+    /// M7: a quick key in the ring's foot, pointed at, describes its item.
+    #[test]
+    fn pointing_at_a_quick_key_in_the_ring_describes_its_item() {
+        let mut g = playing();
+        g.act("test.give_all", "").unwrap();
+        g.world.inventory.quick[2] = Some(Item::Bandage);
+        press_tab(&mut g);
+        assert_eq!(g.screen, Screen::Menu);
+        assert!(json(&g)["menu"]["quick_info"].is_null());
+        g.act("menu.hover_quick", "1").unwrap();
+        let info = &json(&g)["menu"]["quick_info"];
+        assert_eq!(info["name"], "Rock");
+        assert_eq!(
+            info["notes"],
+            serde_json::json!(["You carry 20 of 20.", "In play, 2 readies it in the free hand."])
+        );
+        g.act("menu.hover_quick", "2").unwrap();
+        assert_eq!(
+            json(&g)["menu"]["quick_info"]["notes"][1],
+            "In play, 3 uses it at once."
+        );
+        g.act("menu.hover_quick", "").unwrap();
+        assert!(json(&g)["menu"]["quick_info"].is_null());
+        assert!(g.act("menu.hover_quick", "3").is_err());
+        // reopened, the ring describes no key until one is pointed at
+        g.act("menu.hover_quick", "0").unwrap();
+        g.act("menu.close", "").unwrap();
+        press_tab(&mut g);
+        assert!(json(&g)["menu"]["quick_info"].is_null());
+    }
+
+    /// M7 (R9.84): a bandage's key uses it: 30 + 40 = 70 health, one
+    /// fewer; 90 + 40 is held to 100; at 100 it keeps.
+    #[test]
+    fn a_bandage_s_key_gives_back_forty_health_held_to_the_most() {
+        let mut g = playing();
+        let inv = &mut g.world.inventory;
+        inv.add(Item::Bandage, 3);
+        inv.quick[0] = Some(Item::Bandage);
+        g.world.me.health.hp = 30;
+        frames(&mut g, 1, ITEM_1, 0);
+        frames(&mut g, 1, 0, 0);
+        assert_eq!(
+            (g.world.me.health.hp, g.world.inventory.count(Item::Bandage)),
+            (70, 2)
+        );
+        assert_eq!(g.world.inventory.ready, None, "a bandage is not held ready");
+        g.world.me.health.hp = 90;
+        frames(&mut g, 1, ITEM_1, 0);
+        frames(&mut g, 1, 0, 0);
+        assert_eq!(
+            (g.world.me.health.hp, g.world.inventory.count(Item::Bandage)),
+            (100, 1)
+        );
+        frames(&mut g, 1, ITEM_1, 0);
+        frames(&mut g, 1, 0, 0);
+        assert_eq!(
+            (g.world.me.health.hp, g.world.inventory.count(Item::Bandage)),
+            (100, 1),
+            "unhurt, it keeps"
+        );
     }
 
     #[test]

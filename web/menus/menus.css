@@ -433,7 +433,8 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .equip-hand { display: flex; flex-direction: column; align-items: center; }
 .hand-slots { display: flex; gap: 16px; }
 .equip-figure { position: relative; height: 100%; max-height: 430px; aspect-ratio: 360 / 430; justify-self: center; }
-.equip-figure .figure { position: absolute; left: 50%; top: 4%; height: 92%; transform: translateX(-50%); opacity: 0.95; }
+/* M7: the player's own model on its canvas, a soft lit stage */
+.equip-figure .figure { position: absolute; left: 50%; top: 1%; width: 64%; height: 98%; transform: translateX(-50%); border-radius: 46% 46% 22px 22px / 30% 30% 22px 22px; box-shadow: 0 0 0 2px rgba(201, 154, 78, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
 .equip-figure .slot { position: absolute; transform: translate(-50%, -50%); }
 .equip-figure .slot[data-place="head"] { left: 80%; top: 13%; }
 .equip-figure .slot[data-place="body"] { left: 18%; top: 36%; }
@@ -461,7 +462,13 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 }
 .parchment canvas { width: 100%; height: 100%; display: block; border-radius: 10px; }
 .mark, .you { position: absolute; transform: translate(-50%, -50%); }
-.mark { display: grid; justify-items: center; }
+/* M7: a mark stands on its place like a pin, its label over its icon and
+   a short stem down to the point, so the arrow at the player's point never
+   covers the icon or the name */
+.mark { display: flex; flex-direction: column-reverse; align-items: center; transform: translate(-50%, -100%); z-index: 1; }
+.mark::before { content: ""; width: 2px; height: 16px; border-radius: 1px; background: rgba(43, 33, 64, 0.6); }
+.mark .mark-label { margin: 0 0 2px; }
+.you { z-index: 2; }
 .mark img { width: 26px; height: 26px; filter: drop-shadow(0 1px 1px rgba(43, 33, 64, 0.35)); }
 .mark-label { margin-top: 2px; padding: 0 6px; border-radius: 6px; background: rgba(251, 245, 233, 0.85); font-size: 12px; font-weight: 800; white-space: nowrap; }
 .you-arrow {
@@ -529,6 +536,10 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
   transform: translateY(-50%);
   transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease;
 }
+/* M7: while the ring turns the side names fade, and come back naming the
+   new neighbours once it stops */
+.turn span { transition: opacity 0.16s ease; }
+#menu.turning .turn span { opacity: 0; }
 .turn-left { left: 26px; }
 .turn-right { right: 26px; }
 .turn:hover { transform: translateY(-50%) scale(1.05); }
@@ -561,6 +572,24 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .quick-row .quick.ready .well { transform: none; }
 .quick-row .quick.ready::after { display: none; }
 #menu:not([data-face="select"]) .menu-assign { opacity: 0.55; }
+/* M7: the quick keys answer the pointer and the keyboard, and the one
+   pointed at is described in a card over the foot */
+.quick-row .quick { cursor: default; border-radius: 50%; outline: none; }
+.quick-row .quick .well { transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease; }
+.quick-row .quick:hover .well, .quick-row .quick:focus-visible .well { transform: translateY(-3px) scale(1.08); box-shadow: inset 0 2px 5px rgba(43, 33, 64, 0.28), 0 0 0 3px #fff, 0 0 0 6px var(--sky); }
+#menu:not([data-face="select"]) .menu-assign:hover, #menu:not([data-face="select"]) .menu-assign:focus-within { opacity: 1; }
+.quick-info {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 14px);
+  transform: translateX(-50%);
+  width: min(560px, 86vw);
+  min-height: 0;
+  margin: 0;
+  background: rgba(251, 245, 233, 0.98);
+  box-shadow: 0 0 0 2px var(--rim), 0 10px 26px rgba(20, 12, 32, 0.4);
+  pointer-events: none;
+}
 .menu-close {
   display: flex;
   align-items: center;

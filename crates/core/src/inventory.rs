@@ -212,17 +212,38 @@ pub fn take(w: &mut World, i: Item, n: u32) -> u32 {
 
 /// One tick: a quick key pressed readies its item, or puts it away.
 pub fn step(w: &mut World, input: &Input) {
-    let inv = &mut w.inventory;
     for (k, bit) in QUICK_KEYS.iter().enumerate() {
+        let inv = &mut w.inventory;
         let pressed = input.keys & bit != 0 && inv.last_keys & bit == 0;
-        if pressed && inv.quick[k].is_some() {
+        // M7 (R9.84): a bandage is used at its key's press, as Ocarina of
+        // Time's bottles are, not held ready to throw
+        if pressed && inv.quick[k] == Some(Item::Bandage) {
+            bandage(w);
+        } else if pressed && inv.quick[k].is_some() {
             inv.ready = if inv.ready == Some(k) { None } else { Some(k) };
         }
     }
+    let inv = &mut w.inventory;
     if inv.ready_item().is_none() {
         inv.ready = None;
     }
     inv.last_keys = input.keys & (ITEM_1 | ITEM_2 | ITEM_3);
+}
+
+/// M7: one bandage gives back its health (`items.json` `heals`), held to
+/// the most; hurt and standing, or it keeps.
+pub fn bandage(w: &mut World) {
+    let h = &mut w.me.health;
+    if !w.inventory.has(Item::Bandage) || h.down() {
+        return;
+    }
+    if h.hp >= h.most {
+        crate::story::banner(w, "story_bandage_kept");
+        return;
+    }
+    h.hp = (h.hp + Item::Bandage.def().heals).min(h.most);
+    w.inventory.remove(Item::Bandage, 1);
+    crate::story::banner(w, "story_bandaged");
 }
 
 /// `<id>` or `<id>:<count>`.

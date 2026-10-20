@@ -201,5 +201,9 @@
   "kept_worn": "Worn",
   "kept_one": "Not for sale",
   "kept_purse": "Too many coins",
-  "story_purse_full": "You can carry no more coins."
+  "story_purse_full": "You can carry no more coins.",
+  "quick_ready": "In play, {key} readies it in the free hand.",
+  "quick_use": "In play, {key} uses it at once.",
+  "story_bandaged": "You wrap the wound. Some health comes back.",
+  "story_bandage_kept": "You are not hurt. The bandage keeps."
 }

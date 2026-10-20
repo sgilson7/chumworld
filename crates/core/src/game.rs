@@ -100,6 +100,10 @@ pub struct Game {
     pub ui_version: u32,
     /// M4: the menu ring's turn and cursors, and where settings return to
     pub menu: crate::ui::Menu,
+    /// M7: the Equipment screen's figure, its frame and its canvas's aspect
+    /// (`stage.rs`)
+    pub figure: Frame,
+    pub figure_aspect: Fx,
 }
 
 impl Game {
@@ -140,6 +144,8 @@ impl Game {
             zoom_ticks: ZOOM_TICKS,
             ui_version: 1,
             menu: crate::ui::Menu::default(),
+            figure: Frame::default(),
+            figure_aspect: ONE,
         };
         g.draw();
         Ok(g)
@@ -166,6 +172,21 @@ impl Game {
         self.aspect = fx::ratio(self.css.0, self.css.1);
         self.draw();
         [self.pixels.0, self.pixels.1]
+    }
+
+    /// M7: the figure canvas's CSS size and the pixel ratio (percent) in, its
+    /// drawing buffer's size out, at the main view's density.
+    pub fn figure_resize(&mut self, css_w: i32, css_h: i32, dpr_pct: i32) -> [i32; 2] {
+        let (w, h) = (css_w.max(1), css_h.max(1));
+        let dpr = dpr_pct.clamp(25, 400);
+        let scale = if self.software {
+            dpr * SOFTWARE_SCALE_PCT / 100
+        } else {
+            dpr
+        };
+        self.figure_aspect = fx::ratio(w, h);
+        self.draw();
+        [(w * scale / 100).max(1), (h * scale / 100).max(1)]
     }
 
     /// One display frame: the page's clock in microseconds, the held action
@@ -227,7 +248,13 @@ impl Game {
                     self.ui_version += 1;
                 }
             }
-            Screen::Title | Screen::Paused | Screen::Menu | Screen::Settings | Screen::Shop => {
+            // M7: the Equipment screen's figure turns while the world holds
+            Screen::Menu => {
+                self.menu.open_ticks = self.menu.open_ticks.wrapping_add(ticks.len() as u32);
+                self.pending.clear();
+                self.clock.rest();
+            }
+            Screen::Title | Screen::Paused | Screen::Settings | Screen::Shop => {
                 // the world holds still; time passing while paused is
                 // forgotten, so resuming runs no catch-up ticks
                 self.pending.clear();
@@ -298,6 +325,7 @@ impl Game {
         self.detail.frame(&self.world, &self.look, cam.eye, &mut moving);
         self.water_frame = crate::water::frame_values(&self.world.land, &self.world.water, self.scene.origin);
         self.frame = Frame::build(&self.scene, &moving, &cam, self.aspect);
+        self.figure = crate::stage::frame(self, self.figure_aspect);
     }
 
     pub(crate) fn show(&mut self, s: Screen) {

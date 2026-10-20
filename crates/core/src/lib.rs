@@ -61,3 +61,5 @@ pub mod trainer;
 // stubs: M6 Magic
 pub mod imbue;
 pub mod orbs;
+// M7 polish
+pub mod stage;
