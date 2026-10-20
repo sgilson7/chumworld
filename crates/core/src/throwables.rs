@@ -42,7 +42,7 @@ pub const KNIFE_SPEED: Fx = fx::int(19);
 pub const ROCK_R: Fx = ONE * 6 / 100;
 pub const KNIFE_LEN: Fx = ONE * 22 / 100;
 /// What a blow takes for each metre a second it lands at, hundredths of a
-/// blade's (`health::PER_MPS`): a rock bruises, a knife cuts.
+/// blade's (`health::PER_MPS_PCT`): a rock bruises, a knife cuts.
 pub const ROCK_PCT: i32 = 25;
 pub const KNIFE_PCT: i32 = 60;
 /// A thrower's own body is passed by its throw for this long.

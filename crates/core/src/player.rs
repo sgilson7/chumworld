@@ -70,10 +70,11 @@ pub const HOLD_PITCH_MIN: i32 = -deg(24);
 pub const HOLD_PITCH_MAX: i32 = deg(10);
 /// A foe spawned for a test duel stands this far ahead of the player.
 pub const SPAWN_AHEAD: Fx = fx::int(6);
-/// The first foe of a test duel at the start turns the player to face due
-/// south: M0's test field has its lantern, a rock and the fence ahead and
-/// right of the opening view, and nothing within 20 m to the south (R3.43).
-pub const DUEL_YAW: i32 = fx::HALF_TURN;
+/// The first foe of a test duel at the start moves the player this far
+/// south first: M0's test field has its lantern, rocks and the fence round
+/// the start, and the view on Play looks wherever the title's drift left it,
+/// so the duel is moved, not turned (R3.43).
+pub const DUEL_SOUTH: Fx = fx::int(30);
 /// A body sliding faster than its feet leans back by up to this.
 pub const SLIDE_LEAN: i32 = deg(14);
 /// A staggered body leans back along the blow by up to this, and its arms
@@ -874,8 +875,9 @@ pub fn hud_stamp(w: &World) -> (i32, Option<(u8, i32)>) {
 /// `act("duel.<name>", value)`: `spawn` puts an `orc`, `bandit` or `leader`
 /// 6 m ahead of the player; `reset` clears the duel; `sticks` shows the
 /// physics view (`on`, `off`); `pilot` runs every foe by its tree (`tree`)
-/// or holds it still (`still`), and `gap` stands every foe that many
-/// centimetres ahead of the player, both for tests and screenshots.
+/// or holds it still (`still`), `gap` stands every foe that many
+/// centimetres ahead of the player, and `health` sets every foe's health
+/// (0 puts them down), all for tests and screenshots.
 pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
     match name {
         "spawn" => {
@@ -919,6 +921,22 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             }
             Ok(())
         }
+        // every foe's health set, 0 to put them down: staging a fall for a
+        // test or a picture
+        "health" => {
+            let hp: i32 = value
+                .trim()
+                .parse()
+                .ok()
+                .filter(|h| (0..=1000).contains(h))
+                .ok_or_else(|| {
+                    format!("A foe's health is a whole number from 0 to 1000, not \"{value}\".")
+                })?;
+            for f in &mut w.foes {
+                f.fighter.health.hp = hp.min(f.fighter.health.most);
+            }
+            Ok(())
+        }
         // every foe's pilot on (`tree`) or off (`still`): a test, a picture
         "pilot" => {
             let control = match value.trim() {
@@ -944,9 +962,14 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
 /// and later foe stands to one side or the other of the first.
 pub fn spawn(w: &mut World, kind: Kind) {
     if w.foes.is_empty() && w.player.pos == crate::world::START {
-        w.aim.yaw = DUEL_YAW;
-        w.player.facing = DUEL_YAW;
-        w.player.prev_facing = DUEL_YAW;
+        let at = crate::world::START.add(v3(0, 0, DUEL_SOUTH));
+        w.player.pos = at;
+        w.player.prev_pos = at;
+        let frame = frame_of(&w.player, &w.me.build(), &w.me.gait, 0, w.ground(at.x, at.z));
+        w.me.arm.carry(&frame);
+        w.me.arm.frame = frame;
+        w.me.pose = pose_from(&w.player, &w.me);
+        w.me.prev_pose = w.me.pose;
     }
     let k = w.foes.len() as i32;
     let side = if k % 2 == 0 { 1 } else { -1 } * ((k + 1) / 2) * deg(28);
@@ -1088,11 +1111,17 @@ mod tests {
         act(&mut w, "spawn", "bandit").unwrap();
         let f = &w.foes[0];
         assert_eq!(f.fighter.kind, Kind::Bandit);
-        // facing south, clear of the test field's lantern (2.2 m west and 4.5
-        // m north of the start): 6 m south, √(2.2² + 10.5²) = 10.7 m from it
+        // 30 m south of the start, clear of the test field's lantern (2.2 m
+        // west and 4.5 m north of it): the player 34.6 m from it, the foe at
+        // least 28.6
         let lantern = crate::world::START.add(v3(-ONE * 22 / 10, 0, -ONE * 45 / 10));
         assert!(
-            f.body.pos.dist(lantern) > fx::int(10),
+            w.player.pos.dist(lantern) > fx::int(34),
+            "{}",
+            w.player.pos.dist(lantern)
+        );
+        assert!(
+            f.body.pos.dist(lantern) > fx::int(28),
             "{}",
             f.body.pos.dist(lantern)
         );
@@ -1109,6 +1138,12 @@ mod tests {
         assert_eq!(
             act(&mut w, "spawn", "dragon"),
             Err("A test duel is with an orc, a bandit or a leader, not \"dragon\".".into())
+        );
+        act(&mut w, "health", "0").unwrap();
+        assert!(w.foes[0].fighter.health.down(), "health 0 puts a foe down");
+        assert_eq!(
+            act(&mut w, "health", "lots"),
+            Err("A foe's health is a whole number from 0 to 1000, not \"lots\".".into())
         );
         w.me.health.hp = 3;
         act(&mut w, "reset", "").unwrap();

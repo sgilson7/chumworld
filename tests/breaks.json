@@ -821,8 +821,8 @@
   {
     "name": "M1 health: a blow takes by speed over 1.5 m/s",
     "file": "crates/core/src/health.rs",
-    "find": "    (over * PER_MPS as i64 * pct / 100 / ONE as i64) as i32",
-    "replace": "    (over * 4 * pct / 100 / ONE as i64) as i32",
+    "find": "    (over * PER_MPS_PCT as i64 * pct / 10_000 / ONE as i64) as i32",
+    "replace": "    (over * PER_MPS_PCT as i64 * pct / 5_000 / ONE as i64) as i32",
     "test": "a_blow_takes_health_by_its_speed_and_where_it_lands"
   },
   {
@@ -1446,7 +1446,7 @@
     "file": "crates/core/src/arm.rs",
     "find": "                    rails = self.rail_lines();",
     "replace": "                    let _ = 0;",
-    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+    "test": "a_blade_inside_a_body_is_pushed_out_to_its_skin_and_no_further"
   },
   {
     "name": "M1b arm: a part wedged in a body leaves across the ground",
@@ -1694,10 +1694,24 @@
     "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
   },
   {
-    "name": "M1b player: a test duel faces clear of the lantern",
+    "name": "M1b player: a test duel stands clear of the lantern",
     "file": "crates/core/src/player.rs",
-    "find": "pub const DUEL_YAW: i32 = fx::HALF_TURN;",
-    "replace": "pub const DUEL_YAW: i32 = crate::world::START_YAW;",
+    "find": "pub const DUEL_SOUTH: Fx = fx::int(30);",
+    "replace": "pub const DUEL_SOUTH: Fx = fx::int(0);",
     "test": "a_test_duel_spawns_six_metres_ahead_facing_the_player_and_reset_clears_it"
+  },
+  {
+    "name": "M1b arm: blades keep a skin off bodies",
+    "file": "crates/core/src/arm.rs",
+    "find": "pub const SKIN: Fx = ONE * 15 / 1000;",
+    "replace": "pub const SKIN: Fx = 0;",
+    "test": "a_blade_inside_a_body_is_pushed_out_to_its_skin_and_no_further"
+  },
+  {
+    "name": "M1b health: a blow takes 2.5 a metre a second",
+    "file": "crates/core/src/health.rs",
+    "find": "pub const PER_MPS_PCT: i32 = 250;",
+    "replace": "pub const PER_MPS_PCT: i32 = 500;",
+    "test": "a_blow_takes_health_by_its_speed_and_where_it_lands"
   }
 ]

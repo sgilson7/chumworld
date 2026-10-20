@@ -1058,11 +1058,11 @@ pub fn nearest_on(a: V3, b: V3, p: V3) -> V3 {
 }
 
 /// How far and which way to move a point (`p`, a tick ago `q`) of radius
-/// `r` out of a fence: to the fence's surface on the side the point was a
-/// tick ago, or (`away`) straight out across the ground from its body's
-/// axis. `None` when it is clear.
+/// `r` out of a fence: to the fence's surface (and `SKIN` more) on the side
+/// the point was a tick ago, or (`away`) straight out across the ground
+/// from its body's axis. `None` when it is clear.
 fn push_out(p: V3, q: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3)> {
-    let room = f.r + r;
+    let room = f.r + r + SKIN;
     if !near_box(p, p, f, room) {
         return None;
     }
@@ -1083,7 +1083,7 @@ fn push_out(p: V3, q: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3)> {
 /// The same for a rail `a`–`b` (a tick ago `a0`–`b0`): the move of its
 /// nearest point, the way out, and how far along the rail that point is.
 fn push_rail(a: V3, b: V3, a0: V3, b0: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3, Fx)> {
-    let room = f.r + r;
+    let room = f.r + r + SKIN;
     if !near_box(a, b, f, room) {
         return None;
     }
@@ -1190,6 +1190,9 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
     }
 }
 
+/// Blades and hands keep this far off a body's capsules besides: the
+/// capsules are M3's surfaces, and a blade lying on a face reads as in it.
+pub const SKIN: Fx = ONE * 15 / 1000;
 /// Times each relaxation pass goes over the fences.
 pub const FENCE_ROUNDS: usize = 8;
 /// Fighter `id`'s mouse moves its hand's target on the shell, unless it is
@@ -1564,6 +1567,42 @@ mod tests {
             int(1),
         );
         assert_eq!(s.reach - m.reach, ONE * 3 / 100);
+    }
+
+    /// A blade 2 cm inside an upright capsule (a torso 15 cm round, set
+    /// across the blade's middle) comes out to the capsule, the blade's
+    /// half-width and the skin (188 mm from the capsule's line), and no
+    /// further: to within a millimetre.
+    #[test]
+    fn a_blade_inside_a_body_is_pushed_out_to_its_skin_and_no_further() {
+        let f = Fighter::new(Kind::Player, Held::ShortSword, 0, V3::ZERO, 0, true);
+        let mut a = f.arm;
+        let rail = rails(Held::ShortSword)[0];
+        let (x, y, _) = a.rail(&rail, false, false);
+        let mid = x.lerp(y, ONE / 2);
+        let across = (y.sub(x)).cross(V3::UP).norm();
+        let r = ONE * 15 / 100;
+        // 150 mm, the short sword's 23 mm half-width and 15 mm of skin
+        let room = ONE * 188 / 1000;
+        let at = mid.add(across.scale(room - ONE / 50));
+        a.fences = vec![Fence {
+            a: at.sub(v3(0, ONE / 2, 0)),
+            b: at.add(v3(0, ONE / 2, 0)),
+            r,
+            own: false,
+            head: false,
+            blade: true,
+            axis: Some(at),
+        }];
+        a.fence();
+        let (x, y, _) = a.rail(&rail, false, false);
+        let f = a.fences[0];
+        let (_, _, p, q) = crate::blade::closest(x, y, f.a, f.b);
+        assert!(
+            (p.dist(q) - room).abs() <= ONE / 1000,
+            "{} from it, room {room}",
+            p.dist(q)
+        );
     }
 
     /// The player alone, the sword drawn and settled at the guard, facing

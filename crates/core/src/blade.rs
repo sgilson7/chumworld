@@ -759,8 +759,8 @@ mod tests {
         // a committed sweep through the front (`player::through_front`) runs
         // the edge at 10 to 13 m/s where it meets the orc 1.15 m off
         assert!(h.speed > ONE * 8 && h.speed < ONE * 16, "{}", h.speed);
-        // (speed − 1.5 m/s) × 5, worked by hand from the speed recorded
-        let taken = ((h.speed - ONE * 3 / 2) as i64 * 5 / ONE as i64) as i32;
+        // (speed − 1.5 m/s) × 2.5, worked by hand from the speed recorded
+        let taken = ((h.speed - ONE * 3 / 2) as i64 * 5 / 2 / ONE as i64) as i32;
         assert_eq!(most - w.foes[0].fighter.health.hp, taken);
     }
 
@@ -1012,9 +1012,10 @@ mod tests {
     }
 
     /// How deep any held weapon's rails and any hand sit in any body at
-    /// the end of a tick, and where: every weapon against every body (its
-    /// own: head, torso and legs, the blade from the guard), every hand
-    /// against every other body and its own head.
+    /// the end of a tick, counted from the surface the fences keep (each
+    /// capsule and `arm::SKIN`), and where: every weapon against every body
+    /// (its own: head, torso and legs, the blade from the guard), every
+    /// hand against every other body and its own head.
     pub fn worst_sink(w: &World) -> (Fx, String) {
         let n = player::count(w);
         let bodies: Vec<_> = (0..n)
@@ -1033,7 +1034,7 @@ mod tests {
                         for r in arm::rails(a.weapon.item) {
                             let (x, y, _) = a.rail(r, own, false);
                             let (_, _, p, q) = closest(x, y, c.a, c.b);
-                            let sink = r.r + c.r - p.dist(q);
+                            let sink = r.r + c.r + arm::SKIN - p.dist(q);
                             if sink > worst.0 {
                                 worst = (sink, format!("{i}'s weapon in {j}'s {:?}", c.part));
                             }
@@ -1045,7 +1046,7 @@ mod tests {
                     for h in arm::HAND {
                         let p = a.pts[h].p;
                         let q = arm::nearest_on(c.a, c.b, p);
-                        let sink = a.joint_r.1 + c.r - p.dist(q);
+                        let sink = a.joint_r.1 + c.r + arm::SKIN - p.dist(q);
                         if sink > worst.0 {
                             worst = (sink, format!("{i}'s hand in {j}'s {:?}", c.part));
                         }
@@ -1107,11 +1108,13 @@ mod tests {
         assert!(worst.0 <= SINK, "{} units: {}", worst.0, worst.1);
     }
 
-    /// How deep a blade or hand may sit in a body at the end of a tick: 5
-    /// mm. Measured over these 3 600 ticks: 206 units (3.1 mm), a bandit's
-    /// sword against the player's forearm held level across the torso, the
-    /// fences' rounds (`arm::FENCE_ROUNDS`) ending a little short.
-    const SINK: Fx = ONE / 200;
+    /// How deep a blade or hand may sit inside the surface the fences keep
+    /// (a capsule and its 15 mm `arm::SKIN`) at the end of a tick: 512 units
+    /// (7.8 mm), so never inside a capsule. Measured over these 3 600 ticks:
+    /// 325 units (5 mm into the skin, 10 mm clear of the capsule), a
+    /// bandit's sword against the player's forearm held level across the
+    /// torso, the fences' rounds (`arm::FENCE_ROUNDS`) ending a little short.
+    const SINK: Fx = ONE / 128;
 
     #[test]
     fn closest_points_of_crossing_skew_and_apart_segments() {
