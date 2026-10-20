@@ -115,12 +115,12 @@ M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_e
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 # M2: view: the place (?go=), and extra address flags
 M2_VIEWS = {
-    "village": ("2014,2862,12,-7", ""),
+    "village": ("1996,2838,18,-7", ""),
     "plains": ("1500,2650,80,-3", ""),
     "river": ("636,2262,20,-28", ""),
-    "bridge": ("598,2228,300,-8", ""),
+    "bridge": ("609,2236,242,-10", ""),
     "camp": ("3196,1012,300,-9", ""),
-    "hut": ("300,1800,325,-4", ""),
+    "hut": ("314,1774,322,-5", ""),
     "horizon": ("352,1772,282,-1", ""),
     "dither": ("2905,1755,335,-6", ""),
     "map": ("2000,2800,20,-8", TEST_ACTS),
@@ -129,7 +129,8 @@ M2_VIEWS = {
 CALLBACK_TIMES = """() => {
     const raf = window.requestAnimationFrame.bind(window);
     window.__cb = [];
-    window.requestAnimationFrame = (f) => raf((t) => { const a = performance.now(); f(t); window.__cb.push(performance.now() - a); });
+    // only the page's own frame callback (app.js's `frame`), not this tool's
+    window.requestAnimationFrame = (f) => raf((t) => { const a = performance.now(); f(t); if (f.name === "frame") window.__cb.push(performance.now() - a); });
 }"""
 
 # view: (lineup value, camera pitch change in CSS pixels, + looks down)
@@ -338,6 +339,11 @@ def m2_views(browser, base, out, views, logs, numbers, measure):
             page.keyboard.press("KeyE")
             page.wait_for_timeout(900)
         page.screenshot(path=str(out / f"m2_{name}.png"))
+        if name == "dither":
+            # the trees 128 to 150 m off, handing over to cones: magnified
+            # four times, pixel for pixel, so the dither's cells show
+            clip = {"x": 820, "y": 380, "width": 280, "height": 110}
+            page.screenshot(path=str(out / "m2_dither_band.png"), clip=clip, scale="css")
         page.close()
     if not measure:
         return
@@ -347,7 +353,7 @@ def m2_views(browser, base, out, views, logs, numbers, measure):
         ("m2_horizon_turning", "352,1772,282,-1", [], 1),
     ):
         page = browser.new_page(viewport=SIZE, device_scale_factor=1)
-        page.add_init_script(CALLBACK_TIMES)
+        page.add_init_script("(" + CALLBACK_TIMES + ")();")
         page.goto(base + "/index.html?pointer=free&go=" + go, wait_until="commit")
         page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
         wait_frames(page, 20)
