@@ -50,7 +50,7 @@ One row per assumption, surprise or open item. **Kind** is *divergence* (what wa
 | R2.27 | divergence | Each milestone would size its own bodies. | M1's arm lengths and M3's drawn limbs must agree, or the sword floats off the hand. A map (M4) needs places and water that M2 makes. | `pose::build` holds every kind's proportions: the player at 1.70 m with a 0.42 m head (CW-17) and long arms, the others scaled by height and girth. `places::markers` and `terrain::is_water` are placeholders that M2 fills in. | `pose.rs` tests, `tests/breaks.json` | done |
 | R3.1 | divergence | M1 replaces the capsule with a new player type. | `game.rs` and its tests read `World::player` as M0's `Body` (feet, velocity, facing). | The player and every foe are a `Body` on its feet plus a `player::Fighter` (arms, weapon, health, gait, pose); the player's feet stay `World::player`, its fighter is `World::me`, foe k is `World::foes[k − 1]`; `player::body`, `fighter`, `parts_mut` reach any by number. `motion.rs` holds the walking rule `Body::step` had. | `player.rs` module doc | done |
 | R3.2 | divergence | The mouse buttons keep M0's journal labels (left: two hands, right: wrist, middle: lock on). | The brief for M1 gives them as left: a committed swing, right: look while drawn. | `input::TWO_HANDS` and `WRIST` are now `SWING` and `HOLD_LOOK`, the action names `swing` and `hold_look` in `data/controls.json`; `api.rs`'s test reads `swing`. Middle still holds on the next foe. `input.rs` is not on M1's list; the rename is the smallest change that keeps names and meanings together. | `input.rs` | done |
-| R3.3 | divergence | A HUD line is text alone (`world::HudItem`). | The brief asks for health "as text plus a value" for M4's bars. | `HudItem` gained `value: Option<i32>`, a share in percent, left out of the JSON when none. **M4: any `HudItem` you build needs `value: None`** (the merge will not compile without it). | `world.rs` `HudItem`; `health_reaches_the_hud_as_text_and_a_share` | open |
+| R3.3 | divergence | A HUD line is text alone (`world::HudItem`). | The brief asks for health "as text plus a value" for M4's bars; M4 then merged bars of its own with the doors `ui::health` and `ui::foe`. | M1 filled those doors' bodies (the player's health; the foe held on, named by `who_<kind>`) and dropped its own HUD lines, strings and the `HudItem::value` field it had added, so `HudItem` is as main has it. M4's break row for full health now breaks M1's body of the door. | `ui::health`, `ui::foe`; `health_reaches_the_hud_bars_through_m4_s_doors` | done |
 | R3.4 | finding | M1 can draw its swords through `models::held`. | Until M3 merges, `held` draws nothing, so no weapon and no throwable can be seen, and `figure` draws joint spheres. | A physics view draws what the solver has: arms, hilts, blades and stones as thin inked solids (`act("duel.sticks", "on")`, `?sticks=1`). The screenshots in `shots/m1/` use it. It stays as a tuning view after M3; nothing draws a weapon outside the doors when it is off. | `player::sticks`; `throwables::draw_sticks` | open |
 | R3.5 | divergence | The brief: "Vagrancy's free-energy rule, so nothing gains energy". | Vagrancy's D9 says the reverse of the paraphrase: an arm motor adds momentum from nowhere, and that is the design; its speed is bounded by a cap and drag alone. | Read as Vagrancy's rule: every stick and pin is an exact pair shift (Σ m·Δp = 0 to the unit), the ground and the body stop a point inelastically (no bounce), and the servos are the only source, bounded by `CAP` and drag. A limp arm's energy never climbs above where it began. | `arm.rs` module doc; `a_stick_and_a_pin_move_no_momentum`, `nothing_gains_energy_without_a_servo` | done |
 | R3.6 | finding | A capped servo on the hand, and one on the tip, give a heavy weapon its weight through the pins. | A servo that changes a point's speed by a cap whatever its mass moved the cleaver's 8-mass tip as fast as the short sword's 1. | The hand and the weapon it holds are pushed as one toward the target, the blade turned about the grip by a pair of opposite pushes (no momentum), both caps scaled by the weapon's heft: short sword 100%, sword 75%, cleaver 45%. Probe: from a high guard to a low strike, the short sword's tip tops 9.8 m/s in a committed swing, the sword's 8.9, the cleaver's 7.4. | `arm::Weapon::heft_pct`; `a_heavy_weapon_starts_late_and_carries_past` | done |
@@ -59,11 +59,26 @@ One row per assumption, surprise or open item. **Kind** is *divergence* (what wa
 | R3.9 | finding | | The journal does not say which way the blade points for each place of the hand on the shell. | The agent's rule: up 16° plus 60% of the hand's pitch, fanned 125% of its side, swinging over to a high guard across the head as the hand rises from 28° to 50°. A guard points at a foe's face; a low strike ends with the blade level. For the person to try. | `arm::blade_dir` | open |
 | R3.11 | finding | The journal's slide distances (0.25 m to 9.9 m) come from grip as "the share of a change taken each tick". | Taken literally, a 100% grip stops dead. | Bare feet close a third of the gap a tick (`GRIP_BASE`), so grip with n pieces is ⅓ × 0.55ⁿ, pinned for 0 to 5 as 21 845, 12 014, 6 607, 3 633, 1 998 and 1 098 (of 65 536). The slide from a full run: 0.17 m bare, 9.8 m with five pieces. | `motion.rs`; `grip_and_speed_are_pinned_for_zero_to_five_pieces`, `five_speedster_pieces_slide_ten_metres_to_a_stop_and_bare_feet_a_hand` | done |
 | R3.12 | divergence | The journal's controls: Shift steps in when drawn; Space dodge-steps. | The M1 brief: Shift runs, sheathed only. | Drawn, Shift does nothing and the feet move at the walking speed (footwork). Space is a dodge-step: 6 m/s for 8 ticks, then 40 ticks before the next. | `motion::FOOTWORK`, `DODGE_*` | done |
-| R3.13 | divergence | F throws "the selected throwable". | Nothing selects one before M4's inventory. | Each fighter carries a `throwables::Pouch`: the player 5 rocks and 2 knives, refilled by `duel.reset`; F throws rocks while there are any, then knives. M4's quick items replace the choice. | `throwables.rs` module doc | open |
+| R3.13 | divergence | F throws "the selected throwable". | Nothing selected one before M4's inventory; M4 then merged quick items and `inventory::ready`. | The player throws what the free hand holds ready, or with nothing ready its rocks, then its knives, each taken from the inventory (`throwables::next`). A foe throws from its own `Pouch` in `data/pilots.json`. The player's hand also follows M4's mouse-sensitivity setting (`ui.settings.hand_pct`), and the figure wears `items::speedster_mask`. | `throwables.rs` module doc | done |
 | R3.14 | divergence | Q is listed with the controls. | The imbue is M6's. | The `imbue` bit stays bound to Q and nothing reads it; the title does not list Q, since it does nothing yet. | `api::controls` | open |
 | R3.15 | finding | A foe holds on its target within 15 m, as the player does. | A foe that loses the player at 15 m stands still while they walk away. | A foe holds on the player from 40 m (`player::FOE_RANGE`); the player's lock stays 15 m. | `player::FOE_RANGE` | done |
 | R3.16 | finding | The journal's tree runs a move until it ends, as Vagrancy's does. | With the attack rule not an interrupt, a foe circled for 36 ticks between chances to attack and an orc swung once in four seconds. | Circling lasts 24 ticks; the attack rule may interrupt a circle (never a committed swing); foes keep 1.5 to 2.05 m in a duel and attack inside 2.35 m. Damage: (speed − 1.5 m/s) × 5, × 150% on the head, 60% an arm, 70% a leg; health 100 for the player, 140 the orc, 90 the bandit, 130 the leader; a hit arm's servo falls to 35% and recovers over 150 ticks. All first guesses, for tuning by play. | `data/pilots.json`; `health.rs` | open |
 | R3.17 | divergence | A blade that meets a body passes through it, as Vagrancy's cuts. | No limb is cut in the MVP (CW-16), so a blade through a torso would read as a ghost. | A blade meeting a body stops there as against a blade (back to the last safe substep); the blow is taken once a contact. | `blade::strike` | done |
+| R6.1 | divergence | Esc closes the ring and returns to play, as Tab does. | A browser takes the pointer back only inside a click or a key press, and not on Esc, so Esc back to play would leave the game running with no pointer. | Esc closes the ring, and the shop, to the pause screen, whose Resume takes the pointer. Tab, M and Space take it back as they close a screen. | `ui::escape`; `esc_closes_the_ring_to_the_pause_screen` | done |
+| R6.2 | worklist | CW-6 read word for word: each armour piece has a mechanic no other item has. | The five speedster pieces share one mechanic, the set's (+20% speed, grip × 0.55 each). Read word for word, CW-6 fails for them. | The test treats a set as one mechanic: pieces of one set may share it, and nothing outside the set has it. The person may want each piece to do something of its own as well. | `items.rs` `every_weapon_and_armour_piece_has_a_mechanic_no_other_item_has` | person |
+| R6.3 | divergence | Data files reach the core through `Game::new`, as the strings and the look do. | `items.json` holds rules (routes, prices, stacks, CW-8's numbers) that M1 and M5 read from free functions with no `Game` in reach, and changing `Game::new` would break the other branches. | `data/items.json` and `data/menus.json` (the map's parchment colours) are compiled into the core with `include_str!` and read once. | `items::catalogue`, `ui::menus` | done |
+| R6.4 | divergence | The page draws the map from the view model. | Drawing parchment from the ground, the water and the fog is a rule, and a 250 × 250 image in JSON is 250 000 numbers. | The core draws the map as RGBA (`ui::map_pixels`); the shim gains one function, `map_pixels`, with no branch; the page puts the bytes on a canvas when the fog's version changes. | `api::map_pixels`, `crates/shim/src/lib.rs` | done |
+| R6.5 | finding | M1 sends health through `World::hud`. | `HudItem` carries only text, so a bar's value and most would have to be parsed back out of words. | Doors in `ui.rs` with placeholders: `health` (full), `foe` (none), `imbue` (ready once known; M6), `task` (the opening's line; M5). The owners replace the bodies; the signatures stay. `test.hud` fills them for screenshots. | `ui.rs` doors | open |
+| R6.6 | divergence | Settings are the page's. | Mouse sensitivity is the sword hand's speed, which M1 reads inside `World::step`; invert Y changes the input. | Settings sit in `World::ui.settings`: `hand_pct` for M1, `volume_pct` for M7 (no sound yet), invert Y applied where the page's movement enters the core. Look speed stays `aim.pct`. Nothing is stored (CW-12). | `ui::Settings`; `invert_y_turns_the_view_up_for_a_downward_mouse` | open |
+| R6.7 | worklist | | Test-only acts (`test.give_all`, `test.hud`, `test.explore`, `test.dialogue`, `test.shop`, `inventory.give`) are reachable from the address, `?act=name:value`, as `?look=` is, so the screenshots and the browser check need no hook in the page. In the published build anyone can give themselves every item. | The person decides whether the test acts stay in the published build. | `web/app.js`; `ui::act` | person |
+| R6.8 | worklist | | Item names and descriptions, prices (2, 6, 10, 60, 20, 80, 70 coins), stacks (20 rocks, 10 knives, 5 bandages), the bandage's 40 health, the map labels, the dialogue's two sample lines and every menu string are mine. | Listed under "### M4" at the foot of this file for the person to read. | `data/strings.json`, `data/items.json` | person |
+| R6.9 | finding | The menus cost little in the WebAssembly. | The release module grew from 343 KB to 564 KB (the view models' serde code and the compiled-in JSON). | For M7: measure, and trim the view models if the load time suffers. | `MEASUREMENTS.md` | open |
+| R6.10 | finding | The title and pause screens could take more buttons. | The M0 browser check reads `#title button` and `#paused button` as one button each, and `inner_text` sees CSS `text-transform`. | Settings and the menu's keys sit in panels of their own (`title-more`, `paused-more`); CSS orders both panels' contents into one column (`display: contents`); no heading is upper-cased by CSS where a check reads it. | `ui::panels`; `web/menus/menus.css` | done |
+| R6.11 | divergence | Dialogue and the shop run over play. | Both need the pointer free and the world held, and M5 opens them from inside `World::step`, where no screen can change. | M5 calls `ui::say(w, who, lines)` or `ui::open_shop(w)`; the game opens the dialogue or shop screen after that tick, pausing the world. Dialogue text appears at 40 characters a second while the world holds. | `ui::wanted`; `dialogue_text_appears_at_a_steady_rate_and_space_reads_on` | done |
+| R6.12 | finding | | The map's labels and icons for M2's places are guessed by kind (`place_village`, `place_camp`, `place_hut`, `place_shrine`, `place_bridge`, `place_tree`, `place_scarecrow`, `place_chest`). A kind M2 names otherwise shows its key as its label. | For M2 and the coordinator: match the kinds, or add strings and icons. | `data/menus.json` `place_icons`; `data/strings.json` | open |
+| R6.13 | finding | | `GLOSSARY.md` now defines Health, Imbue and Cooldown. M1 or M6 may add the same terms, and a term defined twice stops the game loading. | For the coordinator at merge: keep one entry each. | `glossary.rs` `Duplicate` | open |
+| R6.14 | finding | Each break in `tests/breaks.json` breaks its behaviour. | Two of 38 did not bite on the first run: a 1% colour mix rounded away, and a floor that rounds the right way at the start's heading. | Both rewritten; 39 M4 rows, all caught. | `tests/breaks.json` | done |
+| R6.15 | divergence | M4's doors are `speedster_worn` and `held`. | M3 asked for the worn pieces as a bitmask, to dress the figure. | `items::speedster_mask` (HOOD 1, JACKET 2, GLOVES 4, TROUSERS 8, BOOTS 16). | `the_speedster_mask_has_a_bit_for_each_piece_worn` | done |
 | R5.1 | finding | The flicker scan over the static array would catch a prop whose own parts share a plane. | `flicker::fights` skips two faces of one instance, and a prop is one baked mesh drawn as one instance, so the scan of the static array cannot see a prop's own fights. | Every prop, figure, pickup, item and the donkey is scanned part by part before baking, from near and from its farthest distance; the static-array scan still covers fights between props. | `models/tests.rs` `no_two_parts_of_any_prop_share_a_plane`, `no_two_parts_of_any_figure_share_a_plane`, `the_flicker_scan_reads_every_prop_in_the_static_array` | done |
 | R5.2 | finding | `Seen { far }` makes the scan look at every pair the depth buffer cannot tell apart out to `far`. | The scan's window is `Seen::apart(far)`, but the depth step is not monotonic across the two layers: 9.7 mm at the near layer's 128 m against 2.1 mm in the far layer at 1 km. A scan with `far` past 128 m compares only pairs nearer than the far layer's step. | My tests scan each model twice, `far` = 128 m and `far` = its farthest distance. For M0 or M7: the window should be the worst step out to `far`, as `models::decal_lift_needed` computes it. | `models/tests.rs` `scan` | open |
 | R5.3 | divergence | Presentation numbers in `data/` reach the core through `Game::new`, as the look does. | `figure`, `held` and `prop` take only `look`, and `game.rs` is not M3's. | `data/models.json` (colours, outline widths) is compiled into the core with `include_str!` and parsed once (`OnceLock`); the page does not fetch it. A colour change needs a rebuild. The coordinator may route it through `Game::new` later. | `models::table` | done |
@@ -110,6 +125,139 @@ Each reader-visible string the agent wrote, with its key, for the person to read
 | core: `look.speed` refusal | The look speed is a whole percentage, such as 100, not "…". |
 | `GLOSSARY.md` | Look, Pause, Run, Walk, WebGL 2 (definitions there) |
 
+### M4
+
+The menus, the HUD, dialogue, the shop and settings (task U). Item routes and mechanics are ids in `data/items.json`, not reader text.
+
+| Key | String |
+| --- | --- |
+| `key_menu` | Tab |
+| `control_menu` | Menu |
+| `key_map` | M |
+| `control_map` | Map |
+| `key_quick` | 1 2 3 |
+| `control_quick` | Quick items |
+| `select_item` | Select Item |
+| `equipment` | Equipment |
+| `map` | Map |
+| `quest` | Quest |
+| `key_q` | Q |
+| `key_e` | E |
+| `key_tab` | Tab |
+| `key_space` | Space |
+| `key_1` | 1 |
+| `key_2` | 2 |
+| `key_3` | 3 |
+| `close` | Close |
+| `next` | Next |
+| `assign_keys` | Put it on a key |
+| `item_short_sword` | Short sword |
+| `item_short_sword_about` | Your own sword: {short_sword.blade} cm of blade, light and quick. It gives no bonus. |
+| `item_sword` | Sword |
+| `item_sword_about` | A full {sword.blade} cm blade. It is heavy: a hard hit on a foe's blade can knock their weapon out of their hands. |
+| `item_boomerang` | Boomerang |
+| `item_boomerang_about` | Thrown from the free hand, it flies out in an arc as far as {boomerang.reach} metres and comes back to you. |
+| `item_rock` | Rock |
+| `item_rock_about` | Thrown from the free hand. A rock that lands on the merchant's cart stops the cart. |
+| `item_knife` | Throwing knife |
+| `item_knife_about` | A small blade, thrown from the free hand. |
+| `item_bandage` | Bandage |
+| `item_bandage_about` | Wraps a wound and gives back {bandage.heals} health. |
+| `item_chest_key` | Chest key |
+| `item_chest_key_about` | Opens the chest at the bandit camp. |
+| `item_hood` | Speedster's hood |
+| `item_hood_about` | One of {speedster.pieces} pieces of the speedster's armour, worn on the head. Each piece worn adds {speedster.speed_pct}% speed and makes your footing icier. |
+| `item_jacket` | Speedster's jacket |
+| `item_jacket_about` | One of {speedster.pieces} pieces of the speedster's armour, worn on the body. Each piece worn adds {speedster.speed_pct}% speed and makes your footing icier. |
+| `item_gloves` | Speedster's gloves |
+| `item_gloves_about` | One of {speedster.pieces} pieces of the speedster's armour, worn on the hands. Each piece worn adds {speedster.speed_pct}% speed and makes your footing icier. |
+| `item_trousers` | Speedster's trousers |
+| `item_trousers_about` | One of {speedster.pieces} pieces of the speedster's armour, worn on the legs. Each piece worn adds {speedster.speed_pct}% speed and makes your footing icier. |
+| `item_boots` | Speedster's boots |
+| `item_boots_about` | One of {speedster.pieces} pieces of the speedster's armour, worn on the feet. Each piece worn adds {speedster.speed_pct}% speed and makes your footing icier. |
+| `carry_of` | You carry {n} of {most}. |
+| `on_key` | On key {key}. |
+| `assign_hint` | Press 1, 2 or 3 to put it on that key. |
+| `no_key` | It goes on no key. |
+| `refuse_key` | The {item} goes on no key. |
+| `refuse_wear` | The {item} is not worn: it is in Select Item. |
+| `refuse_missing` | You do not carry the {item}. |
+| `refuse_key_number` | The quick keys are 1, 2 and 3. |
+| `slot_head` | Head |
+| `slot_body` | Body |
+| `slot_hands` | Hands |
+| `slot_legs` | Legs |
+| `slot_feet` | Feet |
+| `sword_hand` | Sword hand |
+| `in_hand` | In your sword hand. |
+| `hold_hint` | Press Enter to hold it in your sword hand. |
+| `worn_hint` | Worn. Press Enter to take it off. |
+| `wear_hint` | Press Enter to wear it. |
+| `not_found` | Not found yet. |
+| `speedster_armour` | Speedster's armour |
+| `pieces_worn` | {n} of {of} pieces worn |
+| `speed` | Speed |
+| `footing` | Footing |
+| `percent` | {n}% |
+| `you` | You |
+| `map_legend` | The map fills in where you walk. |
+| `walked` | {n}% of the map walked |
+| `place_village` | The village |
+| `place_camp` | The bandit camp |
+| `place_hut` | The trainer's hut |
+| `place_shrine` | The river shrine |
+| `place_bridge` | The bridge |
+| `place_tree` | The hollow tree |
+| `place_scarecrow` | The scarecrow |
+| `place_chest` | The chest |
+| `imbue` | Imbue |
+| `imbue_known` | Learned. Q imbues your sword for {imbue.seconds} seconds, so it can deflect magic. It is ready again {imbue.cooldown} seconds after the cast. |
+| `imbue_unknown` | Not learned yet. The trainer in the hut on the hill teaches it. |
+| `coins` | Coins |
+| `task_heading` | What to do |
+| `quest_opening` | Get out of the village. The orcs have taken it. |
+| `health` | Health |
+| `health_of` | {now} / {most} |
+| `imbue_ready` | Ready |
+| `seconds` | {n} s |
+| `received` | Received: {item} |
+| `item_times` | {item} × {n} |
+| `who_trainer` | The trainer |
+| `who_merchant` | The merchant |
+| `who_villager` | A villager |
+| `who_orc` | Orc |
+| `who_bandit` | Bandit |
+| `who_leader` | The bandit leader |
+| `who_lookout` | The bandit lookout |
+| `shop` | The merchant's cart |
+| `for_sale` | For sale |
+| `to_sell` | Yours to sell |
+| `nothing_to_sell` | You have no items to sell. |
+| `price` | {n} coins |
+| `buy` | Buy |
+| `sell` | Sell |
+| `leave` | Leave |
+| `refuse_not_sold` | The merchant has no {item} for sale. |
+| `refuse_coins` | You need {n} more coins for the {item}. |
+| `refuse_full` | You carry as many as you can hold: {n}. |
+| `bought` | Bought: {item}. |
+| `sold` | Sold: {item}, for {n} coins. |
+| `refuse_keep` | The merchant does not buy the {item}. |
+| `settings` | Settings |
+| `look_speed` | Look speed |
+| `mouse_sensitivity` | Mouse sensitivity |
+| `invert_y` | Invert Y |
+| `volume` | Volume |
+| `on` | On |
+| `off` | Off |
+| `settings_note` | Settings last until you close the page. No sound plays yet. |
+| `back` | Back |
+| `sample_line_1` | You ran from the village with a short sword and no plan. Good. The running part, anyway. |
+| `sample_line_2` | Before you cross blades with the bandits, learn to turn their magic aside. Stand there and watch the pattern. |
+| `price_one` | {n} coin |
+| `refuse_coins_one` | You need {n} more coin for the {item}. |
+| `sold_one` | Sold: {item}, for {n} coin. |
+| `GLOSSARY.md` | Bandage, Boomerang, Chest key, Coins, Cooldown, Equipment, Footing, Free hand, Health, Imbue, Invert Y, Look speed, Map, Menu, Mouse sensitivity, Quest, Quick item, Rock, Select Item, Settings, Shop, Short sword, Speedster's armour and its five pieces, Sword, Sword hand, Throwing knife, Volume |
 ### M3
 
 | Key | String |
@@ -131,8 +279,6 @@ Each reader-visible string the agent wrote, with its key, for the person to read
 | `key_reach`, `control_reach` | Wheel · Reach |
 | `key_throw`, `control_throw` | F · Throw |
 | `key_dodge`, `control_dodge` | Space · Dodge-step |
-| `health_you` | Your health (shown as "Your health 82") |
-| `foe_orc`, `foe_bandit`, `foe_leader` | Orc raider, Bandit, Bandit leader (shown with the foe's health) |
 | core: `duel.spawn` refusal | A test duel is with an orc, a bandit or a leader, not "…". |
 | core: `duel.pilot` refusal | A foe's pilot is "tree" or "still", not "…". |
 | core: `duel.gap` refusal | A gap is a whole number of centimetres from 40 to 4000, not "…". |

@@ -174,6 +174,12 @@ pub fn kind_named(name: &str) -> Option<Kind> {
     }
 }
 
+/// A foe kind's name, as the act, the book and the strings (`who_<kind>`)
+/// name it.
+pub fn kind_name(k: Kind) -> &'static str {
+    key_of(k)
+}
+
 fn key_of(k: Kind) -> &'static str {
     match k {
         Kind::Orc => "orc",

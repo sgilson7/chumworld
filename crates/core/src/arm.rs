@@ -732,10 +732,13 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
         // the shell takes the mouse unless it is looking
         let f = player::fighter(w, id);
         if f.sheath == Sheath::Drawn && !f.mouse_looks && !f.health.down() {
+            // the player's hand moves at the reader's setting (M4's
+            // mouse sensitivity, percent); a pilot's at its own
+            let pct = if id == 0 { w.ui.settings.hand_pct } else { 100 };
             let (shell, over) = f.arm.shell.moved(
                 Mouse {
-                    dx: inp.dx,
-                    dy: inp.dy,
+                    dx: (inp.dx as i64 * pct as i64 / 100) as i32,
+                    dy: (inp.dy as i64 * pct as i64 / 100) as i32,
                     wheel: inp.wheel,
                 },
                 f.arm.reach(),

@@ -8,9 +8,9 @@
 //! anything placed in `State::props` as a box; M5 puts the merchant's cart
 //! there and reads `landed` for an impact on it, which stops the cart.
 //!
-//! Until M4's inventory carries them, a fighter's rocks and knives are its
-//! `Pouch` (SECOND-ORDER.md R3.13): the player starts with five rocks and
-//! two knives, and throws rocks while it has any.
+//! The player throws what M4's inventory holds ready in the free hand
+//! (`next`); a foe carries its own `Pouch` from `data/pilots.json`
+//! (SECOND-ORDER.md R3.13).
 //!
 //! How a module joins the world (state, step, draw, scene, screen, act):
 //! the extension contract in `world.rs`.
@@ -20,6 +20,7 @@ use crate::blade::{self, Part, Swept};
 use crate::fx::{self, deg, Fx, ONE};
 use crate::geom::{facing, v3, Affine, V3};
 use crate::input::{self, Input};
+use crate::items::Item;
 use crate::look::{rgb, Look};
 use crate::player;
 use crate::pose::Held;
@@ -60,10 +61,6 @@ pub struct Pouch {
 }
 
 impl Pouch {
-    pub fn player() -> Pouch {
-        Pouch { rocks: 5, knives: 2 }
-    }
-
     /// What F throws next: rocks while there are any, then knives.
     pub fn next(&self) -> Option<Held> {
         if self.rocks > 0 {
@@ -307,6 +304,24 @@ pub fn through_box(a: V3, b: V3, k: &Block, r: Fx) -> Option<i64> {
     Some(lo)
 }
 
+/// What fighter `id` would throw: a foe from its pouch; the player what the
+/// free hand holds ready (M4's quick items, `inventory::ready`), or with
+/// nothing ready the rocks it carries, then its knives.
+pub fn next(w: &World, id: usize) -> Option<Held> {
+    if id > 0 {
+        return player::fighter(w, id).pouch.next();
+    }
+    let has = |i: Item| w.inventory.count(i) > 0;
+    match crate::inventory::ready(w) {
+        Some(Item::Rock) if has(Item::Rock) => Some(Held::Rock),
+        Some(Item::Knife) if has(Item::Knife) => Some(Held::Knife),
+        Some(_) => None,
+        None if has(Item::Rock) => Some(Held::Rock),
+        None if has(Item::Knife) => Some(Held::Knife),
+        None => None,
+    }
+}
+
 /// A fighter's throw: F begins the wind while it has something to throw;
 /// at its end the stone leaves the free hand along the aim.
 fn wind(w: &mut World, id: usize, input: &Input) {
@@ -316,7 +331,7 @@ fn wind(w: &mut World, id: usize, input: &Input) {
     }
     let mut th = f.throw;
     th.recover = th.recover.saturating_sub(1);
-    let start = f.pressed(input, input::THROW) && th.wind == 0 && th.recover == 0 && f.pouch.any();
+    let start = f.pressed(input, input::THROW) && th.wind == 0 && th.recover == 0 && next(w, id).is_some();
     if start {
         th.wind = 1;
     } else if th.wind > 0 {
@@ -338,7 +353,7 @@ fn wind(w: &mut World, id: usize, input: &Input) {
         (f.look_yaw, f.look_pitch)
     };
     let f = player::fighter(w, id);
-    let Some(item) = f.pouch.next() else {
+    let Some(item) = next(w, id) else {
         return;
     };
     let from = f.arm.pts[crate::arm::HAND[0]].p;
@@ -348,10 +363,19 @@ fn wind(w: &mut World, id: usize, input: &Input) {
         ROCK_SPEED
     };
     let vel = facing(yaw, pitch + LOB).scale(speed / crate::ticks::TICKS_PER_SECOND as i32);
-    let f = player::parts_mut(w, id).1;
-    match item {
-        Held::Knife => f.pouch.knives -= 1,
-        _ => f.pouch.rocks -= 1,
+    if id == 0 {
+        let carried = if item == Held::Knife {
+            Item::Knife
+        } else {
+            Item::Rock
+        };
+        crate::inventory::take(w, carried, 1);
+    } else {
+        let f = player::parts_mut(w, id).1;
+        match item {
+            Held::Knife => f.pouch.knives -= 1,
+            _ => f.pouch.rocks -= 1,
+        }
     }
     w.throwables.flying.push(Flying {
         item,
@@ -418,6 +442,12 @@ mod tests {
     use super::*;
     use crate::input::THROW;
 
+    fn armed(seed: u64) -> World {
+        let mut w = World::new(seed);
+        crate::inventory::give(&mut w, Item::Rock, 5);
+        w
+    }
+
     fn throw(w: &mut World) {
         w.step(&Input {
             keys: THROW,
@@ -430,7 +460,7 @@ mod tests {
 
     #[test]
     fn f_winds_for_twelve_ticks_then_a_rock_leaves_along_the_aim() {
-        let mut w = World::new(1);
+        let mut w = armed(1);
         w.aim.pitch = 0;
         w.step(&Input {
             keys: THROW,
@@ -445,7 +475,11 @@ mod tests {
         assert_eq!(w.throwables.flying.len(), 1);
         let t = w.throwables.flying[0];
         assert_eq!(t.item, Held::Rock);
-        assert_eq!(w.me.pouch.rocks, 4);
+        assert_eq!(
+            w.inventory.count(Item::Rock),
+            4,
+            "one rock taken from the inventory"
+        );
         // 15 m/s at 9° above level: 15 × cos 9° = 14.815 m/s ahead and
         // 2.347 m/s up; / 60 a tick, 16 182 and 2 563 units; and it has
         // flown its first tick, gravity taking 178 off the climb
@@ -456,7 +490,7 @@ mod tests {
 
     #[test]
     fn a_rock_arcs_down_and_lands_with_an_impact_on_the_ground() {
-        let mut w = World::new(1);
+        let mut w = armed(1);
         w.aim.pitch = 0;
         throw(&mut w);
         let mut landed = None;
@@ -478,7 +512,7 @@ mod tests {
 
     #[test]
     fn a_rock_stops_against_a_prop_and_says_which() {
-        let mut w = World::new(1);
+        let mut w = armed(1);
         w.aim.pitch = 0;
         let ahead = facing(w.aim.yaw, 0);
         w.throwables.props.push(Block {
@@ -499,7 +533,7 @@ mod tests {
 
     #[test]
     fn a_rock_that_meets_a_foe_takes_health() {
-        let mut w = World::new(1);
+        let mut w = armed(1);
         crate::player::act(&mut w, "spawn", "orc").unwrap();
         w.foes[0].brain.control = crate::pilot::Control::Still;
         // straight at its chest: a throw from 6 m arrives in 0.4 s

@@ -26,11 +26,10 @@ use crate::health::Health;
 use crate::input::{self, Input, Mouse};
 use crate::look::{rgb, shade, Look};
 use crate::motion::Gait;
-use crate::page::Strings;
 use crate::pose::{self, Build, Held, Kind, Pose};
 use crate::prim::Mesh;
 use crate::render::Shapes;
-use crate::world::{HudItem, World};
+use crate::world::World;
 
 pub use crate::motion::{RUN, WALK};
 
@@ -570,12 +569,12 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     for id in 0..count(w) {
         let f = fighter(w, id);
         let p = f.prev_pose.lerp(&f.pose, alpha);
-        // the player wears as many speedster pieces as it has on (M4's
-        // inventory will say which, R5.4); the figure draws its own shadow
-        let worn = if id == 0 {
-            (1u8 << crate::motion::pieces(w)) - 1
-        } else {
-            0
+        // the player wears the speedster pieces M4's inventory says (or,
+        // with the test setting, the first n); the figure draws its shadow
+        let worn = match (id, w.motion.forced_pieces) {
+            (0, Some(n)) => (1u8 << n.min(crate::motion::PIECES)) - 1,
+            (0, None) => crate::items::speedster_mask(w),
+            _ => 0,
         };
         let dress = crate::models::Dress { worn, variant: 0 };
         crate::models::figure_dressed(f.kind, &p, dress, look, out);
@@ -648,52 +647,11 @@ pub fn bar(out: &mut Shapes, a: V3, b: V3, width: Fx, colour: crate::look::Rgb, 
 
 // ---- the screen and the door ---------------------------------------------
 
-/// The player's health, and the health of the foe they hold on, as text and
-/// a share (percent) M4's bars draw.
-pub fn hud(w: &World, s: &Strings, out: &mut Vec<HudItem>) {
-    let h = &w.me.health;
-    out.push(HudItem {
-        id: "health".into(),
-        text: format!("{} {}", s.get("health_you"), h.hp.max(0)),
-        shown: true,
-        value: Some(h.pct()),
-    });
-    let foe =
-        w.me.engaged
-            .map(|k| k as usize)
-            .filter(|&k| k > 0 && k < count(w));
-    let (text, value) = match foe {
-        Some(k) => {
-            let f = fighter(w, k);
-            (
-                format!("{} {}", s.get(kind_key(f.kind)), f.health.hp.max(0)),
-                Some(f.health.pct()),
-            )
-        }
-        None => (String::new(), None),
-    };
-    out.push(HudItem {
-        id: "foe_health".into(),
-        text,
-        shown: foe.is_some(),
-        value,
-    });
-}
-
 /// What the duel's lines over the game show, in one value: the page reads
 /// the screen again when it changes (`game.rs`).
 pub fn hud_stamp(w: &World) -> (i32, Option<(u8, i32)>) {
     let foe = w.me.engaged.filter(|&k| (k as usize) < count(w));
     (w.me.health.hp, foe.map(|k| (k, fighter(w, k as usize).health.hp)))
-}
-
-/// The strings key that names a kind of foe.
-pub fn kind_key(k: Kind) -> &'static str {
-    match k {
-        Kind::Orc => "foe_orc",
-        Kind::Leader => "foe_leader",
-        _ => "foe_bandit",
-    }
 }
 
 /// `act("duel.<name>", value)`: `spawn` puts an `orc`, `bandit` or `leader`
@@ -780,13 +738,12 @@ pub fn spawn(w: &mut World, kind: Kind) {
     w.foes.push(foe);
 }
 
-/// The duel cleared: every foe gone, the player whole, sheathed, the pouch
-/// full, nothing in the air.
+/// The duel cleared: every foe gone, the player whole, sheathed, nothing in
+/// the air (what the player carries is the inventory's).
 pub fn reset(w: &mut World) {
     w.foes.clear();
     let held = crate::items::held(w);
     w.me = Fighter::new(Kind::Player, held, 0, w.player.pos, w.player.facing, false);
-    w.me.pouch = crate::throwables::Pouch::player();
     w.blades = crate::blade::State::default();
     w.throwables.flying.clear();
     w.throwables.landed.clear();
@@ -930,24 +887,21 @@ mod tests {
     }
 
     #[test]
-    fn health_reaches_the_hud_as_text_and_a_share() {
+    fn health_reaches_the_hud_bars_through_m4_s_doors() {
         let mut w = World::new(1);
         act(&mut w, "spawn", "orc").unwrap();
+        assert_eq!(crate::ui::foe(&w), None, "sheathed, no foe is held on");
         for _ in 0..DRAW_TICKS + 1 {
             w.step(&press(DRAW));
         }
         w.me.health = Health::new(80);
         w.me.health.hp = 64;
-        let s = crate::page::tests::strings();
-        let mut out = Vec::new();
-        hud(&w, &s, &mut out);
-        assert_eq!(out[0].text, "Your health 64");
-        // 64 of 80: 80%
-        assert_eq!(out[0].value, Some(80));
-        // the orc's 140 of 140: 100%
-        assert_eq!(out[1].text, "Orc raider 140");
-        assert_eq!(out[1].value, Some(100));
-        assert!(out[1].shown);
+        let h = crate::ui::health(&w);
+        assert_eq!((h.now, h.most), (64, 80));
+        let (who, g) = crate::ui::foe(&w).expect("drawn, the orc is held on");
+        assert_eq!((who.as_str(), g.now, g.most), ("orc", 140, 140));
+        w.me.health.hp = -9;
+        assert_eq!(crate::ui::health(&w).now, 0, "never below none");
     }
 
     #[test]

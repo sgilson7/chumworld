@@ -709,15 +709,15 @@
   {
     "name": "M1 motion: grip falls 55/100 a piece",
     "file": "crates/core/src/motion.rs",
-    "find": "        g = g * GRIP_PER_PIECE_PCT / 100;",
-    "replace": "        g = g * 60 / 100;",
+    "find": "    fx::mul(GRIP_BASE, crate::items::speedster_grip(n.min(PIECES)))",
+    "replace": "    fx::mul(GRIP_BASE, crate::items::speedster_grip(n.min(4)))",
     "test": "grip_and_speed_are_pinned_for_zero_to_five_pieces"
   },
   {
     "name": "M1 motion: speed grows 20% a piece",
     "file": "crates/core/src/motion.rs",
-    "find": "    100 + SPEED_PER_PIECE_PCT * n.min(PIECES) as i32",
-    "replace": "    100 + 25 * n.min(PIECES) as i32",
+    "find": "    fx::mul(speed, crate::items::speedster_speed(n.min(PIECES))) / TICKS",
+    "replace": "    fx::mul(speed, crate::items::speedster_speed(n.min(4))) / TICKS",
     "test": "grip_and_speed_are_pinned_for_zero_to_five_pieces"
   },
   {
@@ -995,10 +995,10 @@
   },
   {
     "name": "M1 player: health reaches the HUD",
-    "file": "crates/core/src/player.rs",
-    "find": "        value: Some(h.pct()),",
-    "replace": "        value: Some(h.hp),",
-    "test": "health_reaches_the_hud_as_text_and_a_share"
+    "file": "crates/core/src/ui.rs",
+    "find": "            now: f.health.hp.max(0),",
+    "replace": "            now: f.health.most,",
+    "test": "health_reaches_the_hud_bars_through_m4_s_doors"
   },
   {
     "name": "M1 player: the feet stay on the ground",
@@ -1013,6 +1013,279 @@
     "find": "        if still && settled && g.in_hand == before.2 {",
     "replace": "        if false && still && settled && g.in_hand == before.2 {",
     "test": "two_still_ticks_give_identical_frames_and_static_arrays"
+  },
+  {
+    "name": "M4 items: the sword has one route",
+    "file": "data/items.json",
+    "find": "\"routes\": [\"leader_duel\"],",
+    "replace": "\"routes\": [\"leader_duel\", \"merchant\"],",
+    "test": "every_weapon_and_armour_piece_has_exactly_one_route_of_its_own"
+  },
+  {
+    "name": "M4 items: the boomerang's mechanic is its own",
+    "file": "data/items.json",
+    "find": "\"mechanic\": \"arc_return\",",
+    "replace": "\"mechanic\": \"knock_loose\",",
+    "test": "every_weapon_and_armour_piece_has_a_mechanic_no_other_item_has"
+  },
+  {
+    "name": "M4 items: the jacket is on the scarecrow",
+    "file": "data/items.json",
+    "find": "\"routes\": [\"scarecrow\"],",
+    "replace": "\"routes\": [\"roadside\"],",
+    "test": "each_item_is_acquired_the_way_the_journal_says"
+  },
+  {
+    "name": "M4 items: the imbue's cooldown is 1200 ticks",
+    "file": "data/items.json",
+    "find": "\"cooldown_ticks\": 1200,",
+    "replace": "\"cooldown_ticks\": 1800,",
+    "test": "the_imbue_lasts_ten_seconds_and_recovers_twenty_from_the_cast"
+  },
+  {
+    "name": "M4 items: the start holds the short sword",
+    "file": "crates/core/src/inventory.rs",
+    "find": "            weapon: Some(Item::ShortSword),",
+    "replace": "            weapon: Some(Item::Sword),",
+    "test": "the_starting_gear_changes_nothing"
+  },
+  {
+    "name": "M4 items: speedster speed rounds to the nearest",
+    "file": "crates/core/src/items.rs",
+    "find": "    ((ONE as i64 * pct + 50) / 100) as Fx",
+    "replace": "    (ONE as i64 * pct / 100) as Fx",
+    "test": "speedster_speed_and_grip_are_pinned_for_zero_to_five_pieces"
+  },
+  {
+    "name": "M4 items: speedster grip rounds to the nearest",
+    "file": "crates/core/src/items.rs",
+    "find": "    ((num + den / 2) / den) as Fx",
+    "replace": "    (num / den) as Fx",
+    "test": "speedster_speed_and_grip_are_pinned_for_zero_to_five_pieces"
+  },
+  {
+    "name": "M4 items: the catalogue must list the core's items in order",
+    "file": "crates/core/src/items.rs",
+    "find": "    if ids != want {",
+    "replace": "    if false {",
+    "test": "the_catalogue_must_list_the_items_the_core_knows_in_order"
+  },
+  {
+    "name": "M4 items: each free-hand item has its own cell",
+    "file": "data/items.json",
+    "find": "\"grid\": 2,",
+    "replace": "\"grid\": 1,",
+    "test": "select_item_places_each_free_hand_item_in_its_own_cell"
+  },
+  {
+    "name": "M4 inventory: the start is one short sword",
+    "file": "crates/core/src/inventory.rs",
+    "find": "                count[i as usize] = 1;",
+    "replace": "                count[i as usize] = 2;",
+    "test": "the_player_starts_with_the_short_sword_in_hand_and_nothing_else"
+  },
+  {
+    "name": "M4 inventory: a stack holds its limit",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        let got = n.min(room);",
+    "replace": "        let got = n;",
+    "test": "stacks_hold_their_limit_and_running_out_empties_hand_and_key"
+  },
+  {
+    "name": "M4 inventory: assigning swaps the keys",
+    "file": "crates/core/src/inventory.rs",
+    "find": "            self.quick[from] = before;",
+    "replace": "            self.quick[from] = None;",
+    "test": "assigning_a_quick_item_swaps_it_with_the_key_it_leaves"
+  },
+  {
+    "name": "M4 inventory: choosing a worn piece takes it off",
+    "file": "crates/core/src/inventory.rs",
+    "find": "                *w = if *w == Some(i) { None } else { Some(i) };",
+    "replace": "                *w = Some(i);",
+    "test": "equipping_puts_a_sword_in_hand_and_a_piece_in_its_slot_or_takes_it_off"
+  },
+  {
+    "name": "M4 inventory: a quick key counts once a press",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        let pressed = input.keys & bit != 0 && inv.last_keys & bit == 0;",
+    "replace": "        let pressed = input.keys & bit != 0;",
+    "test": "a_quick_key_pressed_readies_its_item_once_and_again_puts_it_away"
+  },
+  {
+    "name": "M4 inventory: inventory.take takes",
+    "file": "crates/core/src/inventory.rs",
+    "find": "            take(w, i, n);",
+    "replace": "            take(w, i, 0);",
+    "test": "give_and_take_go_through_the_act_door_by_id_and_count"
+  },
+  {
+    "name": "M4 inventory: the test inventory wears the set",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        inv.worn[s as usize] = Item::ALL.iter().copied().find(|i| i.def().slot == Some(s));",
+    "replace": "        inv.worn[s as usize] = None;",
+    "test": "the_full_test_inventory_wears_all_five_speedster_pieces"
+  },
+  {
+    "name": "M4 map: walking reveals a disc",
+    "file": "crates/core/src/ui.rs",
+    "find": "                if dx * dx + dz * dz <= r * r {",
+    "replace": "                if dx * dx + dz * dz < r * r {",
+    "test": "walking_reveals_a_disc_of_the_map_round_the_player"
+  },
+  {
+    "name": "M4 map: the same walk gives the same map",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let mut out = Vec::with_capacity((MAP_PX * MAP_PX * 4) as usize);",
+    "replace": "    let mut out = Vec::with_capacity((MAP_PX * MAP_PX * 4) as usize);\n    static CALLS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);\n    out.push(CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed));",
+    "test": "the_same_walk_gives_the_same_map"
+  },
+  {
+    "name": "M4 menu: the ring pauses the world",
+    "file": "crates/core/src/game.rs",
+    "find": "            Screen::Play => {\n                // M4: invert Y",
+    "replace": "            Screen::Play | Screen::Menu => {\n                // M4: invert Y",
+    "test": "tab_opens_the_ring_where_it_was_left_and_pauses_the_world"
+  },
+  {
+    "name": "M4 menu: E turns right",
+    "file": "crates/core/src/ui.rs",
+    "find": "        \"turn_right\" => turn(g, 1),",
+    "replace": "        \"turn_right\" => turn(g, -1),",
+    "test": "q_and_e_turn_the_ring_through_its_four_screens_in_order"
+  },
+  {
+    "name": "M4 menu: M turns the short way",
+    "file": "crates/core/src/ui.rs",
+    "find": "    g.menu.turn += if d == 3 { -1 } else { d };",
+    "replace": "    g.menu.turn += d;",
+    "test": "m_opens_the_ring_at_the_map_the_short_way_and_closes_it_again"
+  },
+  {
+    "name": "M4 menu: a held Tab opens once",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let pressed = bits & !m.last_bits;",
+    "replace": "    let pressed = bits;",
+    "test": "a_held_tab_opens_the_ring_once"
+  },
+  {
+    "name": "M4 menu: Esc closes the ring to the pause",
+    "file": "crates/core/src/ui.rs",
+    "find": "        Screen::Menu => g.show(Screen::Paused),",
+    "replace": "        Screen::Menu => g.show(Screen::Play),",
+    "test": "esc_closes_the_ring_to_the_pause_screen"
+  },
+  {
+    "name": "M4 menu: 2 over a slot puts it on key 2",
+    "file": "crates/core/src/ui.rs",
+    "find": "        \"assign_2\" => assign(g, 1),",
+    "replace": "        \"assign_2\" => assign(g, 2),",
+    "test": "pressing_a_quick_key_over_a_slot_puts_the_item_on_it"
+  },
+  {
+    "name": "M4 menu: the cursor moves only forward",
+    "file": "crates/core/src/ui.rs",
+    "find": "        if along <= 0 {",
+    "replace": "        if along < 0 {",
+    "test": "the_cursor_moves_to_the_nearest_slot_each_way_and_stops_at_the_edge"
+  },
+  {
+    "name": "M4 menu: the speed bar fills toward double",
+    "file": "crates/core/src/ui.rs",
+    "find": "            pct: pct(speed, most),",
+    "replace": "            pct: speed,",
+    "test": "equipment_wears_a_piece_and_shows_the_speedster_numbers_in_words"
+  },
+  {
+    "name": "M4 map: the arrow's heading rounds, not truncates",
+    "file": "crates/core/src/ui.rs",
+    "find": "(-(w.player.facing as i64) * 3600 + turn / 2)\n        .div_euclid(turn)",
+    "replace": "((-(w.player.facing as i64) * 3600) / turn)",
+    "test": "the_map_places_the_player_and_marks_the_places_walked_to"
+  },
+  {
+    "name": "M4 map: the walked pixels are paper",
+    "file": "crates/core/src/ui.rs",
+    "find": "            let mut c = mix(unseen, lit, seen * 100 / 16);",
+    "replace": "            let mut c = mix(unseen, lit, 0);",
+    "test": "the_map_image_is_paper_where_walked_and_hatched_where_not"
+  },
+  {
+    "name": "M4 hud: health is full until M1 sends it",
+    "file": "crates/core/src/ui.rs",
+    "find": "            now: w.me.health.hp.max(0),",
+    "replace": "            now: 0,",
+    "test": "the_hud_shows_health_full_until_the_duel_sends_its_own"
+  },
+  {
+    "name": "M4 hud: the cooldown rounds its seconds up",
+    "file": "crates/core/src/ui.rs",
+    "find": "    ticks.div_ceil(TICKS).to_string()",
+    "replace": "    (ticks / TICKS).to_string()",
+    "test": "the_imbue_ring_counts_down_the_cooldown_in_whole_seconds"
+  },
+  {
+    "name": "M4 hud: the toast lasts 150 ticks",
+    "file": "crates/core/src/ui.rs",
+    "find": "        ticks: TOAST_TICKS,",
+    "replace": "        ticks: TOAST_TICKS * 2,",
+    "test": "an_item_received_shows_a_toast_for_two_and_a_half_seconds"
+  },
+  {
+    "name": "M4 dialogue: 40 characters a second",
+    "file": "crates/core/src/ui.rs",
+    "find": "pub const CHARS_PER_SECOND: u32 = 40;",
+    "replace": "pub const CHARS_PER_SECOND: u32 = 30;",
+    "test": "dialogue_text_appears_at_a_steady_rate_and_space_reads_on"
+  },
+  {
+    "name": "M4 shop: the merchant buys at half",
+    "file": "crates/core/src/ui.rs",
+    "find": "    i.def().value * catalogue().merchant.buys_at_pct / 100",
+    "replace": "    i.def().value",
+    "test": "the_shop_sells_at_value_and_buys_at_half"
+  },
+  {
+    "name": "M4 settings: Back returns where settings opened",
+    "file": "crates/core/src/ui.rs",
+    "find": "            g.menu.settings_from = screen;",
+    "replace": "            g.menu.settings_from = Screen::Title;",
+    "test": "settings_open_from_the_title_and_the_pause_and_go_back_there"
+  },
+  {
+    "name": "M4 settings: invert Y inverts",
+    "file": "crates/core/src/game.rs",
+    "find": "let dy = if self.world.ui.settings.invert_y { -dy } else { dy };",
+    "replace": "let dy = if self.world.ui.settings.invert_y { dy } else { dy };",
+    "test": "invert_y_turns_the_view_up_for_a_downward_mouse"
+  },
+  {
+    "name": "M4 title: the title offers settings",
+    "file": "crates/core/src/ui.rs",
+    "find": "        Screen::Title => \"title-more\",",
+    "replace": "        Screen::Title => return,",
+    "test": "the_title_and_pause_screens_offer_settings_and_the_menu_keys"
+  },
+  {
+    "name": "M4 menu: a menu key outside the menu changes nothing",
+    "file": "crates/core/src/ui.rs",
+    "find": "        \"menu.key\" if screen == Screen::Menu => menu_key(g, value)?,",
+    "replace": "        \"menu.key\" => menu_key(g, value)?,",
+    "test": "a_menu_key_on_another_screen_changes_nothing_and_an_unknown_one_is_refused"
+  },
+  {
+    "name": "M4 strings: item names come from the strings file",
+    "file": "crates/core/src/ui.rs",
+    "find": "        name: s.get(&format!(\"item_{}\", i.id())),\n        icon:",
+    "replace": "        name: format!(\"item_{}\", i.id()),\n        icon:",
+    "test": "every_string_the_menus_show_is_written_and_filled"
+  },
+  {
+    "name": "M4 items: the boots have their own bit",
+    "file": "crates/core/src/items.rs",
+    "find": "        Item::Boots => BOOTS,",
+    "replace": "        Item::Boots => GLOVES,",
+    "test": "the_speedster_mask_has_a_bit_for_each_piece_worn"
   },
   {
     "name": "M3 mesh: every new shape winds its faces outward",

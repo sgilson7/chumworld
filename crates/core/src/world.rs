@@ -68,9 +68,6 @@ pub struct HudItem {
     pub id: String,
     pub text: String,
     pub shown: bool,
-    // M1: a bar's share, percent (health); none for a line of text alone
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,6 +79,9 @@ pub struct World {
     /// where the player looks
     pub aim: Aim,
     pub player: Body,
+    // M4: what the player carries and wears; the map's fog, the toast, dialogue, the shop, settings
+    pub inventory: crate::inventory::State,
+    pub ui: crate::ui::State,
     // M3: the model lineup for review (`models.lineup`), off in play
     pub lineup: crate::models::Lineup,
     // M1: the player's arms, health and footing (its feet are `player`),
@@ -106,20 +106,19 @@ impl World {
             rng: Rng::new(seed),
             aim: Aim::new(START_YAW),
             player: Body::new(START, START_YAW),
+            // M4: the start's gear (CW-7), an unwalked map
+            inventory: crate::inventory::State::default(),
+            ui: crate::ui::State::default(),
             lineup: crate::models::Lineup::default(), // M3:
             // M1:
-            me: {
-                let mut me = crate::player::Fighter::new(
-                    crate::pose::Kind::Player,
-                    crate::pose::Held::ShortSword,
-                    0,
-                    START,
-                    START_YAW,
-                    false,
-                );
-                me.pouch = crate::throwables::Pouch::player();
-                me
-            },
+            me: crate::player::Fighter::new(
+                crate::pose::Kind::Player,
+                crate::pose::Held::ShortSword,
+                0,
+                START,
+                START_YAW,
+                false,
+            ),
             foes: Vec::new(),
             pilots: crate::pilot::State::new(),
             blades: crate::blade::State::default(),
@@ -143,6 +142,8 @@ impl World {
         let look = crate::player::look_mouse(self, input);
         self.aim = self.aim.turned(look);
         crate::player::hold_on(self);
+        // M4: 1, 2 and 3 ready a quick item in the free hand
+        crate::inventory::step(self, input);
         // 2. M1:
         let inputs = crate::pilot::step(self);
         // 3. bodies (M1: motion)
@@ -158,6 +159,8 @@ impl World {
         // 6. M6: crate::orbs::step(self); crate::imbue::step(self, input);
         // 7. M5: crate::story::step(self); crate::merchant::step(self); …
         // 8. M2: crate::water::step(self);
+        // M4: the map fills in round the player; the toast counts down
+        crate::ui::step(self);
     }
 
     /// What moves, drawn `alpha` of the way from the last tick to this one.
@@ -176,15 +179,16 @@ impl World {
     }
 
     /// Lines over the game.
-    pub fn hud(&self, strings: &Strings, out: &mut Vec<HudItem>) {
+    pub fn hud(&self, _strings: &Strings, _out: &mut Vec<HudItem>) {
         // M4: crate::ui::hud(self, strings, out); M6: the imbue's cooldown
-        crate::player::hud(self, strings, out); // M1: health
+        // (M1's health reaches the HUD through `ui::health` and `ui::foe`)
     }
 
     /// A setting or flag named `module.name`.
     pub fn act(&mut self, name: &str, value: &str) -> Result<(), String> {
         match name.split_once('.') {
-            Some(("models", rest)) => crate::models::act(self, rest, value), // M3:
+            Some(("inventory", rest)) => crate::inventory::act(self, rest, value), // M4:
+            Some(("models", rest)) => crate::models::act(self, rest, value),       // M3:
             // M1:
             Some(("duel", rest)) => crate::player::act(self, rest, value),
             Some(("motion", rest)) => crate::motion::act(self, rest, value),

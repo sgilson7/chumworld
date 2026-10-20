@@ -36,9 +36,6 @@ pub const RUN: Fx = fx::int(5);
 pub const FOOTWORK: Fx = WALK;
 /// Bare feet's grip: a third of the gap closed each tick.
 pub const GRIP_BASE: Fx = ONE / 3;
-/// Each speedster piece: grip × 55/100, speed + 20% of the base (CW-8).
-pub const GRIP_PER_PIECE_PCT: i32 = 55;
-pub const SPEED_PER_PIECE_PCT: i32 = 20;
 /// The most pieces there are.
 pub const PIECES: u8 = 5;
 /// The most a body turns in a tick toward where it should face (600° a
@@ -83,24 +80,16 @@ pub struct Gait {
     pub slide: Fx,
 }
 
-/// Grip with `n` speedster pieces: `GRIP_BASE` × (55/100)ⁿ, each step
-/// truncated.
+/// Grip with `n` speedster pieces: bare feet's `GRIP_BASE` times M4's
+/// share for `n` pieces (`items::speedster_grip`, 0.55ⁿ, CW-8).
 pub fn grip(n: u8) -> Fx {
-    let mut g = GRIP_BASE;
-    for _ in 0..n.min(PIECES) {
-        g = g * GRIP_PER_PIECE_PCT / 100;
-    }
-    g
+    fx::mul(GRIP_BASE, crate::items::speedster_grip(n.min(PIECES)))
 }
 
-/// The speed share with `n` pieces, percent: 100 + 20 n.
-pub fn speed_pct(n: u8) -> i32 {
-    100 + SPEED_PER_PIECE_PCT * n.min(PIECES) as i32
-}
-
-/// A speed in metres a second as metres a tick, with `n` pieces.
+/// A speed in metres a second as metres a tick, with `n` pieces: times M4's
+/// share (`items::speedster_speed`, 1 + 0.2 n, CW-8).
 pub fn per_tick(speed: Fx, n: u8) -> Fx {
-    (speed as i64 * speed_pct(n) as i64 / 100) as Fx / TICKS
+    fx::mul(speed, crate::items::speedster_speed(n.min(PIECES))) / TICKS
 }
 
 /// How many pieces the player wears: the test setting if one is forced,
@@ -344,17 +333,20 @@ mod tests {
 
     #[test]
     fn grip_and_speed_are_pinned_for_zero_to_five_pieces() {
-        // CW-8. Grip: 65 536 / 3 = 21 845 (21 845.3 truncated), then × 55 /
-        // 100 truncated each time: 12 014 (12 014.75), 6 607 (6 607.7),
-        // 3 633 (3 633.85), 1 998 (1 998.15), 1 098 (1 098.9).
+        // CW-8. Grip: bare feet 65 536 / 3 = 21 845 (21 845.3 truncated),
+        // times M4's 0.55ⁿ (65 536, 36 045, 19 825, 10 904, 5 997, 3 298 of
+        // 65 536): 21 845 × 36 045 / 65 536 = 12 014.8 → 12 014; × 19 825:
+        // 6 608.2 → 6 608; × 10 904: 3 634.6 → 3 634; × 5 997: 1 998.97 →
+        // 1 998; × 3 298: 1 099.3 → 1 099.
         assert_eq!(
             [0, 1, 2, 3, 4, 5].map(grip),
-            [21_845, 12_014, 6_607, 3_633, 1_998, 1_098]
+            [21_845, 12_014, 6_608, 3_634, 1_998, 1_099]
         );
         // as shares of a tick's gap: 33%, 18%, 10%, 5.5%, 3.0%, 1.7%
-        // Speed: 5 m/s is 327 680; × (100 + 20 n) / 100, then / 60 a tick:
-        // 5 461 (5 461.3), 6 553 (6 553.6), 7 645 (7 645.9), 8 738 (8 738.1),
-        // 9 830 (9 830.4), 10 922 (10 922.7): 5, 6, 7, 8, 9, 10 m/s.
+        // Speed: 5 m/s is 327 680; × M4's 1 + 0.2 n (78 643, 91 750,
+        // 104 858, 117 965, 131 072 of 65 536 for 1 to 5), then / 60 a tick:
+        // 5 461 (5 461.3), 6 553 (393 215 / 60), 7 645 (458 750 / 60), 8 738
+        // (524 290 / 60), 9 830 (589 825 / 60), 10 922 (655 360 / 60).
         assert_eq!(
             [0, 1, 2, 3, 4, 5].map(|n| per_tick(RUN, n)),
             [5_461, 6_553, 7_645, 8_738, 9_830, 10_922]
