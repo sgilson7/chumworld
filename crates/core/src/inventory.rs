@@ -154,11 +154,32 @@ impl State {
         Ok(())
     }
 
+    /// Adds coins up to the purse's most (`PURSE`); returns how many fitted.
+    pub fn add_coins(&mut self, n: u32) -> u32 {
+        let got = n.min(PURSE.saturating_sub(self.coins));
+        self.coins += got;
+        got
+    }
+
+    /// Takes `n` coins if there are that many; whether it did. Coins never
+    /// go below none.
+    pub fn spend(&mut self, n: u32) -> bool {
+        if self.coins < n {
+            return false;
+        }
+        self.coins -= n;
+        true
+    }
+
     /// The item the free hand holds ready.
     pub fn ready_item(&self) -> Option<Item> {
         self.ready.and_then(|k| self.quick[k])
     }
 }
+
+/// The most coins the purse holds (M7, R9.81): a coin picked up or a sale
+/// that would pass it is refused, so the HUD's three digits never overflow.
+pub const PURSE: u32 = 999;
 
 /// Why the inventory refused; `ui` turns it into the message the reader sees.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -231,7 +252,7 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
         }
         "coins" => {
             let n: u32 = value.trim().parse().map_err(|_| bad_count(value))?;
-            w.inventory.coins = w.inventory.coins.saturating_add(n);
+            w.inventory.add_coins(n);
         }
         _ => return Err(format!("Unknown action \"inventory.{name}\".")),
     }

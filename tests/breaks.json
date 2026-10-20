@@ -2602,5 +2602,82 @@
     "find": "        crate::imbue::lend(w, LEND_TICKS);\n",
     "replace": "",
     "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
+  },
+  {
+    "name": "M7 shop: the sword in hand is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.weapon == Some(i) {\n        Some(NoSale::InHand)",
+    "replace": "    } else if false {\n        Some(NoSale::InHand)",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a worn piece is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.worn.contains(&Some(i)) {\n        Some(NoSale::Worn)",
+    "replace": "    } else if false {\n        Some(NoSale::Worn)",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a quest item is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if !d.start && !d.routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "    } else if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: the chest key is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if d.keep || d.kind == items::Kind::Key {",
+    "replace": "    } else if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a sold short sword goes on the cart",
+    "file": "crates/core/src/ui.rs",
+    "find": "if i.def().stack == 1 && i.def().routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "if i.def().stack == 1 {",
+    "test": "the_shop_sells_at_value_and_buys_at_half"
+  },
+  {
+    "name": "M7 shop: a sold hood stays off the cart",
+    "file": "crates/core/src/ui.rs",
+    "find": "if i.def().stack == 1 && i.def().routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a sale passes the purse",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.coins + sale_price(i) > inventory::PURSE {",
+    "replace": "    } else if false {",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: coins added past the purse",
+    "file": "crates/core/src/inventory.rs",
+    "find": "let got = n.min(PURSE.saturating_sub(self.coins));",
+    "replace": "let got = n;",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: spending more than is carried",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if self.coins < n {\n            return false;\n        }\n        self.coins -= n;",
+    "replace": "        self.coins = self.coins.wrapping_sub(n);",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: a kept row is not marked",
+    "file": "crates/core/src/ui.rs",
+    "find": "                kept: why.is_some(),",
+    "replace": "                kept: false,",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a kept row shows a price",
+    "file": "crates/core/src/ui.rs",
+    "find": "                    Some(n) => no_sale_word(s, n),",
+    "replace": "                    Some(_) => price(sale_price(i)),",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
   }
 ]

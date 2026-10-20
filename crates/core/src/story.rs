@@ -1081,7 +1081,13 @@ fn act_on(w: &mut World, u: Use) {
                     }
                 }
                 Gift::Coins(n) => {
-                    w.inventory.coins += n;
+                    // M7: the purse holds `inventory::PURSE`; coins that do
+                    // not fit stay where they lie
+                    if w.inventory.coins + n > crate::inventory::PURSE {
+                        banner(w, "story_purse_full");
+                        return;
+                    }
+                    w.inventory.add_coins(n);
                     banner(w, "story_coins");
                 }
             }

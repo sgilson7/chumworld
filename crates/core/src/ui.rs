@@ -819,6 +819,10 @@ pub struct ShopRow {
     pub item: ItemView,
     pub price: String,
     pub action: Action,
+    /// M7: the merchant will not buy it; the price says why in a word and
+    /// the button, still pressable, gives the refusal line
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub kept: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1417,6 +1421,70 @@ fn sells(w: &World, i: Item) -> bool {
     (d.sold && d.stack > 1) || w.ui.stock[i as usize] > 0
 }
 
+/// Why the merchant will not buy an item (M7, R9.80).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoSale {
+    /// not carried
+    Missing,
+    /// a key item (the chest key)
+    Key,
+    /// the sword in the sword hand
+    InHand,
+    /// an armour piece worn
+    Worn,
+    /// found once in the world (its routes do not include the merchant, and
+    /// it is not the starting gear): sold, it could not be had again, and
+    /// bought back the merchant would be a second route to it (CW-6)
+    Quest,
+    /// the sale's coins would pass the purse's most
+    PurseFull,
+}
+
+/// Whether the merchant buys one of `i` from the player now, and why not.
+pub fn no_sale(inv: &inventory::State, i: Item) -> Option<NoSale> {
+    let d = i.def();
+    if !inv.has(i) {
+        Some(NoSale::Missing)
+    } else if d.keep || d.kind == items::Kind::Key {
+        Some(NoSale::Key)
+    } else if inv.weapon == Some(i) {
+        Some(NoSale::InHand)
+    } else if inv.worn.contains(&Some(i)) {
+        Some(NoSale::Worn)
+    } else if !d.start && !d.routes.iter().any(|r| r == "merchant") {
+        Some(NoSale::Quest)
+    } else if inv.coins + sale_price(i) > inventory::PURSE {
+        Some(NoSale::PurseFull)
+    } else {
+        None
+    }
+}
+
+fn no_sale_line(s: &Strings, why: NoSale, name: String) -> String {
+    let key = match why {
+        NoSale::Missing => "refuse_missing",
+        NoSale::Key => "refuse_keep",
+        NoSale::InHand => "refuse_sell_hand",
+        NoSale::Worn => "refuse_sell_worn",
+        NoSale::Quest => "refuse_sell_quest",
+        NoSale::PurseFull => "refuse_purse",
+    };
+    fill(
+        &s.get(key),
+        &[("item", name), ("n", inventory::PURSE.to_string())],
+    )
+}
+
+/// The word in a kept row's price place.
+fn no_sale_word(s: &Strings, why: NoSale) -> String {
+    s.get(match why {
+        NoSale::InHand => "kept_hand",
+        NoSale::Worn => "kept_worn",
+        NoSale::PurseFull => "kept_purse",
+        _ => "kept_one",
+    })
+}
+
 fn shop_view(g: &Game) -> ShopView {
     let (s, w) = (&g.strings, &g.world);
     let inv = &w.inventory;
@@ -1440,16 +1508,26 @@ fn shop_view(g: &Game) -> ShopView {
                 enabled: inv.coins >= i.def().value && inv.count(i) < i.def().stack,
                 ..action(s, "shop.buy", i.id(), "buy", false)
             },
+            kept: false,
         })
         .collect();
+    // M7: every carried item is listed; one the merchant will not buy says
+    // why, and its button gives the refusal line
     let sell: Vec<ShopRow> = Item::ALL
         .iter()
         .copied()
-        .filter(|i| inv.has(*i) && !i.def().keep)
-        .map(|i| ShopRow {
-            item: item_view(s, inv, i),
-            price: price(sale_price(i)),
-            action: action(s, "shop.sell", i.id(), "sell", false),
+        .filter(|i| inv.has(*i))
+        .map(|i| {
+            let why = no_sale(inv, i);
+            ShopRow {
+                item: item_view(s, inv, i),
+                price: match why {
+                    Some(n) => no_sale_word(s, n),
+                    None => price(sale_price(i)),
+                },
+                action: action(s, "shop.sell", i.id(), "sell", false),
+                kept: why.is_some(),
+            }
         })
         .collect();
     ShopView {
@@ -1483,13 +1561,14 @@ fn buy(g: &mut Game, id: &str) -> Result<(), String> {
             &s.get("refuse_full"),
             &[("n", d.stack.to_string()), ("item", name)],
         )
-    } else {
-        w.inventory.coins -= d.value;
+    } else if w.inventory.spend(d.value) {
         w.inventory.add(i, 1);
         if d.stack == 1 {
             w.ui.stock[i as usize] -= 1;
         }
         fill(&s.get("bought"), &[("item", name)])
+    } else {
+        coins_text(s, "refuse_coins", d.value - w.inventory.coins, &[("item", name)])
     });
     Ok(())
 }
@@ -1499,21 +1578,15 @@ fn sell(g: &mut Game, id: &str) -> Result<(), String> {
     let s = &g.strings;
     let name = s.get(&format!("item_{}", i.id()));
     let w = &mut g.world;
-    g.menu.note = Some(if i.def().keep {
-        fill(&s.get("refuse_keep"), &[("item", name)])
-    } else if !w.inventory.has(i) {
-        fill(&s.get("refuse_missing"), &[("item", name)])
+    g.menu.note = Some(if let Some(why) = no_sale(&w.inventory, i) {
+        no_sale_line(s, why, name)
     } else {
         w.inventory.remove(i, 1);
-        w.inventory.coins += sale_price(i);
-        if i.def().stack == 1 {
+        w.inventory.add_coins(sale_price(i));
+        // only what the merchant first sold goes back on the cart (CW-6:
+        // the merchant is no route to the short sword)
+        if i.def().stack == 1 && i.def().routes.iter().any(|r| r == "merchant") {
             w.ui.stock[i as usize] += 1;
-        }
-        // a sword sold from the hand leaves the other in it, if carried
-        if w.inventory.weapon.is_none() {
-            w.inventory.weapon = [Item::Sword, Item::ShortSword]
-                .into_iter()
-                .find(|x| w.inventory.has(*x));
         }
         coins_text(s, "sold", sale_price(i), &[("item", name)])
     });
@@ -2210,15 +2283,15 @@ mod tests {
             json(&g)["shop"]["note"],
             "You need 52 more coins for the Speedster's hood."
         );
-        // the sword sells for half of 80: 8 + 40 = 48, and the short sword
-        // goes back in hand
-        g.act("shop.sell", "sword").unwrap();
-        assert_eq!(g.world.inventory.coins, 48);
-        g.world.inventory.weapon = None;
+        // M7: with the sword in hand, the short sword sells for half of
+        // 20: 8 + 10 = 18
+        g.world.inventory.weapon = Some(Item::Sword);
+        g.act("shop.sell", "short_sword").unwrap();
+        assert_eq!(g.world.inventory.coins, 18);
         g.act("shop.sell", "rock").unwrap();
-        assert_eq!(g.world.inventory.coins, 49, "a rock sells for half of 2");
+        assert_eq!(g.world.inventory.coins, 19, "a rock sells for half of 2");
         assert_eq!(json(&g)["shop"]["note"], "Sold: Rock, for 1 coin.");
-        assert_eq!(g.world.inventory.weapon, Some(Item::ShortSword));
+        assert_eq!(g.world.inventory.weapon, Some(Item::Sword));
         // the chest key is kept
         inventory::give(&mut g.world, Item::ChestKey, 1);
         g.act("shop.sell", "chest_key").unwrap();
@@ -2233,12 +2306,116 @@ mod tests {
         assert!(g.world.inventory.has(Item::Hood));
         assert_eq!(
             json(&g)["shop"]["buy"].as_array().unwrap().len(),
-            4,
-            "the sword sold is for sale now"
+            3,
+            "the hood bought and the short sword sold leave rock, knife and bandage"
         );
         assert!(!sells(&g.world, Item::Hood));
+        assert!(
+            !sells(&g.world, Item::ShortSword),
+            "the merchant is no route to the short sword"
+        );
         g.act("shop.close", "").unwrap();
         assert_eq!(g.screen, Screen::Play);
+    }
+
+    /// M7 (R9.80): the merchant does not buy the chest key, the sword in
+    /// hand, a piece worn, or what is found once in the world; each refusal
+    /// says what is in the way and the next step (TONE.md 5), the row stays
+    /// listed and says why, and no coin moves.
+    #[test]
+    fn the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items() {
+        let mut g = playing();
+        let inv = &mut g.world.inventory;
+        for i in [
+            Item::Sword,
+            Item::ChestKey,
+            Item::Boomerang,
+            Item::Jacket,
+            Item::Hood,
+            Item::Rock,
+        ] {
+            inv.add(i, 1);
+        }
+        inv.weapon = Some(Item::ShortSword);
+        inv.worn[Slot::Head as usize] = Some(Item::Hood);
+        inv.coins = 5;
+        open_shop(&mut g.world);
+        frames(&mut g, 1, 0, 0);
+        let refusals = [
+            ("short_sword", "The Short sword is in your sword hand. Put another sword there in Equipment to sell this one."),
+            ("chest_key", "The merchant does not buy the Chest key."),
+            ("hood", "You wear the Speedster's hood. Take it off in Equipment to sell it."),
+            ("sword", "The merchant does not buy the Sword. There is no other to find."),
+            ("boomerang", "The merchant does not buy the Boomerang. There is no other to find."),
+            ("jacket", "The merchant does not buy the Speedster's jacket. There is no other to find."),
+        ];
+        for (id, line) in refusals {
+            g.act("shop.sell", id).unwrap();
+            assert_eq!(json(&g)["shop"]["note"], line, "{id}");
+            let i = Item::from_id(id).unwrap();
+            assert_eq!(g.world.inventory.count(i), 1, "{id} kept");
+            assert_eq!(g.world.inventory.coins, 5, "{id}: no coin moved");
+        }
+        let u = json(&g);
+        let rows = u["shop"]["sell"].as_array().unwrap();
+        let row = |id: &str| rows.iter().find(|r| r["item"]["id"] == id).unwrap().clone();
+        assert_eq!(row("short_sword")["price"], "In your hand");
+        assert_eq!(row("hood")["price"], "Worn");
+        assert_eq!(row("chest_key")["price"], "Not for sale");
+        assert_eq!(row("sword")["kept"], true);
+        assert_eq!(row("rock")["price"], "1 coin");
+        assert!(row("rock").get("kept").is_none(), "a rock is for sale");
+        // taken off, the hood sells (5 + 30 = 35) and goes back on the cart
+        g.world.inventory.worn[Slot::Head as usize] = None;
+        let stock = g.world.ui.stock[Item::Hood as usize];
+        g.act("shop.sell", "hood").unwrap();
+        assert_eq!(g.world.inventory.coins, 35);
+        assert_eq!(
+            g.world.ui.stock[Item::Hood as usize],
+            stock + 1,
+            "back on the cart"
+        );
+    }
+
+    /// M7: coins never go below none and never past the most the player
+    /// can carry (999); a stack never past its most.
+    #[test]
+    fn coins_and_stacks_hold_to_their_bounds_in_the_shop() {
+        let mut g = playing();
+        open_shop(&mut g.world);
+        frames(&mut g, 1, 0, 0);
+        g.world.inventory.coins = 1;
+        g.act("shop.buy", "rock").unwrap();
+        assert_eq!(g.world.inventory.coins, 1, "a rock costs 2: refused at 1");
+        assert_eq!(json(&g)["shop"]["note"], "You need 1 more coin for the Rock.");
+        // 20 rocks: the 21st is refused and costs nothing
+        g.world.inventory.coins = 100;
+        g.world.inventory.add(Item::Rock, 20);
+        g.act("shop.buy", "rock").unwrap();
+        assert_eq!(
+            (g.world.inventory.count(Item::Rock), g.world.inventory.coins),
+            (20, 100)
+        );
+        assert_eq!(json(&g)["shop"]["note"], "You carry as many as you can hold: 20.");
+        // 998 coins: a rock's 1 fits (999), the next does not
+        g.world.inventory.coins = 998;
+        g.act("shop.sell", "rock").unwrap();
+        assert_eq!(
+            (g.world.inventory.coins, g.world.inventory.count(Item::Rock)),
+            (999, 19)
+        );
+        g.act("shop.sell", "rock").unwrap();
+        assert_eq!(
+            (g.world.inventory.coins, g.world.inventory.count(Item::Rock)),
+            (999, 19)
+        );
+        assert_eq!(
+            json(&g)["shop"]["note"],
+            "You can carry 999 coins at most. Spend some first."
+        );
+        assert_eq!(g.world.inventory.add_coins(5), 0);
+        assert!(!g.world.inventory.spend(1000));
+        assert_eq!(g.world.inventory.coins, 999);
     }
 
     #[test]

@@ -691,6 +691,12 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .row-button:hover:not(:disabled), .leave:hover, .back:hover { filter: brightness(1.06); }
 .row-button:active:not(:disabled), .leave:active, .back:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--accent-deep); }
 .row-button:disabled { background: #cfc3ad; box-shadow: 0 3px 0 #b3a68e; color: rgba(43, 33, 64, 0.55); cursor: default; }
+/* M7: an item the merchant will not buy: listed, its price place saying
+   why, its button giving the refusal line */
+.shop-row.kept { background: rgba(43, 33, 64, 0.02); }
+.shop-row.kept .row-price { color: var(--ink-soft); font-weight: 700; font-style: italic; }
+.shop-row.kept .well img { opacity: 0.75; }
+.shop-row.kept .row-button { background: #cfc3ad; box-shadow: 0 3px 0 #b3a68e; color: rgba(43, 33, 64, 0.6); }
 .shop-empty { margin: 0; font-weight: 700; color: var(--ink-soft); }
 .shop-empty:empty, .shop-note:empty { display: none; }
 .shop-note { margin: 0; padding: 10px 16px; border-radius: 14px; background: rgba(217, 119, 74, 0.12); font-weight: 800; color: var(--accent-deep); }

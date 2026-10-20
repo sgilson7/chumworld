@@ -192,5 +192,14 @@
   "trainer_again": "Not yet. Watch the pattern, and swing through each orb as it comes.",
   "trainer_pass_1": "That is it. You turned them yourself.",
   "trainer_pass_2": "The imbue is yours now. Press Q and your sword turns magic for a while; then it needs time before the next.",
-  "trainer_done": "Keep the blade moving. Magic does not wait for you."
+  "trainer_done": "Keep the blade moving. Magic does not wait for you.",
+  "refuse_sell_hand": "The {item} is in your sword hand. Put another sword there in Equipment to sell this one.",
+  "refuse_sell_worn": "You wear the {item}. Take it off in Equipment to sell it.",
+  "refuse_sell_quest": "The merchant does not buy the {item}. There is no other to find.",
+  "refuse_purse": "You can carry {n} coins at most. Spend some first.",
+  "kept_hand": "In your hand",
+  "kept_worn": "Worn",
+  "kept_one": "Not for sale",
+  "kept_purse": "Too many coins",
+  "story_purse_full": "You can carry no more coins."
 }

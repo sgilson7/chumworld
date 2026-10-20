@@ -587,6 +587,7 @@ export function makeMenus(root, { act, pixels, keys }) {
     text(li.price, r.price);
     text(li.button, r.action.label);
     li.button.disabled = !r.action.enabled;
+    flag(li, "kept", r.kept);
     li.button.setAttribute("aria-label", `${r.action.label}: ${r.item.name}, ${r.price}`);
     term(li.name);
   }
