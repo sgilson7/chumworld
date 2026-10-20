@@ -858,8 +858,12 @@ def m5_views(browser, base, out, views, logs):
             press(page, "Space", 8)
         press(page, "KeyX", 60)
         shot(page, "m5-practice")
-        act(page, "trainer.credit", "5")
-        page.wait_for_selector("body[data-screen='dialogue']", state="attached", timeout=10000)
+        # the guard held: the lent imbue turns the motes until five are turned
+        page.wait_for_selector("body[data-screen='dialogue']", state="attached", timeout=120000)
+        for _ in range(8):
+            if page.get_attribute("body", "data-screen") == "dialogue" and "trainer_pass" not in (page.inner_text("#menus") or ""):
+                break
+            wait_frames(page, 10)
         wait_frames(page, 120)
         shot(page, "m5-learned")
         page.close()
