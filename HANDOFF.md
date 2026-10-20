@@ -48,6 +48,26 @@ Merged main with M3 (models) and M4 (menus): health reaches M4's bars through `u
 Check: `./scripts/check.sh` passed all 9 steps on 2026-10-20 after merging M4 (223 tests by `./scripts/count-tests.sh`, 3 probes ignored; three engines). Breaks: `python3 scripts/break_tests.py` over M1's rows, the eight M0 rows M1 repaired and M4's full-health row: 55 of 55 caught.
 
 
+## 2026-10-20: M1 polish (task D2)
+
+Built:
+- **Bodies.** Ten capsules a body, sized to M3's figures (`blade::body`, R3.30). Bodies are kept apart capsule against capsule by an exact, mass-weighted pair shift that keeps momentum (R3.31). A guard held across the line keeps a walker off (R3.46).
+- **Blades and hands.** Every weapon is rails as M3 draws it, the cleaver's offset slab included. Weapons and hands are kept out of every body, their own included, with a 15 mm skin. They are swept so they cannot tunnel, then settled where another body is near (R3.23, R3.33, R3.34, R3.51).
+- **The blade's line** reads the mouse's path: overhead, side cut and thrust (R3.35).
+- **Reach.** Each foe keeps a band outside its own reach, steps in to attack and steps out to recover. Bandits use short swords; foes hold a middle guard to their left (R3.37 to R3.39, R3.49).
+- **Scabbard.** A scabbard on the left hip, with the draw and sheathe animated through it over 28 and 30 ticks (R3.40).
+- **Feel** (`feel.rs`): hit-stop, a camera knock, sparks, stagger, all decaying to nothing (R3.41).
+- **Death.** A fall onto the back with the weapon dropped and lying still. `World::player_down()` and `feel.downed` are M5's hooks (R3.42).
+- **Damage** is scaled to the faster cuts (R3.44).
+- **Staging.** Test duels move 30 m south, clear of the lantern (R3.43). New test act `duel.health` (R3.45). `tools/shoot.py` has eight D2 views.
+
+Check: `./scripts/check.sh` passed all 9 steps on 2026-10-20 (three engines); 242 tests by `./scripts/count-tests.sh` (3 probes ignored; M1: 223); `python3 scripts/break_tests.py M1`: 89 of 89 caught (M1's rows and D2's). Main had not moved since the M1 merge (`git merge main`: already up to date).
+
+Open: R3.37, R3.41 and R3.44 are first numbers for play. R3.50 needs a test that a blade pressed along a body takes no second blow.
+
+For the coordinator:
+- R3.30 copies M3's figure millimetres into `blade.rs`, and R3.40 copies M3's blade widths into the scabbard. A change to M3's sizes needs these changed too; a door from M3 giving the sizes would remove the copy.
+- The block view's spark is not caught in a still from the browser; the spark is covered by `blades_that_meet_throw_a_spark_that_burns_out`.
 ## 2026-10-20: M2 world (task W)
 
 Built: the land from a seed (`terrain.rs`: plains, the trainer's hill and five others, the north-east forest, ridges beyond the square to the 16 km horizon cut by the river's valley; the village plateau at height 0; roads, lanes, trails and every footprint flattened; Protection of the Spheres' faceted colours), drawn as a quadtree of tiles by detail level with dithered hand-overs and built ahead of the camera (`lod.rs`), the river solved with the fishing game's step method and drawn with its water look, flow round the bridge's piers and the shrine's islet, and the village pond (`water.rs`, `water/solve.rs`, `data/shaders/water.*`), the haze made whole before the far plane and tinted over the middle distance (`sky.rs`), trees, rocks, grass and flowers by detail level (`scatter.rs`), and the places from `data/places.json` through M3's `models::prop` (`places.rs`). `field.rs` is gone. `SECOND-ORDER.md` R4.1 to R4.24 say what was decided alone.
@@ -59,3 +79,9 @@ Waiting on the person: R4.24 (the water's, trees' and land's colours and the mou
 For the coordinator: R4.4 (files outside M2's list that M2 had to add to), R4.6 (about 1.3 M triangles resident, 140 MB of vertex buffers), R4.7 (about 600 draws a frame), R4.14 (prop sizes assumed), R4.15 (`?go=` for M5 to keep or gate).
 
 Check, 2026-10-20 after merging M1, M3 and M4: `./scripts/check.sh` steps 1 to 7 pass (format, lint, 254 core tests by `./scripts/count-tests.sh` with 7 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R4.24 has status *person* and the journal, which M2 does not edit, does not name it yet; step 9, the browser check, passes in Chromium, Firefox and WebKit run on its own on the same build. Breaks: `python3 scripts/break_tests.py M2`, 31 of 31 caught, and M0's pass-order row repointed for `Pass::Water`, caught; the four `field.rs` rows went with `field.rs`.
+
+## 2026-10-20: M1 polish (task D2), after M2 merged
+
+Merged main at d07518d (M2 World). The conflicts in `world.rs` (land, water and arrival beside feel), `tools/shoot.py` (D2 and M2 views), `tests/breaks.json` (D2's rows kept as repaired, M2's 31 new rows, M2's one repair to a shared row, the M1 row removed in R3.50 left out: 276 rows), and the notes, are all kept on both sides. The shove test's fixture stood on the map's corner with a drawn orc; it now stands at the duel spot on level ground with the orc's blade put away (R3.52). The scabbard hangs from the belt, 40° back, tapered with a chape (R3.53). Held on a foe the view moves 0.4 m right (R3.54). Fence rounds 8 to 16 (R3.33). New test act `duel.guard` (R3.54).
+
+Check: `./scripts/check.sh` passed all 9 steps on 2026-10-20 after the merge (three engines); 275 tests by `./scripts/count-tests.sh` (7 probes ignored); `python3 scripts/break_tests.py M1`: 91 of 91 caught (with the scabbard row repaired, R3.55).

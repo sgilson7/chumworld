@@ -94,6 +94,8 @@ pub struct World {
     pub throwables: crate::throwables::State,
     pub motion: crate::motion::State,
     pub sticks: bool,
+    // M1: the hit-stop, the camera's knock, sparks and the tick's events
+    pub feel: crate::feel::State,
     // M2: the land (heights, layout, river), shared by every copy of the
     // world; the water's waves; a place to put the player when play starts
     pub land: std::rc::Rc<crate::terrain::Land>,
@@ -136,6 +138,7 @@ impl World {
             throwables: crate::throwables::State::default(),
             motion: crate::motion::State::default(),
             sticks: false,
+            feel: crate::feel::State::default(), // M1:
             // M2
             land: crate::terrain::shipped(),
             water: crate::water::State::new(),
@@ -167,6 +170,12 @@ impl World {
         }
         let input = &crate::story::filter(self, input);
         self.tick += 1;
+        // M1: a hard blow holds the world still for a few ticks
+        if self.feel.stop > 0 {
+            crate::feel::hold(self, input);
+            crate::ui::step(self);
+            return;
+        }
         // 1. the aim (M1: drawn, the mouse moves the hand instead, and the
         // view holds on the foe)
         let look = crate::player::look_mouse(self, input);
@@ -176,17 +185,19 @@ impl World {
         crate::inventory::step(self, input);
         // 2. M1:
         let inputs = crate::pilot::step(self);
-        let inputs = crate::story::steer(self, inputs); // M5: foes walking, running, sheathing
-                                                        // 3. bodies (M1: motion)
+        // M5: the story's foes walking, running, drawing and sheathing
+        let inputs = crate::story::steer(self, inputs);
+        // 3. bodies (M1: motion; M5: walls, the bridge's deck, the house's floor)
         crate::motion::step(self, input, &inputs);
-        crate::solid::step(self); // M5: walls, the bridge's deck, the house's floor
-                                  // 4. M1:
+        crate::solid::step(self);
+        // 4. M1:
         crate::arm::step(self, input, &inputs);
         crate::blade::step(self);
         crate::health::step(self);
-        // 5. M1/M5: throwables, crate::boomerang::step(self, input);
+        crate::feel::step(self); // M1:
+        // 5. M1/M5: throwables, the boomerang
         crate::throwables::step(self, input, &inputs);
-        crate::boomerang::step(self, input); // M5:
+        crate::boomerang::step(self, input);
         crate::player::finish(self, input, &inputs);
         crate::pilot::remember(self);
         // 6. M6: crate::orbs::step(self); crate::imbue::step(self, input);
@@ -203,6 +214,7 @@ impl World {
         // M1: every fighter and everything thrown
         crate::player::draw(self, alpha, look, out);
         crate::throwables::draw(self, alpha, look, out);
+        crate::feel::draw(self, alpha, look, out); // M1:
         // M5: the player's house and bed, villagers, pickups, the cart, the
         // chest, the boomerang
         crate::story::draw(self, alpha, look, out);
@@ -272,7 +284,20 @@ impl World {
         } else {
             self.aim
         };
-        camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z))
+        let mut cam = camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z));
+        // M1: a hard blow knocks the view a little; held on a foe, the view
+        // frames the duel from a little higher and further right
+        cam.eye = cam
+            .eye
+            .add(crate::feel::knock_at(self, alpha))
+            .add(crate::player::framing(self, alpha, aim.yaw));
+        cam
+    }
+
+    /// M1: the player is down (at no health, fallen): M5's hook for waking
+    /// in bed. `feel.downed` names everyone who went down this tick.
+    pub fn player_down(&self) -> bool {
+        self.me.health.down()
     }
 }
 

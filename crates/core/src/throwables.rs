@@ -42,7 +42,7 @@ pub const KNIFE_SPEED: Fx = fx::int(19);
 pub const ROCK_R: Fx = ONE * 6 / 100;
 pub const KNIFE_LEN: Fx = ONE * 22 / 100;
 /// What a blow takes for each metre a second it lands at, hundredths of a
-/// blade's (`health::PER_MPS`): a rock bruises, a knife cuts.
+/// blade's (`health::PER_MPS_PCT`): a rock bruises, a knife cuts.
 pub const ROCK_PCT: i32 = 25;
 pub const KNIFE_PCT: i32 = 60;
 /// A thrower's own body is passed by its throw for this long.
@@ -157,10 +157,7 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
     let bodies: Vec<_> = (0..player::count(w))
         .map(|id| {
             let f = player::fighter(w, id);
-            (
-                f.health.down(),
-                blade::capsules(&f.prev_pose, &f.pose, f.build().girth_pct, f.build().head),
-            )
+            (f.health.down(), blade::capsules(f.kind, &f.prev_pose, &f.pose))
         })
         .collect();
     let mut still = Vec::new();

@@ -16,9 +16,10 @@ use crate::world::World;
 /// The player's health.
 pub const PLAYER: i32 = 100;
 /// A blow slower than this at contact takes nothing (1.5 m/s: a blade laid
-/// on a body); above it, `PER_MPS` for each metre a second.
+/// on a body); above it, `PER_MPS_PCT` hundredths for each metre a second
+/// (2.5: a cut through the front lands at 10 to 13 m/s, R3.44).
 pub const MIN_HIT: Fx = ONE * 15 / 10;
-pub const PER_MPS: i32 = 5;
+pub const PER_MPS_PCT: i32 = 250;
 /// What a blow takes by where it lands, percent.
 pub const HEAD_PCT: i32 = 150;
 pub const TORSO_PCT: i32 = 100;
@@ -89,7 +90,7 @@ impl Health {
 }
 
 /// Health a blow at `speed` (metres a second) takes on `part`: (speed −
-/// 1.5) × 5, times the part's share, rounded down; nothing below 1.5 m/s.
+/// 1.5) × 2.5, times the part's share, rounded down; nothing below 1.5 m/s.
 pub fn damage(speed: Fx, part: Part) -> i32 {
     let over = (speed - MIN_HIT).max(0) as i64;
     let pct = match part {
@@ -98,16 +99,24 @@ pub fn damage(speed: Fx, part: Part) -> i32 {
         Part::Arm(_) => ARM_PCT,
         Part::Leg(_) => LEG_PCT,
     } as i64;
-    (over * PER_MPS as i64 * pct / 100 / ONE as i64) as i32
+    (over * PER_MPS_PCT as i64 * pct / 10_000 / ONE as i64) as i32
 }
 
 /// Step 4, after the blades: this tick's hits and throwables' blows taken,
 /// weakness wearing off, the fallen falling.
 pub fn step(w: &mut World) {
     let hits = w.blades.hits.clone();
+    let up: Vec<bool> = (0..player::count(w))
+        .map(|id| !player::fighter(w, id).health.down())
+        .collect();
     for h in &hits {
         player::parts_mut(w, h.on as usize).1.health.take(h.speed, h.part);
     }
+    // who went down this tick (the story's hook, `feel::State::downed`)
+    w.feel.downed = (0..player::count(w))
+        .filter(|&id| up[id] && player::fighter(w, id).health.down())
+        .map(|id| id as u8)
+        .collect();
     for id in 0..player::count(w) {
         let h = &mut player::parts_mut(w, id).1.health;
         for s in 0..2 {
@@ -125,13 +134,13 @@ mod tests {
 
     #[test]
     fn a_blow_takes_health_by_its_speed_and_where_it_lands() {
-        // 10 m/s on the torso: (10 − 1.5) × 5 = 42.5, rounded down to 42;
-        // on the head × 1.5 = 63.75: 63; on an arm × 0.6 = 25.5: 25
+        // 10 m/s on the torso: (10 − 1.5) × 2.5 = 21.25, rounded down to
+        // 21; on the head × 1.5 = 31.9: 31; on an arm × 0.6 = 12.75: 12
         let ten = crate::fx::int(10);
-        assert_eq!(damage(ten, Part::Torso), 42);
-        assert_eq!(damage(ten, Part::Head), 63);
-        assert_eq!(damage(ten, Part::Arm(1)), 25);
-        assert_eq!(damage(ten, Part::Leg(0)), 29, "8.5 × 5 × 0.7 = 29.75");
+        assert_eq!(damage(ten, Part::Torso), 21);
+        assert_eq!(damage(ten, Part::Head), 31);
+        assert_eq!(damage(ten, Part::Arm(1)), 12);
+        assert_eq!(damage(ten, Part::Leg(0)), 14, "8.5 × 2.5 × 0.7 = 14.9");
         assert_eq!(damage(ONE, Part::Head), 0, "a blade laid on takes nothing");
     }
 
@@ -139,7 +148,7 @@ mod tests {
     fn a_hit_arm_is_weakened_then_recovers() {
         let mut h = Health::new(100);
         h.take(crate::fx::int(6), Part::Arm(1));
-        assert_eq!(h.hp, 100 - 13, "4.5 × 5 × 0.6 = 13.5");
+        assert_eq!(h.hp, 100 - 6, "4.5 × 2.5 × 0.6 = 6.75");
         assert_eq!(h.strength(1), WEAK_PCT);
         assert_eq!(h.strength(0), 100, "the other arm is whole");
         h.weak[1] = WEAK_TICKS / 2;
@@ -149,8 +158,8 @@ mod tests {
 
     #[test]
     fn at_no_health_a_fighter_is_down_and_falls() {
-        // 10 m/s on the torso takes 42: exactly all of 42
-        let mut h = Health::new(42);
+        // 10 m/s on the torso takes 21: exactly all of 21
+        let mut h = Health::new(21);
         h.take(crate::fx::int(10), Part::Torso);
         assert_eq!(h.hp, 0);
         assert!(h.down());

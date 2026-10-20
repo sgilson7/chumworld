@@ -28,6 +28,21 @@ SECOND-ORDER.md R3.4):
     orc       a duel with an orc that fights back
     slide     the speedster's five pieces: a run let go, sliding on ice
 
+The polish pass's duel views (task D2), staged at the duel's own ranges
+(an orc keeps 1.6 to 1.9 m off, R3.37), each from a fresh page; the views
+that catch a moment (a spark, a stagger) also save a burst of frames as
+NAME-1.png, NAME-2.png, ... so the best can be chosen:
+
+    d2-guard     drawn at the guard, the orc at its range
+    d2-overhead  an overhead mid-chop: the mouse up, then down with the button
+    d2-block     a cut into the orc's guard, the spark where they meet (a
+                 burst, d2-block-N.png, to choose the spark from)
+    d2-hit       a low cut that lands, the orc staggering back
+    d2-close     the player walked into the orc: pressed close, not overlapping
+    d2-sheathed  the sword in its scabbard on the left hip, seen from the side
+    d2-fallen    an orc down, lying on its back, its cleaver dropped
+    d2-group     three bandits: one duelling, two circling at a distance
+
 M4's views (the menus), opened with the test inventory and HUD values the
 core gives through `?act=test.give_all&act=test.hud&act=test.explore`:
 
@@ -111,6 +126,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 VIEWS = ["loading", "title", "standing", "turn", "run", "paused"]
 DUEL_VIEWS = ["sheathed", "drawn", "swing", "block", "hit", "rock", "orc", "slide"]
+D2_VIEWS = ["d2-guard", "d2-overhead", "d2-block", "d2-hit", "d2-close", "d2-sheathed", "d2-fallen", "d2-group"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 # M2: view: the place (?go=), and extra address flags
@@ -532,13 +548,113 @@ def duel_views(browser, base, out, views, logs):
         page.close()
 
 
+def burst(page, out, name, n):
+    """`n` frames in a row, saved as NAME-1.png ... NAME-n.png."""
+    for k in range(1, n + 1):
+        frames(page, 1)
+        page.screenshot(path=str(out / f"{name}-{k}.png"))
+
+
+def d2_views(browser, base, out, views, logs):
+    """The polish pass's views (D2_VIEWS), each from a fresh page."""
+    def drawn(flags):
+        page = duel_page(browser, base, logs, flags)
+        page.keyboard.press("KeyX")
+        frames(page, 90)
+        return page
+    if "d2-guard" in views:
+        page = drawn("duel=orc&foe=still&gap=175")
+        page.screenshot(path=str(out / "d2-guard.png"))
+        page.close()
+    if "d2-overhead" in views:
+        # raised, then brought down with the button: 600 px up, 600 down
+        page = drawn("duel=orc&foe=still&gap=175")
+        move(page, 0, -60, 10)
+        frames(page, 30)
+        page.mouse.move(960, 540)
+        page.mouse.down()
+        move(page, 0, 150, 1)
+        page.screenshot(path=str(out / "d2-overhead.png"))
+        move(page, 0, 150, 5)
+        burst(page, out, "d2-overhead", 6)
+        page.mouse.up()
+        page.close()
+    if "d2-block" in views:
+        # wound out to the right, the hand level, then cut into the orc's
+        # guard (held still, 1.35 m off): the blades meet; a burst of frames
+        # from the flick on, from which the one with the spark is chosen
+        page = drawn("duel=orc&foe=still&gap=135")
+        move(page, 45, -9.3, 10)
+        frames(page, 30)
+        page.mouse.move(960, 540)
+        page.mouse.down()
+        move(page, -150, 0, 5)
+        page.screenshot(path=str(out / "d2-block.png"))
+        for k in range(1, 9):
+            page.screenshot(path=str(out / f"d2-block-{k}.png"))
+        page.mouse.up()
+        page.close()
+    if "d2-hit" in views:
+        # an overhead from the orc's own range, stepping in (W) to land it
+        page = drawn("duel=orc&foe=still&gap=165")
+        move(page, 0, -60, 10)
+        frames(page, 30)
+        page.keyboard.down("KeyW")
+        frames(page, 8)
+        page.mouse.move(960, 540)
+        page.mouse.down()
+        move(page, 0, 150, 6)
+        page.keyboard.up("KeyW")
+        page.screenshot(path=str(out / "d2-hit.png"))
+        burst(page, out, "d2-hit", 12)
+        page.mouse.up()
+        page.close()
+    if "d2-close" in views:
+        page = drawn("duel=orc&foe=still&gap=160")
+        page.keyboard.down("KeyW")
+        frames(page, 120)
+        page.keyboard.up("KeyW")
+        frames(page, 20)
+        # the right button looks: the view swings round to the side
+        page.mouse.move(960, 540)
+        page.mouse.down(button="right")
+        move(page, 22, 0, 30)
+        frames(page, 10)
+        page.screenshot(path=str(out / "d2-close.png"))
+        page.mouse.up(button="right")
+        page.close()
+    if "d2-sheathed" in views:
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=320")
+        # sheathed, the mouse looks: round to the player's left side
+        move(page, -20, 6, 30)
+        frames(page, 20)
+        page.screenshot(path=str(out / "d2-sheathed.png"))
+        page.close()
+    if "d2-fallen" in views:
+        page = drawn("duel=orc&foe=still&gap=220&act=duel.health:0")
+        frames(page, 120)
+        page.mouse.move(960, 540)
+        page.mouse.down(button="right")
+        move(page, 0, 8, 20)
+        page.mouse.up(button="right")
+        frames(page, 10)
+        page.screenshot(path=str(out / "d2-fallen.png"))
+        page.close()
+    if "d2-group" in views:
+        page = drawn("duel=bandit&act=duel.spawn:bandit&act=duel.spawn:bandit")
+        frames(page, 150)
+        page.screenshot(path=str(out / "d2-group.png"))
+        burst(page, out, "d2-group", 3)
+        page.close()
+
+
 def main(argv):
     if not argv or argv[0].startswith("--"):
         sys.exit(__doc__)
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
-    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + M4_VIEWS + list(M2_VIEWS)
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS]
+    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + D2_VIEWS + M4_VIEWS + list(M2_VIEWS)
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -623,6 +739,7 @@ def main(argv):
             page.wait_for_timeout(500)
             page.screenshot(path=str(out / "paused.png"))
         duel_views(browser, base, out, views, logs)
+        d2_views(browser, base, out, views, logs)
         if any(v in M4_VIEWS for v in views):
             m4_views(browser, base, out, views, logs)
         if any(v in M2_VIEWS for v in views) or measure:

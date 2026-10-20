@@ -490,6 +490,9 @@ pub fn sheathed_foe(w: &mut World, kind: Kind, look: Kind, at: V3, yaw: i32) -> 
     g.health = f.health;
     g.servo_pct = f.servo_pct;
     g.pouch = f.pouch;
+    // a foe's mouse always moves its hand: it looks where its pilot holds
+    // on (`Fighter::new` sets this for a sheathed player, whose mouse looks)
+    g.mouse_looks = false;
     foe.fighter = g;
     foe.brain.control = Control::Tree;
     w.foes.push(foe);
@@ -1484,6 +1487,8 @@ mod tests {
         assert!(matches!(w.story.phase, Phase::Bed(_)));
         idle(&mut w, 1 + RISE_TICKS);
         assert_eq!(w.story.phase, Phase::Raid);
+        // the tick after: on the floor, nothing under the body but it
+        idle(&mut w, 1);
         assert_eq!(w.me.health.fall(), 0, "standing");
         assert_eq!(w.story.lift, 0);
         // standing clear of the bed, on the floor
@@ -1596,7 +1601,8 @@ mod tests {
             });
         }
         let gap = w.foes[k].body.pos.sub(w.player.pos).len_xz();
-        assert!(gap > fx::int(15), "{gap}");
+        // 10 s at 5 m/s against about 4.4: some 6 m gained on the 8
+        assert!(gap > fx::int(12), "{gap}");
         assert!(!w.me.health.down());
     }
 
@@ -1615,7 +1621,7 @@ mod tests {
         w.inventory.coins = 40;
         w.me.health.hp = 0;
         w.step(&Input::default());
-        assert_eq!(w.story.phase, Phase::Dream(1));
+        assert_eq!(w.story.phase, Phase::Dream(0));
         idle(&mut w, FALL_SHOW);
         assert!(w.story.veil, "the view fades");
         while !waking(&w) {
@@ -1812,61 +1818,21 @@ mod tests {
 
     #[test]
     fn keys_toward_alternate_between_the_two_nearest_mixes_so_their_mean_heads_true() {
-        // 22.5° left of straight ahead: forward and forward-left in turn
+        // 22.5° left of straight ahead: forward and forward-left in turn,
+        // about half each (atan2 is good to a few units)
         let mut acc = 0;
-        let way = facing(deg(22) + deg(1) / 2, 0);
-        let keys: Vec<u32> = (0..4).map(|_| keys_toward(0, way, &mut acc)).collect();
+        let way = facing(fx::TURN / 16, 0);
+        let keys: Vec<u32> = (0..8).map(|_| keys_toward(0, way, &mut acc)).collect();
         let fl = input::FORWARD | input::LEFT;
-        assert_eq!(keys.iter().filter(|k| **k == fl).count(), 2, "{keys:?}");
-        assert_eq!(keys.iter().filter(|k| **k == input::FORWARD).count(), 2);
+        let n = keys.iter().filter(|k| **k == fl).count();
+        assert!((3..=5).contains(&n), "{keys:?}");
+        assert_eq!(keys.iter().filter(|k| **k == input::FORWARD).count(), 8 - n);
+        // 10° left: mostly forward
+        let mut acc = 0;
+        let keys: Vec<u32> = (0..9).map(|_| keys_toward(0, facing(deg(10), 0), &mut acc)).collect();
+        assert_eq!(keys.iter().filter(|k| **k == fl).count(), 2, "10/45 of 9: {keys:?}");
         // straight behind: back only
         let mut acc = 0;
         assert_eq!(keys_toward(deg(30), facing(deg(210), 0), &mut acc), input::BACK);
-    }
-}
-#[cfg(test)]
-mod probe {
-    use super::*;
-    #[test]
-    #[ignore]
-    fn probe_chase() {
-        let mut w = opening(3);
-        for _ in 0..(WAKE_TICKS + RISE_TICKS) {
-            w.step(&Input::default());
-        }
-        let h = w.solid.home.unwrap();
-        eprintln!(
-            "foot {} floor {} pos {:?} ground {} surface {}",
-            h.foot.y,
-            h.foot.y + solid::FLOOR,
-            w.player.pos,
-            w.ground(w.player.pos.x, w.player.pos.z),
-            solid::surface(&w, w.player.pos.x, w.player.pos.z)
-        );
-        let o = w.foes[w.story.raid[0].foe].body.pos;
-        let mut p = o.add(v3(fx::int(20), 0, 0));
-        p.y = w.ground(p.x, p.z);
-        w.player = Body::new(p, 0);
-        w.me = Fighter::new(Kind::Player, Held::ShortSword, 0, p, 0, false);
-        w.me.health = crate::health::Health::new(100_000);
-        for t in 0..2400 {
-            w.step(&Input::default());
-            let r = &w.story.raid[0];
-            let f = &w.foes[r.foe];
-            if t % 60 == 0 {
-                eprintln!(
-                    "t {t} mode {:?} sheath {:?} gap {} keys {:?} btn {} cur {:?} hp {} hits {} clash {}",
-                    r.mode,
-                    f.fighter.sheath,
-                    f.body.pos.sub(w.player.pos).len_xz() / 655,
-                    f.fighter.last.keys,
-                    f.fighter.last.buttons,
-                    f.brain.current,
-                    w.me.health.hp,
-                    w.blades.hits.len(),
-                    w.blades.clashes.len()
-                );
-            }
-        }
     }
 }
