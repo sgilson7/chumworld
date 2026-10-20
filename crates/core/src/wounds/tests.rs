@@ -539,25 +539,21 @@ fn a_struck_part_flinches_as_drawn_and_eases_back() {
 
 #[test]
 fn a_blade_s_contact_names_the_capsule_it_struck() {
-    // a still orc, the player's sword swept across and walked into its
-    // guard: every blow names a capsule of the part it landed on
-    let mut w = duel("orc");
+    // an orc run by its tree against a player standing with a sword
+    // drawn: every blow it lands names a capsule of the part it landed on
+    let mut w = World::new(3);
+    player::act(&mut w, "spawn", "orc").unwrap();
+    w.me.health = crate::health::Health::new(100_000);
     w.step(&Input {
         keys: crate::input::DRAW,
         ..Default::default()
     });
-    idle(&mut w, 40);
     let mut seen = Vec::new();
-    for k in 0..200 {
-        w.step(&Input {
-            keys: crate::input::FORWARD,
-            dx: if k % 40 < 20 { -15_000 } else { 15_000 },
-            buttons: crate::input::SWING,
-            ..Default::default()
-        });
+    for _ in 0..900 {
+        w.step(&Input::default());
         seen.extend(w.blades.hits.iter().copied());
     }
-    assert!(!seen.is_empty(), "the sweeps landed");
+    assert!(!seen.is_empty(), "the orc's cuts landed");
     for h in &seen {
         let ok = match h.part {
             Part::Head => h.seg == 0,

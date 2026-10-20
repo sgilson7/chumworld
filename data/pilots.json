@@ -1,5 +1,5 @@
 {
-  "_note": "Each kind of foe and the behaviour trees they duel with (crates/core/src/pilot.rs). A tree is checked every 6 ticks on the duel as it was reaction_ticks ago; the first rule whose conditions all hold picks a move, and the move plays until it ends. A rule marked interrupt may break into a move under way, but never into a committed swing. Distances are centimetres, speeds centimetres a second, shares percent. hand_px is how far the pilot moves its mouse a tick, strike_px in a swing. keep_cm is the band a foe keeps to in a duel, that far outside its own reach (pilot::reach, shoulder to tip at full stretch: an orc's cleaver 144 cm, a bandit's short sword 140, the leader's sword 177); beyond_reach and within_reach count from the same reach. An attack steps in to 10 cm inside its reach and steps back out to the band after. The others in a group, all but the one nearest the player, run the ring tree. M7 (wounds, T9): a foe whose sword hand is lost drops its weapon (unarmed); with the other hand whole it can take it up (can_take_up, weapon_within) and fights on with it, weaker. Orcs take theirs up when near and otherwise keep coming; bandits run; the leader goes back for its sword and switches hands.",
+  "_note": "Each kind of foe and the behaviour trees they duel with (crates/core/src/pilot.rs). A tree is checked every 6 ticks on the duel as it was reaction_ticks ago; the first rule whose conditions all hold picks a move, and the move plays until it ends. A rule marked interrupt may break into a move under way, but never into a committed swing. Distances are centimetres, speeds centimetres a second, shares percent. hand_px is how far the pilot moves its mouse a tick, strike_px in a swing. keep_cm is the band a foe keeps to in a duel, that far outside its own reach (pilot::reach, shoulder to tip at full stretch: an orc's cleaver 144 cm, a bandit's short sword 140, the leader's sword 177); beyond_reach and within_reach count from the same reach. An attack steps in to 10 cm inside its reach and steps back out to the band after. The others in a group, all but the one nearest the player, run the ring tree. cuts weighs which cut an attack makes (crates/core/src/swing.rs): level (from the right), backhand (level, from the left), chop, rising, thrust; the pilot makes it as the player does, the left button held and the mouse moved that way once. M7 (wounds, T9): a foe whose sword hand is lost drops its weapon (unarmed); with the other hand whole it can take it up (can_take_up, weapon_within) and fights on with it, weaker. Orcs take theirs up when near and otherwise keep coming; bandits run; the leader goes back for its sword and switches hands.",
   "kinds": {
     "orc": {
       "held": "cleaver",
@@ -11,7 +11,8 @@
       "rocks": 0,
       "knives": 0,
       "keep_cm": [15, 45],
-      "tree": "orc"
+      "tree": "orc",
+      "cuts": { "level": 30, "backhand": 15, "chop": 40, "rising": 5, "thrust": 10 }
     },
     "bandit": {
       "held": "short_sword",
@@ -23,7 +24,8 @@
       "rocks": 3,
       "knives": 0,
       "keep_cm": [10, 40],
-      "tree": "bandit"
+      "tree": "bandit",
+      "cuts": { "level": 30, "backhand": 25, "chop": 20, "rising": 10, "thrust": 15 }
     },
     "leader": {
       "held": "sword",
@@ -35,7 +37,8 @@
       "rocks": 2,
       "knives": 1,
       "keep_cm": [5, 35],
-      "tree": "leader"
+      "tree": "leader",
+      "cuts": { "level": 25, "backhand": 20, "chop": 25, "rising": 15, "thrust": 15 }
     }
   },
   "trees": {
