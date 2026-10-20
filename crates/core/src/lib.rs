@@ -9,5 +9,8 @@
 //! describes. Keep `api.rs` as the one door the shim calls through.
 
 pub mod api;
+pub mod fx;
 pub mod glossary;
 pub mod page;
+pub mod rng;
+pub mod ticks;
