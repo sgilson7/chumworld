@@ -62,6 +62,15 @@ pub use figure::{rest_pose, Dress, BOOTS, GLOVES, HOOD, JACKET, SPEEDSTER_ALL, T
 pub use held::{grip_to_tip, kind_held, pickup, Pickup};
 pub use lineup::{act, draw, Lineup, Show};
 pub use props::{donkey, prop_radius, prop_shapes, DONKEY_TO_CART};
+// M7 roadside: how tall a prop stands, for the landmarks seen from the
+// boundary, and the numbers its climbed props are built to
+pub use props::prop_top;
+pub mod props_numbers {
+    pub use super::props::{
+        TOR_EDGE, TOR_FOOT, TOR_RAMP_HALF, TOR_TOP, WATCH_FOOT, WATCH_HALF, WATCH_STAIR_HALF, WATCH_TOP,
+        WATCH_Z,
+    };
+}
 
 /// The parts each model is drawn from, for counting and testing.
 pub use figure::model as figure_model;
@@ -86,10 +95,16 @@ pub enum Prop {
     Bed,
     Signpost,
     HollowTree,
+    // M7 roadside (P7, T12): what stands beside the ways out of the village
+    Wreck,
+    WreckBurnt,
+    Watchtower,
+    Tor,
+    LoneTree,
 }
 
 impl Prop {
-    pub const ALL: [Prop; 15] = [
+    pub const ALL: [Prop; 20] = [
         Prop::House,
         Prop::Barn,
         Prop::Well,
@@ -105,6 +120,11 @@ impl Prop {
         Prop::Bed,
         Prop::Signpost,
         Prop::HollowTree,
+        Prop::Wreck,
+        Prop::WreckBurnt,
+        Prop::Watchtower,
+        Prop::Tor,
+        Prop::LoneTree,
     ];
 }
 

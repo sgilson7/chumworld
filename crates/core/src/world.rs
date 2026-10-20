@@ -112,6 +112,8 @@ pub struct World {
     // M6: the orbs in flight and the casts under way; the imbue
     pub orbs: crate::orbs::State,
     pub imbue: crate::imbue::State,
+    // M7 roadside (T12): the stops beside the ways out, the straggler
+    pub roadside: crate::roadside::State,
 }
 
 impl World {
@@ -154,6 +156,7 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
+            roadside: crate::roadside::State::default(), // M7 roadside
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w
@@ -278,6 +281,7 @@ impl World {
             Some(("trainer", rest)) => crate::trainer::act(self, rest, value),
             Some(("merchant", rest)) => crate::merchant::act(self, rest, value),
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
+            Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

@@ -179,6 +179,11 @@ pub fn model(kind: Prop) -> Model {
         Prop::Bed => bed(&mut k),
         Prop::Signpost => signpost(&mut k),
         Prop::HollowTree => hollow_tree(&mut k),
+        Prop::Wreck => wreck(&mut k, false),
+        Prop::WreckBurnt => wreck(&mut k, true),
+        Prop::Watchtower => watchtower(&mut k),
+        Prop::Tor => tor(&mut k),
+        Prop::LoneTree => lone_tree(&mut k),
     }
     k.m
 }
@@ -897,4 +902,304 @@ pub fn donkey_model(step_phase: i32) -> Model {
         k.m.add(Mesh::Facet, h, hoof, k.ink);
     }
     k.m
+}
+
+// ---- M7 roadside (P7, T12): the stops beside the ways out of the village ----
+//
+// Each is built round the middle of its footprint in `data/roadside.json`,
+// front (−z) toward the way it stands beside. The watchtower's and the
+// tor's walkable tops and ramps are `roadside::climbs`, which must match
+// the numbers here (`WATCH_*`, `TOR_*`).
+
+/// The watchtower's platform: its middle along z, its half size, and the
+/// height of its walking surface (mm); the stair climbs from `WATCH_FOOT`
+/// (z) at the ground to the platform's front edge.
+pub const WATCH_Z: i32 = 3500;
+pub const WATCH_HALF: i32 = 1600;
+pub const WATCH_TOP: i32 = 4900;
+pub const WATCH_FOOT: i32 = -5500;
+pub const WATCH_STAIR_HALF: i32 = 700;
+/// The tor: its flat top's height, and its ramp from `TOR_FOOT` (z) at the
+/// ground to `TOR_EDGE`, where the top begins.
+pub const TOR_TOP: i32 = 3250;
+pub const TOR_FOOT: i32 = -5600;
+pub const TOR_EDGE: i32 = 750;
+pub const TOR_RAMP_HALF: i32 = 800;
+
+/// How tall a prop stands over its base: the highest point of its mesh.
+pub fn prop_top(kind: Prop) -> Fx {
+    let b = baked(kind);
+    let top = b.body.chunks(9).map(|v| v[1]).max().unwrap_or(0);
+    let glow = model(kind)
+        .parts
+        .iter()
+        .filter(|p| p.glow != 0 || p.halo != 0)
+        .map(|p| p.at.t.y + p.at.c1.len() / 2)
+        .max()
+        .unwrap_or(0);
+    top.max(glow)
+}
+
+impl Kit {
+    /// A slab `width` across and `thick` deep whose top face runs straight
+    /// from `a` to `b` (two points with the same x, `b` higher and further
+    /// along +z): a ramp or a stair's board.
+    fn slab(
+        &mut self,
+        mesh: Mesh,
+        a: (i32, i32, i32),
+        b: (i32, i32, i32),
+        width: i32,
+        thick: i32,
+        rgb: Rgb,
+    ) -> usize {
+        let (dy, dz) = (b.1 - a.1, b.2 - a.2);
+        let theta = fx::atan2(dy, dz);
+        let (s, c) = (fx::sin(theta), fx::cos(theta));
+        let len = fx::length(dy, dz);
+        // the middle of the top face, then half the thickness down its normal
+        // (0, cos θ, −sin θ)
+        let mid = (a.0, (a.1 + b.1) / 2, (a.2 + b.2) / 2);
+        let at = (
+            mid.0,
+            mid.1 - fx::mul(thick / 2, c),
+            mid.2 + fx::mul(thick / 2, s),
+        );
+        self.shape(mesh, at, (width, thick, len), Affine::rot_x(-theta), rgb)
+    }
+}
+
+/// A cart overturned on its side, its open bed toward the way and what it
+/// carried spilled out in front; `burnt`, charred and still burning.
+fn wreck(k: &mut Kit, burnt: bool) {
+    let (wood, dark, iron) = if burnt {
+        (k.c("char"), k.c("char_dark"), k.c("iron"))
+    } else {
+        (k.c("cart_wood"), k.c("wood_dark"), k.c("iron"))
+    };
+    // the bed's floor stands up at the back; one side lies on the ground,
+    // the other is the top; the ends close it
+    k.bx((0, 760, 380), (2400, 1500, 100), wood);
+    k.bx((0, 50, 40), (2380, 70, 700), wood);
+    k.bx((0, 1440, 40), (2380, 80, 700), wood);
+    for x in [-1170, 1170] {
+        k.bx((x, 745, 40), (80, 1430, 680), wood);
+    }
+    // the axle stands up behind the floor, one wheel still on it, flat
+    k.up(Mesh::Cyl, (300, 1180, 560), (100, 960, 100), iron);
+    for y in [900, 1420] {
+        k.bx((300, y, 495), (160, 150, 150), dark);
+    }
+    k.up(Mesh::Tube, (300, 1600, 560), (1150, 100, 1150), dark);
+    k.up(Mesh::Cyl, (300, 1605, 560), (240, 170, 240), iron);
+    for s in 0..3 {
+        let turn = Affine::rot_y(fx::TURN * s / 6);
+        k.shape(Mesh::Cube, (300, 1598, 560), (1000, 60, 50), turn, wood);
+    }
+    // the other wheel came off and lies in front, tipped a little
+    let tip = Affine::rot_x(deg(8)).then(&Affine::rot_z(deg(5)));
+    k.shape(Mesh::Tube, (-1750, 110, -950), (1150, 100, 1150), tip, dark);
+    k.shape(Mesh::Cyl, (-1750, 118, -950), (240, 170, 240), tip, iron);
+    // a shaft broken off on the ground, the other up in the air
+    k.bar(Mesh::Cyl, (-900, 130, -230), (-2600, 70, -1400), 80, dark);
+    k.bar(Mesh::Cyl, (1150, 1180, 210), (2900, 2350, 310), 80, dark);
+    if burnt {
+        // embers along the bed and a fire in the middle of it
+        for (x, z) in [(-700, -60), (150, 120), (820, -40)] {
+            k.glow(Mesh::Facet, (x, 130, z), (420, 140, 300), k.c("ember"), ONE / 3);
+        }
+        k.glow(
+            Mesh::Cone,
+            (-250, 640, 60),
+            (760, 1180, 520),
+            k.c("flame"),
+            ONE / 2,
+        );
+        k.glow(Mesh::Cone, (-250, 470, 70), (420, 760, 300), k.c("flame_core"), 0);
+        k.glow(Mesh::Cone, (620, 520, 30), (440, 820, 360), k.c("flame"), ONE / 2);
+        k.up(Mesh::Facet, (-300, 60, -820), (900, 110, 700), k.c("char_dark"));
+    } else {
+        // the load, spilled toward the way
+        let (crate_c, barrel, sack, cloth) = (k.c("crate"), k.c("barrel"), k.c("sack"), k.c("cart_cloth"));
+        k.shape(
+            Mesh::Cube,
+            (-480, 215, -930),
+            (440, 420, 380),
+            Affine::rot_y(deg(20)),
+            crate_c,
+        );
+        k.shape(
+            Mesh::Cube,
+            (430, 190, -1180),
+            (420, 400, 410),
+            Affine::rot_z(deg(28)),
+            crate_c,
+        );
+        let lying = Affine::rot_x(fx::QUARTER_TURN).then(&Affine::rot_z(deg(-14)));
+        k.shape(Mesh::Cyl, (980, 195, -520), (380, 520, 380), lying, barrel);
+        k.shape(Mesh::Tube, (980, 195, -520), (400, 60, 400), lying, iron);
+        k.up(Mesh::Facet, (-1120, 170, -420), (600, 340, 500), sack);
+        let cloth_turn = Affine::rot_y(deg(-12));
+        k.shape(Mesh::Cube, (-180, 32, -1600), (1600, 40, 900), cloth_turn, cloth);
+        k.shape(
+            Mesh::Cube,
+            (-180, 52, -1600),
+            (1660, 40, 220),
+            cloth_turn,
+            k.c("cart_stripe"),
+        );
+    }
+}
+
+/// A lookout tower of timber: four posts to a roof, a railed platform, a
+/// flag over the roof, and a stair from the front up to the platform.
+fn watchtower(k: &mut Kit) {
+    let (wood, dark, roof, flag) = (
+        k.c("timber"),
+        k.c("wood_dark"),
+        k.c("roof_tile"),
+        k.c("tent_flag"),
+    );
+    let z0 = WATCH_Z;
+    let p = 1450;
+    for (x, z) in [(-p, z0 - p), (p, z0 - p), (-p, z0 + p), (p, z0 + p)] {
+        k.bx((x, 3700, z), (200, 7400, 200), wood);
+    }
+    // the platform on its beams (its walking surface is WATCH_TOP)
+    k.bx(
+        (0, WATCH_TOP - 80, z0),
+        (2 * WATCH_HALF, 160, 2 * WATCH_HALF),
+        k.c("plank_1"),
+    );
+    for z in [z0 - p, z0 + p] {
+        k.bx((0, 4670, z), (3000, 180, 160), dark);
+    }
+    for x in [-p, p] {
+        k.bx((x, 4660, z0), (160, 180, 3000), dark);
+    }
+    // its rails, open at the stair's head
+    k.bx((0, 5800, z0 + p), (3000, 90, 90), wood);
+    for x in [-p, p] {
+        k.bx((x, 5810, z0), (90, 90, 3000), wood);
+    }
+    for x in [-1125, 1125] {
+        k.bx((x, 5790, z0 - p), (740, 90, 90), wood);
+    }
+    // crossed braces under the platform, at the back and the sides; the
+    // second of each pair stands a little off the first
+    // (each face at least 35 mm from a post's, so depth tells them apart)
+    k.bar(Mesh::Cube, (-p, 300, z0 + 1430), (p, 4500, z0 + 1430), 90, dark);
+    k.bar(Mesh::Cube, (p, 300, z0 + 1470), (-p, 4500, z0 + 1470), 90, dark);
+    for s in [-1, 1] {
+        k.bar(
+            Mesh::Cube,
+            (s * 1430, 300, z0 - p),
+            (s * 1430, 4500, z0 + p),
+            90,
+            dark,
+        );
+        k.bar(
+            Mesh::Cube,
+            (s * 1470, 300, z0 + p),
+            (s * 1470, 4500, z0 - p),
+            90,
+            dark,
+        );
+    }
+    // the roof and the flag
+    k.up(Mesh::Pyramid, (0, 7900, z0), (3900, 1100, 3900), roof);
+    k.bar(Mesh::Cyl, (0, 8300, z0), (0, 10300, z0), 70, dark);
+    k.up(Mesh::Wedge, (430, 9950, z0), (760, 380, 40), flag);
+    // the stair: a board from the ground to the platform's front edge, its
+    // treads standing proud of it, handrails, and two props under it
+    let foot = (0, 0, WATCH_FOOT);
+    let head = (0, WATCH_TOP, z0 - WATCH_HALF);
+    k.slab(Mesh::Cube, foot, head, 2 * WATCH_STAIR_HALF - 100, 140, wood);
+    let n = 16;
+    for i in 1..n {
+        let t = |a: i32, b: i32| a + (b - a) * i / n;
+        let at = (0, t(foot.1, head.1), t(foot.2, head.2));
+        let a = (at.0, at.1 + 25, at.2 - 110);
+        let b = (at.0, at.1 + 25 + 150, at.2 + 110);
+        k.slab(Mesh::Cube, a, b, 2 * WATCH_STAIR_HALF - 240, 60, dark);
+    }
+    for x in [-WATCH_STAIR_HALF, WATCH_STAIR_HALF] {
+        k.bar(
+            Mesh::Cyl,
+            (x, 900, WATCH_FOOT + 60),
+            (x, WATCH_TOP + 880, z0 - WATCH_HALF - 40),
+            70,
+            wood,
+        );
+        k.bx((x, 470, WATCH_FOOT + 60), (90, 940, 90), wood);
+        k.bx((x * 8 / 10, 1300, -1500), (140, 2600, 140), dark);
+    }
+}
+
+/// A tor: a flat-topped rock to climb by a ramp of rock at its front, with
+/// boulders round it and a tall rock standing at its back.
+fn tor(k: &mut Kit) {
+    let (rock, dark, moss) = (k.c("rock"), k.c("stone_dark"), k.c("moss"));
+    // the body of the rock, under a faceted cap whose middle is the top
+    // (`TOR_TOP`, a little under the cap's crown)
+    k.up(Mesh::Cyl, (0, 1450, 2900), (5000, 2900, 4600), dark);
+    k.up(Mesh::Facet, (0, 2950, 2900), (5600, 700, 5100), rock);
+    k.slab(
+        Mesh::Cube,
+        (0, 0, TOR_FOOT),
+        (0, TOR_TOP, TOR_EDGE),
+        2 * TOR_RAMP_HALF + 100,
+        420,
+        rock,
+    );
+    k.up(Mesh::Facet, (0, 500, -1500), (2400, 1700, 3800), dark);
+    // rubble along the ramp's sides, its tops under the ramp's line
+    for (i, z) in [-4600, -3100, -1600, -200].iter().enumerate() {
+        let h = (z - TOR_FOOT) * TOR_TOP / (TOR_EDGE - TOR_FOOT);
+        let x = if i % 2 == 0 { 1150 } else { -1150 };
+        k.up(Mesh::Facet, (x, h * 45 / 100, *z), (900, h * 9 / 10, 1300), dark);
+        k.up(
+            Mesh::Facet,
+            (-x * 95 / 100, h * 40 / 100, z + 650),
+            (800, h * 8 / 10, 1100),
+            rock,
+        );
+    }
+    // boulders heaped round it, hiding its sides
+    for (at, size, c) in [
+        ((-2900, 1100, 3400), (2600, 2400, 3200), rock),
+        ((2800, 900, 2200), (2400, 2000, 2800), dark),
+        ((1600, 1300, 4900), (2800, 2700, 2200), rock),
+        ((-1900, 1200, 1400), (1800, 2200, 1900), rock),
+        ((2300, 1000, 900), (1700, 1900, 1700), rock),
+        ((-1500, 300, -4800), (1100, 700, 1000), dark),
+        ((1700, 400, -3600), (1400, 900, 1300), rock),
+    ] {
+        k.up(Mesh::Facet, at, size, c);
+    }
+    // a tall rock standing at its back, the landmark
+    k.up(Mesh::Facet, (300, 4700, 4300), (1700, 4000, 1400), rock);
+    k.up(Mesh::Facet, (-1300, TOR_TOP - 20, 3500), (900, 140, 700), moss);
+    k.up(Mesh::Facet, (-2800, 2300, 3500), (1400, 320, 1600), moss);
+}
+
+/// A lone tree, broad and tall, seen across the plains.
+fn lone_tree(k: &mut Kit) {
+    let (bark, leaf, leaf2) = (k.c("bark"), k.c("leaf"), k.c("leaf_dark"));
+    k.up(Mesh::Taper, (0, 3000, 0), (1700, 6000, 1700), bark);
+    let lean = Affine::rot_z(deg(-6));
+    k.shape(Mesh::Taper, (120, 7000, 0), (1100, 2600, 1100), lean, bark);
+    k.bar(Mesh::Cyl, (300, 5600, 0), (3200, 8600, 700), 520, bark);
+    k.bar(Mesh::Cyl, (-300, 6200, 100), (-3100, 9000, -500), 480, bark);
+    k.bar(Mesh::Cyl, (0, 6800, 300), (600, 9400, 2600), 400, bark);
+    k.up(Mesh::Facet, (0, 11200, 0), (9000, 6200, 8400), leaf);
+    k.up(Mesh::Facet, (3300, 9800, 900), (4600, 3800, 4400), leaf2);
+    k.up(Mesh::Facet, (-3400, 10200, -600), (4800, 4000, 4400), leaf2);
+    k.up(Mesh::Facet, (500, 13600, 300), (5200, 3400, 5000), leaf);
+    for i in 0..5 {
+        let a = fx::TURN * i / 5 + deg(35);
+        let (x, z) = (fx::mul(fx::cos(a), 800), fx::mul(-fx::sin(a), 800));
+        let out = Affine::rot_y(a - fx::QUARTER_TURN).then(&Affine::rot_x(-deg(70)));
+        k.shape(Mesh::Cone, (x, 200, z), (440, 1100, 320), out, bark);
+    }
 }

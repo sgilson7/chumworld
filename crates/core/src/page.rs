@@ -208,6 +208,25 @@ pub const REQUIRED: &[&str] = &[
     "trainer_pass_1",
     "trainer_pass_2",
     "trainer_done",
+    // M7 roadside (T12): E at the stops, the villagers' lines, the map's marks
+    "does_search_cart",
+    "does_drink",
+    "does_talk_villager",
+    "roadside_searched",
+    "roadside_drink",
+    "roadside_north_1",
+    "roadside_north_2",
+    "roadside_north_west_1",
+    "roadside_north_west_2",
+    "roadside_north_east_1",
+    "roadside_north_east_2",
+    "roadside_west_1",
+    "roadside_west_2",
+    "place_wreck_burnt",
+    "place_watchtower",
+    "place_tor",
+    "place_roadside_well",
+    "place_lone_tree",
 ];
 
 /// The reader-visible strings the page needs. They live in data, not source.
