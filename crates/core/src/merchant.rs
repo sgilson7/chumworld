@@ -260,15 +260,27 @@ pub fn talk(w: &mut World) {
     crate::ui::open_shop(w);
 }
 
-/// `merchant.<name>`: `stop` (test-only) stops the cart as a hit would,
-/// for a view of the shop on the road.
+/// `merchant.<name>`, test-only, for views of the shop on the road: `stop`
+/// stops the cart as a hit would; `beside` stands the player by the cart's
+/// side, facing it.
 pub fn act(w: &mut World, name: &str, _value: &str) -> Result<(), String> {
     match name {
         "stop" if w.merchant.active() => {
             w.merchant.wait = WAIT_TICKS;
             Ok(())
         }
-        "stop" => Err("There is no merchant on the road yet.".into()),
+        "beside" if w.merchant.active() => {
+            let m = &w.merchant;
+            let mut at = m.at.add(crate::geom::right_of(m.yaw).scale(ONE * 26 / 10));
+            at.y = solid::surface(w, at.x, at.z);
+            let yaw = yaw_of(m.at.sub(at)) - deg(20);
+            w.player = crate::player::Body::new(at, yaw);
+            let held = crate::items::held(w);
+            w.me = crate::player::Fighter::new(Kind::Player, held, 0, at, yaw, false);
+            w.aim.yaw = yaw;
+            Ok(())
+        }
+        "stop" | "beside" => Err("There is no merchant on the road yet.".into()),
         _ => Err(format!("Unknown action \"merchant.{name}\".")),
     }
 }

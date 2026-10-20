@@ -344,7 +344,7 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     // 560 mm, hinged along its back edge 500 mm up, 280 mm back
     let hinge = v3(0, ONE / 2, ONE * 28 / 100);
     let open = Affine::translate(hinge)
-        .then(&Affine::rot_x(-fx::mul(deg(105), eased)))
+        .then(&Affine::rot_x(fx::mul(deg(105), eased)))
         .then(&Affine::translate(hinge.neg()));
     let mut m = models::Model::default();
     for p in &model.parts {
