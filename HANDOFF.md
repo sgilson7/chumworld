@@ -132,7 +132,9 @@ Built (`crates/core/src/travel.rs`, `data/travel.json`, `web/menus/song.js`):
 
 Rows R9.190 to R9.208 in `SECOND-ORDER.md`; the strings under "### M7 travel" at its foot.
 
-Check (2026-10-20, main still at fa69349, so nothing to merge): `cargo fmt`, `cargo test` (376 passed, 11 ignored, by `./scripts/count-tests.sh`), `python3 scripts/break_tests.py M7`: 35 of 35 travel breaks caught (one missed on the first run and its test split, R9.198). `./scripts/check.sh`: see below.
+The village's waystone stands at (2000, 2540), beside the lane north, where P7 leaves its gap (T12, R9.194).
+
+Check (2026-10-20, after merging main at f289b59, which touched only `DECISIONS.md` and `TRIAGE.md`): `./scripts/check.sh` steps 1 to 7 pass (format, clippy, 376 tests passed and 11 ignored by `./scripts/count-tests.sh`, the release build, the import audit, art, the notebook's form). Step 8 (the journal) fails only because R9.190, R9.193, R9.194, R9.195 and R9.207 have status *person* and the journal, which P6 does not edit, does not name them. Step 9, the browser check run on its own on the same build, passes in Chromium, Firefox and WebKit, the woken waystone's still frames and slow pan included (13, 15 and 15 A-B-A pixels). `python3 scripts/break_tests.py M7`: 35 of 35 caught (one missed on the first run, its test then split, R9.198). Screenshots in `shots/m7travel/` (not committed).
 
 Waiting on the person: R9.190 (the flute's route: the trainer's gift), R9.193 (the song's notes), R9.194 (where the waystones stand, and their look), R9.195 (the traveller: place, look, prices), R9.207 (the strings).
 
