@@ -151,6 +151,9 @@ D2_VIEWS = ["d2-guard", "d2-overhead", "d2-block", "d2-hit", "d2-close", "d2-she
 M6_VIEWS = ["magic-fan", "magic-ring", "magic-wave", "magic-spiral", "magic-lineup", "magic-imbued", "magic-cooling", "magic-turn", "magic-practice", "magic-defend", "magic-guard"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
+# M5: the opening, the merchant, the camp, the trainer, the boomerang, a pickup
+M5_VIEWS = ["m5-title", "m5-bed", "m5-wake", "m5-raid", "m5-fall", "m5-dream", "m5-boundary", "m5-cart",
+            "m5-cart-stopped", "m5-shop", "m5-camp", "m5-chest", "m5-boomerang", "m5-practice", "m5-learned", "m5-pickup"]
 # M2: view: the place (?go=), and extra address flags
 M2_VIEWS = {
     "village": ("1996,2838,18,-7", ""),
@@ -440,7 +443,9 @@ def open_game(browser, base, logs, held=None):
     else:
         page.route("**/app.js*", expose_act)
     t0 = time.perf_counter()
-    page.goto(base + "/index.html?pointer=free", wait_until="commit")
+    # M5: these views stand at the village centre, as before the opening
+    # was the start (`story.skip`); the opening's own views are M5_VIEWS
+    page.goto(base + "/index.html?pointer=free&act=story.skip", wait_until="commit")
     return page, t0
 
 
@@ -755,13 +760,146 @@ def d2_views(browser, base, out, views, logs):
         page.close()
 
 
+def m5_views(browser, base, out, views, logs):
+    """M5's views: each a fresh page at the URL a reader can open, with the
+    flags the core takes (`?go=`, `?act=`), driven by keys and the mouse."""
+
+    def open_page(flags, play=True):
+        page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+        page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+        page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+        page.route("**/app.js*", expose_act)
+        page.goto(base + "/index.html?pointer=free" + flags, wait_until="commit")
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+        wait_frames(page, 30)
+        if play:
+            page.click("#title button")
+            page.wait_for_selector("body[data-screen='play']", state="attached")
+        return page
+
+    def shot(page, name):
+        page.screenshot(path=str(out / f"{name}.png"))
+
+    def act(page, name, value=""):
+        page.evaluate("([n, v]) => window.__act(n, v)", [name, value])
+
+    def press(page, key, n=1):
+        page.keyboard.press(key)
+        wait_frames(page, n)
+
+    if "m5-title" in views:
+        page = open_page("", play=False)
+        wait_frames(page, 60)
+        shot(page, "m5-title")
+        page.close()
+    if any(v in views for v in ("m5-bed", "m5-wake")):
+        page = open_page("")
+        wait_frames(page, 50)
+        shot(page, "m5-bed")
+        wait_frames(page, 110)
+        shot(page, "m5-wake")
+        page.close()
+    if "m5-raid" in views:
+        # on the green, the raid coming: the orcs see you and run at you
+        page = open_page("&go=1990,2800,150,-6")
+        wait_frames(page, 200)
+        shot(page, "m5-raid")
+        page.close()
+    if any(v in views for v in ("m5-fall", "m5-dream")):
+        page = open_page("")
+        wait_frames(page, 150)
+        act(page, "story.down")
+        wait_frames(page, 100)
+        shot(page, "m5-fall")
+        page.wait_for_selector("body[data-screen='dialogue']", state="attached", timeout=30000)
+        wait_frames(page, 120)
+        shot(page, "m5-dream")
+        page.close()
+    if "m5-boundary" in views:
+        # 246 m west of the village centre, running out across the line
+        page = open_page("&go=1754,2800,90,-4")
+        page.keyboard.down("ShiftLeft")
+        page.keyboard.down("KeyW")
+        wait_frames(page, 90)
+        page.keyboard.up("KeyW")
+        page.keyboard.up("ShiftLeft")
+        wait_frames(page, 30)
+        shot(page, "m5-boundary")
+        page.close()
+    if any(v in views for v in ("m5-cart", "m5-cart-stopped", "m5-shop")):
+        # south of the road just west of the crossroads, the cart coming
+        page = open_page("&go=1972,2262,330,-6")
+        wait_frames(page, 120)
+        shot(page, "m5-cart")
+        act(page, "merchant.stop")
+        act(page, "merchant.beside")
+        wait_frames(page, 40)
+        shot(page, "m5-cart-stopped")
+        press(page, "KeyE", 30)
+        print("after E:", page.get_attribute("body", "data-screen"))
+        for _ in range(4):
+            if page.get_attribute("body", "data-screen") == "dialogue":
+                press(page, "Space", 10)
+        page.wait_for_selector("body[data-screen='shop']", state="attached", timeout=10000)
+        wait_frames(page, 30)
+        shot(page, "m5-shop")
+        page.close()
+    if "m5-camp" in views:
+        page = open_page("&go=3196,1016,320,-8")
+        wait_frames(page, 60)
+        shot(page, "m5-camp")
+        page.close()
+    if "m5-chest" in views:
+        # the key given, the camp held still, E at the chest
+        page = open_page("&go=3222,993,285,-18&act=story.still:on&act=inventory.give:chest_key")
+        wait_frames(page, 30)
+        press(page, "KeyE", 40)
+        # round to the side, so the open lid shows past the shoulder
+        move(page, -34, 6, 20)
+        wait_frames(page, 20)
+        shot(page, "m5-chest")
+        page.close()
+    if "m5-boomerang" in views:
+        page = open_page("&go=1700,2700,90,-4&act=test.give_all")
+        wait_frames(page, 30)
+        press(page, "Digit1", 10)
+        press(page, "KeyF", 50)
+        shot(page, "m5-boomerang")
+        page.close()
+    if any(v in views for v in ("m5-practice", "m5-learned")):
+        page = open_page("&go=335,1759,0,-12")
+        wait_frames(page, 30)
+        press(page, "KeyE", 20)
+        for _ in range(6):
+            if page.get_attribute("body", "data-screen") != "dialogue":
+                break
+            press(page, "Space", 8)
+            press(page, "Space", 8)
+        press(page, "KeyX", 60)
+        shot(page, "m5-practice")
+        # the guard held: the lent imbue turns the motes until five are turned
+        page.wait_for_selector("body[data-screen='dialogue']", state="attached", timeout=120000)
+        for _ in range(8):
+            if page.get_attribute("body", "data-screen") == "dialogue" and "trainer_pass" not in (page.inner_text("#menus") or ""):
+                break
+            wait_frames(page, 10)
+        wait_frames(page, 120)
+        shot(page, "m5-learned")
+        page.close()
+    if "m5-pickup" in views:
+        page = open_page("&go=1400,3297,180,-18")
+        wait_frames(page, 60)
+        shot(page, "m5-pickup")
+        page.close()
+
+
 def main(argv):
     if not argv or argv[0].startswith("--"):
         sys.exit(__doc__)
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
-    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + D2_VIEWS + M4_VIEWS + list(M2_VIEWS)
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M6_VIEWS]
+    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + D2_VIEWS + M4_VIEWS + list(M2_VIEWS) + M5_VIEWS
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -853,6 +991,8 @@ def main(argv):
             m6_views(browser, base, out, views, logs)
         if any(v in M2_VIEWS for v in views) or measure:
             m2_views(browser, base, out, views, logs, numbers, measure)
+        if any(v in M5_VIEWS for v in views):
+            m5_views(browser, base, out, views, logs)
         browser.close()
     server.shutdown()
     for name in views:

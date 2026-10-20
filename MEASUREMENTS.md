@@ -83,6 +83,16 @@ The machine: Sam's Mac, Apple M2 Max, macOS (Darwin 25.3). Frame budget (journal
 | Water against its banks (CW-18): every facet crossing the water's level, levels 0 to 5, nine stretches and the pond | `cargo test the_water_meets_its_banks_steeply_enough_for_the_depth_buffer` | the band where the depth buffer cannot tell land from water is narrower than a pixel at the farthest each level is drawn | 2026-10-20, M2 |
 | Core tests | `./scripts/count-tests.sh` | 254 passed, 0 failed, 7 ignored (the probes) | 2026-10-20, M2 |
 
+## M5 Places and story (task S)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| The opening's tick: the game's start, six orcs on their rounds and chasing, four villagers, the merchant, the walls and floors, a player standing on the green, 20 s; native release | `cargo test --release -p tool_core --test frame_probe probe_opening_tick_cost -- --ignored --nocapture` | 0.387 ms mean, 0.591 ms worst, 7 fighters (budget 2 ms) | 2026-10-20, M5 |
+| The same world at the bandit camp, alarmed, the raid kept: 12 fighters | same probe | 0.705 ms mean, 0.966 ms worst | 2026-10-20, M5 |
+| A playthrough of every item's route (the wake to the last speedster piece) | `cargo test every_item_s_one_route_can_be_taken_in_one_play` | about 15 s in the test profile | 2026-10-20, M5 |
+| Core tests | `./scripts/count-tests.sh` | 344 passed, 0 failed, 10 ignored (the probes) | 2026-10-20, M5 |
+| Flicker with the raid in view: the still and slow-pan views on the green, two orcs and a villager in sight, held still | `tests/browser/check.py` | still frames identical in Chromium, Firefox and WebKit; slow pan Chromium 23 of 230 400 pixels (bound: under 23.04, so at the edge), Firefox and WebKit 75 of 921 600 (bound 92); in bed the slow pan saw 80 (the near grass's dithered edge looked down on, R7.9), so the check stands out of bed | 2026-10-20, M5 |
+
 ## Not measured
 
 - The headroom under 16.7 ms on Metal: requestAnimationFrame is held to the display's 60 Hz, and the page keeps no timer of its own. A GPU timer query (`EXT_disjoint_timer_query_webgl2`) in a probe would give it.

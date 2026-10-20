@@ -108,7 +108,8 @@ impl Game {
         let strings = crate::page::parse_strings(strings_json).map_err(|e| e.message())?;
         let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;
         let look = Look::parse(look_json)?;
-        let world = World::new(seed as u64);
+        // M5: the game opens in bed, during the raid
+        let world = crate::story::opening(seed as u64);
         let mut meshes = MeshTable::default();
         let groups = world.scene(&look, &mut meshes);
         // M2: the places' groups are drawn by distance, faded, from the detail levels
@@ -179,6 +180,8 @@ impl Game {
                 let hinted = self.hint_shown();
                 // M1: the duel's lines over the game (health) changing
                 let duel = crate::player::hud_stamp(&self.world);
+                // M5: the story's line, the prompt and the fade
+                let story = crate::story::stamp(&self.world);
                 for (k, b) in ticks.iter().enumerate() {
                     // M4: Tab and M open the menu ring before the tick runs
                     if let Some(face) = crate::ui::menu_pressed(&mut self.menu, *b) {
@@ -199,7 +202,10 @@ impl Game {
                         break;
                     }
                 }
-                if hinted != self.hint_shown() || duel != crate::player::hud_stamp(&self.world) {
+                if hinted != self.hint_shown()
+                    || duel != crate::player::hud_stamp(&self.world)
+                    || story != crate::story::stamp(&self.world)
+                {
                     self.ui_version += 1;
                 }
                 // M4: the HUD's bars, ring, keys and toast changed
@@ -246,9 +252,12 @@ impl Game {
     fn title_aim(&self) -> Aim {
         let drift =
             (self.title_ticks as i64 * TITLE_DRIFT as i64 + fx::mul(self.alpha, TITLE_DRIFT) as i64) as i32;
+        // M5: in bed, the title looks along the bed into the room
+        let (yaw, pitch) =
+            crate::story::title_view(&self.world).unwrap_or((crate::world::START_YAW, TITLE_PITCH));
         Aim {
-            yaw: fx::wrap(crate::world::START_YAW.wrapping_add(drift)),
-            pitch: TITLE_PITCH,
+            yaw: fx::wrap(yaw.wrapping_add(drift)),
+            pitch,
             rest: (0, 0),
             pct: self.world.aim.pct,
         }
@@ -465,6 +474,10 @@ pub(crate) mod tests {
     #[test]
     fn two_still_ticks_give_identical_frames_and_static_arrays() {
         let mut g = game();
+        // M5: standing at the village centre with the merchant held still,
+        // so nothing moves (`story.skip`, `story.still`)
+        g.act("story.skip", "").unwrap();
+        g.act("story.still", "on").unwrap();
         g.act("screen.show", "play").unwrap();
         frames(&mut g, 60, FORWARD, 0);
         // let the body come to rest, then compare two ticks with nothing held
@@ -533,6 +546,7 @@ pub(crate) mod tests {
     #[test]
     fn walking_far_moves_the_origin_and_rebuilds_the_static_array() {
         let mut g = game();
+        g.act("story.skip", "").unwrap(); // M5: from the village centre
         let v = g.scene.version;
         g.act("screen.show", "play").unwrap();
         // 5 m/s for 60 s is 300 m: past at least one 256 m cell edge
@@ -585,6 +599,7 @@ pub(crate) mod tests {
     #[test]
     fn play_opens_looking_where_the_title_camera_had_turned() {
         let mut g = game();
+        g.act("story.skip", "").unwrap(); // M5: standing at the village centre
         frames(&mut g, 120, 0, 0);
         let title = g.camera();
         g.act("screen.show", "play").unwrap();

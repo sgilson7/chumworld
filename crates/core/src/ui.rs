@@ -325,8 +325,8 @@ pub fn imbue(w: &World) -> Option<Imbue> {
 /// The quest screen's line. Placeholder: the opening's task; M5 replaces
 /// the body as the story moves on. The signature stays.
 pub fn task(w: &World) -> &'static str {
-    let _ = w;
-    "quest_opening"
+    // M5: the opening, the trainer, the camp, the speedster's pieces
+    crate::story::task(w)
 }
 
 // ----------------------------------------------------------- game state
@@ -1825,6 +1825,9 @@ mod tests {
 
     fn playing() -> Game {
         let mut g = game();
+        // M5: these start standing at the village centre, as before the
+        // opening was the start (`story.skip`)
+        g.act("story.skip", "").unwrap();
         g.act("screen.show", "play").unwrap();
         g
     }

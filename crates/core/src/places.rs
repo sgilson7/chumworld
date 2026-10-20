@@ -39,6 +39,11 @@ pub struct PropSpec {
     /// inside another prop (the bed in its house): no footprint of its own
     #[serde(default)]
     pub inside: bool,
+    /// M5: drawn by the story each frame, not baked here (the player's
+    /// house, cut away while the player is in it; its bed; the chest whose
+    /// lid opens)
+    #[serde(default)]
+    pub moving: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -184,10 +189,16 @@ pub struct Spot {
 
 /// Where each prop of a place stands, its foot on the ground.
 pub fn spots(w: &World, place: &PlaceSpec) -> Vec<Spot> {
+    spots_where(w, place, |_| true)
+}
+
+/// The same, of the props `keep` keeps.
+fn spots_where(w: &World, place: &PlaceSpec, keep: impl Fn(&PropSpec) -> bool) -> Vec<Spot> {
     let c = metres(place.centre);
     place
         .props
         .iter()
+        .filter(|q| keep(q))
         .filter_map(|q| {
             let prop = prop_kind(&q.prop)?;
             let mut at = c.add(v3(q.at[0] * ONE, 0, q.at[1] * ONE));
@@ -259,7 +270,8 @@ pub const PROPS_TO: (Fx, Fx) = (fx::int(2550), fx::int(3000));
 pub fn scene(w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group>) {
     for place in &w.land.layout.places {
         let c = metres(place.centre);
-        let mut all = spots(w, place);
+        // M5: what the story draws itself is left out
+        let mut all = spots_where(w, place, |q| !q.moving);
         all.extend(fence_spans(w, place));
         if all.is_empty() {
             continue;

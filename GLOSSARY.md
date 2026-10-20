@@ -136,6 +136,12 @@ Not: bullet, projectile, missile
 
 Stopping the world until you choose Resume. Esc, leaving the tab or letting go of the pointer pauses the game.
 
+### Practice
+
+The trainer's round that teaches the imbue. The trainer imbues your sword for it, and casts orbs for you to turn; turn enough and the imbue is yours.
+
+Not: tutorial, training mode
+
 ### Quest
 
 The menu screen for the imbue, your coins and what to do next.

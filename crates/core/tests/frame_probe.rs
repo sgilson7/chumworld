@@ -125,3 +125,55 @@ fn probe_raid_tick_cost() {
     );
     assert!(mean < 2.0, "the raid's tick is over the core's 2 ms");
 }
+
+/// M5 (CW-11): the opening's own tick: the game's start (`story::opening`),
+/// six orcs on their rounds, four villagers fleeing, the merchant on the
+/// road, the walls and floors; the player gets up and stands on the green
+/// so the orcs come, draw and fight (a player who does not fall), over 20 s.
+/// Then the camp: five more foes in a fight. Native release.
+#[test]
+#[ignore]
+fn probe_opening_tick_cost() {
+    use tool_core::input::Input;
+    let mut w = tool_core::story::opening(9);
+    w.me.health = tool_core::health::Health::new(1_000_000);
+    let measure = |w: &mut tool_core::world::World, ticks: u32| {
+        let mut worst = 0.0f64;
+        let t = Instant::now();
+        for k in 0..ticks {
+            let i = Input {
+                keys: if k == 200 { tool_core::input::DRAW } else { 0 },
+                dx: if k % 40 < 20 { 2_000 } else { -2_000 },
+                buttons: if k % 40 > 30 { tool_core::input::SWING } else { 0 },
+                ..Input::default()
+            };
+            let f = Instant::now();
+            w.step(&i);
+            worst = worst.max(f.elapsed().as_secs_f64() * 1000.0);
+        }
+        (t.elapsed().as_secs_f64() * 1000.0 / ticks as f64, worst)
+    };
+    // up, then out of the house onto the green by `places.go`
+    measure(&mut w, 130);
+    w.act("places.go", "1990,2805").unwrap();
+    w.me.health = tool_core::health::Health::new(1_000_000);
+    let (mean, worst) = measure(&mut w, 1200);
+    let near = w
+        .foes
+        .iter()
+        .filter(|f| f.body.pos.sub(w.player.pos).len_xz() < tool_core::fx::int(15))
+        .count();
+    println!(
+        "opening tick: {mean:.3} ms mean, {worst:.3} ms worst; {} fighters, {near} foes within 15 m",
+        tool_core::player::count(&w)
+    );
+    // the camp, alarmed, with the raid still in the world
+    w.act("places.go", "3196,1016").unwrap();
+    w.me.health = tool_core::health::Health::new(1_000_000);
+    let (cmean, cworst) = measure(&mut w, 600);
+    println!(
+        "camp tick, raid kept: {cmean:.3} ms mean, {cworst:.3} ms worst; {} fighters",
+        tool_core::player::count(&w)
+    );
+    assert!(mean < 2.0 && cmean < 2.0, "over the core's 2 ms");
+}

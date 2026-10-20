@@ -55,6 +55,7 @@ pub mod ui;
 pub mod boomerang;
 pub mod camp;
 pub mod merchant;
+pub mod solid;
 pub mod story;
 pub mod trainer;
 // stubs: M6 Magic

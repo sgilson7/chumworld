@@ -80,7 +80,13 @@ def run(page, check, engine):
     base = page.url.split("?")[0]
     # the look speed a reader can set from the address: a quarter, so the slow
     # pan below moves the picture about a fifth of a pixel a frame
-    page.goto(base + "?pointer=free&look=25")
+    # M5: standing on the green looking south-west (?go=), out of bed, with the raid's
+    # orcs and the villagers round about and the merchant on the road, all
+    # held still (`story.still`) for the still and slow-pan views; the
+    # opening itself is checked from a plain load below. (In bed the view
+    # looks steeply down over the near grass's dithered edge, which a slow
+    # pan sees pass: motion, not flicker, R2.9 and R7.9.)
+    page.goto(base + "?pointer=free&look=25&go=1995,2790,140&act=story.still:on")
     page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
 
     if page.get_attribute("body", "data-webgl") == "none":
@@ -143,10 +149,21 @@ def run(page, check, engine):
     page.wait_for_selector("body[data-screen='play']", state="attached")
     check(page.inner_text("#message") == "", "no error message is shown")
 
+    # M5: a plain load, no query string at all, plays the real opening: in
+    # bed during the raid, up after a moment, and the line over the game
+    # says the orcs are in the village (data/strings.json)
+    page.goto(base)
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+    page.locator("#title button").click()
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.wait_for_selector("#hud-story.shown", state="attached", timeout=20000)
+    check(page.inner_text("#hud-story") == STRINGS["story_wake"], "a plain load opens in bed during the raid, and getting up the line says the orcs are in the village")
+    page.keyboard.press("Escape")
+
     # M1: a test duel through the address (?duel=orc, forwarded through act):
     # drawn, the line over the game names the orc held on and its health,
     # and the player's own health is there from the start
-    page.goto(base + "?pointer=free&duel=orc&foe=still")
+    page.goto(base + "?pointer=free&duel=orc&foe=still&act=story.still:on")
     page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
     page.locator("#title button").click()
     page.wait_for_selector("body[data-screen='play']", state="attached")
@@ -170,7 +187,7 @@ def menus(page, check, engine, base):
     item onto a key, and closes on Tab; the canvas behind it is unchanged.
     The full test inventory comes from the address (?act=test.give_all), as
     a reader could open it."""
-    page.goto(base + "?pointer=free&look=25&act=test.give_all")
+    page.goto(base + "?pointer=free&look=25&act=test.give_all&act=story.still:on")
     page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
     if page.get_attribute("body", "data-webgl") == "none":
         return
@@ -244,7 +261,7 @@ def menus(page, check, engine, base):
     # view draws the same pixels on consecutive frames, through every detail
     # level's dither band in sight; a slow pan shows no shimmer on the far
     # terrain (CW-18, PLAN.md flicker 5)
-    page.goto(base + "?pointer=free&look=25&go=352,1772,100,-1")
+    page.goto(base + "?pointer=free&look=25&go=352,1772,100,-1&act=story.still:on")
     page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
     page.click("#title button")
     page.wait_for_selector("body[data-screen='play']", state="attached")
@@ -264,7 +281,7 @@ def menus(page, check, engine, base):
     # magic.leader, then magic.freeze:150: frozen 150 ticks into play), the
     # view held on the leader. Orbs are glowing, blended shapes: a frozen
     # volley in sight draws the same pixels on consecutive frames (CW-18)
-    page.goto(base + "?pointer=free&foe=still&act=magic.leader&act=magic.freeze:150")
+    page.goto(base + "?pointer=free&foe=still&act=magic.leader&act=magic.freeze:150&act=story.still:on")
     page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
     page.click("#title button")
     page.wait_for_selector("body[data-screen='play']", state="attached")
