@@ -80,6 +80,8 @@ pub struct RiverSpec {
     pub solve_to_z: i32,
     pub station_m: i32,
     pub half_cm: i32,
+    #[serde(default)]
+    pub wander_pct: i32,
     pub widths: Vec<WidthSpec>,
     pub level_at: LevelSpec,
     pub slope_per_1000: i32,
@@ -306,8 +308,11 @@ impl River {
             });
         }
         // the half width, widening and narrowing smoothly round the given points
-        let base = cm(self.spec.half_cm);
+        let wide = cm(self.spec.half_cm);
         for st in &mut out {
+            // the width wanders along the river
+            let n = crate::terrain::noise(st.at.x, st.at.z, 230, 0x0b4e) as i32;
+            let base = wide + fx::mul(wide, fx::mul(n, self.spec.wander_pct * ONE / 100));
             let mut half = base;
             for w in &self.spec.widths {
                 let off = (st.at.z - w.z * ONE).abs();

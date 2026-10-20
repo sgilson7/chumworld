@@ -163,8 +163,10 @@
     "solve_to_z": 5500,
     "station_m": 2,
     "half_cm": 700,
+    "wander_pct": 18,
+    "_wander_pct": "the width wanders this much either way over a few hundred metres, so the banks are not a canal's",
     "widths": [
-      { "_note": "narrows for the bridge", "z": 2248, "half_cm": 600, "reach_m": 40 },
+      { "_note": "narrows for the bridge", "z": 2248, "half_cm": 430, "reach_m": 45 },
       { "_note": "the shrine's ford: wide and shallow round an islet", "z": 1000, "half_cm": 1400, "reach_m": 70 }
     ],
     "level_at": { "z": 2248, "cm": -400 },

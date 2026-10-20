@@ -77,7 +77,7 @@ impl Game {
     }
 
     pub fn uniforms(&self) -> Vec<f32> {
-        floats(self.inner.look.uniforms())
+        floats(tool_core::sky::all_uniforms(&self.inner.look))
     }
 
     pub fn clear_color(&self) -> Vec<f32> {

@@ -188,7 +188,16 @@ pub fn spots(w: &World, place: &PlaceSpec) -> Vec<Spot> {
         .filter_map(|q| {
             let prop = prop_kind(&q.prop)?;
             let mut at = c.add(v3(q.at[0] * ONE, 0, q.at[1] * ONE));
-            at.y = w.ground(at.x, at.z);
+            at.y = if prop == Prop::Bridge {
+                // a bridge stands on its banks: the higher of its two ends,
+                // half its span along its length (local z) either way
+                let yaw = fx::deg(q.yaw_deg);
+                let along = v3(fx::mul(fx::sin(yaw), BRIDGE_SPAN / 2), 0, fx::mul(fx::cos(yaw), BRIDGE_SPAN / 2));
+                let (a, b) = (at.add(along), at.sub(along));
+                w.ground(a.x, a.z).max(w.ground(b.x, b.z))
+            } else {
+                w.ground(at.x, at.z)
+            };
             Some(Spot {
                 prop,
                 at,
@@ -197,6 +206,9 @@ pub fn spots(w: &World, place: &PlaceSpec) -> Vec<Spot> {
         })
         .collect()
 }
+
+/// The bridge's span, end to end (M3's model is about 12 m).
+pub const BRIDGE_SPAN: Fx = fx::int(12);
 
 /// The fence posts' spacing along a fence line.
 pub const FENCE_SPAN: Fx = fx::int(3);

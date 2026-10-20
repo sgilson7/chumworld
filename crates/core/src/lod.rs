@@ -140,6 +140,9 @@ pub struct Detail {
     water_built: bool,
     /// under test, every mesh is kept too, for the flicker scan
     kept: BTreeMap<u32, Vec<i32>>,
+    /// the scatter's chunks with nothing in a part, and each tree chunk's things
+    empty: std::collections::BTreeSet<Key>,
+    things: BTreeMap<(i32, i32), Vec<crate::scatter::Item>>,
 }
 
 /// A group drawn by distance: whole inside `fade.0` of its centre, handed
@@ -156,6 +159,7 @@ pub struct Faded {
 }
 
 pub const WATER: u8 = 1;
+pub const SCATTER: u8 = 2;
 
 /// A level's cell, Q16 metres.
 pub fn cell(level: u32) -> Fx {
@@ -201,7 +205,112 @@ impl Detail {
             faded: Vec::new(),
             water_built: false,
             kept: BTreeMap::new(),
+            empty: std::collections::BTreeSet::new(),
+            things: BTreeMap::new(),
         }
+    }
+
+    /// Builds a scatter chunk's part, or notes it has nothing.
+    fn build_scatter(&mut self, land: &Land, key: Key, ink: look::Rgb) {
+        let (i, j) = (key.i, key.j);
+        let things = if key.level == crate::scatter::GRASS || key.level == crate::scatter::CLUSTER {
+            Vec::new()
+        } else {
+            self.things
+                .entry((i, j))
+                .or_insert_with(|| crate::scatter::items(land, i, j))
+                .clone()
+        };
+        match crate::scatter::build(land, key.level, i, j, &things, ink) {
+            Some(b) => self.put(key, b),
+            None => {
+                self.empty.insert(key);
+            }
+        }
+        self.stats.builds += 1;
+        self.stats.total_builds += 1;
+    }
+
+    /// The scatter's share of a frame: each part of each chunk in reach,
+    /// at its fade; the parts soon in reach built ahead, a few a frame; the
+    /// far ones forgotten.
+    fn scatter_frame(&mut self, land: &Land, eye: V3, ink: look::Rgb, out: &mut Shapes) {
+        let sp = land.spec.scatter.clone();
+        let mut ahead: Vec<(i64, Key)> = Vec::new();
+        for part in crate::scatter::PARTS {
+            let (_, _, side) = crate::scatter::chunk_middle(land, part, 0, 0);
+            let reach = crate::scatter::reach(&sp, part) as i64 * ONE as i64;
+            let soon = reach * self.spec.prefetch_pct as i64 / 100;
+            let s = side as i64;
+            let (i0, i1) = ((eye.x as i64 - soon).div_euclid(s), (eye.x as i64 + soon).div_euclid(s));
+            let (j0, j1) = ((eye.z as i64 - soon).div_euclid(s), (eye.z as i64 + soon).div_euclid(s));
+            for j in j0..=j1 {
+                for i in i0..=i1 {
+                    let (cx, cz, _) = crate::scatter::chunk_middle(land, part, i as i32, j as i32);
+                    let d = to_square(eye.x as i64, eye.z as i64, cx as i64, cz as i64, 0);
+                    if d > soon {
+                        continue;
+                    }
+                    let key = Key {
+                        kind: SCATTER,
+                        level: part,
+                        i: i as i32,
+                        j: j as i32,
+                        part: 0,
+                    };
+                    match crate::scatter::fade(&sp, part, d) {
+                        Some(f) => {
+                            if !self.has(&key) && !self.empty.contains(&key) {
+                                self.build_scatter(land, key, ink);
+                                self.stats.sync_builds += 1;
+                                self.stats.total_sync_builds += 1;
+                            }
+                            self.draw(key, f, out);
+                        }
+                        // not drawn now, but in reach soon: built ahead
+                        None => {
+                            if !self.has(&key) && !self.empty.contains(&key) {
+                                ahead.push((d, key));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ahead.sort();
+        let mut budget = self.spec.builds_per_frame;
+        for (_, key) in ahead {
+            if budget == 0 {
+                break;
+            }
+            self.build_scatter(land, key, ink);
+            budget -= 1;
+        }
+        // forget what is well out of reach
+        let far: Vec<Key> = self
+            .by_key
+            .keys()
+            .chain(self.empty.iter())
+            .filter(|k| k.kind == SCATTER)
+            .filter(|k| {
+                let (cx, cz, _) = crate::scatter::chunk_middle(land, k.level, k.i, k.j);
+                let d = to_square(eye.x as i64, eye.z as i64, cx as i64, cz as i64, 0);
+                d > crate::scatter::reach(&sp, k.level) as i64 * ONE as i64 * self.spec.evict_pct as i64 / 100
+            })
+            .copied()
+            .collect();
+        for k in far {
+            self.forget(k);
+            self.empty.remove(&k);
+        }
+        // a chunk's things are kept while any of its tree parts is
+        let keep: std::collections::BTreeSet<(i32, i32)> = self
+            .by_key
+            .keys()
+            .filter(|k| k.kind == SCATTER && k.level != crate::scatter::GRASS)
+            .map(|k| (k.i, k.j))
+            .collect();
+        self.things.retain(|ij, _| keep.contains(ij));
     }
 
     /// The mesh table with every detail mesh kept so far after it, at its
@@ -432,11 +541,11 @@ impl Detail {
     /// pushed into `out` in the walk's order; the tiles to build ahead built,
     /// a few; the far ones forgotten.
     pub fn frame(&mut self, w: &crate::world::World, look: &crate::look::Look, eye: V3, out: &mut Shapes) {
-        let _ = look;
         if !self.water_built {
             self.build_water(&w.land);
         }
         self.terrain(&w.land, eye, out);
+        self.scatter_frame(&w.land, eye, look.ink(), out);
         self.faded_frame(eye, out);
     }
 

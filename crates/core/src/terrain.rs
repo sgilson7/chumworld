@@ -132,6 +132,7 @@ pub struct LandSpec {
     pub colour: ColourSpec,
     pub shading: ShadingSpec,
     pub lod: LodSpec,
+    pub scatter: crate::scatter::ScatterSpec,
 }
 
 impl LandSpec {
@@ -931,6 +932,24 @@ impl Land {
             .min(i32::MAX as i64) as Fx
     }
 
+    /// Whether (x, z) is in a field of crops (the scarecrow's).
+    pub fn in_field(&self, x: Fx, z: Fx, sc: &Scope) -> bool {
+        sc.fields.iter().any(|&k| {
+            let fl = &self.fields[k];
+            let (dx, dz) = (x as i64 - fl.c.0, z as i64 - fl.c.1);
+            let lx = qmul(dx, fl.cos) - qmul(dz, fl.sin);
+            let lz = qmul(dx, fl.sin) + qmul(dz, fl.cos);
+            lx.abs() < fl.hx && lz.abs() < fl.hz
+        })
+    }
+
+    /// Whether (x, z) is within `clear` of a pond's bank.
+    pub fn in_pond(&self, x: Fx, z: Fx, clear: Fx) -> bool {
+        self.ponds
+            .iter()
+            .any(|p| hypot(x as i64 - p.c.0, z as i64 - p.c.1) < p.r + p.bank + clear as i64)
+    }
+
     /// Whether (x, z) is in a cleared place (the camp, the hollow tree).
     pub fn cleared(&self, x: Fx, z: Fx, sc: &Scope) -> bool {
         sc.clearings.iter().any(|&k| {
@@ -1005,7 +1024,9 @@ impl Land {
         // the river's banks and bed
         if let Some(n) = near {
             let (d, half) = (n.d as i64, n.half as i64);
-            let wet = (h as i64) < n.surface as i64;
+            // the bed's colour in the channel only: land lower than the water
+            // beyond the banks is still meadow
+            let wet = (h as i64) < n.surface as i64 && d < half + BANK_MAX / 2;
             if wet {
                 c = mix(p.sand, p.bed, (sstep(0, O / 2, n.surface as i64 - h as i64)) as Fx);
             } else {
@@ -1320,9 +1341,11 @@ pub(crate) mod tests {
     fn the_river_s_banks_meet_its_water_and_its_bed_lies_under_it() {
         let l = land();
         let r = &l.river;
-        // under the bridge the water stands at −4 m (data/places.json)
+        // under the bridge the water stands at −4 m (data/places.json), at the
+        // station it is set on; the narrows under the bridge run faster and
+        // fall a few centimetres a station
         let n = r.near(int(627), int(2248), int(50)).unwrap();
-        assert!((n.surface - int(-4)).abs() < ONE / 50, "{}", n.surface);
+        assert!((n.surface - int(-4)).abs() < ONE / 20, "{}", n.surface);
         // across the river at z = 1700, from the centreline out
         let k = r.stations.iter().position(|s| s.at.z >= int(1700)).unwrap();
         let st = r.stations[k];

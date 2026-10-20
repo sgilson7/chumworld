@@ -267,3 +267,48 @@ fn probe_game_view() {
         println!("({x}, {z}): {hits:?}");
     }
 }
+
+#[test]
+#[ignore]
+fn probe_water_draws() {
+    let mut g = tool_core::game::Game::new(
+        include_str!("../../../data/strings.json"),
+        include_str!("../../../GLOSSARY.md"),
+        include_str!("../../../data/look.json"),
+        7,
+    )
+    .unwrap();
+    g.resize(1920, 1080, 100);
+    g.act("places.go", "1000,2000,90,-6").unwrap();
+    g.act("screen.show", "play").unwrap();
+    let mut now = 0;
+    for _ in 0..100 { now += 16_667; g.advance(now, 0, 0, 0, 0); }
+    let water = tool_core::render::Pass::Water as u32;
+    for d in g.frame.draws.chunks(6).filter(|d| d[4] == water) {
+        println!("water draw: mesh {} layer {} count {}", d[1], d[5], d[3]);
+    }
+    for f in g.detail.faded.iter().filter(|f| f.name.starts_with("river")).take(3) {
+        println!("{} centre {:?} fade {:?}", f.name, f.centre, f.fade);
+    }
+}
+
+#[test]
+#[ignore]
+fn probe_dip_map() {
+    let land = Land::shipped();
+    let (x0, z0, size, px) = (-200, 500, 2600, 260);
+    let step = size * ONE / px;
+    let mut out = format!("P6 {px} {px} 255\n").into_bytes();
+    let mut hits = 0;
+    for j in 0..px {
+        for i in 0..px {
+            let (x, z) = (int(x0) + i * step, int(z0) + j * step);
+            let near = land.river.near(x, z, land.reach);
+            let dip = near.map(|n| (n.d as i64) < n.half as i64 + 12 * ONE as i64).unwrap_or(false);
+            if dip && near.unwrap().d > 60 * ONE { hits += 1; }
+            out.extend(if dip { [200u8, 40, 40] } else if near.is_some() { [90, 140, 90] } else { [60, 60, 60] });
+        }
+    }
+    println!("dips more than 60 m from the centreline: {hits}");
+    std::fs::write("../../shots/m2/dbg/dip.ppm", out).unwrap();
+}
