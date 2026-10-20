@@ -100,3 +100,18 @@ The machine: Sam's Mac, Apple M2 Max, macOS (Darwin 25.3). Frame budget (journal
 | What the leader's pattern takes (66 orbs) | same command (`probe_what_the_leader_s_pattern_takes`) | standing still 132; stepping side to side 33; imbued, guard held 84 (9 turned, the leader takes 48); imbued, swinging blindly 88 (10 turned, 44); side to side with the guard held 55 (R8.4) | 2026-10-20, M6 |
 | WebAssembly size | printed by `./scripts/build.sh` | 1 529 KB with M1's polish and M6 merged | 2026-10-20, M6 |
 | Flicker: a frozen volley in sight | `tests/browser/interactions.py` (`?act=magic.leader&act=magic.freeze:150`) | two consecutive frames identical, pixel for pixel | 2026-10-20, M6 |
+
+## M6 balance (task M, M6b)
+
+What the leader's whole pattern takes from a player at full health, by how it is met (`cargo test --release -p tool_core --test magic_probe -- --ignored --nocapture`, `probe_what_the_leader_s_pattern_takes`; "imbued" is a lend over the whole pattern), 2026-10-20:
+
+| How it is met | Before (M6) | After (M6b) |
+| --- | --- | --- |
+| standing still, not imbued | 132 | 80 |
+| stepping side to side every 50 ticks | 33 | 35 |
+| imbued, guard held | 84 (9 turned) | 14 (21 of 41 turnable turned) |
+| imbued, swinging blindly | 88 (10 turned) | 44 (16 turned) |
+| imbued, stepping side to side, guard held | 55 | 15 (17 turned) |
+| imbued, defending (`orbs::defend`) | not measured | 10 (23 of 41 turned, 56%) |
+
+Thrown: 66 orbs before, 62 after (41 turnable). The tick through the pattern, the player imbued and swinging: 0.11 ms mean, 0.24 ms worst, native release. WebAssembly 1 531 KB.

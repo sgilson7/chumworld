@@ -104,6 +104,10 @@ later ones through the exposed `act` (magic.lineup, magic.stage_turn):
     magic-cooling   the HUD ring cooling, 12 s after the cast
     magic-turn      a sphere turned off the imbued blade, the ping (three
                     frames: magic-turn-1 .. 3)
+    magic-defend    the leader's pattern met imbued by the core's scripted
+                    defender (magic.defend), turned orbs flying back
+                    (magic-defend-1 .. 3)
+    magic-guard     the imbued guard, the blade across the chest's front
     magic-practice  the trainer's practice motes (a leader stands in for
                     the trainer), the first stream and the fan of three
 
@@ -144,7 +148,7 @@ DIST = ROOT / "dist"
 VIEWS = ["loading", "title", "standing", "turn", "run", "paused"]
 DUEL_VIEWS = ["sheathed", "drawn", "swing", "block", "hit", "rock", "orc", "slide"]
 D2_VIEWS = ["d2-guard", "d2-overhead", "d2-block", "d2-hit", "d2-close", "d2-sheathed", "d2-fallen", "d2-group"]
-M6_VIEWS = ["magic-fan", "magic-ring", "magic-wave", "magic-spiral", "magic-lineup", "magic-imbued", "magic-cooling", "magic-turn", "magic-practice"]
+M6_VIEWS = ["magic-fan", "magic-ring", "magic-wave", "magic-spiral", "magic-lineup", "magic-imbued", "magic-cooling", "magic-turn", "magic-practice", "magic-defend", "magic-guard"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 # M2: view: the place (?go=), and extra address flags
@@ -626,6 +630,21 @@ def m6_views(browser, base, out, views, logs):
         for k, n in enumerate([3, 3, 4]):
             frames(page, n)
             shot(page, f"magic-turn-{k + 1}")
+        page.close()
+    if "magic-defend" in views:
+        page = m6_page(browser, base, logs, "act=magic.leader&act=magic.lend:3000&act=magic.defend&foe=still")
+        page.keyboard.press("KeyX")
+        done = 0
+        for k, at in enumerate([118, 270, 650]):
+            frames(page, at - done)
+            done = at
+            shot(page, f"magic-defend-{k + 1}")
+        page.close()
+    if "magic-guard" in views:
+        page = m6_page(browser, base, logs, "act=magic.lend:3000&duel=leader&foe=still&gap=900")
+        page.keyboard.press("KeyX")
+        frames(page, 90)
+        shot(page, "magic-guard")
         page.close()
     if "magic-practice" in views:
         page = m6_page(browser, base, logs, "act=magic.practice&foe=still")

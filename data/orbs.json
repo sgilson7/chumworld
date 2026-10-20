@@ -5,19 +5,19 @@
   "knock_ticks": 45,
   "shove_cms": 260,
   "kinds": [
-    {"id": "sphere", "shape": "sphere", "colour": [79, 179, 201], "halo": [120, 220, 240], "radius_cm": 13, "damage": 6, "turnable": true, "effect": "none"},
-    {"id": "dart", "shape": "tetra", "colour": [222, 84, 140], "halo": [255, 120, 180], "radius_cm": 13, "damage": 4, "turnable": true, "effect": "knock"},
-    {"id": "gem", "shape": "octa", "colour": [120, 214, 92], "halo": [170, 255, 130], "radius_cm": 17, "damage": 10, "turnable": true, "effect": "shove"},
-    {"id": "ward", "shape": "cube", "colour": [222, 214, 240], "halo": [200, 180, 255], "radius_cm": 14, "damage": 7, "turnable": false, "effect": "none"},
-    {"id": "star", "shape": "star", "colour": [240, 186, 64], "halo": [255, 214, 110], "radius_cm": 17, "damage": 8, "turnable": true, "effect": "stun"},
+    {"id": "sphere", "shape": "sphere", "colour": [79, 179, 201], "halo": [120, 220, 240], "radius_cm": 13, "damage": 4, "turnable": true, "effect": "none"},
+    {"id": "dart", "shape": "tetra", "colour": [222, 84, 140], "halo": [255, 120, 180], "radius_cm": 13, "damage": 3, "turnable": true, "effect": "knock"},
+    {"id": "gem", "shape": "octa", "colour": [120, 214, 92], "halo": [170, 255, 130], "radius_cm": 17, "damage": 8, "turnable": true, "effect": "shove"},
+    {"id": "ward", "shape": "cube", "colour": [222, 214, 240], "halo": [200, 180, 255], "radius_cm": 14, "damage": 5, "turnable": false, "effect": "none"},
+    {"id": "star", "shape": "star", "colour": [240, 186, 64], "halo": [255, 214, 110], "radius_cm": 17, "damage": 7, "turnable": true, "effect": "stun"},
     {"id": "mote", "shape": "torus", "colour": [120, 226, 196], "halo": [150, 255, 220], "radius_cm": 15, "damage": 0, "turnable": true, "effect": "none"}
   ],
   "patterns": {
     "leader": [
-      {"form": "fan", "kind": "sphere", "count": 5, "spread_deg": 30, "speed_cms": 650, "delay": 40, "repeat": 3, "every": 36, "sweep_deg": 10},
-      {"form": "ring", "kind": "dart", "count": 5, "radius_cm": 120, "hold": 50, "launch": "aim", "speed_cms": 800, "delay": 210, "repeat": 2, "every": 70, "spin_deg": 30},
+      {"form": "fan", "kind": "sphere", "count": 5, "spread_deg": 20, "speed_cms": 650, "delay": 40, "repeat": 3, "every": 36, "sweep_deg": 10},
+      {"form": "ring", "kind": "dart", "count": 4, "radius_cm": 120, "hold": 50, "launch": "aim", "speed_cms": 800, "delay": 210, "repeat": 2, "every": 70, "spin_deg": 30},
       {"form": "wave", "kind": "ward", "count": 9, "spacing_cm": 55, "gap": 2, "speed_cms": 550, "delay": 400, "repeat": 3, "every": 55},
-      {"form": "ring", "kind": "sphere", "count": 1, "radius_cm": 35, "hold": 0, "launch": "along", "speed_cms": 700, "delay": 590, "repeat": 8, "every": 8, "spin_deg": 36},
+      {"form": "ring", "kind": "sphere", "count": 1, "radius_cm": 35, "hold": 0, "launch": "along", "speed_cms": 700, "delay": 590, "repeat": 6, "every": 8, "spin_deg": 36},
       {"form": "fan", "kind": "gem", "count": 2, "spread_deg": 12, "speed_cms": 450, "delay": 720, "repeat": 2, "every": 40},
       {"form": "fan", "kind": "dart", "count": 7, "spread_deg": 70, "speed_cms": 600, "delay": 790, "repeat": 1, "every": 1, "curl_degs": 20, "alternate": true},
       {"form": "fan", "kind": "star", "count": 1, "speed_cms": 600, "delay": 870, "repeat": 1, "every": 1}

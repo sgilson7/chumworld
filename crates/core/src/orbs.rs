@@ -73,8 +73,8 @@ impl Shape {
         match self {
             Shape::Sphere => Mesh::Sphere,
             Shape::Tetra => Mesh::Tetra,
-            Shape::Octa => Mesh::Octa,
-            Shape::Cube => Mesh::Cube,
+            Shape::Octa => Mesh::Gem,
+            Shape::Cube => Mesh::Box,
             Shape::Star => Mesh::Star,
             Shape::Torus => Mesh::Torus,
         }
@@ -280,10 +280,10 @@ pub const PAST: Fx = fx::int(4);
 /// above it: where its hands are raised.
 pub const HANDS_AHEAD: Fx = ONE * 45 / 100;
 pub const HANDS_UP: Fx = ONE / 10;
-/// The edge turns an orb that comes within its radius, plus the blade's
-/// half thickness (`blade::BLADE_GAP` / 2), plus this: a little
-/// forgiveness, so a near miss with the edge counts.
-pub const FORGIVE: Fx = ONE * 8 / 100;
+/// An imbued edge turns an orb whose surface comes within this of the
+/// edge's line (M1's rail): the glow round the blade, drawn this wide
+/// (`imbue::draw`), is what reaches the orb.
+pub const GLOW_REACH: Fx = ONE * 15 / 100;
 /// A body is hit by an orb within this share of its radius.
 pub const BODY_PCT: i32 = 90;
 /// An edge moving under this a tick (0.3 m/s) is still: it turns an orb
@@ -362,6 +362,9 @@ pub struct State {
     pub next: u32,
     /// this tick was M1's hit-stop (`hold`): drawn where they stand
     pub held: bool,
+    /// the scripted defender moves the player's hand (`magic.defend`, a
+    /// test act for views)
+    pub defending: bool,
 }
 
 // ---- the doors ------------------------------------------------------------
@@ -676,10 +679,7 @@ fn fly(w: &mut World, o: &mut Orb, edge: Option<&Swept>, bodies: &[(bool, Vec<Sw
         }
     };
     if let Some(e) = edge.filter(|_| o.turned.is_none() && k.turnable) {
-        let edge_r = crate::arm::rails(w.me.arm.weapon.item)
-            .first()
-            .map_or(blade::BLADE_GAP / 2, |x| x.r);
-        let gap = r + edge_r + FORGIVE;
+        let gap = r + GLOW_REACH;
         if let Some(c) = blade::sweep(&path, e, gap, SWEEP_MAX, 0) {
             consider(c.k as i64 * ONE as i64 / c.s as i64, Meets::Edge(c));
         }
@@ -741,6 +741,38 @@ fn fly(w: &mut World, o: &mut Orb, edge: Option<&Swept>, bodies: &[(bool, Vec<Sw
     true
 }
 
+/// A caster's hands rise `POSE_TURN` a tick for `POSE_TICKS` before each
+/// volley's first repeat leaves and come back down as long after: 36° up and
+/// back, through the caster's own input record (CW-3), as a mouse would.
+pub const POSE_TICKS: u32 = 12;
+pub const POSE_TURN: i32 = fx::deg(3);
+
+/// Step 2, after the pilots: each casting foe's input moves its sword hand
+/// up before a volley leaves and back down after it. A foe's pilot decides
+/// nothing here; this is the pattern's tell, added to its record.
+pub fn pose(w: &World, inputs: &mut [crate::input::Input]) {
+    for c in &w.orbs.casts {
+        let id = c.caster as usize;
+        if id == 0 || id > inputs.len() {
+            continue;
+        }
+        let mut lift = 0;
+        for v in spec().pattern(c.pattern) {
+            let t = v.delay;
+            if c.age + POSE_TICKS >= t && c.age < t {
+                lift += POSE_TURN;
+            } else if c.age >= t && c.age < t + POSE_TICKS {
+                lift -= POSE_TURN;
+            }
+        }
+        if lift != 0 {
+            let (dx, dy) = crate::arm::mouse_for(0, lift);
+            inputs[id - 1].dx += dx;
+            inputs[id - 1].dy += dy;
+        }
+    }
+}
+
 /// A tick of M1's hit-stop (`feel::hold`), in place of `step`: nothing
 /// moves, so each orb is drawn where it stands.
 pub fn hold(w: &mut World) {
@@ -792,7 +824,13 @@ pub fn advance(w: &mut World, edge: Option<Swept>) {
             w.orbs.freeze_at = None;
         }
     }
-    casts.retain(|c| spec().pattern(c.pattern).iter().any(|v| c.age <= v.last_tick()));
+    // kept while the caster's hands come down after the last volley
+    casts.retain(|c| {
+        spec()
+            .pattern(c.pattern)
+            .iter()
+            .any(|v| c.age <= v.last_tick() + POSE_TICKS)
+    });
     w.orbs.casts = casts;
     w.orbs.next = next;
     w.orbs.flying.extend(thrown);
@@ -821,7 +859,11 @@ pub fn advance(w: &mut World, edge: Option<Swept>) {
 
 /// A shape turns this far a tick as it flies (a tumble), its halo is this
 /// many times its radius, and its body glows this much (`ONE` unlit).
-const SPIN: i32 = fx::TURN / 90;
+/// A faceted orb tumbles slowly (90° a second about one axis, half that
+/// about a second), each from a phase of its own, so its faces turn through
+/// the light and read as a solid.
+const SPIN: i32 = fx::TURN / 240;
+const PHASE: i32 = 9_973;
 const HALO_X: i32 = 26;
 const BODY_GLOW: Fx = ONE * 30 / 100;
 const HALO: Fx = ONE * 45 / 100;
@@ -839,7 +881,10 @@ fn spin(o: &Orb, angle: i32) -> Affine {
     match o.kind().shape {
         Shape::Sphere => Affine::IDENTITY,
         Shape::Star | Shape::Torus => Affine::looking(o.dir).then(&Affine::rot_z(angle)),
-        _ => Affine::rot_y(angle).then(&Affine::rot_x(angle / 2 + (o.id as i32 % 8) * fx::TURN / 16)),
+        _ => {
+            let phase = (o.id as i32).wrapping_mul(PHASE);
+            Affine::rot_y(angle + phase).then(&Affine::rot_x(angle / 2 + phase / 3 + fx::TURN / 9))
+        }
     }
 }
 
@@ -900,6 +945,64 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     }
 }
 
+// ---- a scripted defender, for tests and measurements -------------------
+
+/// The scripted defender meets each orb this far from the chest, and
+/// moves its hand at most this far a tick (about 7° a tick, 420° a second).
+pub const DEFEND_AT: Fx = ONE * 7 / 10;
+pub const DEFEND_TURN: i32 = fx::deg(7);
+/// It goes for orbs that will pass within this of the chest.
+pub const DEFEND_REACH: Fx = ONE * 13 / 10;
+
+/// The input a player would give to defend actively: the sword hand moved
+/// toward where the nearest orb coming at it will be when `DEFEND_AT` from
+/// the chest. It reads only where things are, as a reader's eye does; it is
+/// not a rule of the game, and only tests and the probe use it.
+pub fn defend(w: &World) -> crate::input::Input {
+    let chest = target(w);
+    let next = w
+        .orbs
+        .flying
+        .iter()
+        .filter(|o| o.turned.is_none() && o.hold == 0 && o.kind().turnable)
+        .filter(|o| o.dir.dot(chest.sub(o.pos)) > 0 && o.pos.dist(chest) < fx::int(8))
+        // one that will pass within the sword's reach, soonest first
+        .filter(|o| {
+            let to = chest.sub(o.pos);
+            to.sub(o.dir.scale(to.dot(o.dir))).len() < DEFEND_REACH
+        })
+        .min_by_key(|o| (o.pos.dist(chest), o.id));
+    let Some(o) = next else {
+        return crate::input::Input::default();
+    };
+    let ahead = (o.pos.dist(chest) - DEFEND_AT).max(0);
+    let p = o.pos.add(o.dir.scale(ahead));
+    let a = &w.me.arm;
+    let to = p.sub(a.frame.shoulder[1]);
+    let side = fx::wrap(a.frame.yaw - yaw_of(to));
+    let pitch = fx::wrap(fx::atan2(to.y, to.len_xz()));
+    let ds = fx::wrap(side - a.shell.side).clamp(-DEFEND_TURN, DEFEND_TURN);
+    let dp = fx::wrap(pitch - a.shell.pitch).clamp(-DEFEND_TURN, DEFEND_TURN);
+    let (dx, dy) = crate::arm::mouse_for(ds, dp);
+    crate::input::Input {
+        dx,
+        dy,
+        ..crate::input::Input::default()
+    }
+}
+
+/// The player's record this tick, with the scripted defender's hand added
+/// while `magic.defend` is on; otherwise the record as it came.
+pub fn defended(w: &World, input: &crate::input::Input) -> crate::input::Input {
+    let mut i = *input;
+    if w.orbs.defending {
+        let d = defend(w);
+        i.dx += d.dx;
+        i.dy += d.dy;
+    }
+    i
+}
+
 // ---- the door for settings and test staging ------------------------------
 
 /// `act("magic.<name>", value)`: `leader` and `practice` throw that pattern
@@ -907,7 +1010,8 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
 /// when there is none), for tests, screenshots and the browser check;
 /// `freeze` holds every orb still (`on`, `off`, or a whole number of ticks:
 /// once the newest cast has run that long); `clear` takes every orb, cast
-/// and spark away. For views: `lineup` hangs one orb of each kind in a row
+/// and spark away. For views: `defend` (`on`, `off`) lets the scripted
+/// defender (`defend`) move the player's hand; `lineup` hangs one orb of each kind in a row
 /// 2 m before the player, frozen; `lend` lends the imbue for that many
 /// ticks (`imbue::lend`); `stage_turn` sends one sphere from the first foe
 /// at the drawn blade, 45 cm off it, and lends the imbue if it is not on.
@@ -950,6 +1054,10 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
         }
         "clear" => {
             w.orbs = State::default();
+            Ok(())
+        }
+        "defend" => {
+            w.orbs.defending = matches!(value.trim(), "on" | "1" | "true" | "");
             Ok(())
         }
         "lineup" => {

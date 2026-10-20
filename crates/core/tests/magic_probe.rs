@@ -61,50 +61,55 @@ fn probe_leader_volley_tick_cost() {
 #[test]
 #[ignore]
 fn probe_what_the_leader_s_pattern_takes() {
-    for (name, how) in [
-        ("still", 0),
-        ("side to side", 1),
-        ("still, imbued, swinging", 2),
-        ("still, imbued, guard held", 3),
-        ("side to side, imbued, guard held", 4),
-    ] {
+    let ways = [
+        "still",
+        "side to side",
+        "imbued, guard held",
+        "imbued, swinging blindly",
+        "imbued, side to side, guard held",
+        "imbued, defending",
+    ];
+    for (how, name) in ways.iter().enumerate() {
         let mut w = World::new(9);
         leader(&mut w);
-        if how >= 2 {
+        let imbued = how >= 2;
+        if imbued {
             w.step(&Input {
                 keys: tool_core::input::DRAW,
                 ..Input::default()
             });
             tool_core::imbue::lend(&mut w, 2_000);
         }
-        let mut k = 0u32;
-        let mut thrown = 0u32;
+        let (mut k, mut turnable) = (0u32, 0u32);
+        let mut seen = 0u32;
         while tool_core::orbs::flying(&w, 1) {
-            let keys = match how {
-                1 | 4 if (k / 50).is_multiple_of(2) => LEFT,
-                1 | 4 => RIGHT,
-                _ => 0,
-            };
-            let i = Input {
-                keys,
-                dx: if how == 2 && k % 30 < 15 {
-                    2_500
-                } else if how == 2 {
-                    -2_500
-                } else {
-                    0
+            let side = if (k / 50).is_multiple_of(2) { LEFT } else { RIGHT };
+            let i = match how {
+                1 | 4 => Input {
+                    keys: side,
+                    ..Input::default()
                 },
-                buttons: if how == 2 && k % 30 > 22 { SWING } else { 0 },
-                ..Input::default()
+                3 => Input {
+                    dx: if k % 30 < 15 { 2_500 } else { -2_500 },
+                    buttons: if k % 30 > 22 { SWING } else { 0 },
+                    ..Input::default()
+                },
+                5 => tool_core::orbs::defend(&w),
+                _ => Input::default(),
             };
             w.step(&i);
-            thrown = thrown.max(w.orbs.next);
+            let from = seen;
+            for o in w.orbs.flying.iter().filter(|o| o.id >= from) {
+                turnable += u32::from(o.kind().turnable);
+                seen = seen.max(o.id + 1);
+            }
             k += 1;
         }
         println!(
-            "{name}: {} health taken of {thrown} orbs thrown; turned {}; the leader took {}",
+            "{name}: {} health taken; turned {} of {turnable} turnable ({} thrown); the leader took {}",
             1_000 - w.me.health.hp,
             tool_core::orbs::deflected(&w, 1),
+            w.orbs.next,
             w.foes[0].fighter.health.most - w.foes[0].fighter.health.hp
         );
     }

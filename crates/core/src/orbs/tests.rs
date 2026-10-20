@@ -261,7 +261,7 @@ fn the_blade_turns_orbs_only_while_imbued() {
 }
 
 /// A turned orb flown at a still leader's chest lands on it for the
-/// sphere's 6 off its health. Not turned, the same orb passes it by. (It
+/// sphere's 4 off its health. Not turned, the same orb passes it by. (It
 /// starts 2 m behind the leader, flying toward the player, so it is never
 /// `PAST` the player and spent before it reaches the leader.)
 #[test]
@@ -286,12 +286,12 @@ fn a_turned_orb_hits_its_caster() {
         }
         (before.0 - w.foes[0].fighter.health.hp, before.1 - w.me.health.hp)
     };
-    assert_eq!(hit(true), (6, 0));
+    assert_eq!(hit(true), (4, 0));
     assert_eq!(hit(false), (0, 0));
 }
 
 /// Not turned, an orb lands on the player for its kind's damage: a gem,
-/// 10.
+/// 8.
 #[test]
 fn an_orb_hits_the_player_for_its_kind() {
     let mut w = World::new(5);
@@ -306,7 +306,7 @@ fn an_orb_hits_the_player_for_its_kind() {
     for _ in 0..30 {
         advance(&mut w, None);
     }
-    assert_eq!(w.me.health.hp, 100 - 10);
+    assert_eq!(w.me.health.hp, 100 - 8);
     assert!(w.orbs.flying.is_empty(), "spent on the body");
 }
 
@@ -398,12 +398,12 @@ fn a_turned_orb_near_its_caster_s_line_flies_at_it() {
 
 // ---- throwing ---------------------------------------------------------------
 
-/// A fan of five 30° wide: the middle orb on the line to the target, the
-/// outer two 15° off it either side (cos 15° = 0.9659, 63 303 units).
+/// A fan of five 20° wide: the middle orb on the line to the target, the
+/// outer two 10° off it either side (cos 10° = 0.984 81, 64 540 units).
 #[test]
 fn a_fan_spreads_its_orbs_evenly_across_the_line() {
     let v = &spec().patterns.leader[0];
-    assert_eq!((v.form, v.count, v.spread_deg), (Form::Fan, 5, 30));
+    assert_eq!((v.form, v.count, v.spread_deg), (Form::Fan, 5, 20));
     let origin = v3(0, int(1), 0);
     let to = v3(0, int(1), -int(9));
     let mut next = 0;
@@ -414,28 +414,28 @@ fn a_fan_spreads_its_orbs_evenly_across_the_line() {
     assert_eq!(orbs[2].dir, v3(0, 0, -ONE));
     for k in [0, 4] {
         assert!(
-            (orbs[k].dir.dot(v3(0, 0, -ONE)) - 63_303).abs() <= 8,
+            (orbs[k].dir.dot(v3(0, 0, -ONE)) - 64_540).abs() <= 8,
             "{:?}",
             orbs[k].dir
         );
     }
-    // a heading turns left as it grows: the first orb, turned −15°, is on
+    // a heading turns left as it grows: the first orb, turned −10°, is on
     // the caster's right (+x, facing −z)
     assert!(orbs[0].dir.x > 0 && orbs[4].dir.x < 0, "right to left");
     // 650 cm/s is 10.83 cm a tick: 7 099 units
     assert_eq!(orbs[0].speed, 7_099);
 }
 
-/// A ring of five darts 1.2 m round the origin, in the plane facing the
+/// A ring of four darts 1.2 m round the origin, in the plane facing the
 /// target, hanging 50 ticks before they close on it.
 #[test]
 fn a_ring_hangs_round_the_caster_facing_the_target() {
     let v = &spec().patterns.leader[1];
-    assert_eq!((v.form, v.count, v.radius_cm, v.hold), (Form::Ring, 5, 120, 50));
+    assert_eq!((v.form, v.count, v.radius_cm, v.hold), (Form::Ring, 4, 120, 50));
     let origin = v3(0, int(1), 0);
     let to = v3(0, int(1), -int(9));
     let orbs = fire(v, origin, to, 0, 1, &mut 0);
-    assert_eq!(orbs.len(), 5);
+    assert_eq!(orbs.len(), 4);
     for o in &orbs {
         let off = o.pos.sub(origin);
         assert!((off.len() - ONE * 12 / 10).abs() <= 8, "{off:?}");
@@ -685,4 +685,105 @@ fn a_hit_stop_holds_every_orb_where_it_stands() {
     assert_eq!(w.orbs.flying, held, "held a second tick");
     w.step(&Input::default());
     assert_ne!(w.orbs.flying[0].pos, held[0].pos, "then on");
+}
+
+/// What the leader's whole pattern takes, by how the player meets it.
+/// Returns (health taken, orbs turned, turnable orbs thrown).
+fn meet_the_leader(how: &str) -> (i32, u32, u32) {
+    let mut w = World::new(9);
+    w.me.health = crate::health::Health::new(1_000);
+    w.act("magic.leader", "").unwrap();
+    if how != "still" && how != "side to side" {
+        w.step(&Input {
+            keys: DRAW,
+            ..Input::default()
+        });
+        crate::imbue::lend(&mut w, 2_000);
+    }
+    let (mut k, mut seen, mut turnable) = (0u32, 0u32, 0u32);
+    while flying(&w, 1) {
+        let i = match how {
+            "side to side" => Input {
+                keys: if (k / 50).is_multiple_of(2) { LEFT } else { RIGHT },
+                ..Input::default()
+            },
+            "defending" => defend(&w),
+            _ => Input::default(),
+        };
+        w.step(&i);
+        let from = seen;
+        for o in w.orbs.flying.iter().filter(|o| o.id >= from) {
+            turnable += u32::from(o.kind().turnable);
+            seen = seen.max(o.id + 1);
+        }
+        k += 1;
+    }
+    (1_000 - w.me.health.hp, deflected(&w, 1), turnable)
+}
+
+/// The imbue is the answer to a volley (the coordinator's targets, M6b):
+/// not imbued, standing still is dangerous but survivable from full health
+/// (at least 40, under 100); imbued with the guard held is no worse than
+/// stepping side to side; imbued and moving the hand to each orb coming
+/// (`defend`) costs at most 15 and turns at least half the turnable orbs.
+#[test]
+fn the_imbue_is_the_answer_to_the_leader_s_volley() {
+    let (still, ..) = meet_the_leader("still");
+    let (dodging, ..) = meet_the_leader("side to side");
+    let (guard, ..) = meet_the_leader("guard held");
+    let (defending, turned, turnable) = meet_the_leader("defending");
+    assert!((40..100).contains(&still), "standing still takes {still}");
+    assert!(
+        guard <= dodging,
+        "the guard held takes {guard}, dodging {dodging}"
+    );
+    assert!(defending <= 15, "defending takes {defending}");
+    assert!(turned * 2 >= turnable, "defending turns {turned} of {turnable}");
+}
+
+/// Imbued, the guard lays the blade across the chest's front: with the hand
+/// at the guard and still, the line is facing(yaw + 70°, 15°) exactly; 10°
+/// off the guard it is halfway from M1's line to that; 20° off, or not
+/// imbued, M1's line.
+#[test]
+fn imbued_the_guard_lays_the_blade_across_the_line() {
+    let mut w = World::new(3);
+    let yaw = fx::deg(30);
+    let m1 = v3(0, 0, -ONE);
+    let mut shell = crate::arm::Shell::guard(ONE * 6 / 10);
+    let across = facing(yaw + fx::deg(70), fx::deg(15));
+    assert_eq!(crate::imbue::guard_line(&w, 0, yaw, &shell, m1), m1, "not imbued");
+    crate::imbue::lend(&mut w, 10);
+    assert_eq!(crate::imbue::guard_line(&w, 0, yaw, &shell, m1), across.norm());
+    assert_eq!(crate::imbue::guard_line(&w, 1, yaw, &shell, m1), m1, "a foe's");
+    shell.side += fx::deg(10);
+    let half = crate::imbue::guard_line(&w, 0, yaw, &shell, m1);
+    assert!(near(half, m1.lerp(across, ONE / 2).norm(), R), "{half:?}");
+    shell.side += fx::deg(10);
+    assert_eq!(crate::imbue::guard_line(&w, 0, yaw, &shell, m1), m1);
+}
+
+/// The caster's tell, through its input record alone (CW-3): a still
+/// leader's hand rises 3° a tick for the 12 ticks before the first fan
+/// leaves (36° over its guard) and is back at the guard 12 ticks after;
+/// its feet do not move.
+#[test]
+fn a_caster_raises_its_hands_as_a_volley_leaves() {
+    let mut w = World::new(5);
+    w.act("magic.leader", "").unwrap();
+    let feet = w.foes[0].body.pos;
+    let guard = w.foes[0].fighter.arm.shell.pitch;
+    let pitch_at = |w: &mut World, age: u32| {
+        while w.orbs.casts[0].age < age {
+            w.step(&Input::default());
+        }
+        w.foes[0].fighter.arm.shell.pitch
+    };
+    assert_eq!(pitch_at(&mut w, 28), guard, "still before the tell");
+    let up = pitch_at(&mut w, 40);
+    assert!((up - (guard + fx::deg(36))).abs() <= 2, "{up}");
+    assert_eq!(w.orbs.flying.len(), 0, "the fan leaves on this tick's step");
+    let down = pitch_at(&mut w, 52);
+    assert!((down - guard).abs() <= 2, "{down}");
+    assert_eq!(w.foes[0].body.pos, feet);
 }
