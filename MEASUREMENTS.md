@@ -90,3 +90,13 @@ The machine: Sam's Mac, Apple M2 Max, macOS (Darwin 25.3). Frame budget (journal
 - Any machine but this Mac; Safari and Firefox with their own windows rather than headless; a phone (out of scope, `BRIEF.md`).
 - Load over a network: GitHub Pages serves the same 432 KB.
 - M2: the GPU's own time a frame (only the page's callback, which submits the draws, and the 60 fps the display caps); the frame rate on a machine with less memory than the M2 Max's for the 168 MB of meshes (R4.6); the software renderer's frame rate with M2's terrain (R2.17, for M7).
+
+## M6 Magic (task M)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| The core's tick through the leader's whole pattern, the player imbued and swinging, native release | `cargo test --release -p tool_core --test magic_probe -- --ignored --nocapture` (`probe_leader_volley_tick_cost`) | 0.04 to 0.10 ms mean, 0.06 to 0.7 ms worst over 1 020 ticks across runs (spikes vary run to run), against the core's 2 ms (CW-11); 20 orbs at most in flight | 2026-10-20, M6 |
+| Draws the orbs add | same probe; `every_orb_of_a_kind_is_one_draw` | one run of solids and one of outlines per kind in flight, one run of halos for every orb: at most 6 × 2 + 1 = 13 draws, whatever the number of orbs | 2026-10-20, M6 |
+| What the leader's pattern takes (66 orbs) | same command (`probe_what_the_leader_s_pattern_takes`) | standing still 132; stepping side to side 33; imbued, guard held 84 (9 turned, the leader takes 48); imbued, swinging blindly 88 (10 turned, 44); side to side with the guard held 55 (R8.4) | 2026-10-20, M6 |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 529 KB with M1's polish and M6 merged | 2026-10-20, M6 |
+| Flicker: a frozen volley in sight | `tests/browser/interactions.py` (`?act=magic.leader&act=magic.freeze:150`) | two consecutive frames identical, pixel for pixel | 2026-10-20, M6 |

@@ -2207,8 +2207,8 @@
   {
     "name": "M6 orbs: a frozen volley draws at any share of a tick alike",
     "file": "crates/core/src/orbs.rs",
-    "find": "    let alpha = if w.orbs.frozen { ONE } else { alpha };",
-    "replace": "",
+    "find": "    let alpha = if w.orbs.frozen || w.orbs.held { ONE } else { alpha };",
+    "replace": "    let alpha = if w.orbs.held { ONE } else { alpha };",
     "test": "a_frozen_volley_draws_the_same_shapes_every_frame"
   },
   {
