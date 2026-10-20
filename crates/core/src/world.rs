@@ -274,6 +274,8 @@ impl World {
         // (M1's health reaches the HUD through `ui::health` and `ui::foe`)
         // M5: the story's line, the prompt for E, the fade
         crate::story::hud(self, strings, out);
+        // M7 (T10): the cut the mouse would pick while the left button is held
+        crate::swing::hud(self, strings, out);
     }
 
     /// A setting or flag named `module.name`.

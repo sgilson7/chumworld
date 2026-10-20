@@ -32,6 +32,12 @@ What the merchant takes and pays. Bandits carry them.
 
 Not: gold, rupees, money
 
+### Chop
+
+A cut straight down from above the head: hold the left button and move the mouse down.
+
+Not: overhead slash
+
 ### Cooldown
 
 The wait after the imbue is cast before it can be cast again: {imbue.cooldown} seconds, counted from the cast.
@@ -43,6 +49,10 @@ Not: recharge
 Turn one orb back with the edge of an imbued sword. Each orb the edge meets is turned once, back toward whoever cast it; a sword that is not imbued does nothing to an orb.
 
 Not: parry, reflect
+
+### Diagonal cut
+
+A cut along a slant, from high on one side to low on the other or the other way: hold the left button and move the mouse clearly on a slant.
 
 ### Dodge-step
 
@@ -87,6 +97,12 @@ Not: spell, buff
 ### Invert Y
 
 A setting: moving the mouse down looks up, and moving it up looks down.
+
+### Level cut
+
+A cut across from one side to the other with the blade held flat: hold the left button and move the mouse sideways. It runs high, at the middle or low, by where the sword hand was.
+
+Not: horizontal slash
 
 ### Lineup
 
@@ -157,6 +173,10 @@ Not: hotbar
 ### Reach
 
 How far from the shoulder the sword hand stretches. The wheel draws it in or sends it out.
+
+### Rising cut
+
+A cut from low in front up over the shoulder: hold the left button and move the mouse up.
 
 ### Rock
 
@@ -234,7 +254,11 @@ Not: pants, leggings
 
 ### Swing
 
-Holding the left button while you move the mouse. The arm pushes harder, so the sword moves faster and hits harder.
+Holding the left button while you move the mouse. The way the mouse goes picks the cut: a level cut, a chop, a rising cut, a diagonal cut or a thrust. Once picked, the cut draws back, swings through and carries on past, and the mouse waits until it is over.
+
+### Swing cue
+
+A setting: while the left button is held, a faint line of beads shows where the sword's point will run, and the cut's name shows below the middle of the view.
 
 ### Sword
 
@@ -257,6 +281,10 @@ Sending what the free hand holds ready where you look, with F. The free hand win
 A small blade thrown from the free hand.
 
 Not: dagger
+
+### Thrust
+
+A straight stab ahead: hold the left button and turn the wheel away from you.
 
 ### Volume
 

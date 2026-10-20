@@ -251,7 +251,7 @@ def menus(page, check, engine, base):
     page.click("#paused-more button")
     page.wait_for_selector("#settings.shown")
     labels = page.locator("#settings .control-label").all_text_contents()
-    check(labels == [STRINGS["look_speed"], STRINGS["mouse_sensitivity"], STRINGS["invert_y"], STRINGS["volume"]], f"settings lists its four settings: {labels}")
+    check(labels == [STRINGS["look_speed"], STRINGS["mouse_sensitivity"], STRINGS["invert_y"], STRINGS["volume"], STRINGS["swing_cue"]], f"settings lists its five settings: {labels}")
     focused = page.evaluate("() => document.activeElement && document.activeElement.id")
     check(focused == "setting-look_speed", f"settings opens with its first control focused for the keyboard: {focused!r}")
     page.keyboard.press("ArrowRight")

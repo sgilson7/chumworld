@@ -119,6 +119,20 @@ For the coordinator: R7.2 and R7.3 changed M2's `places.rs` (a `moving` flag) an
 
 Check, 2026-10-20 after merging main at a205e91 (M1 polish and M6): `./scripts/check.sh` steps 1 to 7 pass (format, lint, 344 core tests by `./scripts/count-tests.sh` with 10 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R7.8, R7.14 and R7.22 have status *person* and the journal, which M5 does not edit, does not name them yet; step 9, the browser check run on its own, passes in Chromium, Firefox and WebKit (Chromium's slow pan on the green at 23 of 230 400 pixels, at the bound's edge: R7.9). Breaks: `python3 scripts/break_tests.py M5`, 41 of 41 caught. Screenshots in `shots/m5/` (not committed).
 
+## 2026-10-20: M7 polish, swings (task P5, branch `m7-swings`, T10)
+
+The person: "the combat should be made easier to decide between horizontal and vertical swings, right now all i do are these like limp diagonal slashes".
+
+Found (R9.160, before/after table in `MEASUREMENTS.md`): the left button only raised the servos' caps while the hand followed the mouse at 0.15° a pixel, so a cut was as long and fast as the mouse's own stroke (the short sword's tip 4.7 m/s at a slow stroke, 11 at a fast one, 100 to 108° swept); a stroke down from the guard had 36° of room and swept 21°; the blade's line kept a stroke's slant (24 to 30° off level for a stroke 20° off sideways); the arm's limb drag stopped it with the mouse; and the blade lagged the hand by over 100° in a fast sweep. The camera's pitch does not couple in.
+
+Built: `swing.rs`. Holding the left button gathers the mouse's travel; at 40 px its direction, snapped to an axis within 30°, picks a level cut (its height by where the hand was), a chop, a rising cut or a 45° diagonal; the wheel turned away picks a thrust. A cut is a plane and an arc: a wind-up back past the start, a strike driven by a motor that turns the weapon and hand round the arc's pivot (Vagrancy's joint motor; heft slows it), a follow-through. Contact ends it. Level cuts 1° off level and about 190° swept, chops 90°, the short sword's tip 16 m/s, the cleaver's 11.6. Pilots cut the same way through their records, weighed in `data/pilots.json`. A swing cue (beads where the tip will run, the cut's name below the middle of the view; setting Swing cue, on by default). The title and pause panels say how to cut. Rows R9.160 to R9.174.
+
+Changed numbers and others' code, each with a row: `SWING_ACCEL`, `SWING_TIP_ACCEL`, limb drag during `Goals::swing` (R9.163, shared with the sheathing, P1); `blade::rewind` moves pinned hands (R9.167); M1's block and spark tests restaged (R9.168); M1's cut test renamed (R9.169); M6's recorded-volley test perturbs a key (R9.170); the browser check lists five settings (R9.173); the fallen-orc test no longer covered ground drag along x, so a hand-worked test does (`a_point_on_the_ground_loses_a_third_of_its_slide_a_tick`).
+
+Check (2026-10-20, after merging main at fa69349): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, notebook form); step 8 (the journal) fails only because R9.174 has status *person* and the journal, which P5 does not edit, does not name it yet; step 9, the browser check run on its own on the same build, passes in Chromium, Firefox and WebKit. Tests: 359 by `./scripts/count-tests.sh` (12 ignored). Breaks: `python3 scripts/break_tests.py M7` 18 of 18 caught; `M1 M6` 143 of 144 before the ground-drag repair, which is now caught. Screenshots in `shots/m7swings/` (not committed).
+
+Waiting on the person: R9.174 (the strings under "### M7 swings (P5)" at the foot of `SECOND-ORDER.md`). Open for play: R9.163, R9.164 (blows land harder; P4's damage unchanged), R9.170 (the pilots' cut weights), R9.171 (the thrust is slow), R9.172.
+
 ## 2026-10-20: M7 polish, feel (task P1, branch `m7-feel`)
 
 Built:
@@ -127,7 +141,7 @@ Built:
 - **The player's house** hands over by the ordered dither over 24 ticks, a tick at a time (R9.11).
 - **The opening**: two houses burning either side of the view from the door (flames, embers, smoke), a seventh orc in sight, a villager running past, the view lifting as you get up (R9.8, R9.9).
 - **The practice** from a circle of light 8 m in front of the trainer, in steps: one orb, three, the pattern (R9.12).
-- **The duel**: the spark burns 20 ticks with a white-hot core; the draw takes 19 ticks (0.32 s); the scabbard hangs at 28° (R9.6, R9.7, R9.14). Test acts `feel.freeze_spark`, `feel.stage_spark`, `trainer.mark` (R9.10).
+- **The duel**: the spark burns 20 ticks with a white-hot core; the draw takes 18 ticks (0.30 s); the scabbard hangs at 28° (R9.6, R9.7, R9.14). Test acts `feel.freeze_spark`, `feel.stage_spark`, `trainer.mark` (R9.10).
 - **The fade** eases in going dark and out lifting; the story's line drifts in (R9.15).
 - `tools/shoot.py` has ten M7 views (`m7-*`); the browser check sees the sound set up after Play, a burning house held still, and a frozen spark.
 

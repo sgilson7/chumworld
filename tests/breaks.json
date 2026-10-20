@@ -1460,7 +1460,7 @@
     "file": "crates/core/src/player.rs",
     "find": "    if now.dot(want) >= 0 {",
     "replace": "    if true {",
-    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: a sweep lays the blade flat",
@@ -1474,14 +1474,14 @@
     "file": "crates/core/src/arm.rs",
     "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
     "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
-    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: a moving reach holds the thrust's line",
     "file": "crates/core/src/arm.rs",
     "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
     "replace": "        .max(0);",
-    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: the high guard is high and to the left",
@@ -1663,7 +1663,7 @@
     "file": "crates/core/src/arm.rs",
     "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
     "replace": "                v.x -= v.x * 0 / 100;",
-    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   },
   {
     "name": "M1b player: a staggered body leans back along the blow",
@@ -2604,6 +2604,132 @@
     "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
   },
   {
+    "name": "M7 swing: a level cut's plane is level",
+    "file": "crates/core/src/swing.rs",
+    "find": "    let start = r.scale(-fx::cos(travel)).add(u.scale(-fx::sin(travel)));",
+    "replace": "    let start = r.scale(-fx::cos(travel)).add(u.scale(-fx::sin(travel) + ONE / 3));",
+    "test": "pure_sideways_input_gives_a_level_cut_of_a_full_arc"
+  },
+  {
+    "name": "M7 swing: a level cut sweeps a full arc",
+    "file": "crates/core/src/swing.rs",
+    "find": "        Way::Level(true) => (deg(95), if low { LOW_ACROSS } else { deg(70) }),",
+    "replace": "        Way::Level(true) => (deg(40), if low { LOW_ACROSS } else { deg(30) }),",
+    "test": "pure_sideways_input_gives_a_level_cut_of_a_full_arc"
+  },
+  {
+    "name": "M7 swing: a chop falls in the upright plane ahead",
+    "file": "crates/core/src/swing.rs",
+    "find": "    (facing(yaw, 0), start.norm())",
+    "replace": "    (facing(yaw - deg(25), 0), start.norm())",
+    "test": "pure_vertical_input_gives_an_upright_chop_of_a_full_arc"
+  },
+  {
+    "name": "M7 swing: a chop falls a full arc",
+    "file": "crates/core/src/swing.rs",
+    "find": "        Way::Chop => (deg(115), deg(50)),",
+    "replace": "        Way::Chop => (deg(60), deg(20)),",
+    "test": "pure_vertical_input_gives_an_upright_chop_of_a_full_arc"
+  },
+  {
+    "name": "M7 swing: near an axis snaps to it",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const SNAP: i32 = deg(30);",
+    "replace": "pub const SNAP: i32 = deg(10);",
+    "test": "a_travel_near_an_axis_snaps_to_it_and_a_clear_slant_is_a_diagonal"
+  },
+  {
+    "name": "M7 swing: a clear slant is a diagonal",
+    "file": "crates/core/src/swing.rs",
+    "find": "    let travel = if off.abs() <= SNAP {",
+    "replace": "    let travel = if true || off.abs() <= SNAP {",
+    "test": "a_travel_near_an_axis_snaps_to_it_and_a_clear_slant_is_a_diagonal"
+  },
+  {
+    "name": "M7 swing: the arm cuts on the snapped axis",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const SNAP: i32 = deg(30);",
+    "replace": "pub const SNAP: i32 = deg(10);",
+    "test": "an_off_axis_travel_cuts_on_its_axis_and_a_slant_cuts_on_the_slant"
+  },
+  {
+    "name": "M7 swing: the arm cuts a slant on the slant",
+    "file": "crates/core/src/swing.rs",
+    "find": "    let travel = if off.abs() <= SNAP {",
+    "replace": "    let travel = if true || off.abs() <= SNAP {",
+    "test": "an_off_axis_travel_cuts_on_its_axis_and_a_slant_cuts_on_the_slant"
+  },
+  {
+    "name": "M7 swing: a committed cut turns fast",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const TURN_MOST: Fx = ONE * 18 / 100;",
+    "replace": "pub const TURN_MOST: Fx = ONE * 9 / 100;",
+    "test": "a_short_sword_cuts_fast_and_a_cleaver_slower"
+  },
+  {
+    "name": "M7 arm: a heavy weapon's heft slows its cut",
+    "file": "crates/core/src/arm.rs",
+    "find": "        let most = (t.most as i64 * (100 + self.weapon.heft_pct) as i64 / 200) as Fx;",
+    "replace": "        let most = t.most;",
+    "test": "a_short_sword_cuts_fast_and_a_cleaver_slower"
+  },
+  {
+    "name": "M7 swing: a cut is spent on the block it meets",
+    "file": "crates/core/src/swing.rs",
+    "find": "        if c.age >= MAX_TICKS || (met && c.phase != Phase::WindUp) {",
+    "replace": "        if c.age >= MAX_TICKS {",
+    "test": "a_cut_into_a_held_guard_stops_on_it"
+  },
+  {
+    "name": "M7 pilot: a pilot's cut is its record's travel",
+    "file": "crates/core/src/pilot.rs",
+    "find": "        (true, Some(g)) => g,",
+    "replace": "        (true, Some(_)) => (0, 0, 0),",
+    "test": "a_pilot_s_level_cuts_and_chops_come_through_its_input_record"
+  },
+  {
+    "name": "M7 pilot: an attack weighs its cuts",
+    "file": "crates/core/src/pilot.rs",
+    "find": "    let mut at = rng.below(total.max(1));",
+    "replace": "    let mut at = 0 * rng.below(total.max(1));",
+    "test": "a_pilot_s_level_cuts_and_chops_come_through_its_input_record"
+  },
+  {
+    "name": "M7 arm: the player's record picks the cuts",
+    "file": "crates/core/src/arm.rs",
+    "find": "        crate::swing::step(w, id, inp)",
+    "replace": "        crate::swing::step(w, id, &Input::default())",
+    "test": "a_recorded_duel_of_cuts_hashes_the_same_every_run"
+  },
+  {
+    "name": "M7 swing: the cue off draws nothing",
+    "file": "crates/core/src/swing.rs",
+    "find": "    if !w.ui.settings.cue || f.sheath != Sheath::Drawn || f.health.down() || f.mouse_looks {",
+    "replace": "    if f.sheath != Sheath::Drawn || f.health.down() || f.mouse_looks {",
+    "test": "the_swing_cue_shows_the_cut_and_draws_nothing_when_off"
+  },
+  {
+    "name": "M7 swing: the cue waits for travel",
+    "file": "crates/core/src/swing.rs",
+    "find": "            } else if fx::length(dx, dy) >= CUE_PX && f.last.button(input::SWING) {",
+    "replace": "            } else if f.last.button(input::SWING) {",
+    "test": "holding_the_button_still_draws_identical_frames"
+  },
+  {
+    "name": "M7 blade: a stopped blade stops the hand on it",
+    "file": "crates/core/src/blade.rs",
+    "find": "    for i in [arm::POMMEL, arm::TIP, arm::HAND[0], arm::HAND[1]] {",
+    "replace": "    for i in [arm::POMMEL, arm::TIP] {",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M7 arm: a point on the ground drags to rest along z",
+    "file": "crates/core/src/arm.rs",
+    "find": "                v.z -= v.z * GROUND_DRAG_PCT / 100;",
+    "replace": "                v.z -= v.z * 0 / 100;",
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
+  },
+  {
     "name": "M7 feel: a voice repeats inside its gap",
     "file": "crates/core/src/sound.rs",
     "find": "    if gap > 0 && last != u64::MAX && w.tick < last + gap {",
@@ -2713,7 +2839,7 @@
     "file": "crates/core/src/player.rs",
     "find": "pub const REACH_TICKS: u8 = 11;",
     "replace": "pub const REACH_TICKS: u8 = 18;",
-    "test": "the_draw_is_heard_as_the_blade_slides_and_is_done_in_nineteen_ticks"
+    "test": "the_draw_is_heard_as_the_blade_slides_and_is_done_in_eighteen_ticks"
   },
   {
     "name": "M7 feel: a block's height is ignored",
