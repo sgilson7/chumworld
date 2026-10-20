@@ -60,10 +60,17 @@ pub enum Mesh {
     Tube = 14,
     /// four sides to an apex: roofs, caps
     Pyramid = 15,
+    // M6 (`orbs/shapes.rs`): the orb shapes the others lacked (CW-10)
+    /// a regular tetrahedron: the dart orb
+    Tetra = 16,
+    /// a five-pointed star raised front and back: the star orb
+    Star = 17,
+    /// a smooth ring, its hole along z: the practice mote
+    Torus = 18,
 }
 
 impl Mesh {
-    pub const ALL: [Mesh; 16] = [
+    pub const ALL: [Mesh; 19] = [
         Mesh::Cube,
         Mesh::Tri,
         Mesh::Square,
@@ -80,6 +87,9 @@ impl Mesh {
         Mesh::Taper,
         Mesh::Tube,
         Mesh::Pyramid,
+        Mesh::Tetra,
+        Mesh::Star,
+        Mesh::Torus,
     ];
 
     /// Shapes whose faces are flat: one of them can lie in another's plane,
@@ -98,6 +108,8 @@ impl Mesh {
                 | Mesh::Taper
                 | Mesh::Tube
                 | Mesh::Pyramid
+                | Mesh::Tetra
+                | Mesh::Star
         )
     }
 }
@@ -347,6 +359,10 @@ pub fn vertices(mesh: Mesh) -> Vec<i32> {
         Mesh::Taper => o = crate::mesh::taper(),
         Mesh::Tube => o = crate::mesh::tube(),
         Mesh::Pyramid => o = crate::mesh::pyramid(),
+        // M6
+        Mesh::Tetra => o = crate::orbs::shapes::tetra(),
+        Mesh::Star => o = crate::orbs::shapes::star(),
+        Mesh::Torus => o = crate::orbs::shapes::torus(),
     }
     o
 }

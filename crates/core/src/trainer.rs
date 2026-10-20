@@ -7,8 +7,9 @@
 //!
 //! 1. E by the trainer: three lines (who they are, what the imbue does,
 //!    "draw your sword"). From here the trainer lends the imbue: the blade
-//!    is imbued while the practice lasts (`lending`, which M6's `imbue::on`
-//!    reads), though Q is not yet the player's.
+//!    is imbued while the practice lasts (`lending`, which
+//!    is M6's `imbue::lend`, topped up each tick), though Q is not yet the
+//!    player's.
 //! 2. The player draws (X). The trainer casts the practice pattern
 //!    (`orbs::cast(…, Pattern::Practice)`, M6's door).
 //! 3. Each orb the player's blade turns counts (`orbs::deflected`). When a
@@ -154,11 +155,24 @@ pub fn step(w: &mut World) {
     let Some(id) = id(w) else {
         return;
     };
+    practice(w, id);
+    // M6's door: the lent imbue holds from tick to tick while the practice
+    // lasts (it wears off a tick at a time in `imbue::step`)
+    if lending(w) {
+        crate::imbue::lend(w, LEND_TICKS);
+    }
+}
+
+/// The lent imbue is topped up to this each tick of the practice.
+pub const LEND_TICKS: u32 = 2;
+
+fn practice(w: &mut World, id: usize) {
     let gap = player::body(w, id).pos.sub(w.player.pos).len_xz();
     let stage = w.trainer.stage;
     if matches!(stage, Stage::Ready | Stage::Volley(_) | Stage::Between(_)) && gap > AWAY {
         w.trainer.turned = turned(w) - w.trainer.credited;
         w.trainer.stage = Stage::Waiting;
+        crate::imbue::lend(w, 0);
         return;
     }
     match stage {
@@ -199,6 +213,7 @@ fn cast(w: &mut World, id: usize) {
 
 fn pass(w: &mut World) {
     w.trainer.stage = Stage::Done;
+    crate::imbue::lend(w, 0);
     if w.trainer.taught == 0 {
         crate::imbue::learn(w);
         w.trainer.taught += 1;
@@ -313,17 +328,43 @@ mod tests {
         assert_eq!(w.trainer.volleys, 1);
     }
 
+    /// With M6's orbs: the guard held still with the lent imbue turns the
+    /// practice's motes, and the practice passes on them alone.
+    #[test]
+    fn the_practice_passes_on_orbs_the_lent_imbue_turns() {
+        let mut w = by_trainer();
+        press(&mut w, input::USE);
+        press(&mut w, input::DRAW);
+        let mut t = 0;
+        while !crate::imbue::learned(&w) {
+            w.step(&Input::default());
+            w.ui.dialogue = None;
+            t += 1;
+            assert!(t < 60 * 120, "passed within two minutes: {} turned", turned(&w));
+        }
+        assert_eq!(w.trainer.credited, 0);
+        assert!(w.trainer.turned + crate::orbs::deflected(&w, id(&w).unwrap()) >= TO_PASS);
+        assert_eq!(w.trainer.taught, 1);
+    }
+
     #[test]
     fn the_practice_cannot_pass_without_the_deflections_and_learn_is_called_once() {
         let mut w = by_trainer();
         press(&mut w, input::USE);
         press(&mut w, input::DRAW);
-        // volleys come and go with nothing turned: never passed
+        for _ in 0..crate::player::DRAW_TICKS {
+            w.step(&Input::default());
+        }
+        assert!(matches!(w.trainer.stage, Stage::Volley(_)));
+        // the sword put away again: no blade, so no orb is turned, and the
+        // volleys come and go: never passed
+        press(&mut w, input::DRAW);
         for _ in 0..3000 {
             w.step(&Input::default());
             w.ui.dialogue = None;
         }
         assert!(!crate::imbue::learned(&w));
+        assert_eq!(turned(&w), 0, "nothing turned");
         assert_ne!(w.trainer.stage, Stage::Done);
         assert!(
             w.trainer.volleys >= 2,

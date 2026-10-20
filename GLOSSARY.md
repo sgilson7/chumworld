@@ -38,6 +38,12 @@ The wait after the imbue is cast before it can be cast again: {imbue.cooldown} s
 
 Not: recharge
 
+### Deflect
+
+Turn one orb back with the edge of an imbued sword. Each orb the edge meets is turned once, back toward whoever cast it; a sword that is not imbued does nothing to an orb.
+
+Not: parry, reflect
+
 ### Dodge-step
 
 A short quick step to one side with Space and a movement key. You cannot dodge-step again straight away.
@@ -98,6 +104,12 @@ Not: free look, free camera
 
 A setting: how far the view turns for a movement of the mouse, as a percentage.
 
+### Magic
+
+Shapes a caster throws at you in patterns, many at once. Each one that reaches you takes health. Learning magic is not part of this release.
+
+Not: bullets, projectiles
+
 ### Map
 
 The menu screen with the parchment map. It fills in where you have walked. M opens it.
@@ -113,6 +125,12 @@ Not: inventory
 ### Mouse sensitivity
 
 A setting: how far the sword hand moves for a movement of the mouse, as a percentage.
+
+### Orb
+
+One shape of magic in flight. Each kind of orb has its own shape and its own colour, and one kind cannot be deflected.
+
+Not: bullet, projectile, missile
 
 ### Pause
 

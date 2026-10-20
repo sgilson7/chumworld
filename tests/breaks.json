@@ -1932,6 +1932,307 @@
     "test": "the_static_scene_draws_no_two_surfaces_in_one_plane"
   },
   {
+    "name": "M6 imbue: on for exactly 600 ticks",
+    "file": "crates/core/src/imbue.rs",
+    "find": "since(w).is_some_and(|s| s < lasts() as u64)",
+    "replace": "since(w).is_some_and(|s| s <= lasts() as u64)",
+    "test": "the_imbue_is_on_for_exactly_600_ticks_and_ready_again_1200_after_the_cast"
+  },
+  {
+    "name": "M6 imbue: the cooldown counts 1,200 from the cast",
+    "file": "crates/core/src/imbue.rs",
+    "find": "since(w).is_none_or(|s| s >= cooldown() as u64)",
+    "replace": "since(w).is_none_or(|s| s >= lasts() as u64)",
+    "test": "the_imbue_is_on_for_exactly_600_ticks_and_ready_again_1200_after_the_cast"
+  },
+  {
+    "name": "M6 imbue: Q during the cooldown does nothing",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    if pressed && ready(w) && !w.me.health.down() {",
+    "replace": "    if pressed && learned(w) && !w.me.health.down() {",
+    "test": "the_imbue_is_on_for_exactly_600_ticks_and_ready_again_1200_after_the_cast"
+  },
+  {
+    "name": "M6 imbue: a held Q casts once",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    let pressed = down && !w.imbue.held;",
+    "replace": "    let pressed = down;",
+    "test": "holding_q_down_casts_once"
+  },
+  {
+    "name": "M6 imbue: Q before it is taught does nothing",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    learned(w) && since(w)",
+    "replace": "    since(w)",
+    "test": "q_before_the_imbue_is_taught_does_nothing"
+  },
+  {
+    "name": "M6 imbue: a lend runs down",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    w.imbue.lent = w.imbue.lent.saturating_sub(1);",
+    "replace": "",
+    "test": "a_lent_imbue_lasts_the_ticks_lent_and_starts_no_cooldown"
+  },
+  {
+    "name": "M6 imbue: a lend starts no cooldown",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    w.imbue.lent = ticks;",
+    "replace": "    w.imbue.lent = ticks;\n    w.imbue.cast_at = Some(w.tick);",
+    "test": "a_lent_imbue_lasts_the_ticks_lent_and_starts_no_cooldown"
+  },
+  {
+    "name": "M6 imbue: the HUD ring reads imbue.rs",
+    "file": "crates/core/src/ui.rs",
+    "find": "        _ => crate::imbue::status(w),",
+    "replace": "        _ => None,",
+    "test": "the_hud_ring_reads_the_imbue_from_this_module"
+  },
+  {
+    "name": "M6 imbue: the glow pulses before it ends",
+    "file": "crates/core/src/imbue.rs",
+    "find": "        ONE * 35 / 100 + fx::ratio(tri * 2, BLINK as i32) * 65 / 100",
+    "replace": "        ONE",
+    "test": "the_glow_rises_over_ten_ticks_and_pulses_before_it_ends"
+  },
+  {
+    "name": "M6 imbue: the glow rises over ten ticks",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    let rise = fx::ratio((s + 1).min(RISE) as i32, RISE as i32);",
+    "replace": "    let rise = ONE;",
+    "test": "the_glow_rises_over_ten_ticks_and_pulses_before_it_ends"
+  },
+  {
+    "name": "M6 orbs: CW-10 no two kinds share a shape (data)",
+    "file": "data/orbs.json",
+    "find": "\"shape\": \"tetra\"",
+    "replace": "\"shape\": \"sphere\"",
+    "test": "no_two_kinds_of_orb_share_a_shape"
+  },
+  {
+    "name": "M6 orbs: the file is refused when two kinds share a shape",
+    "file": "crates/core/src/orbs.rs",
+    "find": "                if other.shape == k.shape {",
+    "replace": "                if false {",
+    "test": "the_orbs_file_is_refused_when_two_kinds_share_a_shape"
+  },
+  {
+    "name": "M6 orbs: a sweep reflects about its travel",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    t.scale(2 * d.dot(t)).sub(d).norm()",
+    "replace": "    d.neg()",
+    "test": "an_orb_met_by_a_slanting_sweep_turns_by_twice_the_slant"
+  },
+  {
+    "name": "M6 orbs: a square sweep sends it straight back",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    t.scale(2 * d.dot(t)).sub(d).norm()",
+    "replace": "    d",
+    "test": "an_orb_met_square_by_a_sweep_goes_straight_back"
+  },
+  {
+    "name": "M6 orbs: a still edge blocks straight back",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    if travel.len() < STILL {\n        return d.neg();\n    }",
+    "replace": "",
+    "test": "a_still_edge_sends_an_orb_straight_back"
+  },
+  {
+    "name": "M6 orbs: an orb turns once",
+    "file": "crates/core/src/orbs.rs",
+    "find": "edge.filter(|_| o.turned.is_none() && k.turnable)",
+    "replace": "edge.filter(|_| k.turnable)",
+    "test": "an_imbued_edge_turns_an_orb_back_once_and_counts_it"
+  },
+  {
+    "name": "M6 orbs: a turned orb speeds up",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    o.speed = (o.speed as i64 * TURNED_PCT as i64 / 100).max(TURNED_MIN as i64) as Fx;",
+    "replace": "",
+    "test": "an_imbued_edge_turns_an_orb_back_once_and_counts_it"
+  },
+  {
+    "name": "M6 orbs: turning counts for the caster",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        Some((_, n)) => *n += 1,",
+    "replace": "        Some((_, n)) => *n += 0,",
+    "test": "an_imbued_edge_turns_an_orb_back_once_and_counts_it"
+  },
+  {
+    "name": "M6 orbs: a ward is never turned",
+    "file": "crates/core/src/orbs.rs",
+    "find": "edge.filter(|_| o.turned.is_none() && k.turnable)",
+    "replace": "edge.filter(|_| o.turned.is_none())",
+    "test": "a_ward_is_never_turned"
+  },
+  {
+    "name": "M6 orbs: one orb turned leaves its neighbours",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        let gap = r + edge_r + FORGIVE;",
+    "replace": "        let gap = r * 5 + FORGIVE;",
+    "test": "turning_one_orb_leaves_its_neighbours_alone"
+  },
+  {
+    "name": "M6 orbs: a blade not imbued turns nothing",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    if !crate::imbue::on(w) || !w.me.arm.in_hand || w.me.health.down() {",
+    "replace": "    if !w.me.arm.in_hand || w.me.health.down() {",
+    "test": "the_blade_turns_orbs_only_while_imbued"
+  },
+  {
+    "name": "M6 orbs: the imbued blade's edge turns orbs",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    Some(edge(&w.me.arm))",
+    "replace": "    None",
+    "test": "the_blade_turns_orbs_only_while_imbued"
+  },
+  {
+    "name": "M6 orbs: a turned orb hits the foes' side",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        let mine = (id == 0) == o.turned.is_none();",
+    "replace": "        let mine = id == 0;",
+    "test": "a_turned_orb_hits_its_caster"
+  },
+  {
+    "name": "M6 orbs: an orb not turned spares the caster's side",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        let mine = (id == 0) == o.turned.is_none();",
+    "replace": "        let mine = true;",
+    "test": "a_turned_orb_hits_its_caster"
+  },
+  {
+    "name": "M6 orbs: an orb takes its kind's damage",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    h.hp -= dmg;",
+    "replace": "    h.hp -= 1;",
+    "test": "an_orb_hits_the_player_for_its_kind"
+  },
+  {
+    "name": "M6 orbs: a dart knocks the arms",
+    "file": "crates/core/src/orbs.rs",
+    "find": "                *weak = (*weak).max(s.knock_ticks);",
+    "replace": "                *weak = (*weak).max(0);",
+    "test": "darts_knock_gems_shove_and_stars_stun"
+  },
+  {
+    "name": "M6 orbs: a gem shoves",
+    "file": "crates/core/src/orbs.rs",
+    "find": "            w.player.vel = w.player.vel.add(push);",
+    "replace": "            let _ = push;",
+    "test": "darts_knock_gems_shove_and_stars_stun"
+  },
+  {
+    "name": "M6 orbs: a star stuns",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        h.weak = [crate::health::WEAK_TICKS; 2];",
+    "replace": "        h.weak = h.weak;",
+    "test": "darts_knock_gems_shove_and_stars_stun"
+  },
+  {
+    "name": "M6 orbs: a turned orb near its caster's line flies at it",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        if dir.dot(home) >= ASSIST_COS {",
+    "replace": "        if false {",
+    "test": "a_turned_orb_near_its_caster_s_line_flies_at_it"
+  },
+  {
+    "name": "M6 orbs: a fan spreads across the line",
+    "file": "crates/core/src/orbs.rs",
+    "find": "                    -spread / 2 + spread * i / (n - 1)",
+    "replace": "                    spread * i / (n - 1)",
+    "test": "a_fan_spreads_its_orbs_evenly_across_the_line"
+  },
+  {
+    "name": "M6 orbs: a ring stands facing the target",
+    "file": "crates/core/src/orbs.rs",
+    "find": "                let out_of = across.scale(fx::cos(a)).add(up.scale(fx::sin(a)));",
+    "replace": "                let out_of = across.scale(fx::cos(a)).add(aim.scale(fx::sin(a)));",
+    "test": "a_ring_hangs_round_the_caster_facing_the_target"
+  },
+  {
+    "name": "M6 orbs: a wave's hole moves across",
+    "file": "crates/core/src/orbs.rs",
+    "find": "[n / 4, (n - g) / 2, n - n / 4 - g]",
+    "replace": "[n / 4, n / 4, n / 4]",
+    "test": "a_wave_leaves_a_hole_that_moves_across"
+  },
+  {
+    "name": "M6 orbs: a cast is flying before its first volley",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    w.orbs.casts.iter().any(|c| c.caster as usize == caster)\n        ||",
+    "replace": "    false ||",
+    "test": "a_cast_is_flying_from_the_cast_until_its_last_orb_is_spent"
+  },
+  {
+    "name": "M6 orbs: the count starts again at a cast",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    w.orbs.turned.retain(|(k, _)| *k != c);",
+    "replace": "",
+    "test": "a_cast_is_flying_from_the_cast_until_its_last_orb_is_spent"
+  },
+  {
+    "name": "M6 orbs: the practice does no harm (data)",
+    "file": "data/orbs.json",
+    "find": "\"radius_cm\": 15, \"damage\": 0,",
+    "replace": "\"radius_cm\": 15, \"damage\": 3,",
+    "test": "the_practice_round_does_no_harm"
+  },
+  {
+    "name": "M6 orbs: moving spares the player (orbs do not home)",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    o.pos = o.pos.add(o.dir.scale(o.speed));",
+    "replace": "    o.dir = target(w).sub(o.pos).norm();\n    o.pos = o.pos.add(o.dir.scale(o.speed));",
+    "test": "the_leader_s_pattern_hurts_a_still_player_and_spares_a_moving_one"
+  },
+  {
+    "name": "M6 orbs: a recorded volley replays",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        *next = next.wrapping_add(1);",
+    "replace": "        *next = { static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0); N.fetch_add(1, std::sync::atomic::Ordering::Relaxed) };",
+    "test": "a_recorded_volley_hashes_the_same_every_run"
+  },
+  {
+    "name": "M6 orbs: one halo run for every orb",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        out.outline(k.shape.mesh(), &place, ink, ONE);\n        out.glow(\n            Mesh::Sphere,",
+    "replace": "        out.outline(k.shape.mesh(), &place, ink, ONE);\n        out.glow(\n            k.shape.mesh(),",
+    "test": "every_orb_of_a_kind_is_one_draw"
+  },
+  {
+    "name": "M6 orbs: a frozen volley holds still",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    if w.orbs.frozen {\n        return;\n    }",
+    "replace": "",
+    "test": "a_frozen_volley_draws_the_same_shapes_every_frame"
+  },
+  {
+    "name": "M6 orbs: a frozen volley draws at any share of a tick alike",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    let alpha = if w.orbs.frozen || w.orbs.held { ONE } else { alpha };",
+    "replace": "    let alpha = if w.orbs.held { ONE } else { alpha };",
+    "test": "a_frozen_volley_draws_the_same_shapes_every_frame"
+  },
+  {
+    "name": "M6 orbs: an unknown magic act is refused",
+    "file": "crates/core/src/orbs.rs",
+    "find": "        _ => Err(format!(\"Unknown action \\\"magic.{name}\\\".\")),",
+    "replace": "        _ => Ok(()),",
+    "test": "magic_acts_refuse_what_they_do_not_know"
+  },
+  {
+    "name": "M6 orbs: the star fits the unit cube",
+    "file": "crates/core/src/orbs/shapes.rs",
+    "find": "const STAR_DEPTH_PCT: i32 = 42;",
+    "replace": "const STAR_DEPTH_PCT: i32 = 142;",
+    "test": "the_orb_shapes_wind_outward_and_fit_the_unit_cube"
+  },
+  {
+    "name": "M6 orbs: the torus winds outward",
+    "file": "crates/core/src/orbs/shapes.rs",
+    "find": "        let p = if dot64(n, p[0].1) < 0 {\n            [p[0], p[2], p[1]]",
+    "replace": "        let p = if dot64(n, p[0].1) > 0 {\n            [p[0], p[2], p[1]]",
+    "test": "the_orb_shapes_wind_outward_and_fit_the_unit_cube"
+  },
+  {
     "name": "M1b player: held on a foe the view frames the duel",
     "file": "crates/core/src/player.rs",
     "find": "pub const FRAMING_RIGHT: Fx = ONE * 40 / 100;",
@@ -1944,6 +2245,20 @@
     "find": "    w.me.framing = fx::approach(w.me.framing, goal, FRAMING_STEP);",
     "replace": "    w.me.framing = fx::approach(w.me.framing, goal * 0, FRAMING_STEP);",
     "test": "held_on_a_foe_the_view_frames_the_duel_with_its_blade_clear_of_the_player_s_head"
+  },
+  {
+    "name": "M6 orbs: a turn throws M1's spark and a hit-stop",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    w.feel.stop = w.feel.stop.max(TURN_STOP);",
+    "replace": "",
+    "test": "an_imbued_edge_turns_an_orb_back_once_and_counts_it"
+  },
+  {
+    "name": "M6 orbs: a hit-stop holds the orbs where they stand",
+    "file": "crates/core/src/world.rs",
+    "find": "            crate::orbs::hold(self); // M6: the orbs hold still too\n",
+    "replace": "",
+    "test": "a_hit_stop_holds_every_orb_where_it_stands"
   },
   {
     "name": "M5 solid: a body against a wall is not pushed out",
@@ -2184,13 +2499,6 @@
     "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
   },
   {
-    "name": "M5 trainer: the lent imbue does not imbue",
-    "file": "crates/core/src/imbue.rs",
-    "find": "    crate::trainer::lending(w)\n",
-    "replace": "    false\n",
-    "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
-  },
-  {
     "name": "M5 boomerang: it comes back to where it was let go",
     "file": "crates/core/src/boomerang.rs",
     "find": "    let base = fl.from.lerp(hand(w), eased);",
@@ -2231,5 +2539,12 @@
     "find": "            (Some(id), _) => Gift::Item(Item::from_id(id).expect(\"checked\"), p.count.unwrap_or(1)),",
     "replace": "            (Some(id), _) if id == \"jacket\" => continue,\n            (Some(id), _) => Gift::Item(Item::from_id(id).expect(\"checked\"), p.count.unwrap_or(1)),",
     "test": "every_item_s_one_route_can_be_taken_in_one_play"
+  },
+  {
+    "name": "M5 trainer: the trainer lends no imbue",
+    "file": "crates/core/src/trainer.rs",
+    "find": "        crate::imbue::lend(w, LEND_TICKS);\n",
+    "replace": "",
+    "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
   }
 ]

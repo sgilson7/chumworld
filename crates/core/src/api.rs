@@ -113,6 +113,7 @@ fn controls(g: &Game) -> (String, Vec<Row>) {
             row("key_reach", "control_reach"),
             row("key_throw", "control_throw"),
             row("key_dodge", "control_dodge"),
+            row("key_imbue", "control_imbue"), // M6
         ],
     )
 }

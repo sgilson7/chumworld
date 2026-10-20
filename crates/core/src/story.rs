@@ -1869,11 +1869,11 @@ mod tests {
 /// chest, the merchant stopped with a thrown rock, the speedster's pieces.
 /// Movement, looking, E, X and F are the reader's inputs through
 /// `Game::advance`; the shop and dialogue through their acts, as the page
-/// sends them. Three things are not by inputs, and say so: the long walks
+/// sends them. Two things are not by inputs, and say so: the long walks
 /// between places are `places.go` (a few kilometres at a run is minutes of
-/// ticks); the camp's foes are put down rather than duelled (M1's duel is
-/// tested on its own); and the practice's orbs are counted with
-/// `trainer.credit` until M6's orbs can be turned.
+/// ticks); and the camp's foes are put down rather than duelled (M1's duel
+/// is tested on its own). The practice passes on M6's orbs, turned by the
+/// held guard with the lent imbue.
 #[cfg(test)]
 mod playthrough {
     use super::*;
@@ -1997,17 +1997,40 @@ mod playthrough {
         let hut = crate::places::at(&g.world, "hut").unwrap();
         go(&mut g, fx::floor(hut.x) + 12, fx::floor(hut.z) + 12);
         let t = crate::player::body(&g.world, crate::trainer::id(&g.world).unwrap()).pos;
-        walk_to(&mut g, t.add(v3(ONE * 18 / 10, 0, 0)), false);
+        walk_to(&mut g, t.add(v3(0, 0, fx::int(2))), false);
         press_e(&mut g);
         assert_eq!(g.world.trainer.stage, crate::trainer::Stage::Ready);
         frames(&mut g, 1, DRAW, 0);
         frames(&mut g, 30, 0, 0);
         assert!(matches!(g.world.trainer.stage, crate::trainer::Stage::Volley(_)));
-        g.act("trainer.credit", &crate::trainer::TO_PASS.to_string())
-            .unwrap();
-        frames(&mut g, 2, 0, 0);
+        // the guard held toward the trainer, the lent imbue turns the motes
+        // (M6's orbs)
+        for _ in 0..30 {
+            let w = &g.world;
+            let tp = crate::player::body(w, crate::trainer::id(w).unwrap()).pos;
+            let turn = fx::wrap(yaw_of(tp.sub(w.player.pos)) - w.aim.yaw);
+            frames(&mut g, 1, 0, dx_for(turn));
+        }
+        for _ in 0..60 * 120 {
+            if crate::imbue::learned(&g.world) {
+                break;
+            }
+            frames(&mut g, 1, 0, 0);
+            read_on(&mut g);
+        }
         read_on(&mut g);
-        assert!(crate::imbue::learned(&g.world), "route: trainer");
+        assert!(
+            crate::imbue::learned(&g.world),
+            "route: trainer: {} turned, stage {:?}, facing {} aim {} screen {:?} tick {} stop {}",
+            crate::trainer::turned(&g.world),
+            g.world.trainer.stage,
+            g.world.player.facing,
+            g.world.aim.yaw,
+            g.screen,
+            g.world.tick,
+            g.world.feel.stop
+        );
+        let _ = g.world.feel.stop;
         frames(&mut g, 1, DRAW, 0);
         frames(&mut g, 30, 0, 0);
         // the camp: the lookout sees you; its people put down; their drops
