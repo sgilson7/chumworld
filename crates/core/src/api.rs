@@ -104,6 +104,15 @@ fn controls(g: &Game) -> (String, Vec<Row>) {
             row("key_run", "control_run"),
             row("key_look", "control_look"),
             row("key_pause", "control_pause"),
+            // M1: the duel's controls
+            row("key_draw", "control_draw"),
+            row("key_hand", "control_hand"),
+            row("key_swing", "control_swing"),
+            row("key_hold_look", "control_hold_look"),
+            row("key_lock", "control_lock"),
+            row("key_reach", "control_reach"),
+            row("key_throw", "control_throw"),
+            row("key_dodge", "control_dodge"),
         ],
     )
 }
@@ -323,7 +332,7 @@ mod tests {
         assert_eq!(n["passes"].as_array().unwrap().len(), render::Pass::ORDER.len());
         assert_eq!(n["instance"]["stride"], 64);
         assert_eq!(n["actions"]["forward"], 1);
-        assert_eq!(n["actions"]["two_hands"], 1 << 24);
+        assert_eq!(n["actions"]["swing"], 1 << 24);
         assert_eq!(n["view"]["eye"][1], render::VIEW_VALUES);
     }
 }

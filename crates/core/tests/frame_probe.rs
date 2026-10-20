@@ -77,3 +77,48 @@ fn probe_frame_cost() {
         "a frame costs the core more than the whole budget"
     );
 }
+
+/// M1 (CW-11): the core's tick with eight fighters, the raid's size: the
+/// player and seven foes, three orcs, three bandits and a leader, all
+/// duelling or ringing, over ten seconds. Native release.
+#[test]
+#[ignore]
+fn probe_raid_tick_cost() {
+    use tool_core::input::Input;
+    use tool_core::world::World;
+    let mut w = World::new(9);
+    for kind in ["orc", "orc", "orc", "bandit", "bandit", "bandit", "leader"] {
+        w.act("duel.spawn", kind).unwrap();
+    }
+    // a player who stands through it, its sword drawn, swinging
+    w.me.health = tool_core::health::Health::new(1_000_000);
+    w.step(&Input {
+        keys: tool_core::input::DRAW,
+        ..Input::default()
+    });
+    let mut worst = 0.0f64;
+    let ticks = 600;
+    let t = Instant::now();
+    for k in 0..ticks {
+        let i = Input {
+            dx: if k % 40 < 20 { 2_000 } else { -2_000 },
+            buttons: if k % 40 > 30 { tool_core::input::SWING } else { 0 },
+            ..Input::default()
+        };
+        let f = Instant::now();
+        w.step(&i);
+        worst = worst.max(f.elapsed().as_secs_f64() * 1000.0);
+    }
+    let mean = t.elapsed().as_secs_f64() * 1000.0 / ticks as f64;
+    let h = Instant::now();
+    let _ = w.hash();
+    let hash_ms = h.elapsed().as_secs_f64() * 1000.0;
+    println!("raid tick, 8 fighters: {mean:.3} ms mean, {worst:.3} ms worst; World::hash {hash_ms:.3} ms ({} bytes of debug text)", format!("{w:?}").len());
+    println!(
+        "blows {} and clashes {} in the last tick; foes standing {}",
+        w.blades.hits.len(),
+        w.blades.clashes.len(),
+        w.foes.iter().filter(|f| !f.fighter.health.down()).count()
+    );
+    assert!(mean < 2.0, "the raid's tick is over the core's 2 ms");
+}

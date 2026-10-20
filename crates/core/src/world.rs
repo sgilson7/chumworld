@@ -84,7 +84,16 @@ pub struct World {
     pub ui: crate::ui::State,
     // M3: the model lineup for review (`models.lineup`), off in play
     pub lineup: crate::models::Lineup,
-    // M1: pub arms: arm::State, pub pilots: pilot::State, pub health: health::State, …
+    // M1: the player's arms, health and footing (its feet are `player`),
+    // the foes, their pilots' book and memory, the blades' contacts, what
+    // is thrown, the speedster setting, and the physics view
+    pub me: crate::player::Fighter,
+    pub foes: Vec<crate::pilot::Foe>,
+    pub pilots: crate::pilot::State,
+    pub blades: crate::blade::State,
+    pub throwables: crate::throwables::State,
+    pub motion: crate::motion::State,
+    pub sticks: bool,
     // M2: pub water: water::State, …
     // M5: pub story: story::State, pub merchant: merchant::State, …
     // M6: pub orbs: orbs::State, pub imbue: imbue::State
@@ -101,6 +110,21 @@ impl World {
             inventory: crate::inventory::State::default(),
             ui: crate::ui::State::default(),
             lineup: crate::models::Lineup::default(), // M3:
+            // M1:
+            me: crate::player::Fighter::new(
+                crate::pose::Kind::Player,
+                crate::pose::Held::ShortSword,
+                0,
+                START,
+                START_YAW,
+                false,
+            ),
+            foes: Vec::new(),
+            pilots: crate::pilot::State::new(),
+            blades: crate::blade::State::default(),
+            throwables: crate::throwables::State::default(),
+            motion: crate::motion::State::default(),
+            sticks: false,
         }
     }
 
@@ -113,20 +137,25 @@ impl World {
     /// One tick, in the order the module doc gives.
     pub fn step(&mut self, input: &Input) {
         self.tick += 1;
-        // 1. the aim
-        self.aim = self.aim.turned(Mouse {
-            dx: input.dx,
-            dy: input.dy,
-            wheel: input.wheel,
-        });
+        // 1. the aim (M1: drawn, the mouse moves the hand instead, and the
+        // view holds on the foe)
+        let look = crate::player::look_mouse(self, input);
+        self.aim = self.aim.turned(look);
+        crate::player::hold_on(self);
         // M4: 1, 2 and 3 ready a quick item in the free hand
         crate::inventory::step(self, input);
-        // 2. M1: let inputs = crate::pilot::step(self);
-        // 3. bodies
-        let ground = self.ground(self.player.pos.x, self.player.pos.z);
-        self.player.step(input, self.aim.yaw, ground);
-        // 4. M1: crate::arm::step(self, input); crate::blade::step(self); crate::health::step(self);
+        // 2. M1:
+        let inputs = crate::pilot::step(self);
+        // 3. bodies (M1: motion)
+        crate::motion::step(self, input, &inputs);
+        // 4. M1:
+        crate::arm::step(self, input, &inputs);
+        crate::blade::step(self);
+        crate::health::step(self);
         // 5. M1/M5: throwables, crate::boomerang::step(self, input);
+        crate::throwables::step(self, input, &inputs);
+        crate::player::finish(self, input, &inputs);
+        crate::pilot::remember(self);
         // 6. M6: crate::orbs::step(self); crate::imbue::step(self, input);
         // 7. M5: crate::story::step(self); crate::merchant::step(self); …
         // 8. M2: crate::water::step(self);
@@ -136,9 +165,10 @@ impl World {
 
     /// What moves, drawn `alpha` of the way from the last tick to this one.
     pub fn draw(&self, alpha: Fx, look: &Look, out: &mut Shapes) {
-        self.player.draw(alpha, &look.palette, look.ink(), out);
+        // M1: every fighter and everything thrown
+        crate::player::draw(self, alpha, look, out);
+        crate::throwables::draw(self, alpha, look, out);
         crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
-                                                     // M1: crate::arm::draw(self, alpha, look, out); …
     }
 
     /// What never moves: the static groups, and the meshes they draw.
@@ -150,20 +180,20 @@ impl World {
 
     /// Lines over the game.
     pub fn hud(&self, _strings: &Strings, _out: &mut Vec<HudItem>) {
-        // M4: crate::ui::hud(self, strings, out); M1: health, M6: the imbue's cooldown
+        // M4: crate::ui::hud(self, strings, out); M6: the imbue's cooldown
+        // (M1's health reaches the HUD through `ui::health` and `ui::foe`)
     }
 
     /// A setting or flag named `module.name`.
-    pub fn act(&mut self, name: &str, _value: &str) -> Result<(), String> {
-        // M4: inventory.give, inventory.take, inventory.coins
-        if let Some(rest) = name.strip_prefix("inventory.") {
-            return crate::inventory::act(self, rest, _value);
+    pub fn act(&mut self, name: &str, value: &str) -> Result<(), String> {
+        match name.split_once('.') {
+            Some(("inventory", rest)) => crate::inventory::act(self, rest, value), // M4:
+            Some(("models", rest)) => crate::models::act(self, rest, value),       // M3:
+            // M1:
+            Some(("duel", rest)) => crate::player::act(self, rest, value),
+            Some(("motion", rest)) => crate::motion::act(self, rest, value),
+            _ => Err(format!("Unknown action \"{name}\".")),
         }
-        if let Some(rest) = name.strip_prefix("models.") {
-            return crate::models::act(self, rest, _value); // M3:
-        }
-        // M1: Some(("arm", rest)) => crate::arm::act(self, rest, value), …
-        Err(format!("Unknown action \"{name}\"."))
     }
 
     /// One number for the whole state, for replays and determinism tests: an
@@ -182,7 +212,12 @@ impl World {
     /// applied as the next tick will apply it, over the feet at `alpha`,
     /// `back` from the shoulder's pivot (`camera::BACK` in play).
     pub fn camera(&self, alpha: Fx, pending: Mouse, back: Fx) -> crate::render::Camera {
-        let aim = self.aim.turned(pending);
+        // M1: drawn, the mouse moves the hand, not the view
+        let aim = if self.me.mouse_looks {
+            self.aim.turned(pending)
+        } else {
+            self.aim
+        };
         camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z))
     }
 }

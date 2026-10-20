@@ -36,6 +36,19 @@ The machine: Sam's Mac, Apple M2 Max, macOS (Darwin 25.3). Frame budget (journal
 | The lift a mark needs | `cargo test the_lift_a_mark_needs` | 4 depth steps at the worst distance out to 1 km: 636 Q16 units, 9.7 mm (near layer at 128 m); out to 3 km 19 mm. Marks stand 10 mm off, prop details 25 mm | 2026-10-20, M3 |
 | WebAssembly size | printed by `./scripts/build.sh` | 502 KB (M0: 343 KB): the models' code and `data/models.json` compiled in | 2026-10-20, M3 |
 
+## M1 Duel (task D)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| The core's tick with eight fighters (the raid: the player, three orcs, three bandits, a leader), native release | `cargo test --release -p tool_core --test frame_probe -- --ignored --nocapture` (`probe_raid_tick_cost`) | 0.143 ms mean, 0.362 ms worst over 600 ticks, against the core's 2 ms (CW-11) | 2026-10-20, M1 |
+| `World::hash` with eight fighters | same probe | 0.186 ms native (100 KB of debug text); about 1 ms under the test profile (R3.18) | 2026-10-20, M1 |
+| One frame, the M0 probe, M1 merged (one fighter) | same command, `probe_frame_cost` | 0.031 ms mean, 0.051 ms worst; 32 moving instances a frame; start 12.7 ms (M0: 4.6 ms; the pilots' book is read at start) | 2026-10-20, M1 |
+| WebAssembly size, M1 before M3 merged | printed by `./scripts/build.sh` | 527 KB (M0: 343 KB) | 2026-10-20, M1 |
+| Speed and grip by speedster pieces (CW-8), pinned | `grip_and_speed_are_pinned_for_zero_to_five_pieces` | run 5, 6, 7, 8, 9, 10 m/s; grip 21 845, 12 014, 6 607, 3 633, 1 998, 1 098 of 65 536 (⅓ × 0.55ⁿ) | 2026-10-20, M1 |
+| Slide to a stop from a full run | `five_speedster_pieces_slide_ten_metres_to_a_stop_and_bare_feet_a_hand` | 0.17 m bare, 9.8 m with five pieces (by hand: v (1 − g) / g) | 2026-10-20, M1 |
+| Tip speed of a swing from a high guard to a low strike (one arm, a scratch probe over `arm::Arm`) | scratch probe, not kept | plain / committed: short sword 7.4 / 10.7 m/s, sword 6.4 / 9.4, cleaver 4.9 / 7.5; the blade holds its guard line to under 1° at rest | 2026-10-20, M1 |
+| A still fighter settling after a walk | scratch probe | every point still (under 0.37 mm a tick, then held exactly) within about a second (R3.7) | 2026-10-20, M1 |
+
 ## Not measured
 
 - The headroom under 16.7 ms on Metal: requestAnimationFrame is held to the display's 60 Hz, and the page keeps no timer of its own. A GPU timer query (`EXT_disjoint_timer_query_webgl2`) in a probe would give it.

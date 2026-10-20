@@ -14,6 +14,20 @@ Views (all of them when none is named):
     run       running (Shift + W) with a gentle turn
     paused    the pause screen after Esc
 
+M1's duel views, each on a page of its own opened with the test flags the
+page forwards to the core (?duel=, ?foe=still, ?gap=, ?speedster=, and
+?sticks=1 for the physics view while the models' weapon door draws nothing,
+SECOND-ORDER.md R3.4):
+
+    sheathed  an orc ahead, the sword in its scabbard on the left hip
+    drawn     X: the sword at the guard, the view held on the orc
+    swing     a committed swing (left button and a flick left) mid-arc
+    block     the swing met by the still orc's blade, the two in contact
+    hit       a low swing that lands on the orc, its health down
+    rock      F: a rock in flight toward a bandit
+    orc       a duel with an orc that fights back
+    slide     the speedster's five pieces: a run let go, sliding on ice
+
 M4's views (the menus), opened with the test inventory and HUD values the
 core gives through `?act=test.give_all&act=test.hud&act=test.explore`:
 
@@ -73,6 +87,7 @@ from playwright.sync_api import sync_playwright
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 VIEWS = ["loading", "title", "standing", "turn", "run", "paused"]
+DUEL_VIEWS = ["sheathed", "drawn", "swing", "block", "hit", "rock", "orc", "slide"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 
@@ -279,13 +294,139 @@ def open_game(browser, base, logs, held=None):
     return page, t0
 
 
+def frames(page, n):
+    """Waits `n` display frames."""
+    page.evaluate(
+        "(n) => new Promise((done) => { let k = 0; const s = () => { k += 1; if (k < n) requestAnimationFrame(s); else done(); }; requestAnimationFrame(s); })",
+        n,
+    )
+
+
+def move(page, dx, dy, steps):
+    """`steps` mouse moves of (dx, dy) CSS pixels, one a display frame."""
+    page.evaluate(
+        """([dx, dy, steps]) => new Promise((done) => {
+            let k = 0;
+            const s = () => {
+                window.dispatchEvent(new MouseEvent('mousemove', {movementX: dx, movementY: dy}));
+                k += 1;
+                if (k < steps) requestAnimationFrame(s); else done();
+            };
+            requestAnimationFrame(s);
+        })""",
+        [dx, dy, steps],
+    )
+
+
+def duel_page(browser, base, logs, flags):
+    """The game opened with test flags, Play pressed, the camera's ease done."""
+    page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+    page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+    page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+    page.goto(base + "/index.html?pointer=free&" + flags, wait_until="commit")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+    frames(page, 20)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    frames(page, 60)
+    return page
+
+
+def draw_and_wind(page, up_px):
+    """X, then the hand wound out to the right (and `up_px` up) for a sweep."""
+    page.keyboard.press("KeyX")
+    frames(page, 45)
+    move(page, 45, -up_px / 12, 12)
+    frames(page, 35)
+
+
+def flick(page, ticks):
+    """The left button held and the mouse flicked left, 150 px a frame."""
+    page.mouse.move(960, 540)
+    page.mouse.down()
+    move(page, -150, 0, ticks)
+
+
+def duel_views(browser, base, out, views, logs):
+    """M1's views (DUEL_VIEWS), each from a fresh page."""
+    if {"sheathed", "drawn"} & set(views):
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=320")
+        # drawn first, so the view turns to hold on the orc, then put away
+        page.keyboard.press("KeyX")
+        frames(page, 70)
+        page.keyboard.press("KeyX")
+        frames(page, 50)
+        if "sheathed" in views:
+            page.screenshot(path=str(out / "sheathed.png"))
+        page.keyboard.press("KeyX")
+        frames(page, 70)
+        if "drawn" in views:
+            page.screenshot(path=str(out / "drawn.png"))
+        page.close()
+    if "swing" in views:
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=200")
+        draw_and_wind(page, 0)
+        flick(page, 4)
+        page.screenshot(path=str(out / "swing.png"))
+        page.mouse.up()
+        page.close()
+    if "block" in views:
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=115")
+        # the hand up 24° (160 px at 0.15° a pixel) to meet the orc's guard
+        draw_and_wind(page, 160)
+        flick(page, 9)
+        move(page, -10, 0, 20)
+        page.screenshot(path=str(out / "block.png"))
+        page.mouse.up()
+        page.close()
+    if "hit" in views:
+        page = duel_page(browser, base, logs, "duel=orc&foe=still&gap=85")
+        # low: 26° down (173 px) passes under the orc's guard
+        draw_and_wind(page, -173)
+        flick(page, 9)
+        move(page, -10, 0, 12)
+        page.screenshot(path=str(out / "hit.png"))
+        page.mouse.up()
+        page.close()
+    if "rock" in views:
+        page = duel_page(browser, base, logs, "duel=bandit&foe=still&gap=900&act=inventory.give:rock:5")
+        page.keyboard.press("KeyF")
+        # 12 ticks of wind, then a sixth of a second in the air
+        frames(page, 22)
+        page.screenshot(path=str(out / "rock.png"))
+        page.close()
+    if "orc" in views:
+        page = duel_page(browser, base, logs, "duel=orc&gap=400")
+        page.keyboard.press("KeyX")
+        frames(page, 150)
+        for _ in range(3):
+            move(page, 30, -12, 10)
+            page.mouse.down()
+            move(page, -120, 20, 6)
+            page.mouse.up()
+            frames(page, 30)
+        page.screenshot(path=str(out / "orc.png"))
+        page.close()
+    if "slide" in views:
+        page = duel_page(browser, base, logs, "speedster=5")
+        page.keyboard.down("ShiftLeft")
+        page.keyboard.down("KeyW")
+        frames(page, 200)
+        page.keyboard.up("KeyW")
+        page.keyboard.up("ShiftLeft")
+        # let go at 10 m/s: half a second on, still sliding on still feet
+        frames(page, 30)
+        page.screenshot(path=str(out / "slide.png"))
+        page.close()
+
+
 def main(argv):
     if not argv or argv[0].startswith("--"):
         sys.exit(__doc__)
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
-    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + M4_VIEWS
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in M4_VIEWS]
+    views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + M4_VIEWS
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in M4_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -369,6 +510,7 @@ def main(argv):
             page.wait_for_selector("body[data-screen='paused']", state="attached")
             page.wait_for_timeout(500)
             page.screenshot(path=str(out / "paused.png"))
+        duel_views(browser, base, out, views, logs)
         if any(v in M4_VIEWS for v in views):
             m4_views(browser, base, out, views, logs)
         browser.close()

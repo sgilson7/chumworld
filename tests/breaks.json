@@ -287,10 +287,10 @@
     "test": "an_input_record_survives_a_trip_through_json"
   },
   {
-    "name": "the camera is 2.6 m back",
+    "name": "the camera is 3.5 m back",
     "file": "crates/core/src/camera.rs",
-    "find": "pub const BACK: Fx = ONE * 26 / 10;",
-    "replace": "pub const BACK: Fx = ONE * 20 / 10;",
+    "find": "pub const BACK: Fx = ONE * 35 / 10;",
+    "replace": "pub const BACK: Fx = ONE * 30 / 10;",
     "test": "level_and_facing_north_the_eye_is_behind_right_of_and_above_the_head"
   },
   {
@@ -462,32 +462,32 @@
     "test": "the_shader_pushes_ink_back_and_halos_and_shadows_forward"
   },
   {
-    "name": "the body speeds up at its rate",
-    "file": "crates/core/src/player.rs",
-    "find": "pub const ACCEL: Fx = fx::int(18);",
-    "replace": "pub const ACCEL: Fx = fx::int(9);",
-    "test": "holding_w_walks_north_and_reaches_walking_pace_smoothly"
+    "name": "bare feet close a third of the gap a tick",
+    "file": "crates/core/src/motion.rs",
+    "find": "pub const GRIP_BASE: Fx = ONE / 3;",
+    "replace": "pub const GRIP_BASE: Fx = ONE / 6;",
+    "test": "a_walk_starts_in_a_few_ticks_and_holding_w_walks_north"
   },
   {
     "name": "Shift runs",
-    "file": "crates/core/src/player.rs",
-    "find": "        let speed = if input.key(input::RUN) { RUN } else { WALK };",
-    "replace": "        let speed = WALK;",
-    "test": "shift_runs_faster_than_walking"
+    "file": "crates/core/src/motion.rs",
+    "find": "    } else if input.key(input::RUN) {",
+    "replace": "    } else if false {",
+    "test": "shift_runs_only_while_the_sword_is_sheathed"
   },
   {
     "name": "movement follows the camera",
-    "file": "crates/core/src/player.rs",
-    "find": "            .scale(x * ONE)\n            .sub(facing(yaw, 0).scale(z * ONE))",
-    "replace": "            .scale(x * ONE)\n            .sub(facing(0, 0).scale(z * ONE))",
-    "test": "movement_is_relative_to_the_camera_heading"
+    "file": "crates/core/src/motion.rs",
+    "find": "        .sub(facing(yaw, 0).scale(z * ONE))",
+    "replace": "        .sub(facing(0, 0).scale(z * ONE))",
+    "test": "movement_is_relative_to_the_heading_given"
   },
   {
     "name": "the body turns to its way",
-    "file": "crates/core/src/player.rs",
-    "find": "            let turn = fx::wrap(want - self.facing).clamp(-TURN_RATE, TURN_RATE);",
-    "replace": "            let turn = fx::wrap(want - self.facing).clamp(-TURN_RATE / 2, 0);",
-    "test": "letting_go_slows_to_a_stop_and_the_body_turns_to_face_its_way"
+    "file": "crates/core/src/motion.rs",
+    "find": "        let turn = fx::wrap(goal - b.facing).clamp(-rate, rate);",
+    "replace": "        let turn = fx::wrap(goal - b.facing).clamp(-rate / 2, 0);",
+    "test": "sheathed_a_body_turns_to_its_way_and_drawn_it_turns_to_its_foe"
   },
   {
     "name": "the body is drawn between ticks",
@@ -520,15 +520,15 @@
   {
     "name": "the body moves along the new aim",
     "file": "crates/core/src/world.rs",
-    "find": "        self.player.step(input, self.aim.yaw, ground);",
-    "replace": "        self.player.step(input, START_YAW, ground);",
+    "find": "        crate::motion::step(self, input, &inputs);",
+    "replace": "        { let y = self.aim.yaw; self.aim.yaw = START_YAW; crate::motion::step(self, input, &inputs); self.aim.yaw = y; }",
     "test": "the_mouse_turns_the_aim_before_the_body_moves_the_same_tick"
   },
   {
     "name": "the camera shows pending movement",
     "file": "crates/core/src/world.rs",
-    "find": "        let aim = self.aim.turned(pending);",
-    "replace": "        let aim = self.aim;",
+    "find": "            self.aim.turned(pending)\n",
+    "replace": "            self.aim\n",
     "test": "the_camera_shows_pending_mouse_movement_and_the_tick_does_not_jump_it"
   },
   {
@@ -583,8 +583,8 @@
   {
     "name": "play draws at the clock's alpha",
     "file": "crates/core/src/game.rs",
-    "find": "                if hinted != self.hint_shown() {\n                    self.ui_version += 1;\n                }\n                self.alpha = self.clock.alpha();",
-    "replace": "                if hinted != self.hint_shown() {\n                    self.ui_version += 1;\n                }\n                self.alpha = 0;",
+    "find": "                    self.ui_version += 1;\n                }\n                self.alpha = self.clock.alpha();",
+    "replace": "                    self.ui_version += 1;\n                }\n                self.alpha = 0;",
     "test": "the_body_is_drawn_between_ticks_by_the_clock_s_alpha"
   },
   {
@@ -705,6 +705,314 @@
     "find": "        Kind::Orc => (200, 135),",
     "replace": "        Kind::Orc => (170, 135),",
     "test": "the_player_is_one_metre_seventy_and_an_orc_two_metres"
+  },
+  {
+    "name": "M1 motion: grip falls 55/100 a piece",
+    "file": "crates/core/src/motion.rs",
+    "find": "    fx::mul(GRIP_BASE, crate::items::speedster_grip(n.min(PIECES)))",
+    "replace": "    fx::mul(GRIP_BASE, crate::items::speedster_grip(n.min(4)))",
+    "test": "grip_and_speed_are_pinned_for_zero_to_five_pieces"
+  },
+  {
+    "name": "M1 motion: speed grows 20% a piece",
+    "file": "crates/core/src/motion.rs",
+    "find": "    fx::mul(speed, crate::items::speedster_speed(n.min(PIECES))) / TICKS",
+    "replace": "    fx::mul(speed, crate::items::speedster_speed(n.min(4))) / TICKS",
+    "test": "grip_and_speed_are_pinned_for_zero_to_five_pieces"
+  },
+  {
+    "name": "M1 motion: the slide follows grip",
+    "file": "crates/core/src/motion.rs",
+    "find": "    b.vel = approach(b.vel, want, grip(n));",
+    "replace": "    b.vel = approach(b.vel, want, grip(n.min(2)));",
+    "test": "five_speedster_pieces_slide_ten_metres_to_a_stop_and_bare_feet_a_hand"
+  },
+  {
+    "name": "M1 motion: drawn feet keep to footwork",
+    "file": "crates/core/src/motion.rs",
+    "find": "    let speed = if drawn {\n        FOOTWORK",
+    "replace": "    let speed = if false {\n        FOOTWORK",
+    "test": "shift_runs_only_while_the_sword_is_sheathed"
+  },
+  {
+    "name": "M1 motion: the dodge-step waits",
+    "file": "crates/core/src/motion.rs",
+    "find": "        g.dodge_wait = DODGE_WAIT;",
+    "replace": "        g.dodge_wait = 0;",
+    "test": "a_dodge_steps_aside_once_then_waits"
+  },
+  {
+    "name": "M1 motion: the knee bends forward",
+    "file": "crates/core/src/motion.rs",
+    "find": "    hip.add(u.scale(x)).add(bend.scale(h))",
+    "replace": "    hip.add(u.scale(x)).sub(bend.scale(h))",
+    "test": "the_knee_meets_both_bones_and_bends_forward"
+  },
+  {
+    "name": "M1 motion: the speedster setting is held to five",
+    "file": "crates/core/src/motion.rs",
+    "find": "                .filter(|n| *n <= PIECES)",
+    "replace": "                .filter(|n| *n <= 9)",
+    "test": "the_speedster_setting_is_refused_out_of_range"
+  },
+  {
+    "name": "M1 arm: a stick is an exact pair shift",
+    "file": "crates/core/src/arm.rs",
+    "find": "        self.pts[j].p = self.pts[j].p.sub(times(k, mi));",
+    "replace": "        self.pts[j].p = self.pts[j].p.sub(times(k, mi + 1));",
+    "test": "a_stick_and_a_pin_move_no_momentum"
+  },
+  {
+    "name": "M1 arm: drag takes energy",
+    "file": "crates/core/src/arm.rs",
+    "find": "            v = v.sub(mul_div(v, drag as i64, 100));",
+    "replace": "            v = v.add(mul_div(v, drag as i64, 100));",
+    "test": "nothing_gains_energy_without_a_servo"
+  },
+  {
+    "name": "M1 arm: no point passes 32 m/s",
+    "file": "crates/core/src/arm.rs",
+    "find": "pub const CAP: Fx = ONE * 32 / 60;",
+    "replace": "pub const CAP: Fx = ONE * 64 / 60;",
+    "test": "no_point_ever_moves_faster_than_the_cap"
+  },
+  {
+    "name": "M1 arm: the servo's change of speed is capped",
+    "file": "crates/core/src/arm.rs",
+    "find": "    want.sub(pt.vel()).clamp_len(accel)",
+    "replace": "    want.sub(pt.vel())",
+    "test": "the_servo_is_capped_in_speed_and_in_change_of_speed"
+  },
+  {
+    "name": "M1 arm: heft slows a heavy weapon",
+    "file": "crates/core/src/arm.rs",
+    "find": "            let pct = g.strength[1] * heft / 100;",
+    "replace": "            let pct = g.strength[1] * 100 / 100 + 0 * heft;",
+    "test": "a_heavy_weapon_starts_late_and_carries_past"
+  },
+  {
+    "name": "M1 arm: a committed swing raises the caps",
+    "file": "crates/core/src/arm.rs",
+    "find": "            (SWING_SPEED, SWING_ACCEL, SWING_TIP_SPEED, SWING_TIP_ACCEL)",
+    "replace": "            (HAND_SPEED, HAND_ACCEL, TIP_SPEED, TIP_ACCEL)",
+    "test": "a_committed_swing_moves_the_hand_faster"
+  },
+  {
+    "name": "M1 arm: both hands are pinned to the hilt",
+    "file": "crates/core/src/arm.rs",
+    "find": "                if self.hold[s] && self.weapon.grip[s] >= 0 {",
+    "replace": "                if s == 1 && self.hold[s] && self.weapon.grip[s] >= 0 {",
+    "test": "both_hands_stay_on_a_two_handed_hilt_and_the_bones_keep_their_lengths"
+  },
+  {
+    "name": "M1 arm: the mouse moves the shell",
+    "file": "crates/core/src/arm.rs",
+    "find": "pub const UNITS_PER_100_PX: i64 = fx::TURN as i64 * 15 / 360;",
+    "replace": "pub const UNITS_PER_100_PX: i64 = fx::TURN as i64 * 12 / 360;",
+    "test": "the_mouse_moves_the_shell_target_and_a_pilot_can_send_the_movement_back"
+  },
+  {
+    "name": "M1 arm: the blade rises above the hand",
+    "file": "crates/core/src/arm.rs",
+    "find": "pub const BLADE_RISE: i32 = deg(40);",
+    "replace": "pub const BLADE_RISE: i32 = deg(20);",
+    "test": "the_blade_points_ahead_from_the_guard_out_to_the_side_and_across_a_high_guard"
+  },
+  {
+    "name": "M1 health: a blow takes by speed over 1.5 m/s",
+    "file": "crates/core/src/health.rs",
+    "find": "    (over * PER_MPS as i64 * pct / 100 / ONE as i64) as i32",
+    "replace": "    (over * 4 * pct / 100 / ONE as i64) as i32",
+    "test": "a_blow_takes_health_by_its_speed_and_where_it_lands"
+  },
+  {
+    "name": "M1 health: a hit arm is weakened",
+    "file": "crates/core/src/health.rs",
+    "find": "                self.weak[s] = WEAK_TICKS;",
+    "replace": "                self.weak[1 - s] = WEAK_TICKS;",
+    "test": "a_hit_arm_is_weakened_then_recovers"
+  },
+  {
+    "name": "M1 health: no health is down",
+    "file": "crates/core/src/health.rs",
+    "find": "        self.hp <= 0\n",
+    "replace": "        self.hp < 0\n",
+    "test": "at_no_health_a_fighter_is_down_and_falls"
+  },
+  {
+    "name": "M1 blade: contact is swept between ticks",
+    "file": "crates/core/src/blade.rs",
+    "find": "    for k in from..=s {",
+    "replace": "    for k in [s] {",
+    "test": "a_blade_that_jumps_a_limb_is_caught_between_ticks"
+  },
+  {
+    "name": "M1 blade: substeps follow relative travel",
+    "file": "crates/core/src/blade.rs",
+    "find": "    (((d as i64 + r - 1) / r).max(1) as u32).min(s_max.max(1))",
+    "replace": "    ((d as i64 / r / 4).max(1) as u32).min(s_max.max(1))",
+    "test": "a_blade_moving_sideways_is_not_missed_between_substeps"
+  },
+  {
+    "name": "M1 blade: closest points of skew segments",
+    "file": "crates/core/src/blade.rs",
+    "find": "                let tn = (b as i128 * sv as i128 / one as i128) as i64 + f;",
+    "replace": "                let tn = (b as i128 * sv as i128 / one as i128) as i64 - f;",
+    "test": "closest_points_of_crossing_skew_and_apart_segments"
+  },
+  {
+    "name": "M1 blade: a blade stops at a body",
+    "file": "crates/core/src/blade.rs",
+    "find": "    rewind(arm, c.k.saturating_sub(1) as i64, c.s as i64);",
+    "replace": "    rewind(arm, c.s as i64, c.s as i64);",
+    "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
+  },
+  {
+    "name": "M1 blade: one blow a contact",
+    "file": "crates/core/src/blade.rs",
+    "find": "                let r = (*r + COME_AWAY) as i64;",
+    "replace": "                let r = (*r - COME_AWAY) as i64;",
+    "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
+  },
+  {
+    "name": "M1 blade: a block rewinds both blades",
+    "file": "crates/core/src/blade.rs",
+    "find": "    rewind(a, k, s);\n    rewind(b, k, s);",
+    "replace": "    let _ = (k, s);",
+    "test": "a_block_stops_a_swing_and_the_blades_do_not_pass_through"
+  },
+  {
+    "name": "M1 throwables: the wind takes twelve ticks",
+    "file": "crates/core/src/throwables.rs",
+    "find": "    let release = th.wind > WIND_TICKS;",
+    "replace": "    let release = th.wind > WIND_TICKS - 4;",
+    "test": "f_winds_for_twelve_ticks_then_a_rock_leaves_along_the_aim"
+  },
+  {
+    "name": "M1 throwables: gravity pulls a rock down",
+    "file": "crates/core/src/throwables.rs",
+    "find": "        t.vel.y -= GRAVITY;",
+    "replace": "        t.vel.y -= GRAVITY / 4;",
+    "test": "a_rock_arcs_down_and_lands_with_an_impact_on_the_ground"
+  },
+  {
+    "name": "M1 throwables: a prop stops a rock",
+    "file": "crates/core/src/throwables.rs",
+    "find": "                consider(share, Struck::Prop(k as u16), t.prev.lerp(t.p, share as Fx));",
+    "replace": "                let _ = (share, k);",
+    "test": "a_rock_stops_against_a_prop_and_says_which"
+  },
+  {
+    "name": "M1 throwables: a rock's blow takes health",
+    "file": "crates/core/src/throwables.rs",
+    "find": "    player::parts_mut(w, id).1.health.take(scaled, part);",
+    "replace": "    let _ = (scaled, part);",
+    "test": "a_rock_that_meets_a_foe_takes_health"
+  },
+  {
+    "name": "M1 throwables: the slab test",
+    "file": "crates/core/src/throwables.rs",
+    "find": "        lo = lo.max(t0);",
+    "replace": "        lo = lo.min(t0);",
+    "test": "the_slab_test_finds_where_a_path_enters_a_box"
+  },
+  {
+    "name": "M1 pilot: a missing tree is refused",
+    "file": "crates/core/src/pilot.rs",
+    "find": "            if !book.trees.contains_key(&k.tree) {",
+    "replace": "            if false {",
+    "test": "the_book_reads_every_kind_and_tree_and_refuses_a_missing_tree"
+  },
+  {
+    "name": "M1 pilot: the record is the only channel",
+    "file": "crates/core/src/pilot.rs",
+    "find": "        w.foes[k].brain = brain;\n",
+    "replace": "        w.foes[k].brain = brain;\n        if w.foes[k].brain.control == Control::Tree { w.foes[k].body.pos.x += 3; }\n",
+    "test": "a_pilot_moves_its_body_only_through_its_input_record"
+  },
+  {
+    "name": "M1 pilot: a foe out of reach closes in",
+    "file": "crates/core/src/pilot.rs",
+    "find": "        Move::CloseIn if t <= 18 => plain(GUARD, input::FORWARD),",
+    "replace": "        Move::CloseIn if t <= 18 => plain(GUARD, 0),",
+    "test": "a_foe_out_of_reach_closes_in_and_one_in_reach_swings"
+  },
+  {
+    "name": "M1 pilot: the reaction delay",
+    "file": "crates/core/src/pilot.rs",
+    "find": "        self.ticks[n - 1 - ago.min(n - 1)].get(id).copied()",
+    "replace": "        self.ticks[n - 1].get(id).copied()",
+    "test": "a_pilot_sees_the_others_as_they_were_its_reaction_time_ago"
+  },
+  {
+    "name": "M1 pilot: the others ring",
+    "file": "crates/core/src/pilot.rs",
+    "find": "    let ring = dueller(w) != Some(id);",
+    "replace": "    let ring = false;",
+    "test": "in_a_group_one_duels_and_the_others_keep_their_distance"
+  },
+  {
+    "name": "M1 pilot: a recorded duel replays",
+    "file": "crates/core/src/player.rs",
+    "find": "    let salt = w.rng.next_u64();",
+    "replace": "    let salt = { static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0); N.fetch_add(1, std::sync::atomic::Ordering::Relaxed) };",
+    "test": "a_recorded_duel_hashes_the_same_every_run"
+  },
+  {
+    "name": "M1 pilot: the pilot's mouse speed",
+    "file": "crates/core/src/pilot.rs",
+    "find": "    let most = (px as i64 * arm::UNITS_PER_100_PX / 100) as i32;",
+    "replace": "    let most = (px as i64 * arm::UNITS_PER_100_PX / 50) as i32;",
+    "test": "a_pilot_sends_the_mouse_movement_that_moves_its_hand_toward_the_plan"
+  },
+  {
+    "name": "M1 player: X draws in the hand's ticks",
+    "file": "crates/core/src/player.rs",
+    "find": "        Sheath::Drawing(t) if t + 1 >= DRAW_TICKS => Sheath::Drawn,",
+    "replace": "        Sheath::Drawing(t) if t >= DRAW_TICKS => Sheath::Drawn,",
+    "test": "x_draws_the_sword_in_the_ticks_the_hand_takes_and_x_again_sheathes_it"
+  },
+  {
+    "name": "M1 player: drawn, the mouse moves the hand",
+    "file": "crates/core/src/player.rs",
+    "find": "    let looks = !w.me.drawn() || input.button(input::HOLD_LOOK) || w.me.health.down();",
+    "replace": "    let looks = !w.me.drawn() || w.me.health.down();",
+    "test": "sheathed_the_mouse_looks_and_drawn_it_moves_the_hand_unless_the_right_button_is_held"
+  },
+  {
+    "name": "M1 player: the view holds on the foe",
+    "file": "crates/core/src/player.rs",
+    "find": "        let pitch = (pitch + HOLD_PITCH_BIAS).clamp(HOLD_PITCH_MIN, HOLD_PITCH_MAX);",
+    "replace": "        let pitch = (pitch + HOLD_PITCH_BIAS).clamp(HOLD_PITCH_MAX - 1, HOLD_PITCH_MAX);",
+    "test": "drawn_the_view_holds_on_the_nearest_foe_within_fifteen_metres"
+  },
+  {
+    "name": "M1 player: a foe spawns six metres ahead",
+    "file": "crates/core/src/player.rs",
+    "find": "pub const SPAWN_AHEAD: Fx = fx::int(6);",
+    "replace": "pub const SPAWN_AHEAD: Fx = fx::int(5);",
+    "test": "a_test_duel_spawns_six_metres_ahead_facing_the_player_and_reset_clears_it"
+  },
+  {
+    "name": "M1 player: health reaches the HUD",
+    "file": "crates/core/src/ui.rs",
+    "find": "            now: f.health.hp.max(0),",
+    "replace": "            now: f.health.most,",
+    "test": "health_reaches_the_hud_bars_through_m4_s_doors"
+  },
+  {
+    "name": "M1 player: the feet stay on the ground",
+    "file": "crates/core/src/player.rs",
+    "find": "    let pelvis = place(v3(0, build.hip_y - bob, 0));",
+    "replace": "    let pelvis = place(v3(0, build.shoulder_y - bob, 0));",
+    "test": "walking_forward_still_walks_north_with_the_figure_on_its_feet"
+  },
+  {
+    "name": "M1 arm: a still arm holds still",
+    "file": "crates/core/src/arm.rs",
+    "find": "        if still && settled && g.in_hand == before.2 {",
+    "replace": "        if false && still && settled && g.in_hand == before.2 {",
+    "test": "two_still_ticks_give_identical_frames_and_static_arrays"
   },
   {
     "name": "M4 items: the sword has one route",
@@ -905,8 +1213,8 @@
   {
     "name": "M4 hud: health is full until M1 sends it",
     "file": "crates/core/src/ui.rs",
-    "find": "        None => Gauge { now: 100, most: 100 },",
-    "replace": "        None => Gauge { now: 0, most: 100 },",
+    "find": "            now: w.me.health.hp.max(0),",
+    "replace": "            now: 0,",
     "test": "the_hud_shows_health_full_until_the_duel_sends_its_own"
   },
   {

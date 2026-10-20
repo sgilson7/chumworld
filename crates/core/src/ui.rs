@@ -264,16 +264,35 @@ pub struct Gauge {
 /// The player's health. Placeholder, full; M1 replaces the body with its
 /// `health.rs` value. The signature stays.
 pub fn health(w: &World) -> Gauge {
+    // M1: the player's own health (`health.rs`)
     match &w.ui.demo {
         Some(d) => d.health,
-        None => Gauge { now: 100, most: 100 },
+        None => Gauge {
+            now: w.me.health.hp.max(0),
+            most: w.me.health.most,
+        },
     }
 }
 
 /// The engaged foe (a kind, `who_<kind>`) and its health. Placeholder,
 /// none; M1 replaces the body. The signature stays.
 pub fn foe(w: &World) -> Option<(String, Gauge)> {
-    w.ui.demo.as_ref().and_then(|d| d.foe.clone())
+    // M1: the foe the player holds on, while the sword is drawn
+    if let Some(d) = &w.ui.demo {
+        return d.foe.clone();
+    }
+    let k =
+        w.me.engaged
+            .map(|k| k as usize)
+            .filter(|&k| k > 0 && k < crate::player::count(w))?;
+    let f = crate::player::fighter(w, k);
+    Some((
+        crate::pilot::kind_name(f.kind).to_string(),
+        Gauge {
+            now: f.health.hp.max(0),
+            most: f.health.most,
+        },
+    ))
 }
 
 /// Where the imbue stands.

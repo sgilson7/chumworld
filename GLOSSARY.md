@@ -38,6 +38,16 @@ The wait after the imbue is cast before it can be cast again: {imbue.cooldown} s
 
 Not: recharge
 
+### Dodge-step
+
+A short quick step to one side with Space and a movement key. You cannot dodge-step again straight away.
+
+### Draw
+
+Taking the sword out of its sheath with X. Drawn, the mouse moves the sword hand and the view holds on the nearest foe.
+
+Not: unsheathe
+
 ### Equipment
 
 The menu screen of what you wear and hold: the sword in your sword hand and the speedster's armour in its slots. Enter wears or holds the item chosen.
@@ -71,6 +81,7 @@ Not: spell, buff
 ### Invert Y
 
 A setting: moving the mouse down looks up, and moving it up looks down.
+
 ### Lineup
 
 Every character and prop stood in rows in front of the player, for looking at the models. It changes nothing in play and is off until asked for.
@@ -119,6 +130,10 @@ An item put on a number key from Select Item. Pressing the key readies it in the
 
 Not: hotbar
 
+### Reach
+
+How far from the shoulder the sword hand stretches. The wheel draws it in or sends it out.
+
 ### Rock
 
 A throwable from the ground. One that lands on the merchant's cart stops the cart.
@@ -140,6 +155,12 @@ Not: inventory, bag
 Look speed, mouse sensitivity, invert Y and volume. They last until you close the page.
 
 Not: options
+
+### Sheathe
+
+Putting the sword back on the left hip with X. Sheathed, the mouse looks and Shift runs.
+
+Not: holster
 
 ### Shop
 
@@ -187,6 +208,10 @@ The speedster's armour for the legs. They are hidden in a hollow tree.
 
 Not: pants, leggings
 
+### Swing
+
+Holding the left button while you move the mouse. The arm pushes harder, so the sword moves faster and hits harder.
+
 ### Sword
 
 The normal sword, {sword.blade} cm of blade. Its weight lets a hard blade-on-blade hit knock a foe's weapon loose. It is won from the bandit leader.
@@ -198,6 +223,10 @@ Not: longsword
 The hand that holds the sword. The other is the free hand.
 
 Not: main hand
+
+### Throw
+
+Sending what the free hand holds ready where you look, with F. The free hand winds back first.
 
 ### Throwing knife
 

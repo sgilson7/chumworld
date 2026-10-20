@@ -36,6 +36,7 @@ pub mod blade;
 pub mod health;
 pub mod motion;
 pub mod pilot;
+pub mod throwables;
 // stubs: M2 World
 pub mod lod;
 pub mod places;

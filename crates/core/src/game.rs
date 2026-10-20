@@ -167,6 +167,8 @@ impl Game {
                 let dy = if self.world.ui.settings.invert_y { -dy } else { dy };
                 self.pending.add(dx, dy, wheel);
                 let hinted = self.hint_shown();
+                // M1: the duel's lines over the game (health) changing
+                let duel = crate::player::hud_stamp(&self.world);
                 for (k, b) in ticks.iter().enumerate() {
                     // M4: Tab and M open the menu ring before the tick runs
                     if let Some(face) = crate::ui::menu_pressed(&mut self.menu, *b) {
@@ -187,7 +189,7 @@ impl Game {
                         break;
                     }
                 }
-                if hinted != self.hint_shown() {
+                if hinted != self.hint_shown() || duel != crate::player::hud_stamp(&self.world) {
                     self.ui_version += 1;
                 }
                 // M4: the HUD's bars, ring, keys and toast changed
