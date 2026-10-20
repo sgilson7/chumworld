@@ -30,6 +30,9 @@ pub const PITCH_MIN: i32 = -deg(55);
 pub const PITCH_MAX: i32 = deg(35);
 /// The pitch the game opens with: a little down, so the ground reads.
 pub const PITCH_START: i32 = -deg(8);
+/// The look speed a reader may set, percent.
+pub const LOOK_PCT_MIN: i32 = 10;
+pub const LOOK_PCT_MAX: i32 = 400;
 /// The lowest the eye goes over the ground.
 pub const MIN_EYE_HEIGHT: Fx = ONE * 3 / 10;
 /// Turning: 0.12° a CSS pixel of mouse movement, held as angle units per
@@ -46,6 +49,9 @@ pub struct Aim {
     pub pitch: i32,
     /// ten-thousandths of an angle unit not yet turned, each way
     pub rest: (i32, i32),
+    /// the look speed, percent of `LOOK_UNITS_PER_100_PX` (a reader's
+    /// setting, `act("look.speed", …)`)
+    pub pct: i32,
 }
 
 impl Aim {
@@ -54,6 +60,7 @@ impl Aim {
             yaw,
             pitch: PITCH_START,
             rest: (0, 0),
+            pct: 100,
         }
     }
 
@@ -62,7 +69,7 @@ impl Aim {
     pub fn turned(self, m: Mouse) -> Aim {
         // ten-thousandths of a unit: hundredths of a pixel × units per 100 px
         let split = |d: i32, rest: i32| {
-            let total = d as i64 * LOOK_UNITS_PER_100_PX + rest as i64;
+            let total = d as i64 * LOOK_UNITS_PER_100_PX * self.pct as i64 / 100 + rest as i64;
             (total.div_euclid(10_000) as i32, total.rem_euclid(10_000) as i32)
         };
         let (dyaw, rx) = split(m.dx, self.rest.0);
@@ -71,6 +78,7 @@ impl Aim {
             yaw: fx::wrap(self.yaw.wrapping_sub(dyaw)),
             pitch: (self.pitch - dpitch).clamp(PITCH_MIN, PITCH_MAX),
             rest: (rx, ry),
+            pct: self.pct,
         }
     }
 }
@@ -111,6 +119,7 @@ mod tests {
                 yaw: 0,
                 pitch: 0,
                 rest: (0, 0),
+                pct: 100,
             },
             flat,
         );
@@ -133,6 +142,7 @@ mod tests {
                 yaw: fx::QUARTER_TURN,
                 pitch: 0,
                 rest: (0, 0),
+                pct: 100,
             },
             flat,
         );
@@ -151,6 +161,7 @@ mod tests {
                 yaw: 0,
                 pitch: 0,
                 rest: (0, 0),
+                pct: 100,
             },
             flat,
         );
@@ -160,6 +171,7 @@ mod tests {
                 yaw: 0,
                 pitch: -deg(30),
                 rest: (0, 0),
+                pct: 100,
             },
             flat,
         );
@@ -176,6 +188,7 @@ mod tests {
                 yaw: 0,
                 pitch: PITCH_MAX,
                 rest: (0, 0),
+                pct: 100,
             },
             |_, _| int(2),
         );
@@ -196,6 +209,7 @@ mod tests {
             yaw: 0,
             pitch: 0,
             rest: (0, 0),
+            pct: 100,
         }
         .turned(Mouse {
             dx: 0,
@@ -230,5 +244,21 @@ mod tests {
         });
         assert_eq!(slow.yaw, fast.yaw);
         assert_eq!(slow.yaw, -2184);
+    }
+
+    #[test]
+    fn a_quarter_look_speed_turns_a_quarter_as_far() {
+        // 100 px at 25%: 2 184 × 25 / 100 = 546 units
+        let slow = Aim {
+            pct: 25,
+            ..Aim::new(0)
+        }
+        .turned(Mouse {
+            dx: 10_000,
+            dy: 0,
+            wheel: 0,
+        });
+        assert_eq!(slow.yaw, -546);
+        assert_eq!(slow.pct, 25, "the setting stays with the aim");
     }
 }

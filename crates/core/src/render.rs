@@ -400,10 +400,16 @@ pub struct Camera {
 }
 
 impl Camera {
-    /// The layer's view-projection matrix, the eye relative to `origin`.
-    pub fn matrix(&self, layer: Layer, aspect: Fx, origin: V3) -> Mat4 {
+    /// The layer's projection times the camera's turn, with no translation:
+    /// the shader subtracts the eye from each position first (camera-relative
+    /// drawing). A matrix that also carried the translation was rounded to
+    /// Q16 entry by entry, and that rounding times a position hundreds of
+    /// metres from the origin moved the body a pixel back and forth on
+    /// screen while the view turned (SECOND-ORDER.md R2.8). Without the
+    /// translation, the rounding is an angle: under a hundredth of a pixel.
+    pub fn matrix(&self, layer: Layer, aspect: Fx) -> Mat4 {
         let (n, f) = layer.planes();
-        Mat4::perspective(self.fov, aspect, n, f).mul(&Mat4::look(self.eye.sub(origin), self.fwd, V3::UP))
+        Mat4::perspective(self.fov, aspect, n, f).mul(&Mat4::look(V3::ZERO, self.fwd, V3::UP))
     }
 
     /// Which layers a sphere is drawn in: none behind the camera or past the
@@ -423,7 +429,7 @@ impl Camera {
     /// Where a world point lands on screen, as Q16 shares of the width from
     /// the left and of the height from the top; `None` behind the camera.
     pub fn screen(&self, aspect: Fx, p: V3) -> Option<(Fx, Fx)> {
-        let [x, y, _, w] = self.matrix(Layer::Near, aspect, V3::ZERO).project(p);
+        let [x, y, _, w] = self.matrix(Layer::Near, aspect).project(p.sub(self.eye));
         if w <= ONE / 100 {
             return None;
         }
@@ -451,7 +457,7 @@ impl Frame {
         let origin = scene.origin;
         let mut view = Vec::with_capacity(VIEW_VALUES);
         for layer in Layer::ORDER {
-            view.extend_from_slice(&cam.matrix(layer, aspect, origin).0);
+            view.extend_from_slice(&cam.matrix(layer, aspect).0);
         }
         let e = cam.eye.sub(origin);
         view.extend([e.x, e.y, e.z]);

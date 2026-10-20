@@ -1,24 +1,141 @@
 """The project's own browser interactions, run by check.py in every engine.
 
 check.py has already loaded the page, waited for it to report ready, and let
-it idle. Drive the tool here the way a person would, and assert what the page
-shows with `check(condition, "what this shows")`. Assert the effect a person
-would see (the text drawn, the file saved), not the markup that should cause it.
+it idle. This opens the game again at the URL a reader can open with
+`?pointer=free` (the realtime kit's mode without pointer lock, since a driven
+browser may grant the lock and drop it at once), then plays it the way a
+person would: reads the title, clicks Play, stands still, turns, presses Esc.
 
-Expected values in these checks are worked out by hand from the brief (C4),
-never copied from the tool's own output. Wait on a selector or a data-*
-attribute the page sets, never on a fixed time: on CI the page may draw with
-a CPU and run slowly.
+Expected values come from data/strings.json and from the brief, never from
+the game's own output. Waits are on selectors, data-* attributes and display
+frames the page draws, never on a fixed time: on CI the page draws with a CPU.
+
+The flicker checks (T3, CW-18) read the canvas's pixels with readPixels in
+a requestAnimationFrame callback queued after the game's own, so they see
+each frame as it was drawn. That code runs here, in the check; the game's
+code is not changed for it.
 """
 
 import json
 import pathlib
 
-STRINGS = json.loads((pathlib.Path(__file__).resolve().parents[2] / "data" / "strings.json").read_text())
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+STRINGS = json.loads((ROOT / "data" / "strings.json").read_text())
+
+# Waits for `frames` display frames and at least `ms` of the page's clock.
+WAIT_FRAMES = """([frames, ms]) => new Promise((done) => {
+    const start = performance.now();
+    let n = 0;
+    const step = (now) => {
+        n += 1;
+        if (n >= frames && now - start >= ms) done(n); else requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+})"""
+
+# Reads `count` consecutive frames' pixels, dispatching `px` of mouse
+# movement before each; returns for each frame a hash, the number of
+# distinct colours among sampled pixels, and the pixels themselves when
+# `keep` is set (for comparing three frames).
+GRAB = """([count, px, keep]) => new Promise((done) => {
+    const gl = document.getElementById('view').getContext('webgl2');
+    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+    const out = [];
+    const grab = () => {
+        const p = new Uint8Array(w * h * 4);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, p);
+        let hash = 2166136261;
+        for (let i = 0; i < p.length; i++) { hash ^= p[i]; hash = Math.imul(hash, 16777619) >>> 0; }
+        const colours = new Set();
+        for (let i = 0; i < p.length; i += 4 * 997) colours.add((p[i] << 16) | (p[i + 1] << 8) | p[i + 2]);
+        out.push({hash, colours: colours.size, pixels: keep ? p : null});
+        if (out.length === count) {
+            if (!keep) { done({w, h, frames: out}); return; }
+            // A-B-A: a pixel that changes by more than a step and changes back
+            const [a, b, c] = out.map((f) => f.pixels);
+            let flips = 0;
+            const step = 24, back = 6;
+            for (let i = 0; i < a.length; i += 4) {
+                let ab = 0, ac = 0;
+                for (let k = 0; k < 3; k++) {
+                    ab = Math.max(ab, Math.abs(a[i + k] - b[i + k]));
+                    ac = Math.max(ac, Math.abs(a[i + k] - c[i + k]));
+                }
+                if (ab > step && ac <= back && Math.abs(b[i] - c[i]) > step) flips += 1;
+            }
+            done({w, h, frames: out.map((f) => ({hash: f.hash, colours: f.colours})), flips, pixels: w * h});
+            return;
+        }
+        next();
+    };
+    const next = () => {
+        if (px) window.dispatchEvent(new MouseEvent('mousemove', {movementX: px, movementY: 0}));
+        requestAnimationFrame(grab);
+    };
+    next();
+})"""
 
 
 def run(page, check, engine):
-    check(page.inner_text("#title") == STRINGS["title"], "the title from data/strings.json is drawn")
-    check(page.inner_text("#intro p") == STRINGS["intro"], "the intro from data/strings.json is drawn")
-    check(page.get_attribute("body", "data-screen") == "start", "the core's start screen is shown")
+    base = page.url.split("?")[0]
+    # the look speed a reader can set from the address: a quarter, so the slow
+    # pan below moves the picture about a fifth of a pixel a frame
+    page.goto(base + "?pointer=free&look=25")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+
+    if page.get_attribute("body", "data-webgl") == "none":
+        # the reader is told what is in the way and what to do
+        check(page.inner_text("#message") == STRINGS["no_webgl"], f"[{engine}] no WebGL 2: the message from data/strings.json is shown")
+        return
+
+    check(page.title() == STRINGS["title"], "the page's title comes from data/strings.json")
+    check(page.get_attribute("body", "data-screen") == "title", "the game opens on the title screen")
+    check(page.inner_text("#title h1") == STRINGS["title"], "the title screen shows the title")
+    button = page.locator("#title button")
+    check(button.inner_text() == STRINGS["play"], "the title screen's button says Play")
+    rows = page.locator("#title table.controls tr")
+    check(rows.count() == 4, "the title screen lists the four controls")
+    check(rows.nth(1).inner_text().split() == [STRINGS["key_run"], STRINGS["control_run"]], "Shift runs, as the controls table says")
+    term = page.get_attribute("#title td span[data-term='Run']", "title") or ""
+    check("5 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
+    check(page.locator("#view").is_visible(), "the canvas is shown")
+
+    button.click()
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    check(page.locator("#overlay").is_hidden(), "nothing covers the game in play")
+    hint = page.locator("#hud-hint")
+    check(hint.inner_text() == STRINGS["hint_pause"], "the line over the game tells the reader how to pause")
+
+    # let the camera's ease from the title finish (45 ticks, 0.75 s)
+    page.evaluate(WAIT_FRAMES, [30, 1500])
+
+    # CW-18: a still view draws the same pixels on consecutive frames
+    still = page.evaluate(GRAB, [2, 0, False])
+    a, b = still["frames"]
+    check(a["colours"] > 20, f"the frame is a picture, not a blank ({a['colours']} colours sampled)")
+    check(a["hash"] == b["hash"], f"two consecutive frames with the camera still are identical, pixel for pixel ({still['w']}x{still['h']})")
+
+    # the comparison can see a change: one turn of the mouse changes the frame
+    moved = page.evaluate(GRAB, [1, 160, False])
+    check(moved["frames"][0]["hash"] != a["hash"], "a turn of the mouse changes the frame (the comparison sees change)")
+
+    # a slow pan (CW-18, PLAN.md Flicker 5): no pixel flips one way and
+    # straight back across three frames. A pan faster than the thinnest
+    # things drawn are wide (a far trunk, a cone's tip) sees them pass a pixel
+    # and leave it, which is motion, not flicker (SECOND-ORDER.md R2.9)
+    pan = page.evaluate(GRAB, [3, 1, True])
+    check(pan["frames"][0]["hash"] != pan["frames"][2]["hash"], "the slow pan moves the picture")
+    share = pan["flips"] / pan["pixels"]
+    check(share < 0.0001, f"a slow pan shows no shimmer: {pan['flips']} of {pan['pixels']} pixels flipped and back ({share:.5%})")
+    print(f"  ({engine}: slow pan, {pan['flips']} A-B-A pixels of {pan['pixels']})")
+
+    page.keyboard.press("Escape")
+    page.wait_for_selector("body[data-screen='paused']", state="attached")
+    check(page.inner_text("#paused h1") == STRINGS["paused"], "Esc pauses, and the pause screen says so")
+    resume = page.locator("#paused button")
+    check(resume.inner_text() == STRINGS["resume"], "the pause screen offers Resume")
+    paused = page.evaluate(GRAB, [2, 0, False])
+    check(paused["frames"][0]["hash"] == paused["frames"][1]["hash"], "a paused world draws the same frame")
+    resume.click()
+    page.wait_for_selector("body[data-screen='play']", state="attached")
     check(page.inner_text("#message") == "", "no error message is shown")

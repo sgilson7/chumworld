@@ -78,6 +78,8 @@ async function main() {
 
   let ui = null;
   const input = makeInput(canvas, controls, N.actions, () => {});
+  // a reader's look speed from the address (?look=<percent>), as any setting
+  const lookSpeed = new URLSearchParams(location.search).get("look");
 
   // Sends one action through the core's door and draws what comes back.
   function act(name, value) {
@@ -162,6 +164,8 @@ async function main() {
   canvas.addEventListener("mousedown", () => {
     if (ui && ui.capture && !input.engaged()) input.engage();
   });
+
+  if (lookSpeed) act("look.speed", lookSpeed);
 
   function resize() {
     const [w, h] = game.resize(canvas.clientWidth, canvas.clientHeight, window.devicePixelRatio || 1);

@@ -123,7 +123,7 @@ pub fn vertices(mesh: Mesh) -> Vec<i32> {
             push_quad(&mut o, v3(-H, 0, H), v3(H, 0, H), v3(H, 0, -H), v3(-H, 0, -H));
         }
         Mesh::Sphere => {
-            let (lat, lon) = (12, 20);
+            let (lat, lon) = (16, 36);
             for i in 0..lat {
                 for j in 0..lon {
                     let (a, b, c, d) = (
@@ -182,10 +182,12 @@ pub fn vertices(mesh: Mesh) -> Vec<i32> {
         }
         Mesh::Capsule => {
             // two half globes of radius r joined by a tube; normals point
-            // out from the nearest point on the spine
+            // out from the nearest point on the spine. 48 sides, so the
+            // outline seen from 2.6 m stays round (with 20 its radius changed
+            // by 1.2% as the camera went round, about a pixel)
             let r = CAPSULE_RADIUS;
             let spine = H - r;
-            let (bands, lon) = (6, 20);
+            let (bands, lon) = (8, 48);
             // ring k of 2·bands + 1 from the bottom pole: its height and
             // radius, and the centre its normal points from
             let ring = |k: i32, j: i32| -> (V3, V3) {

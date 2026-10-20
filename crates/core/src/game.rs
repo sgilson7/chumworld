@@ -190,6 +190,7 @@ impl Game {
             yaw: fx::wrap(crate::world::START_YAW.wrapping_add(drift)),
             pitch: TITLE_PITCH,
             rest: (0, 0),
+            pct: self.world.aim.pct,
         }
     }
 
@@ -262,6 +263,13 @@ impl Game {
                 if self.screen == Screen::Play {
                     self.show(Screen::Paused);
                 }
+            }
+            // a reader's look speed, percent (?look= on the page's address)
+            "look.speed" => {
+                let pct: i32 = value.trim().parse().map_err(|_| {
+                    format!("The look speed is a whole percentage, such as 100, not \"{value}\".")
+                })?;
+                self.world.aim.pct = pct.clamp(camera::LOOK_PCT_MIN, camera::LOOK_PCT_MAX);
             }
             "display.software" => {
                 self.software = value == "true";
@@ -399,6 +407,44 @@ pub(crate) mod tests {
         assert_eq!(g.world.player.feet(half), prev.lerp(here, half));
     }
 
+    /// CW-18: turning the view moves the body on screen smoothly. Over the
+    /// right shoulder the body stays where it is on screen while the view
+    /// turns (it is beside the pivot the camera turns round), so frame to
+    /// frame it may move by no more than the turn's own rounding, here a
+    /// tenth of a pixel at 1280 wide. Computed the way the GPU does: each
+    /// position relative to the eye, then the layer's matrix.
+    #[test]
+    fn the_body_holds_still_on_screen_while_the_view_turns() {
+        let mut g = game();
+        g.resize(1280, 720, 100);
+        g.act("screen.show", "play").unwrap();
+        frames(&mut g, 120, 0, 0);
+        let mut last: Option<i64> = None;
+        for _ in 0..30 {
+            g.advance(now(&g) + TICK_US + 1, 0, 100, 0, 0);
+            let cam = g.camera();
+            let m = cam.matrix(render::Layer::Near, g.aspect);
+            let body = g
+                .world
+                .player
+                .feet(g.alpha)
+                .add(crate::geom::v3(0, ONE * 9 / 10, 0));
+            // the vertex shader's arithmetic: (body − origin) − (eye − origin)
+            let rel = body.sub(g.scene.origin).sub(cam.eye.sub(g.scene.origin));
+            let [x, _, _, w] = m.project(rel);
+            // thousandths of a pixel across 1280
+            let px = x as i64 * 640_000 / w as i64;
+            if let Some(p) = last {
+                assert!(
+                    (px - p).abs() <= 100,
+                    "the body jumped {} thousandths of a pixel",
+                    px - p
+                );
+            }
+            last = Some(px);
+        }
+    }
+
     #[test]
     fn walking_far_moves_the_origin_and_rebuilds_the_static_array() {
         let mut g = game();
@@ -408,6 +454,22 @@ pub(crate) mod tests {
         frames(&mut g, 3600, FORWARD | crate::input::RUN, 0);
         assert!(g.scene.version > v);
         assert_eq!(g.scene.origin, render::origin_for(g.camera().eye));
+    }
+
+    #[test]
+    fn the_look_speed_is_a_setting_held_in_its_range() {
+        let mut g = game();
+        g.act("look.speed", "25").unwrap();
+        assert_eq!(g.world.aim.pct, 25);
+        g.act("look.speed", "9000").unwrap();
+        assert_eq!(g.world.aim.pct, 400);
+        assert_eq!(
+            g.act("look.speed", "fast"),
+            Err("The look speed is a whole percentage, such as 100, not \"fast\".".into())
+        );
+        g.act("look.speed", "25").unwrap();
+        g.act("screen.show", "play").unwrap();
+        assert_eq!(g.world.aim.pct, 25, "play keeps the setting");
     }
 
     #[test]

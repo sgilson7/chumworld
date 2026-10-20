@@ -10,7 +10,10 @@ in vec4 iA;
 in vec4 iB;
 in vec4 iC;
 in vec4 iD;
+// the layer's projection times the camera's turn; positions arrive
+// relative to the eye (camera-relative drawing, crates/core/src/render.rs)
 uniform mat4 uVP;
+uniform vec3 uEye;
 uniform float uQ;
 // the pass, as flags of 0 and 1: sky, ink, glow, dither; then shade
 uniform vec4 uModeA;
@@ -37,7 +40,7 @@ void main() {
   vWorld = w;
   vColor = iD * uQ;
   vLocal = p;
-  gl_Position = uVP * vec4(w, 1.0);
+  gl_Position = uVP * vec4(w - uEye, 1.0);
   gl_Position.z += (uModeA.y * uBias.x - (uModeA.z + uModeB.x) * uBias.y) * uQ * gl_Position.w;
   // the sky dome: never clipped by the near or the far plane
   if (uModeA.x > 0.0) gl_Position.z = 0.0;
