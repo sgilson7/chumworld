@@ -32,6 +32,8 @@
   "control_throw": "Throw",
   "key_dodge": "Space",
   "control_dodge": "Dodge-step",
+  "key_imbue": "Q",
+  "control_imbue": "Imbue the sword, once taught",
   "key_menu": "Tab",
   "control_menu": "Menu",
   "key_map": "M",

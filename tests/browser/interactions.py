@@ -96,7 +96,8 @@ def run(page, check, engine):
     rows = page.locator("#title table.controls tr")
     # M0's four controls and M1's eight (the sword, its hand, the buttons,
     # the wheel, F and Space)
-    check(rows.count() == 12, "the title screen lists the twelve controls")
+    # M6 added Q (the imbue) to M1's twelve
+    check(rows.count() == 13, "the title screen lists the thirteen controls")
     check(rows.nth(1).inner_text().split() == [STRINGS["key_run"], STRINGS["control_run"]], "Shift runs, as the controls table says")
     term = page.get_attribute("#title td span[data-term='Run']", "title") or ""
     check("5 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
