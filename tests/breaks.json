@@ -2067,8 +2067,8 @@
   {
     "name": "M6 orbs: one orb turned leaves its neighbours",
     "file": "crates/core/src/orbs.rs",
-    "find": "        let gap = r + edge_r + FORGIVE;",
-    "replace": "        let gap = r * 5 + FORGIVE;",
+    "find": "        let gap = r + GLOW_REACH;",
+    "replace": "        let gap = r * 5 + GLOW_REACH;",
     "test": "turning_one_orb_leaves_its_neighbours_alone"
   },
   {
@@ -2259,5 +2259,61 @@
     "find": "            crate::orbs::hold(self); // M6: the orbs hold still too\n",
     "replace": "",
     "test": "a_hit_stop_holds_every_orb_where_it_stands"
+  },
+  {
+    "name": "M6b imbue: imbued, the guard lies across the line",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    if id != 0 || !on(w) {\n        return blade;",
+    "replace": "    if true {\n        return blade;",
+    "test": "imbued_the_guard_lays_the_blade_across_the_line"
+  },
+  {
+    "name": "M6b imbue: the across guard gives way off the guard",
+    "file": "crates/core/src/imbue.rs",
+    "find": "            near(shell.side - crate::arm::GUARD_SIDE, GUARD_GIVE),",
+    "replace": "            ONE,",
+    "test": "imbued_the_guard_lays_the_blade_across_the_line"
+  },
+  {
+    "name": "M6b orbs: the imbued guard is no worse than dodging",
+    "file": "crates/core/src/imbue.rs",
+    "find": "    if id != 0 || !on(w) {\n        return blade;",
+    "replace": "    if true {\n        return blade;",
+    "test": "the_imbue_is_the_answer_to_the_leader_s_volley"
+  },
+  {
+    "name": "M6b orbs: the glow reaches 15 cm",
+    "file": "crates/core/src/orbs.rs",
+    "find": "pub const GLOW_REACH: Fx = ONE * 15 / 100;",
+    "replace": "pub const GLOW_REACH: Fx = ONE * 3 / 100;",
+    "test": "the_imbue_is_the_answer_to_the_leader_s_volley"
+  },
+  {
+    "name": "M6b orbs: standing still is survivable (data)",
+    "file": "data/orbs.json",
+    "find": "\"radius_cm\": 13, \"damage\": 4,",
+    "replace": "\"radius_cm\": 13, \"damage\": 9,",
+    "test": "the_imbue_is_the_answer_to_the_leader_s_volley"
+  },
+  {
+    "name": "M6b shapes: faces are shaded by the key",
+    "file": "crates/core/src/orbs/shapes.rs",
+    "find": "        let shade = ONE * SHADE_LO / 100 + fx::mul(lean, ONE * (100 - SHADE_LO) / 100);",
+    "replace": "        let shade = ONE;",
+    "test": "faces_are_shaded_by_how_far_they_turn_toward_the_key"
+  },
+  {
+    "name": "M6b pose: a caster's hands rise before a volley",
+    "file": "crates/core/src/orbs.rs",
+    "find": "                lift += POSE_TURN;",
+    "replace": "                lift += 0;",
+    "test": "a_caster_raises_its_hands_as_a_volley_leaves"
+  },
+  {
+    "name": "M6b pose: and come back down after it",
+    "file": "crates/core/src/orbs.rs",
+    "find": "                lift -= POSE_TURN;",
+    "replace": "                lift -= 0;",
+    "test": "a_caster_raises_its_hands_as_a_volley_leaves"
   }
 ]

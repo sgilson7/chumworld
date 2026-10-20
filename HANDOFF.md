@@ -99,3 +99,11 @@ Check (2026-10-20, after the merge): `./scripts/check.sh` steps 1 to 7 pass (for
 Waiting on the person: R8.15 (the orb kinds' colours, shapes and effects, both patterns, the turned colour and glow, the strings under "### M6" at the foot of `SECOND-ORDER.md`). Also R8.14 goes with R6.7.
 
 For the coordinator: R8.7 (files outside M6's list; mesh ids 16 to 18 in `prim::Mesh`, so M5 appending meshes takes the next ids), R8.13 (the camp's props need boxes in `throwables.props` for orbs to stop on them), R8.4 (balance: a still player dies to the leader's pattern; first guesses).
+
+## 2026-10-20: M6 balance (task M, branch `m6-balance`)
+
+Built: the imbue as the answer to a volley (R8.17, R8.18): an imbued edge turns an orb within 15 cm of M1's rail, the glow drawn that wide; imbued, the player's guard lays the blade across the chest's front (`imbue::guard_line`, one line in `player.rs`); the leader's pattern retuned in `data/orbs.json`. The outcome table is a test (`the_imbue_is_the_answer_to_the_leader_s_volley`) with the coordinator's thresholds, met by a scripted defender (`orbs::defend`, also the test act `magic.defend`). The faceted orbs shade each face and tumble slowly (R8.20; meshes `Gem` 19 and `Box` 20). The leader raises its hands as each volley leaves, through its input record (R8.21, `orbs::pose`; `camp.rs` untouched). Before and after in `MEASUREMENTS.md`.
+
+Check: see the M6b line below.
+
+Waiting on the person: R8.15 still; R8.22 (the across guard is hidden behind the player's head from the camera) is open for play.

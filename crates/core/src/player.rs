@@ -656,6 +656,8 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Fx, Goals) {
     };
     let shell_hand = f.arm.shell.point(f.arm.frame.shoulder[1], b.facing);
     let blade = arm::blade_dir(b.facing, &f.arm.shell, f.arm.reach());
+    // M6: imbued, the player's guard holds the blade across the line orbs come down
+    let blade = crate::imbue::guard_line(w, id, b.facing, &f.arm.shell, blade);
     let two = wpn.two_handed();
     let winding = f.throw.winding();
     let shaken = 100 - STAGGER_WEAK_PCT * f.gait.stagger as i32 / crate::feel::STAGGER_TICKS as i32;

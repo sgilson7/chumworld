@@ -153,6 +153,10 @@ impl World {
     /// One tick, in the order the module doc gives.
     pub fn step(&mut self, input: &Input) {
         self.tick += 1;
+        // M6: the scripted defender's hand added to the record, for a view
+        // (`magic.defend`, a test act)
+        let defended = crate::orbs::defended(self, input);
+        let input = &defended;
         // M1: a hard blow holds the world still for a few ticks
         if self.feel.stop > 0 {
             crate::feel::hold(self, input);
@@ -168,7 +172,9 @@ impl World {
         // M4: 1, 2 and 3 ready a quick item in the free hand
         crate::inventory::step(self, input);
         // 2. M1:
-        let inputs = crate::pilot::step(self);
+        let mut inputs = crate::pilot::step(self);
+        // M6: a caster raises its hands as each volley leaves, through its input
+        crate::orbs::pose(self, &mut inputs);
         // 3. bodies (M1: motion)
         crate::motion::step(self, input, &inputs);
         // 4. M1:

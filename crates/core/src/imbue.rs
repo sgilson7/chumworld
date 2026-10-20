@@ -22,7 +22,7 @@
 // `learn` when the practice is passed, and `lend` during it.
 
 use crate::fx::{self, Fx, ONE};
-use crate::geom::{v3, Affine};
+use crate::geom::{v3, Affine, V3};
 use crate::input::{Input, IMBUE};
 use crate::look::{mix, rgb, Look};
 use crate::prim::Mesh;
@@ -126,6 +126,41 @@ pub fn step(w: &mut World, input: &Input) {
     }
 }
 
+// ---- the imbued guard ----------------------------------------------------
+
+/// Imbued, the guard turns the blade across the line orbs come down: from
+/// the hand right of the chest it points this far left of ahead and this
+/// far up, so it lies across the chest's front. It holds fully with the
+/// hand at the guard and still, and gives way to M1's line as the hand moves
+/// `GUARD_GIVE` off the guard or sweeps.
+pub const ACROSS_YAW: i32 = fx::deg(70);
+pub const ACROSS_UP: i32 = fx::deg(15);
+pub const GUARD_GIVE: i32 = fx::deg(20);
+pub const SWEEP_GIVE: i32 = fx::deg(3);
+
+/// The blade's line for fighter `id` with M1's line `blade`: the player's,
+/// imbued and near the guard, turned toward the across line; any other
+/// unchanged.
+pub fn guard_line(w: &World, id: usize, yaw: i32, shell: &crate::arm::Shell, blade: V3) -> V3 {
+    if id != 0 || !on(w) {
+        return blade;
+    }
+    let near = |off: i32, give: i32| ONE - fx::ratio(off.abs().min(give), give);
+    let k = fx::mul(
+        fx::mul(
+            near(shell.side - crate::arm::GUARD_SIDE, GUARD_GIVE),
+            near(shell.pitch - crate::arm::GUARD_PITCH, GUARD_GIVE),
+        ),
+        near(shell.swing.0.abs().max(shell.swing.1.abs()), SWEEP_GIVE),
+    );
+    if k == 0 {
+        return blade;
+    }
+    blade
+        .lerp(crate::geom::facing(yaw + ACROSS_YAW, ACROSS_UP), k)
+        .norm()
+}
+
 // ---- the blade's glow -----------------------------------------------------
 
 /// The glow comes up over this many ticks after the cast, and in the last
@@ -138,7 +173,8 @@ pub const BLINK: u32 = 20;
 /// halo and a wide soft one.
 const CORE_W: Fx = ONE * 24 / 1000;
 const INNER_W: Fx = ONE * 9 / 100;
-const OUTER_W: Fx = ONE * 24 / 100;
+/// the soft one reaches as far as the edge turns orbs (`orbs::GLOW_REACH`)
+const OUTER_W: Fx = crate::orbs::GLOW_REACH * 2;
 /// Sparkles that run up the edge, this many at once, a lap every `LAP`
 /// ticks.
 const MOTES: i32 = 4;

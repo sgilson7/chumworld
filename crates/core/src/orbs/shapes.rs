@@ -1,8 +1,13 @@
 //! The three orb shapes the primitives lacked (M6): a tetrahedron, a puffy
 //! five-pointed star and a torus, appended to `prim::Mesh` as `Tetra`,
 //! `Star` and `Torus`. Like every primitive, each is centred on the origin,
-//! inside the unit cube and white, so an instance's affine and colour say
-//! the rest. Faces wind outward (counter-clockwise seen from outside).
+//! inside the unit cube, so an instance's affine and colour say the rest.
+//! Faces wind outward (counter-clockwise seen from outside).
+//!
+//! The faceted ones (`Tetra`, `Star`, and `Gem` and `Box`, the octahedron
+//! and the cube shaded the same way) bake a shade into each face by its
+//! normal (`shade_faces`), so neighbouring faces part at 9 to 15 m whatever
+//! the light, where lit alone a glowing cube read as a flat diamond.
 
 use crate::fx::{self, ONE};
 use crate::geom::{v3, V3};
@@ -29,8 +34,43 @@ fn dot64(a: V3, b: V3) -> i64 {
     a.x as i64 * b.x as i64 + a.y as i64 * b.y as i64 + a.z as i64 * b.z as i64
 }
 
+/// A face's shade runs from `SHADE_LO` to 100% by how far its normal turns
+/// toward `KEY` (a direction, unit, whose dot with each axis differs, so no
+/// two faces of a cube or an octahedron share a shade).
+pub const SHADE_LO: i32 = 55;
+const KEY: V3 = v3(23_593, 52_429, 31_457);
+
+/// Each triangle's three vertices take its face's shade (by the first
+/// vertex's normal, which on these flat-faced shapes is the face's).
+pub fn shade_faces(mut vs: Vec<i32>) -> Vec<i32> {
+    for t in vs.chunks_mut(VERTEX_VALUES * 3) {
+        let n = v3(t[3], t[4], t[5]);
+        let lean = (n.dot(KEY) + ONE) / 2;
+        let shade = ONE * SHADE_LO / 100 + fx::mul(lean, ONE * (100 - SHADE_LO) / 100);
+        for k in 0..3 {
+            for c in 0..3 {
+                t[k * VERTEX_VALUES + 6 + c] = shade;
+            }
+        }
+    }
+    vs
+}
+
+/// The octahedron and the cube, shaded face by face.
+pub fn gem() -> Vec<i32> {
+    shade_faces(crate::prim::vertices(crate::prim::Mesh::Octa))
+}
+
+pub fn shaded_box() -> Vec<i32> {
+    shade_faces(crate::prim::vertices(crate::prim::Mesh::Cube))
+}
+
 /// Four corners of the cube, every other one: a regular tetrahedron.
 pub fn tetra() -> Vec<i32> {
+    shade_faces(tetra_white())
+}
+
+fn tetra_white() -> Vec<i32> {
     let p = [v3(H, H, H), v3(H, -H, -H), v3(-H, H, -H), v3(-H, -H, H)];
     let mut o = Vec::new();
     for [a, b, c] in [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]] {
@@ -48,6 +88,10 @@ const STAR_DEPTH_PCT: i32 = 42;
 /// a point: ten faces a side, read as a star from the front and as a gem
 /// edge-on. One point is up.
 pub fn star() -> Vec<i32> {
+    shade_faces(star_white())
+}
+
+fn star_white() -> Vec<i32> {
     let rim: Vec<V3> = (0..10)
         .map(|k| {
             let r = if k % 2 == 0 { H } else { H * STAR_INNER_PCT / 100 };
@@ -124,12 +168,36 @@ mod tests {
     /// Every face of the three shapes faces away from the middle, and each
     /// fits in the unit cube: a tetrahedron has 4 faces, the star 20, the
     /// torus 28 × 10 × 2 = 560.
+    /// By hand: a face whose normal is `KEY` is 100%, one facing away 55%,
+    /// one square to it (dot 0) halfway, 77.5%: 50 790 units. The cube's six
+    /// faces take six different shades.
+    #[test]
+    fn faces_are_shaded_by_how_far_they_turn_toward_the_key() {
+        let face = |n: V3| {
+            let mut t = vec![0; VERTEX_VALUES * 3];
+            for k in 0..3 {
+                t[k * VERTEX_VALUES + 3..k * VERTEX_VALUES + 6].copy_from_slice(&[n.x, n.y, n.z]);
+            }
+            shade_faces(t)[6]
+        };
+        assert!((face(KEY) - ONE).abs() <= 4);
+        assert!((face(KEY.neg()) - ONE * 55 / 100).abs() <= 4);
+        let square = KEY.cross(v3(ONE, 0, 0)).norm();
+        assert!((face(square) - 50_790).abs() <= 8, "{}", face(square));
+        let mut shades: Vec<i32> = shaded_box().chunks(VERTEX_VALUES * 3).map(|t| t[6]).collect();
+        shades.sort();
+        shades.dedup();
+        assert_eq!(shades.len(), 6);
+    }
+
     #[test]
     fn the_orb_shapes_wind_outward_and_fit_the_unit_cube() {
         for (name, vs, faces) in [
             ("tetra", tetra(), 4),
             ("star", star(), 20),
             ("torus", torus(), 560),
+            ("gem", gem(), 8),
+            ("box", shaded_box(), 12),
         ] {
             let t = tris(&vs);
             assert_eq!(t.len(), faces, "{name}");
