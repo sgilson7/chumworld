@@ -82,6 +82,8 @@ pub struct World {
     // M4: what the player carries and wears; the map's fog, the toast, dialogue, the shop, settings
     pub inventory: crate::inventory::State,
     pub ui: crate::ui::State,
+    // M3: the model lineup for review (`models.lineup`), off in play
+    pub lineup: crate::models::Lineup,
     // M1: pub arms: arm::State, pub pilots: pilot::State, pub health: health::State, …
     // M2: pub water: water::State, …
     // M5: pub story: story::State, pub merchant: merchant::State, …
@@ -98,6 +100,7 @@ impl World {
             // M4: the start's gear (CW-7), an unwalked map
             inventory: crate::inventory::State::default(),
             ui: crate::ui::State::default(),
+            lineup: crate::models::Lineup::default(), // M3:
         }
     }
 
@@ -134,7 +137,8 @@ impl World {
     /// What moves, drawn `alpha` of the way from the last tick to this one.
     pub fn draw(&self, alpha: Fx, look: &Look, out: &mut Shapes) {
         self.player.draw(alpha, &look.palette, look.ink(), out);
-        // M1: crate::arm::draw(self, alpha, look, out); …
+        crate::models::draw(self, alpha, look, out); // M3: the lineup, when asked for
+                                                     // M1: crate::arm::draw(self, alpha, look, out); …
     }
 
     /// What never moves: the static groups, and the meshes they draw.
@@ -154,6 +158,9 @@ impl World {
         // M4: inventory.give, inventory.take, inventory.coins
         if let Some(rest) = name.strip_prefix("inventory.") {
             return crate::inventory::act(self, rest, _value);
+        }
+        if let Some(rest) = name.strip_prefix("models.") {
+            return crate::models::act(self, rest, _value); // M3:
         }
         // M1: Some(("arm", rest)) => crate::arm::act(self, rest, value), …
         Err(format!("Unknown action \"{name}\"."))
