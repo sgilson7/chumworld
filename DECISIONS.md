@@ -21,3 +21,7 @@ The agent decided: triage row T9. This reverses the earlier answer to CW-Q12 ("f
 > also the combat should be made easier to decide between horizontal and vertical swings, right now all i do are these like limp diagonal slashes
 
 The agent decided: triage row T10, built by a fifth M7 part, "swings" (`m7-swings`), which owns how the mouse and the swing button become a cut (the hand's target and the swing's commitment in `player.rs` and `arm.rs`). Journal entry `2026-10-20-t10`.
+
+> you should definitly be able to get an instrument you can play to return to fast travel points like ocarina of time / majoras mask, or certain npcs can fast travel you to far off places for the first time for a price
+
+The agent decided: triage row T11, built by a sixth M7 part, "travel" (`m7-travel`). It owns the instrument, the travel points, the song screen and the paid traveller. Journal entry `2026-10-20-t11`.
