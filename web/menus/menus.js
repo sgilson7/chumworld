@@ -8,6 +8,12 @@
 // ring turning, a bar filling, a toast fading) runs across updates and a
 // node under the pointer stays the same node. The ring's turn reaches CSS
 // as a custom property; the angles are in menus.css.
+//
+// M7 travel: the flute's song screen and the traveller's list are in
+// song.js; the song's notes also show in the dialogue that teaches it and on
+// the Quest screen.
+
+import { makeSong, noteRow } from "./song.js";
 
 const make = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -375,7 +381,14 @@ export function makeMenus(root, { act, pixels, keys }) {
       face.taskHeading = make("h3");
       face.task = make("p");
       task.append(face.taskHeading, face.task);
-      wrap.append(ability, face.coins, task);
+      // M7 travel: the songs learned, with their notes
+      face.songs = make("div", "quest-card quest-songs");
+      face.songsHeading = make("h3");
+      face.songName = make("p", "song-name");
+      face.songRow = make("div", "note-row");
+      face.songAbout = make("p", "song-about");
+      face.songs.append(face.songsHeading, face.songName, face.songRow, face.songAbout);
+      wrap.append(ability, face.coins, task, face.songs);
       face.body.append(wrap);
     },
   };
@@ -458,6 +471,14 @@ export function makeMenus(root, { act, pixels, keys }) {
       text(face.taskHeading, q.task_heading);
       text(face.task, q.task);
       term(face.imbueName);
+      face.songs.hidden = !q.song;
+      if (q.song) {
+        text(face.songsHeading, q.songs_heading);
+        text(face.songName, q.song.name);
+        noteRow(face.songRow, q.song.notes);
+        text(face.songAbout, q.song.about);
+        term(face.songName);
+      }
     },
   };
 
@@ -520,8 +541,10 @@ export function makeMenus(root, { act, pixels, keys }) {
   const talkLabel = make("span");
   const caret = make("span", "caret");
   talkNext.append(talkKey, talkLabel, caret);
+  // M7 travel: the song the line teaches, its notes under the words
+  const talkSong = make("div", "note-row talk-song");
   const talkMain = make("div", "talk-main");
-  talkMain.append(talkName, talkText, talkNext);
+  talkMain.append(talkName, talkText, talkSong, talkNext);
   talkBox.append(portrait, talkMain);
   talk.append(talkBox);
 
@@ -537,6 +560,8 @@ export function makeMenus(root, { act, pixels, keys }) {
     flag(talkNext, "done", d.done);
     text(talkKey, d.key);
     text(talkLabel, d.next.label);
+    talkSong.hidden = !d.song;
+    if (d.song) noteRow(talkSong, d.song.notes);
   }
 
   // ---- the shop ----
@@ -673,6 +698,7 @@ export function makeMenus(root, { act, pixels, keys }) {
   }
 
   root.append(hud, menu, talk, shop, settings);
+  const song = makeSong(root, { act, pixels });
 
   return {
     show(u) {
@@ -684,6 +710,12 @@ export function makeMenus(root, { act, pixels, keys }) {
       showTalk(u.dialogue);
       showShop(u.shop);
       showSettings(u.settings);
+      song.show(u.song);
+      // M7 travel: the last sound travel asked for, for the sound table
+      if (u.travel_sound) {
+        root.dataset.travelSound = u.travel_sound.id;
+        root.dataset.travelSoundSeq = u.travel_sound.seq;
+      }
     },
     // A key on a screen whose keys the core reads (ui().keymap): sent as
     // `<keymap>.key` with the word data/keys.json gives it. Whether it was.

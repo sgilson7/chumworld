@@ -132,3 +132,24 @@ Changed numbers and others' code, each with a row: `SWING_ACCEL`, `SWING_TIP_ACC
 Check (2026-10-20, after merging main at fa69349): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, notebook form); step 8 (the journal) fails only because R9.174 has status *person* and the journal, which P5 does not edit, does not name it yet; step 9, the browser check run on its own on the same build, passes in Chromium, Firefox and WebKit. Tests: 359 by `./scripts/count-tests.sh` (12 ignored). Breaks: `python3 scripts/break_tests.py M7` 18 of 18 caught; `M1 M6` 143 of 144 before the ground-drag repair, which is now caught. Screenshots in `shots/m7swings/` (not committed).
 
 Waiting on the person: R9.174 (the strings under "### M7 swings (P5)" at the foot of `SECOND-ORDER.md`). Open for play: R9.163, R9.164 (blows land harder; P4's damage unchanged), R9.170 (the pilots' cut weights), R9.171 (the thrust is slow), R9.172.
+
+## 2026-10-20: M7 travel (part P6, branch `m7-travel`, T11)
+
+Built (`crates/core/src/travel.rs`, `data/travel.json`, `web/menus/song.js`):
+- **The flute.** The trainer gives it the tick after the practice is passed, in a three-line talk whose second line teaches the travel song with its notes on the dialogue box (its one route, `trainer_gift`; CW-6's test now covers it). It sits in Select Item's fifth cell and goes on a quick key; its key plays it, it is never held ready.
+- **The song screen** (`Screen::Song`, the world held still): five notes on the arrows (or W A S D) and Space, shown on a five-line staff as they sound; at six notes the phrase is judged: the travel song (↑ → ← ↑ → Space) holds, then the map lists the woken waystones; anything else fades and clears. Esc puts the flute away.
+- **Five waystones** (`Prop::Waystone`, places `waystone_<id>` in `data/places.json`): by the village outside the boundary, by the bridge, on the trainer's hill, on the shrine's islet, down the trail from the camp outside the lookout's sight. E wakes one: its marks glow (no blending to sort, nothing pulses), the map marks it. A journey fades out, puts the player 4 m in front of the waystone facing out, and fades back.
+- **Refusals**, each with its line: during the opening, with a foe's blade out within 32 m or a foe holding on the player, and mid-dialogue.
+- **The traveller** at the crossroads with a pack mule: E, a greeting, then the waystones not yet been near, 10 coins and one more every 80 m (13 to 32); a ride takes exactly its price, refuses a short purse, says a line, fades, and wakes the waystone on arrival; a place been near is never offered.
+- **Quest**: `quest_flute` from the gift until a waystone is woken; the Quest screen's Songs card shows the song's notes.
+- Sound events for P1: `ui().travel_sound` (R9.202).
+
+Rows R9.190 to R9.208 in `SECOND-ORDER.md`; the strings under "### M7 travel" at its foot.
+
+The village's waystone stands at (2000, 2540), beside the lane north, where P7 leaves its gap (T12, R9.194).
+
+Check (2026-10-20, after merging main at f289b59, which touched only `DECISIONS.md` and `TRIAGE.md`): `./scripts/check.sh` steps 1 to 7 pass (format, clippy, 376 tests passed and 11 ignored by `./scripts/count-tests.sh`, the release build, the import audit, art, the notebook's form). Step 8 (the journal) fails only because R9.190, R9.193, R9.194, R9.195 and R9.207 have status *person* and the journal, which P6 does not edit, does not name them. Step 9, the browser check run on its own on the same build, passes in Chromium, Firefox and WebKit, the woken waystone's still frames and slow pan included (13, 15 and 15 A-B-A pixels). `python3 scripts/break_tests.py M7`: 35 of 35 caught (one missed on the first run, its test then split, R9.198). Screenshots in `shots/m7travel/` (not committed).
+
+Waiting on the person: R9.190 (the flute's route: the trainer's gift), R9.193 (the song's notes), R9.194 (where the waystones stand, and their look), R9.195 (the traveller: place, look, prices), R9.207 (the strings).
+
+For the coordinator: R9.200 (the files P6 added entries to: `places::markers` for P2, `web/menus/` for P3, `models` for M3's owner), R9.202 (sound events for P1), R9.205 (four stale `field.rs` rows in `tests/breaks.json`).

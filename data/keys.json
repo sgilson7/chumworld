@@ -1,5 +1,5 @@
 {
-  "_note": "Keys on the menu screens, by the keymap the core names in ui().keymap: each key code and the word the page sends as act('<keymap>.key', word). The core decides what each word does (crates/core/src/ui.rs, menu_key and next_line). 'repeat' lists the words a held key sends again; the rest go once a press. In play the keys go through data/controls.json instead.",
+  "_note": "Keys on the menu screens (M7 travel adds the song screen's, keymap travel: a held key plays its note once), by the keymap the core names in ui().keymap: each key code and the word the page sends as act('<keymap>.key', word). The core decides what each word does (crates/core/src/ui.rs, menu_key and next_line). 'repeat' lists the words a held key sends again; the rest go once a press. In play the keys go through data/controls.json instead.",
   "menu": {
     "KeyQ": "turn_left",
     "KeyE": "turn_right",
@@ -26,6 +26,18 @@
     "Space": "next",
     "Enter": "next",
     "KeyE": "next"
+  },
+  "travel": {
+    "ArrowUp": "note_up",
+    "KeyW": "note_up",
+    "ArrowDown": "note_down",
+    "KeyS": "note_down",
+    "ArrowLeft": "note_left",
+    "KeyA": "note_left",
+    "ArrowRight": "note_right",
+    "KeyD": "note_right",
+    "Space": "note_a",
+    "Enter": "choose"
   },
   "repeat": ["left", "right", "up", "down"]
 }
