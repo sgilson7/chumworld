@@ -121,7 +121,7 @@ kbd { font-variant-numeric: tabular-nums; }
 .imbue-ring[data-state="on"] { --ring-fill: #ff9fd0; }
 .imbue-ring[data-state="on"] .dial { box-shadow: 0 0 0 2px #fff, 0 0 18px 4px rgba(255, 159, 208, 0.85); }
 .imbue-ring[data-state="ready"] .dial { box-shadow: 0 0 0 2px #fff, 0 0 12px 2px rgba(242, 191, 85, 0.75); }
-.ring-words { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.ring-words { display: flex; flex-direction: column; align-items: center; line-height: 1.25; gap: 1px; }
 .ring-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; }
 .ring-text { font-size: 14px; font-variant-numeric: tabular-nums; }
 
@@ -237,7 +237,8 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 /* ------------------------------------------------------------ the ring */
 
 #menu {
-  --W: min(1060px, 86vw);
+  /* M7: room each side for the turn buttons, so they never cover a card */
+  --W: min(1060px, 86vw, calc(100vw - 340px));
   --H: min(668px, 72vh);
   --R: calc(var(--W) * 0.7);
   --C: calc(var(--W) * 1.8);
@@ -578,6 +579,8 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .quick-row .quick .well { transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease; }
 .quick-row .quick:hover .well, .quick-row .quick:focus-visible .well { transform: translateY(-3px) scale(1.08); box-shadow: inset 0 2px 5px rgba(43, 33, 64, 0.28), 0 0 0 3px #fff, 0 0 0 6px var(--sky); }
 #menu:not([data-face="select"]) .menu-assign:hover, #menu:not([data-face="select"]) .menu-assign:focus-within { opacity: 1; }
+/* while a quick key is described, the screen's own line steps aside */
+#menu:has(.quick-info:not([hidden])) .face.front .info { visibility: hidden; }
 .quick-info {
   position: absolute;
   left: 50%;
@@ -848,6 +851,49 @@ body[data-screen="paused"] #overlay > .panel { display: contents; }
 #paused h2 { order: 4; }
 #paused table.controls { order: 5; }
 #paused-more table.controls { order: 6; }
+
+/* M7 (R9.86): the keys in two columns, each row a key cap and what it
+   does, so the title and the pause fit a 1280 x 720 window at the same size
+   of type; a key cap never wraps, and its words never touch the words
+   beside it. Both lists share one column layout, so their rows line up. */
+#title table.controls, #title-more table.controls, #paused table.controls, #paused-more table.controls {
+  display: block;
+  columns: 2;
+  column-gap: 30px;
+}
+#title table.controls tbody, #title-more table.controls tbody, #paused table.controls tbody, #paused-more table.controls tbody { display: contents; }
+#title table.controls tr, #title-more table.controls tr, #paused table.controls tr, #paused-more table.controls tr {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  margin-bottom: 7px;
+  break-inside: avoid;
+}
+#title table.controls td, #title-more table.controls td, #paused table.controls td, #paused-more table.controls td { width: auto; padding: 0; }
+#overlay kbd { white-space: nowrap; }
+#title table.controls, #title-more table.controls { width: min(720px, 84vw); box-sizing: border-box; padding: 12px 18px 5px; background: rgba(30, 20, 48, 0.5); backdrop-filter: blur(2px); }
+/* on the title the two lists read as one card over the world */
+#title table.controls { border-radius: 16px 16px 0 0; padding-top: 14px; }
+#title-more table.controls { border-radius: 0 0 16px 16px; padding-bottom: 8px; margin-top: 0; }
+
+/* the pause: the heading and its two buttons on the left, the keys on the
+   right, in one card */
+body[data-screen="paused"] #overlay {
+  display: grid;
+  width: min(1040px, 94vw);
+  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-areas: "head keysh" "resume keys" "set keys" ". keys" ". more";
+  column-gap: 34px;
+  align-items: start;
+}
+#paused h1 { grid-area: head; margin-bottom: 18px; }
+#paused > button { grid-area: resume; }
+#paused-more > button { grid-area: set; }
+#paused h2 { grid-area: keysh; margin: 10px 0 12px; }
+#paused table.controls { grid-area: keys; }
+#paused-more table.controls { grid-area: more; margin-top: 6px; }
 
 /* ----------------------------------------------------- reduced motion */
 

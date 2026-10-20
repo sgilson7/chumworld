@@ -42,6 +42,7 @@ import functools
 import http.server
 import json
 import math
+import os
 import pathlib
 import sys
 import threading
@@ -186,8 +187,10 @@ HELPER = r"""
     if (document.body.dataset.screen === "play") pt.playFrames += 1;
     const s = pt.read();
     if (s) {
-      if (pt.lastY !== null && pt.lastY - s.eye[1] > 3) pt.drops.push({ at: s.pos, from: pt.lastY, to: s.eye[1], frame: pt.frames });
+      const jumped = pt.lastXZ && Math.hypot(s.eye[0] - pt.lastXZ[0], s.eye[2] - pt.lastXZ[1]) > 3;
+      if (pt.lastY !== null && pt.lastY - s.eye[1] > 3 && !jumped) pt.drops.push({ at: s.pos, from: pt.lastY, to: s.eye[1], frame: pt.frames });
       pt.lastY = s.eye[1];
+      pt.lastXZ = [s.eye[0], s.eye[2]];
       const aimAt = pt.target || pt.face;
       let dx = 0, dy = 0;
       if (aimAt && document.body.dataset.screen === "play") {
@@ -518,7 +521,13 @@ class Run:
             self.drops()
 
     def path(self, points, run=True, tol=4, timeout_per=200, label="path"):
-        for k, q in enumerate(points):
+        """Walks the points in order, from the one nearest where the player
+        stands (a later start skips those behind)."""
+        p = self.pos()
+        near = min(range(len(points)), key=lambda k: math.hypot(points[k][0] - p[0], points[k][1] - p[1]))
+        if near + 1 < len(points) and math.hypot(points[near][0] - p[0], points[near][1] - p[1]) < 25:
+            near += 1
+        for k, q in list(enumerate(points))[near:]:
             last = k == len(points) - 1
             if not self.goto(q, run=run, tol=(2.0 if last else tol), timeout=timeout_per, label=f"{label} point {k + 1}/{len(points)}"):
                 return False
@@ -844,6 +853,535 @@ def s_trainer(r):
     return r.done(learned, f"the practice: line {line!r}")
 
 
+CAMP_COLOURS = ("bandit_hood", "lookout_hood", "leader_mantle")
+
+
+def foes_near(r, most=30, standing=True):
+    """Camp foes in the frame by their hoods and the leader's mantle, nearest
+    first: (distance, colour, [x, z], height over the player's feet). A
+    hood under a metre over the ground is a foe lying down."""
+    st = r.state()["s"]
+    p = st["pos"]
+    ground = st["eye"][1] - 2.1
+    out = []
+    for c in CAMP_COLOURS:
+        for k in r.find(c, tol=0.004, r=1.2):
+            d = math.hypot(k["x"] - p[0], k["z"] - p[1])
+            up = k["y"] - ground
+            if d < most and (not standing or up > 0.9):
+                out.append((d, c, [k["x"], k["z"]], up))
+    out.sort()
+    return out
+
+
+def hp(r):
+    t = r.health()
+    try:
+        return int(t.split("/")[0])
+    except ValueError:
+        return 100
+
+
+def veiled(r):
+    return r.page.evaluate("() => { const n = document.getElementById('hud-veil'); return n && n.classList.contains('shown'); }")
+
+
+def drawn(r):
+    """Whether the sword is out: the HUD's foe bar shows only when held on a
+    foe, so this reads the controls' hint instead: the view no longer turns
+    with the mouse."""
+    a = r.state()["s"]["heading"]
+    r.move_mouse(30, 0, 2)
+    r.frames(3)
+    b = r.state()["s"]["heading"]
+    r.move_mouse(-30, 0, 2)
+    r.frames(2)
+    return abs(b - a) < 1e-3
+
+
+def swing(r, k):
+    """A side cut: the hand wound out, then the left button held and the
+    mouse flicked across (tools/shoot.py's committed swing)."""
+    side = 1 if k % 2 == 0 else -1
+    r.move_mouse(45 * side, -4, 10)
+    r.page.mouse.move(960, 540)
+    r.page.mouse.down()
+    r.move_mouse(-150 * side, 0, 8)
+    r.page.mouse.up()
+    r.frames(12)
+
+
+def draw_sword(r):
+    if not drawn(r):
+        r.press("KeyX")
+        r.wait(0.9)
+
+
+def fight(r, timeout, until, low=0):
+    """Sword out, close on the nearest standing foe, and swing side cuts left
+    and right. Ends when `until()` is true (True), the player is down or
+    under `low` health, or after `timeout` s (False)."""
+    t0 = time.perf_counter()
+    draw_sword(r)
+    k = 0
+    imbued_at = -99
+    while time.perf_counter() - t0 < timeout:
+        if until():
+            r.release()
+            return True
+        scr = r.screen()
+        if scr != "play":
+            r.release()
+            r.handle_screen(scr)
+            continue
+        if veiled(r) or hp(r) <= 0:
+            r.release()
+            r.log("INFO", "the player went down in the fight")
+            return False
+        if low and hp(r) < low:
+            r.release()
+            r.log("INFO", f"health {hp(r)}: breaking off")
+            return False
+        f = foes_near(r, 25)
+        if time.perf_counter() - imbued_at > 21:
+            r.press("KeyQ")
+            imbued_at = time.perf_counter()
+        if f and f[0][0] > 1.6:
+            r.hold("KeyW")
+        else:
+            r.release("KeyW")
+        swing(r, k)
+        k += 1
+    r.release()
+    return False
+
+
+def come_back_to_camp(r):
+    """From wherever the player came to, back to the camp's trail."""
+    p = r.pos()
+    trail = [list(map(float, q)) for q in CAMP_TRAIL]
+    if p[1] > 1950:
+        r.path([[1996, 2450], [2000, 2260]] if p[0] < 2100 else [[p[0], p[1]]], run=True, label="up the lane")
+        r.path(road_points_between(2000, 2860) + [[2870, 1888]], run=True, label="east on the road")
+    r.path(trail[1:-1] + [[3175, 1075]], run=True, label="up the trail to the camp")
+
+
+def s_camp(r):
+    r.step("the bandit camp")
+    p = r.pos()
+    if p[0] < 2000:
+        # from the west bank: over the bridge, east on the road
+        r.path([[640, 2247], [700, 2242]], run=True, label="over the bridge")
+        r.path(road_points_between(700, 2860) + [[2870, 1888]], run=True, label="east on the road")
+    trail = [list(map(float, q)) for q in CAMP_TRAIL]
+    r.path(trail[1:-1] + [[3175, 1075]], run=True, label="up the trail to the camp")
+    r.shot("camp-approach")
+    cleared = lambda: "camp is down" in (r.story_line() or "") or "camp is down" in r.page.evaluate("() => document.getElementById('hud-story') ? document.getElementById('hud-story').textContent : ''")
+    t0 = time.perf_counter()
+    # by input first: into the clearing, and fight
+    r.goto([3200, 1012], run=False, tol=3, timeout=40, label="into the clearing", stop_if=lambda st: bool(foes_near(r, 9)))
+    r.shot("camp-alarm")
+    won = fight(r, 120, cleared, low=35)
+    r.shot("camp-fight")
+    down = veiled(r) or hp(r) <= 0
+    if won:
+        r.log("PASS", f"the camp cleared by input in {time.perf_counter() - t0:.0f} s")
+    else:
+        r.log("ISSUE", f"the camp not cleared by input in {time.perf_counter() - t0:.0f} s of fighting (health {hp(r)}, {'down' if down else 'breaking off'}); {len(foes_near(r, 40))} foes standing in sight")
+        if down:
+            r.wait(8)
+            r.log("INFO", f"came to at ({r.pos()[0]:.0f}, {r.pos()[1]:.0f}): {r.story_line()!r}")
+            r.shot("came-to")
+            come_back_to_camp(r)
+        else:
+            # away down the trail past the foes' leash (70 m from home), until they go home
+            r.path([[3180, 1060], [3130, 1180]], run=True, label="away down the trail")
+            r.wait(8)
+        # the one test act: the camp's foes held still for the fight's outcome
+        r.act_used = True
+        r.log("INFO", "TEST ACT USED: story.still on (every foe's input record held empty), for the camp fight's outcome only; the player still cuts each foe down by input")
+        r.page.evaluate("() => window.__act('story.still', 'on')")
+        r.goto([3200, 1012], run=True, tol=4, timeout=60, label="back into the clearing")
+        t1 = time.perf_counter()
+        while not cleared() and time.perf_counter() - t1 < 400:
+            f = foes_near(r, 45)
+            if not f:
+                r.log("INFO", "no standing foe in sight; looking round")
+                r.move_mouse(60, 0, 20)
+                r.frames(10)
+                if not foes_near(r, 45):
+                    break
+                continue
+            d, colour, at, up = f[0]
+            r.goto(at, run=False, tol=1.4, timeout=30, label=f"the {colour.split('_')[0]}")
+            fight(r, 25, lambda: cleared() or not any(math.hypot(q[2][0] - at[0], q[2][1] - at[1]) < 1.5 for q in foes_near(r, 6)), low=0)
+        won = cleared()
+        r.page.evaluate("() => window.__act('story.still', 'off')")
+        r.log("INFO", "TEST ACT ended: story.still off")
+    r.wait(0.5)
+    r.shot("camp-after-fight")
+    if r.page.evaluate("() => true") and drawn(r):
+        r.press("KeyX")
+        r.wait(0.8)
+    return r.done(won, f"the camp is {'down' if won else 'not down'}")
+
+
+def pick_up_round(r, centre, radius, timeout=90, want=None):
+    """Walks to each thing lying round `centre` whose prompt says "Pick up",
+    and presses E; returns the prompts taken."""
+    taken = []
+    t0 = time.perf_counter()
+    spots = [[centre[0] + radius * math.cos(a), centre[1] + radius * math.sin(a)] for a in [i * math.pi / 4 for i in range(8)]]
+    spots = [centre] + spots
+    for sp in spots:
+        if time.perf_counter() - t0 > timeout:
+            break
+        r.goto(sp, run=False, tol=1.0, timeout=20, label="a spot to look for drops")
+        for _ in range(8):
+            pr = r.prompt()
+            if "Pick up" in pr:
+                r.press("KeyE")
+                r.wait(0.4)
+                taken.append(pr)
+            else:
+                break
+    return taken
+
+
+def collect_near(r, at, label, tries=12):
+    """Goes to `at` and presses E while the prompt offers to pick something up."""
+    r.goto(at, run=True, tol=1.2, timeout=240, label=label)
+    got = []
+    for k in range(tries):
+        pr = r.prompt()
+        if "Pick up" in pr or "Open" in pr:
+            r.press("KeyE")
+            r.wait(0.5)
+            got.append(pr)
+        else:
+            # nudge round the spot
+            ang = k * math.pi / 3
+            r.goto([at[0] + 1.2 * math.cos(ang), at[1] + 1.2 * math.sin(ang)], run=False, tol=0.6, timeout=6, label=label)
+    return got
+
+
+def s_drops(r):
+    r.step("the camp's drops and the chest")
+    c = PLACES["camp"]
+    lying = foes_near(r, 60, standing=False)
+    got = []
+    for d, colour, at, up in lying:
+        got += collect_near(r, at, f"the fallen {colour.split('_')[0]}", tries=6)
+    got += pick_up_round(r, [c[0] + 7, c[1] + 2], 2.0)
+    r.log("INFO", f"picked up at the camp: {got}")
+    inv = r.page.evaluate("() => JSON.parse(window.__game.ui()).ok")
+    chest = [c[0] + 11, c[1] + 5]
+    r.goto([chest[0] - 1.6, chest[1] - 0.6], run=False, tol=0.8, timeout=30, label="the chest")
+    pr = ""
+    for k in range(10):
+        pr = r.prompt()
+        if "chest" in pr:
+            break
+        ang = k * math.pi / 5
+        r.goto([chest[0] + 1.7 * math.cos(ang), chest[1] + 1.7 * math.sin(ang)], run=False, tol=0.5, timeout=6, label="round the chest")
+    r.log("INFO", f"prompt at the chest: {pr!r}")
+    r.press("KeyE")
+    r.wait(1.0)
+    line = r.story_line()
+    toast = r.page.evaluate("() => { const t = document.querySelector('#play-hud .hud-toast'); return t && t.classList.contains('shown') ? t.textContent : ''; }")
+    r.shot("chest")
+    ok = "oomerang" in toast
+    if not ok:
+        r.log("ISSUE", f"the chest did not give the boomerang (line {line!r}, toast {toast!r})")
+    return r.done(ok, f"the chest: {toast or line!r}")
+
+
+def menu_open(r, face=None):
+    if r.screen() != "menu":
+        r.press("Tab")
+        r.wait(0.6)
+    if face:
+        for _ in range(4):
+            u = r.ui().get("menu")
+            if u and u["faces"][u["face"]]["id"] == face:
+                break
+            r.press("KeyE")
+            r.wait(0.7)
+    return r.ui().get("menu")
+
+
+def menu_close(r):
+    if r.screen() == "menu":
+        r.press("Tab")
+        r.wait(0.5)
+
+
+def s_boomerang(r):
+    r.step("throw the boomerang")
+    m = menu_open(r, "select")
+    slot = r.page.query_selector("#menu .face-select .slot[data-item='boomerang']")
+    if not slot:
+        r.shot("no-boomerang-slot")
+        menu_close(r)
+        return r.done(False, "the boomerang is not in Select Item")
+    slot.hover()
+    r.wait(0.3)
+    r.press("Digit1")
+    r.wait(0.3)
+    r.shot("boomerang-on-key")
+    note = r.page.evaluate("() => { const n = document.querySelector('#menu .face-select .info-notes'); return n ? n.textContent : ''; }")
+    r.log("INFO", f"Select Item, the boomerang: {note!r}")
+    menu_close(r)
+    r.press("Digit1")
+    r.wait(0.3)
+    p = r.pos()
+    r.press("KeyF", 4)
+    far = 0.0
+    seen_back = False
+    t0 = time.perf_counter()
+    while time.perf_counter() - t0 < 4.5:
+        r.frames(6)
+        b = r.nearest("boomerang_paint", tol=0.01, r=1.0)
+        if b:
+            far = max(far, b[2])
+            if far > 6 and b[2] < 1.5:
+                seen_back = True
+        if far > 4 and int((time.perf_counter() - t0) * 10) == 12:
+            r.shot("boomerang-flight")
+    r.shot("boomerang-after")
+    toast = r.page.evaluate("() => [...document.querySelectorAll('#play-hud .hud-quick .quick')].map((q) => q.dataset.item)")
+    ok = far > 8
+    if not seen_back:
+        r.log("INFO" if ok else "ISSUE", f"the boomerang's return to the hand was not seen in the frame (it flew {far:.1f} m out)")
+    return r.done(ok, f"the boomerang flew {far:.1f} m out; quick keys {toast}")
+
+
+def s_shrine(r):
+    r.step("the boots at the shrine")
+    p = r.pos()
+    boots = pickup_at("boots")
+    # from the hut along the river's west bank to the ford
+    r.path([[420, 1600], [560, 1350], [650, 1150], [712, 1005], [730, 1003]], run=True, label="to the shrine's ford")
+    got = collect_near(r, boots, "the boots")
+    r.shot("shrine")
+    ok = any("oots" in g for g in got)
+    return r.done(ok, f"at the shrine: {got}")
+
+
+def s_shrine_to_road(r):
+    r.step("from the shrine to the road")
+    ok = r.path([[760, 1005], [780, 1200], [760, 1500], [720, 1900], [700, 2242]], run=True, label="down the east bank")
+    return r.done(ok, "at the road east of the bridge")
+
+
+def s_trousers(r):
+    r.step("the trousers in the hollow tree")
+    trail = [list(map(float, q)) for q in CAMP_TRAIL][::-1]
+    r.path(trail[1:] + [[2900, 1880]], run=True, label="down the trail to the road")
+    r.path(road_points_between(2870, 3400) + [[3550, 1775], [3590, 1600], [3600, 1420]], run=True, label="to the hollow tree")
+    got = collect_near(r, pickup_at("trousers"), "the trousers")
+    r.shot("hollow-tree")
+    ok = any("rousers" in g for g in got)
+    return r.done(ok, f"at the hollow tree: {got}")
+
+
+def s_hood(r):
+    r.step("back to the merchant: the hood")
+    r.path([[3590, 1600], [3550, 1775]] + road_points_between(3400, 2040), run=True, label="back to the road, west")
+    seen = None
+    x = 2040
+    direction = -1
+    passes = 0
+    while not seen and passes < 3:
+        x += direction * 40
+        if x < 480 or x > 2040:
+            direction = -direction
+            passes += 1
+            continue
+        r.goto(road_at(x), run=True, tol=5, timeout=40, label=f"the road at x {x:.0f}")
+        seen = cart_estimate(r)
+        if seen and seen[2] > 80:
+            seen = None
+    if not seen:
+        return r.done(False, "the cart was not found on its beat")
+    stopped = stop_cart(r)
+    if not stopped:
+        return r.done(False, "the cart was not stopped the second time")
+    if not open_shop(r):
+        return r.done(False, "the shop did not open the second time")
+    bought = buy(r, "hood")
+    r.shot("shop-hood")
+    leave = r.page.query_selector("#shop .leave")
+    if leave:
+        leave.click()
+        r.wait(0.5)
+    return r.done(bought, "bought the hood" if bought else "the hood was not bought")
+
+
+def s_jacket(r):
+    r.step("the jacket on the scarecrow")
+    p = r.pos()
+    r.path([[1400, road_at(1400)[1] + 20], [1400, 2700], [1400, 3200], [1400, 3290]], run=True, label="south to the scarecrow")
+    got = collect_near(r, pickup_at("jacket"), "the jacket")
+    r.shot("scarecrow")
+    ok = any("acket" in g for g in got)
+    return r.done(ok, f"at the scarecrow: {got}")
+
+
+def s_wear(r):
+    r.step("wear all five and slide")
+    menu_open(r, "equipment")
+    r.wait(0.5)
+    r.shot("equipment-before")
+    worn = 0
+    for item in ("hood", "jacket", "gloves", "trousers", "boots"):
+        slot = r.page.query_selector(f"#menu .face-equipment .slot[data-item='{item}']")
+        if not slot:
+            r.log("ISSUE", f"no {item} in Equipment")
+            continue
+        if "worn" not in (slot.get_attribute("class") or ""):
+            slot.hover()
+            r.wait(0.2)
+            slot.click()
+            r.wait(0.4)
+        if "worn" in (r.page.query_selector(f"#menu .face-equipment .slot[data-item='{item}']").get_attribute("class") or ""):
+            worn += 1
+        else:
+            r.log("ISSUE", f"the {item} did not show as worn after a click")
+    r.shot("equipment-all-worn")
+    r.text_check("Equipment, five worn")
+    menu_close(r)
+    bars = r.page.evaluate("() => [...document.querySelectorAll('#play-hud .footing .bar')].map((b) => b.textContent)")
+    r.log("INFO", f"the HUD's footing bars: {bars}")
+    # a run, let go, and how far the feet slide on
+    r.steer(target=None, face=None, pitch=-0.12)
+    r.hold("KeyW", "ShiftLeft")
+    r.wait(3.0)
+    a = r.pos()
+    r.release()
+    r.shot("slide")
+    r.wait(4.0)
+    b = r.pos()
+    slide = math.hypot(b[0] - a[0], b[1] - a[1])
+    r.steer(None)
+    r.log("INFO", f"slid {slide:.1f} m after letting go of a run (CW-8: about 10 m with five pieces, 0.2 m bare)")
+    return r.done(worn == 5 and slide > 4, f"{worn} of 5 worn, slid {slide:.1f} m")
+
+
+def s_menus(r):
+    r.step("every menu")
+    ok = True
+    for face in ("select", "map", "quest", "equipment"):
+        menu_open(r, face)
+        r.wait(0.8)
+        u = r.ui().get("menu")
+        front = u["faces"][u["face"]]["id"] if u else None
+        if front != face:
+            r.log("ISSUE", f"the ring did not turn to {face} (at {front})")
+            ok = False
+        r.shot(f"menu-{face}")
+        r.text_check(f"the menu, {face}")
+        # the keyboard's focus or the cursor is visible
+        chosen = r.page.evaluate("() => document.querySelectorAll('#menu .face.front .slot.chosen').length")
+        if face in ("select", "equipment") and chosen == 0:
+            r.log("ISSUE", f"no chosen slot shows on {face}")
+    menu_close(r)
+    r.press("KeyM")
+    r.wait(0.8)
+    u = r.ui().get("menu")
+    if not u or u["faces"][u["face"]]["id"] != "map":
+        r.log("ISSUE", "M did not open the map")
+        ok = False
+    r.shot("menu-map-by-m")
+    r.press("KeyM")
+    r.wait(0.5)
+    if r.screen() != "play":
+        r.log("ISSUE", f"M did not close the map (screen {r.screen()})")
+        menu_close(r)
+    r.page.keyboard.press("Escape")
+    r.wait(0.6)
+    if r.screen() != "paused":
+        r.log("ISSUE", f"Esc did not pause (screen {r.screen()})")
+        ok = False
+    r.shot("paused")
+    r.text_check("the pause screen")
+    settings = r.page.query_selector("#paused-more button")
+    if settings:
+        settings.click()
+        r.wait(0.6)
+        r.shot("settings")
+        r.text_check("settings")
+        focus = r.page.evaluate("() => document.activeElement ? document.activeElement.id || document.activeElement.className : ''")
+        r.log("INFO", f"focused on settings: {focus!r}")
+        r.page.keyboard.press("Escape")
+        r.wait(0.5)
+    else:
+        r.log("ISSUE", "no settings button on the pause screen")
+    if r.screen() == "settings":
+        r.log("ISSUE", "Esc did not close settings")
+        back = r.page.query_selector("#settings .back")
+        if back:
+            back.click()
+            r.wait(0.4)
+    if r.screen() == "paused":
+        r.page.click("#paused button")
+        r.wait(0.4)
+    return r.done(ok and r.screen() == "play", f"every menu opened and closed; back to {r.screen()}")
+
+
+def stop_cart(r):
+    for attempt in range(8):
+        c = cart_estimate(r)
+        if not c:
+            r.wait(0.5)
+            continue
+        ahead = road_at(c[0] - 9)
+        r.goto(ahead, run=True, tol=2.0, timeout=60, label="ahead of the cart")
+        c = cart_estimate(r) or c
+        r.steer(face=c[:2], pitch=-0.02)
+        r.wait(0.8)
+        r.shot(f"throw-again-{attempt + 1}")
+        r.press("KeyF", 4)
+        r.wait(1.5)
+        line = r.story_line()
+        r.steer(None)
+        if line and "stop" in line.lower():
+            r.log("PASS", f"the cart stopped: {line!r} (throw {attempt + 1})")
+            return True
+        pr = r.prompt()
+        if "ock" in pr:
+            r.press("KeyE")
+    return False
+
+
+def open_shop(r):
+    for _ in range(10):
+        pr = r.prompt()
+        if "erchant" in pr:
+            break
+        c = cart_estimate(r)
+        if c:
+            r.goto(c[:2], run=False, tol=2.0, timeout=8, label="the cart")
+    r.press("KeyE")
+    r.wait(1)
+    if r.screen() == "dialogue":
+        r.read_dialogue()
+    r.wait(0.5)
+    return r.screen() == "shop"
+
+
+def buy(r, item):
+    b = r.page.query_selector(f"#shop .shop-row[data-key='{item}'] .row-button")
+    if not b or not b.is_enabled():
+        coins = r.ui()["shop"]["coins"]["text"]
+        r.log("ISSUE", f"the {item} cannot be bought ({coins} coins)")
+        return False
+    b.click()
+    r.wait(0.4)
+    r.log("INFO", f"the shop's note: {r.page.text_content('#shop .shop-note')!r}")
+    return True
+
+
 def main():
     args = sys.argv[1:]
     dist = ROOT / "dist"
@@ -865,7 +1403,7 @@ def main():
         else:
             dist = pathlib.Path(a); k += 1
     out.mkdir(parents=True, exist_ok=True)
-    steps = [s_title, s_dream, s_boundary, s_cart, s_trainer]
+    steps = [s_title, s_dream, s_boundary, s_cart, s_trainer, s_shrine, s_shrine_to_road, s_camp, s_drops, s_boomerang, s_trousers, s_hood, s_jacket, s_wear, s_menus]
     server, base = serve(dist)
     with sync_playwright() as pw:
         browser = pw.chromium.launch(args=GPU)
@@ -878,6 +1416,9 @@ def main():
         url = base + "/index.html?pointer=free"
         if dev:
             url += f"&act=story.skip&go={dev}"
+            # writing the script only: test acts to stage a later step
+            for extra in os.environ.get("PLAYTHROUGH_DEV_ACTS", "").split():
+                url += f"&act={extra}"
             gx, gz = (float(v) for v in dev.split(",")[:2])
             start = [math.floor(gx / 256) * 256, math.floor(gz / 256) * 256]
         page.add_init_script(f"window.__pt_start = {json.dumps(start)};")

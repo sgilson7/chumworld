@@ -283,15 +283,10 @@ impl World {
     }
 
     /// One number for the whole state, for replays and determinism tests: an
-    /// FNV-1a hash of the state's debug text, which names every field.
+    /// FNV-1a hash of the state's values in field order (`value_hash`), so a
+    /// renamed field leaves it as it was (M7, R2.19, R9.92).
     pub fn hash(&self) -> u64 {
-        let text = format!("{self:?}");
-        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        for b in text.bytes() {
-            h ^= b as u64;
-            h = h.wrapping_mul(0x0100_0000_01b3);
-        }
-        h
+        value_hash(&format!("{self:?}"))
     }
 
     /// The camera for this frame: the aim with `pending` mouse movement
@@ -319,6 +314,45 @@ impl World {
     pub fn player_down(&self) -> bool {
         self.me.health.down()
     }
+}
+
+/// An FNV-1a hash of a derived debug text with its field names left out:
+/// each `name: ` before a value is skipped, so the hash is of the values
+/// (numbers, variants, the shape of lists and structs) in field order. A
+/// renamed field keeps the hash; a value changed, added or moved changes
+/// it. Integers print the same under every toolchain, and the core holds
+/// no float (CW-2), so a hash written down stays right (R2.19).
+pub fn value_hash(text: &str) -> u64 {
+    let b = text.as_bytes();
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut put = |c: u8| {
+        h ^= c as u64;
+        h = h.wrapping_mul(0x0100_0000_01b3);
+    };
+    let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+    let mut i = 0;
+    while i < b.len() {
+        if word(b[i]) && (i == 0 || !word(b[i - 1])) {
+            let mut j = i;
+            while j < b.len() && word(b[j]) {
+                j += 1;
+            }
+            // a field's name: a word straight before ": " (not "::")
+            let named = j + 1 < b.len() && b[j] == b':' && b[j + 1] == b' ';
+            if named {
+                i = j + 2;
+                continue;
+            }
+            for &c in &b[i..j] {
+                put(c);
+            }
+            i = j;
+            continue;
+        }
+        put(b[i]);
+        i += 1;
+    }
+    h
 }
 
 #[cfg(test)]
@@ -399,5 +433,101 @@ mod tests {
             World::new(1).act("arm.reach", "1"),
             Err("Unknown action \"arm.reach\".".into())
         );
+    }
+
+    /// R2.19: the hash reads values, not names. Two structs alike but for
+    /// their field names hash the same; a value changed, or two values
+    /// swapped, hash otherwise; a variant's name is a value.
+    #[test]
+    fn the_world_s_hash_reads_its_values_not_its_field_names() {
+        // the same type before and after its fields were renamed
+        mod before {
+            #[derive(Debug)]
+            pub struct S {
+                pub hp: i32,
+                pub pos: (i32, i32),
+                pub mode: Option<u8>,
+            }
+        }
+        mod after {
+            #[derive(Debug)]
+            pub struct S {
+                pub health: i32,
+                pub at: (i32, i32),
+                pub state: Option<u8>,
+            }
+        }
+        use after::S as B;
+        use before::S as A;
+        #[derive(Debug)]
+        enum M {
+            Round(u8),
+            Rest(u8),
+        }
+        let a = format!(
+            "{:?}",
+            A {
+                hp: 5,
+                pos: (1, 2),
+                mode: Some(3)
+            }
+        );
+        let b = format!(
+            "{:?}",
+            B {
+                health: 5,
+                at: (1, 2),
+                state: Some(3)
+            }
+        );
+        assert_ne!(a, b);
+        assert_eq!(value_hash(&a), value_hash(&b), "renamed fields");
+        let swapped = format!(
+            "{:?}",
+            A {
+                hp: 5,
+                pos: (2, 1),
+                mode: Some(3)
+            }
+        );
+        assert_ne!(value_hash(&a), value_hash(&swapped));
+        let more = format!(
+            "{:?}",
+            A {
+                hp: 59,
+                pos: (1, 2),
+                mode: Some(3)
+            }
+        );
+        assert_ne!(
+            value_hash(&more),
+            value_hash(&format!(
+                "{:?}",
+                A {
+                    hp: 51,
+                    pos: (1, 2),
+                    mode: Some(3)
+                }
+            ))
+        );
+        let none = format!(
+            "{:?}",
+            A {
+                hp: 5,
+                pos: (1, 2),
+                mode: None
+            }
+        );
+        assert_ne!(value_hash(&a), value_hash(&none));
+        assert_ne!(
+            value_hash(&format!("{:?}", M::Round(1))),
+            value_hash(&format!("{:?}", M::Rest(1)))
+        );
+        // FNV-1a of "5" alone, by hand: (0xcbf29ce484222325 ^ 0x35) * 0x100000001b3
+        let one = (0xcbf2_9ce4_8422_2325u64 ^ 0x35).wrapping_mul(0x0100_0000_01b3);
+        assert_eq!(value_hash("hp: 5"), one);
+        // the world itself: the same world hashes the same, a step changes it
+        let w = World::new(7);
+        assert_eq!(w.hash(), World::new(7).hash());
     }
 }

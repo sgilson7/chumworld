@@ -110,7 +110,9 @@ impl Game {
     /// A game from the strings, the glossary, the look and the page's seed.
     pub fn new(strings_json: &str, glossary_md: &str, look_json: &str, seed: u32) -> Result<Game, String> {
         let strings = crate::page::parse_strings(strings_json).map_err(|e| e.message())?;
-        let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;
+        // M7 (R6.13): a slip in the glossary costs a hover hint, not the game;
+        // the check (`cargo test`) fails on it
+        let glossary = crate::glossary::load(glossary_md);
         let look = Look::parse(look_json)?;
         // M5: the game opens in bed, during the raid
         let world = crate::story::opening(seed as u64);
@@ -420,6 +422,26 @@ pub(crate) mod tests {
         .expect("the game starts from the repository's data");
         g.resize(1920, 1080, 100);
         g
+    }
+
+    /// R6.13: a term defined twice in the glossary does not stop the game
+    /// loading; its first definition is the one shown on hover.
+    #[test]
+    fn a_glossary_with_a_term_defined_twice_still_starts_the_game() {
+        let twice = format!(
+            "{}\n### Walk\n\nA second entry.\n",
+            include_str!("../../../GLOSSARY.md")
+        );
+        let g = Game::new(
+            include_str!("../../../data/strings.json"),
+            &twice,
+            include_str!("../../../data/look.json"),
+            42,
+        )
+        .expect("the game starts with a glossary slip");
+        let walk: Vec<&Entry> = g.glossary.iter().filter(|e| e.term == "Walk").collect();
+        assert_eq!(walk.len(), 1);
+        assert_ne!(walk[0].definition, "A second entry.");
     }
 
     /// The time of the last frame.

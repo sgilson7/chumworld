@@ -2763,5 +2763,61 @@
     "find": "    if h.hp >= h.most {",
     "replace": "    if false {",
     "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 hash: field names hashed",
+    "file": "crates/core/src/world.rs",
+    "find": "            let named = j + 1 < b.len() && b[j] == b':' && b[j + 1] == b' ';",
+    "replace": "            let named = false;",
+    "test": "the_world_s_hash_reads_its_values_not_its_field_names"
+  },
+  {
+    "name": "M7 hash: names hashed by their first letter only",
+    "file": "crates/core/src/world.rs",
+    "find": "            for &c in &b[i..j] {\n                put(c);\n            }",
+    "replace": "            put(b[i]);",
+    "test": "the_world_s_hash_reads_its_values_not_its_field_names"
+  },
+  {
+    "name": "M7 glossary: a duplicate stops the game loading",
+    "file": "crates/core/src/game.rs",
+    "find": "        let glossary = crate::glossary::load(glossary_md);",
+    "replace": "        let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;",
+    "test": "a_glossary_with_a_term_defined_twice_still_starts_the_game"
+  },
+  {
+    "name": "M7 glossary: the load keeps the last of a duplicate",
+    "file": "crates/core/src/glossary.rs",
+    "find": "                text = drop_entry(&text, term, dup);",
+    "replace": "                text = drop_entry(&text, term, !dup);",
+    "test": "a_term_defined_twice_still_loads_and_the_check_names_both_lines"
+  },
+  {
+    "name": "M7 glossary: the check misses a duplicate in GLOSSARY.md",
+    "file": "GLOSSARY.md",
+    "find": "### Walk\n",
+    "replace": "### Walk\n\nTwice.\n\n### walk\n",
+    "test": "the_glossary_defines_each_term_once"
+  },
+  {
+    "name": "M7 glossary: duplicates found ignoring case",
+    "file": "crates/core/src/glossary.rs",
+    "find": "            match seen.iter().find(|(t, _)| t.eq_ignore_ascii_case(&term)) {",
+    "replace": "            match seen.iter().find(|(t, _)| *t == term) {",
+    "test": "a_term_defined_twice_still_loads_and_the_check_names_both_lines"
+  },
+  {
+    "name": "M7 blade (R3.50): one blow a contact",
+    "file": "crates/core/src/blade.rs",
+    "find": "    if w.blades.touching.contains(&key) {",
+    "replace": "    if false {",
+    "test": "a_blade_pressed_along_a_body_takes_no_second_blow"
+  },
+  {
+    "name": "M7 blade (R3.50): a blade never comes away",
+    "file": "crates/core/src/blade.rs",
+    "find": "                pa.dist(pb) <= *re + *r + COME_AWAY",
+    "replace": "                pa.dist(pb) <= *re + *r + COME_AWAY * 100",
+    "test": "a_blade_pressed_along_a_body_takes_no_second_blow"
   }
 ]
