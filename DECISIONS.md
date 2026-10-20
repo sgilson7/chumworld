@@ -25,3 +25,7 @@ The agent decided: triage row T10, built by a fifth M7 part, "swings" (`m7-swing
 > you should definitly be able to get an instrument you can play to return to fast travel points like ocarina of time / majoras mask, or certain npcs can fast travel you to far off places for the first time for a price
 
 The agent decided: triage row T11, built by a sixth M7 part, "travel" (`m7-travel`). It owns the instrument, the travel points, the song screen and the paid traveller. Journal entry `2026-10-20-t11`.
+
+> make sure there is stuff to do see roads on the sides of the village you are most likely to run out of at theb eginning of the game
+
+The agent decided: triage row T12, built by a seventh M7 part, "roadside" (`m7-roadside`). The likely exits come from the opening's own data (`data/story.json`): the raid enters from the south, and the four villagers flee north-west, north-east, north and west. The roadside part places its stops along the roads the land part (P2) lays for T6 on those sides; the land part is told which sides, and the travel part (P6) puts the village-edge stone on the north road. Journal entry `2026-10-20-t12`.
