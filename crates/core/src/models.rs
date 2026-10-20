@@ -54,13 +54,25 @@ pub fn figure(kind: Kind, pose: &Pose, look: &Look, out: &mut Shapes) {
     let ink = look.ink();
     let body = rgb(look.palette.body);
     let dot = |out: &mut Shapes, p: V3, r: i32| {
-        out.inked(Mesh::Sphere, Affine::translate(p).then(&Affine::scale(v3(r, r, r))), body, ink);
+        out.inked(
+            Mesh::Sphere,
+            Affine::translate(p).then(&Affine::scale(v3(r, r, r))),
+            body,
+            ink,
+        );
     };
     dot(out, pose.head, ONE * 40 / 100);
     dot(out, pose.chest, ONE * 36 / 100);
     dot(out, pose.pelvis, ONE * 30 / 100);
     for s in 0..2 {
-        for p in [pose.shoulder[s], pose.elbow[s], pose.hand[s], pose.hip[s], pose.knee[s], pose.foot[s]] {
+        for p in [
+            pose.shoulder[s],
+            pose.elbow[s],
+            pose.hand[s],
+            pose.hip[s],
+            pose.knee[s],
+            pose.foot[s],
+        ] {
             dot(out, p, ONE * 14 / 100);
         }
     }
@@ -87,5 +99,7 @@ pub fn prop(kind: Prop, at: V3, yaw: i32, look: &Look, meshes: &mut MeshTable, g
         .then(&Affine::rot_y(yaw))
         .then(&Affine::translate(v3(0, ONE * h / 2, 0)))
         .then(&Affine::scale(v3(ONE * w, ONE * h, ONE * d)));
-    group.shapes.inked(Mesh::Cube, at, rgb(look.palette.body), look.ink());
+    group
+        .shapes
+        .inked(Mesh::Cube, at, rgb(look.palette.body), look.ink());
 }
