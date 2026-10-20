@@ -1416,8 +1416,8 @@
   {
     "name": "M1b motion: a push clears across the ground",
     "file": "crates/core/src/motion.rs",
-    "find": "let need = clear - d.len_xz();",
-    "replace": "let need = depth + 0 * clear;",
+    "find": "        let need = (clear - d.len_xz()).min(most);",
+    "replace": "        let need = (r as Fx - d.len() + 0 * clear).min(most);",
     "test": "two_bodies_pressed_together_part_by_mass_and_keep_their_momentum"
   },
   {
@@ -1447,13 +1447,6 @@
     "find": "                    rails = self.rail_lines();",
     "replace": "                    let _ = 0;",
     "test": "a_blade_inside_a_body_is_pushed_out_to_its_skin_and_no_further"
-  },
-  {
-    "name": "M1b arm: a part wedged in a body leaves across the ground",
-    "file": "crates/core/src/arm.rs",
-    "find": "            let away = round >= FENCE_ROUNDS / 2;",
-    "replace": "            let away = round > FENCE_ROUNDS;",
-    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
   },
   {
     "name": "M1b blade: every arm settles against the bodies at the end",
@@ -1687,13 +1680,6 @@
     "test": "a_hard_blow_holds_the_world_knocks_the_view_staggers_the_struck_and_dies_away"
   },
   {
-    "name": "M1b arm: a part wedged against a level arm leaves over or under it",
-    "file": "crates/core/src/arm.rs",
-    "find": "        None if d.y < 0 => v3(0, -ONE, 0),",
-    "replace": "        None if d.y < ONE * 100 => side(d, d),",
-    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
-  },
-  {
     "name": "M1b player: a test duel stands clear of the lantern",
     "file": "crates/core/src/player.rs",
     "find": "pub const DUEL_SOUTH: Fx = fx::int(30);",
@@ -1713,5 +1699,19 @@
     "find": "pub const PER_MPS_PCT: i32 = 250;",
     "replace": "pub const PER_MPS_PCT: i32 = 500;",
     "test": "a_blow_takes_health_by_its_speed_and_where_it_lands"
+  },
+  {
+    "name": "M1b motion: a blade held at a body keeps it off",
+    "file": "crates/core/src/motion.rs",
+    "find": "        let mut held: Vec<Vec<(V3, V3, Fx)>> = (0..n).map(|id| held_rails(player::fighter(w, id))).collect();",
+    "replace": "        let mut held: Vec<Vec<(V3, V3, Fx)>> = (0..n).map(|_| Vec::new()).collect();",
+    "test": "a_body_cannot_walk_into_a_blade_held_at_it"
+  },
+  {
+    "name": "M1b blade: the head's capsule covers a cap",
+    "file": "crates/core/src/blade.rs",
+    "find": "pub const HEAD_TOP_MM: i32 = 70;",
+    "replace": "pub const HEAD_TOP_MM: i32 = 0;",
+    "test": "the_head_s_capsule_takes_in_a_cap"
   }
 ]

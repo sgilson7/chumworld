@@ -704,8 +704,12 @@ mod tests {
         let mut a = duel("orc");
         let mut kept = Vec::new();
         for i in &player_inputs {
+            // a tick the hit-stop holds (`feel`) asks no pilot for a record
+            let held = a.feel.stop > 0;
             a.step(i);
-            kept.push(a.foes[0].fighter.last);
+            if !held {
+                kept.push(a.foes[0].fighter.last);
+            }
         }
         assert!(
             kept.iter().any(|i| i.keys != 0) && kept.iter().any(|i| i.dx != 0),
@@ -845,16 +849,25 @@ mod tests {
     /// nothing: each foe keeps to its band a little outside its own reach
     /// (the gaps sampled while it guards or circles, half of them inside
     /// its `keep_cm`), steps in through every attack to inside its reach,
-    /// and is back out past its reach when the attack is over.
+    /// and is back out past its reach when the attack is over, unless it ran
+    /// onto the player's blade and is staggering.
     #[test]
     fn a_foe_keeps_a_little_outside_its_reach_steps_in_to_attack_and_out_to_recover() {
-        for (seed, kind) in [(3, "orc"), (3, "bandit"), (3, "leader")] {
+        // each band by hand: its reach (above) and `keep_cm`: orc 143 + 15
+        // to 45, bandit 140 + 10 to 40, leader 177 + 5 to 35
+        for (seed, kind, band) in [
+            (3, "orc", (158, 188)),
+            (3, "bandit", (150, 180)),
+            (3, "leader", (182, 212)),
+        ] {
             let mut w = World::new(seed);
             w.me.health = crate::health::Health::new(100_000);
             player::act(&mut w, "spawn", kind).unwrap();
             let r = (reach(&w.foes[0].fighter) as i64 * 100 / ONE as i64) as i32;
-            let keep = w.pilots.book.kinds[kind].keep_cm;
             let (mut held, mut attacks, mut nearest) = (Vec::new(), 0, i32::MAX);
+            // an attack in which it ran onto the player's blade and staggered
+            // (`feel`) recovers more slowly: its steps back are a quarter
+            let mut shaken = false;
             let mut was: Option<Move> = None;
             for t in 0..1200 {
                 let keys = if t == 2 { DRAW } else { 0 };
@@ -867,6 +880,7 @@ mod tests {
                 let attacking = |m: Option<Move>| m.is_some_and(Move::committed);
                 if attacking(now) {
                     nearest = nearest.min(gap);
+                    shaken |= w.foes[0].fighter.gait.stagger > 0;
                 }
                 if attacking(was) && !attacking(now) {
                     attacks += 1;
@@ -874,8 +888,12 @@ mod tests {
                         nearest < r,
                         "{kind}: an attack stepped only to {nearest} cm, reach {r}"
                     );
-                    assert!(gap > r, "{kind}: still {gap} cm in after an attack, reach {r}");
+                    assert!(
+                        shaken || gap > r,
+                        "{kind}: still {gap} cm in after an attack, reach {r}"
+                    );
                     nearest = i32::MAX;
+                    shaken = false;
                 }
                 if t > 300 && matches!(now, None | Some(Move::Circle | Move::Guard)) {
                     held.push(gap);
@@ -886,10 +904,8 @@ mod tests {
             let mid = held[held.len() / 2];
             assert!(attacks >= 3, "{kind}: {attacks} attacks");
             assert!(
-                (r + keep[0]..=r + keep[1]).contains(&mid),
-                "{kind}: held at {mid} cm, its band {}..{}",
-                r + keep[0],
-                r + keep[1]
+                (band.0..=band.1).contains(&mid),
+                "{kind}: held at {mid} cm, its band {band:?}"
             );
         }
     }

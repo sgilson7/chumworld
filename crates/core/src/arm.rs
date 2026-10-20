@@ -264,11 +264,6 @@ pub struct Fence {
     /// only once the blades' sweep has found what each blade met
     /// (`blade::step`), so a blow lands at the speed it was swung
     pub blade: bool,
-    /// where the body it belongs to stands: the way out of its trunk across
-    /// the ground, for a part pressed between two of its capsules; none for
-    /// an arm held out more level than upright, whose way out is over it or
-    /// under it
-    pub axis: Option<V3>,
 }
 
 /// Each weapon's sizes. The short sword (70 cm blade, PLAN.md) is held in
@@ -489,6 +484,10 @@ pub struct Arm {
     pub joint_r: (Fx, Fx),
     /// the weapon slides along its scabbard this tick (`Goals::ride`)
     pub riding: bool,
+    /// where the arm held its weapon's pommel and tip at the end of its own
+    /// step, before other bodies' fences moved it: the line a guard holds,
+    /// which a body walking into it is kept off (`motion::separate`)
+    pub meant: (V3, V3),
 }
 
 /// `v` × `num` / `den`, in i64.
@@ -531,6 +530,7 @@ impl Arm {
             prev_target: frame.shoulder[1],
             fences: Vec::new(),
             riding: false,
+            meant: (pommel, tip),
             joint_r: (
                 (ELBOW_MM as i64 * build.height as i64 * build.girth_pct as i64 / 170_000) as Fx,
                 (HAND_MM as i64 * build.height as i64 * build.girth_pct as i64 / 170_000) as Fx,
@@ -872,6 +872,22 @@ impl Arm {
         self.rail_at(r, own, prev, self.across(prev))
     }
 
+    /// Every rail with the weapon's pommel and tip at `pommel` and `tip`
+    /// (against another body), and its radius.
+    pub fn rails_along(&self, pommel: V3, tip: V3) -> Vec<(V3, V3, Fx)> {
+        let len = self.weapon.len.max(1) as i64;
+        let grip = pommel.add(mul_div(tip.sub(pommel), self.weapon.grip[1] as i64, len));
+        let right = crate::models::along(grip, tip, V3::UP).c0;
+        rails(self.weapon.item)
+            .iter()
+            .map(|r| {
+                let side = right.scale(r.across);
+                let a = pommel.add(mul_div(tip.sub(pommel), r.from as i64, len)).add(side);
+                (a, tip.add(side), r.r)
+            })
+            .collect()
+    }
+
     /// The same, with the weapon's right already found.
     fn rail_at(&self, r: &Rail, own: bool, prev: bool, right: V3) -> (V3, V3, Fx) {
         let (p, t) = if prev {
@@ -899,11 +915,8 @@ impl Arm {
         let fences = std::mem::take(&mut self.fences);
         let mut rails = self.rail_lines();
         // rounds until nothing moves (at most `FENCE_ROUNDS`), so a hand or a
-        // blade pressed between two parts of a body comes out of both; from
-        // halfway, still in, it goes straight out across the ground from the
-        // body's upright axis, which leads out of all of its parts at once
-        for round in 0..FENCE_ROUNDS {
-            let away = round >= FENCE_ROUNDS / 2;
+        // blade pressed between two parts of a body comes out of both
+        for _ in 0..FENCE_ROUNDS {
             let mut moved = false;
             for f in &fences {
                 if !f.own || f.head {
@@ -917,7 +930,7 @@ impl Arm {
                             continue;
                         }
                         let (p, q) = (self.pts[k].p, self.pts[k].q);
-                        if let Some(d) = push_out(p, q, f, r, away) {
+                        if let Some(d) = push_out(p, q, f, r) {
                             let pt = &mut self.pts[k];
                             pt.p = pt.p.add(d.0);
                             pt.q = pt.q.add(d.0);
@@ -936,7 +949,7 @@ impl Arm {
                     let (rail, now, was) = rails[k];
                     let (a, b, t0) = now[f.own as usize];
                     let (a0, b0, _) = was[f.own as usize];
-                    let Some((d, out, s)) = push_rail(a, b, a0, b0, f, rail.r, away) else {
+                    let Some((d, out, s)) = push_rail(a, b, a0, b0, f, rail.r) else {
                         continue;
                     };
                     // the share of the way along the weapon the push lands at
@@ -1059,9 +1072,8 @@ pub fn nearest_on(a: V3, b: V3, p: V3) -> V3 {
 
 /// How far and which way to move a point (`p`, a tick ago `q`) of radius
 /// `r` out of a fence: to the fence's surface (and `SKIN` more) on the side
-/// the point was a tick ago, or (`away`) straight out across the ground
-/// from its body's axis. `None` when it is clear.
-fn push_out(p: V3, q: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3)> {
+/// the point was a tick ago. `None` when it is clear.
+fn push_out(p: V3, q: V3, f: &Fence, r: Fx) -> Option<(V3, V3)> {
     let room = f.r + r + SKIN;
     if !near_box(p, p, f, room) {
         return None;
@@ -1071,9 +1083,6 @@ fn push_out(p: V3, q: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3)> {
     if sq(d) >= room as i64 * room as i64 {
         return None;
     }
-    if away {
-        return Some(escape(p, d, f.axis, room));
-    }
     let c0 = nearest_on(f.a, f.b, q);
     let was = q.sub(c0);
     let out = side(d, was);
@@ -1082,7 +1091,7 @@ fn push_out(p: V3, q: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3)> {
 
 /// The same for a rail `a`–`b` (a tick ago `a0`–`b0`): the move of its
 /// nearest point, the way out, and how far along the rail that point is.
-fn push_rail(a: V3, b: V3, a0: V3, b0: V3, f: &Fence, r: Fx, away: bool) -> Option<(V3, V3, Fx)> {
+fn push_rail(a: V3, b: V3, a0: V3, b0: V3, f: &Fence, r: Fx) -> Option<(V3, V3, Fx)> {
     let room = f.r + r + SKIN;
     if !near_box(a, b, f, room) {
         return None;
@@ -1092,41 +1101,9 @@ fn push_rail(a: V3, b: V3, a0: V3, b0: V3, f: &Fence, r: Fx, away: bool) -> Opti
     if sq(d) >= room as i64 * room as i64 {
         return None;
     }
-    if away {
-        let (m, out) = escape(pr, d, f.axis, room);
-        return Some((m, out, s));
-    }
     let (_, _, pr0, pf0) = crate::blade::closest(a0, b0, f.a, f.b);
     let out = side(d, pr0.sub(pf0));
     Some((pf.add(out.scale(room)).sub(pr), out, s))
-}
-
-/// A point `p`, `d` from the fence's nearest point and `room` needed, moved
-/// straight out across the ground from the fence's body's axis, or for a
-/// level arm (no axis) straight over it or under it, whichever side it is
-/// on: two ways that do not push it back into each other. By the sink, over
-/// the share of that way that leads out of this capsule (at least a third),
-/// and a unit more.
-fn escape(p: V3, d: V3, axis: Option<V3>, room: Fx) -> (V3, V3) {
-    let out = match axis {
-        Some(axis) => {
-            let flat = v3(p.x - axis.x, 0, p.z - axis.z);
-            if flat == V3::ZERO {
-                side(d, d)
-            } else {
-                flat.norm()
-            }
-        }
-        None if d.y < 0 => v3(0, -ONE, 0),
-        None => V3::UP,
-    };
-    let sink = room - d.len();
-    let lead = if d == V3::ZERO {
-        ONE
-    } else {
-        out.dot(d.norm()).max(ONE / 3)
-    };
-    (out.scale(fx::div(sink, lead) + 1), out)
 }
 
 /// The way out of a fence: the way the point is from it now, unless a tick
@@ -1186,6 +1163,7 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
         f.tilt = tilt;
         f.arm.fences = near;
         f.arm.step(&frame, &goals);
+        f.arm.meant = (f.arm.pts[POMMEL].p, f.arm.pts[TIP].p);
         caps[id] = crate::blade::body(player::fighter(w, id).kind, &player::pose_of(w, id));
     }
 }
@@ -1269,11 +1247,6 @@ pub fn fences_of(
                 own,
                 head: c.part == crate::blade::Part::Head,
                 blade: own || blades,
-                axis: (crate::blade::TRUNK.contains(&n) || {
-                    let d = c.b.sub(c.a);
-                    d.y.abs() >= d.len_xz()
-                })
-                .then_some(at),
             });
         }
     }
@@ -1592,7 +1565,6 @@ mod tests {
             own: false,
             head: false,
             blade: true,
-            axis: Some(at),
         }];
         a.fence();
         let (x, y, _) = a.rail(&rail, false, false);

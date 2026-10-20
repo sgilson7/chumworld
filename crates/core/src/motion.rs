@@ -269,13 +269,14 @@ pub fn separate(w: &mut World) {
         let mut caps: Vec<[blade::Capsule; blade::PARTS]> = (0..n)
             .map(|id| blade::body(player::fighter(w, id).kind, &player::pose_of(w, id)))
             .collect();
+        let mut held: Vec<Vec<(V3, V3, Fx)>> = (0..n).map(|id| held_rails(player::fighter(w, id))).collect();
         for i in 0..n {
             for j in i + 1..n {
                 let (a, b) = (player::body(w, i).pos, player::body(w, j).pos);
                 if v3(b.x - a.x, 0, b.z - a.z).len() > APART {
                     continue;
                 }
-                let Some(push) = deepest(&caps[i], &caps[j], a, b) else {
+                let Some(push) = deepest(&caps[i], &caps[j], a, b, [&held[i], &held[j]]) else {
                     continue;
                 };
                 let (fi, fj) = (player::fighter(w, i), player::fighter(w, j));
@@ -302,37 +303,79 @@ pub fn separate(w: &mut World) {
                         c.a = c.a.add(d);
                         c.b = c.b.add(d);
                     }
+                    for r in held[id].iter_mut() {
+                        r.0 = r.0.add(d);
+                        r.1 = r.1.add(d);
+                    }
                 }
             }
         }
     }
 }
 
-/// The push that parts two bodies' trunks and legs: across the ground, from
-/// the first toward the second, far enough that the pair that needs it most
-/// no longer touches; none when they do not touch. Two capsules whose
-/// nearest points are `dy` apart up and `h` across clear at
-/// `√((r₁ + r₂)² − dy²)` across, so a head against a taller body's chest
-/// needs more than its sink.
+/// A fighter's weapon's rails while a hand holds it (`arm::rails`), where
+/// its arm meant it to be (`arm::Arm::meant`): a body cannot walk into a
+/// blade held at it.
+pub fn held_rails(f: &Fighter) -> Vec<(V3, V3, Fx)> {
+    let a = &f.arm;
+    if !a.in_hand || a.riding || !(a.hold[0] || a.hold[1]) || f.health.down() {
+        return Vec::new();
+    }
+    a.rails_along(a.meant.0, a.meant.1)
+        .into_iter()
+        .map(|(p, q, r)| (p, q, r + crate::arm::SKIN))
+        .collect()
+}
+
+/// A weapon pressing on a body shoves the two apart by at most this a tick
+/// (5 cm: more than a walk's 3.7 cm, so a guard stops a body walking into
+/// it, but a swing into a body only shoves it, as the stagger does).
+pub const BLADE_SHOVE: Fx = ONE * 5 / 100;
+
+/// The push that parts two bodies: across the ground, from the first toward
+/// the second, far enough that the pair that needs it most no longer
+/// touches; none when they do not touch. The pairs: trunk and legs against
+/// trunk and legs, and each one's held weapon (`weapons`) against the
+/// other's head and torso, so a guard held at a foe keeps them off it and
+/// a blade rests on no face. Two capsules whose nearest points are `dy`
+/// apart up and `h` across clear at `√((r₁ + r₂)² − dy²)` across, so a head
+/// against a taller body's chest needs more than its sink.
 pub fn deepest(
     x: &[blade::Capsule; blade::PARTS],
     y: &[blade::Capsule; blade::PARTS],
     fx: V3,
     fy: V3,
+    weapons: [&[(V3, V3, Fx)]; 2],
 ) -> Option<V3> {
     let mut worst: Option<(Fx, V3)> = None;
+    let mut consider = |p: V3, q: V3, r: Fx, most: Fx| {
+        let d = q.sub(p);
+        if d.len() >= r {
+            return;
+        }
+        let r = r as i64;
+        let clear = fx::isqrt_u64((r * r - d.y as i64 * d.y as i64).max(0) as u64) as Fx;
+        let need = (clear - d.len_xz()).min(most);
+        if need > 0 && worst.is_none_or(|(w, _)| need > w) {
+            worst = Some((need, d));
+        }
+    };
     for &i in &blade::TRUNK {
         for &j in &blade::TRUNK {
-            let (depth, d) = blade::sunk(&x[i], &y[j]);
-            if depth <= 0 {
-                continue;
-            }
-            let r = (x[i].r + y[j].r) as i64;
-            let clear = fx::isqrt_u64((r * r - d.y as i64 * d.y as i64).max(0) as u64) as Fx;
-            let need = clear - d.len_xz();
-            if need > 0 && worst.is_none_or(|(w, _)| need > w) {
-                worst = Some((need, d));
-            }
+            let (_, _, p, q) = blade::closest(x[i].a, x[i].b, y[j].a, y[j].b);
+            consider(p, q, x[i].r + y[j].r, Fx::MAX);
+        }
+    }
+    // a weapon of the first against the second's head and torso, and the
+    // second's against the first's (its way turned to run first to second)
+    for k in [0, 1] {
+        for &(a, b, r) in weapons[0] {
+            let (_, _, p, q) = blade::closest(a, b, y[k].a, y[k].b);
+            consider(p, q, r + y[k].r, BLADE_SHOVE);
+        }
+        for &(a, b, r) in weapons[1] {
+            let (_, _, p, q) = blade::closest(x[k].a, x[k].b, a, b);
+            consider(p, q, r + x[k].r, BLADE_SHOVE);
         }
     }
     let (need, d) = worst?;
@@ -614,7 +657,13 @@ mod tests {
     fn two_bodies_pressed_together_part_by_mass_and_keep_their_momentum() {
         let mut w = pressed();
         let caps = |w: &World, id| blade::body(player::fighter(w, id).kind, &player::pose_of(w, id));
-        let push = deepest(&caps(&w, 0), &caps(&w, 1), w.player.pos, w.foes[0].body.pos);
+        let push = deepest(
+            &caps(&w, 0),
+            &caps(&w, 1),
+            w.player.pos,
+            w.foes[0].body.pos,
+            [&[], &[]],
+        );
         assert_eq!(push, Some(v3(0, 0, -6643)));
         separate(&mut w);
         assert_eq!(w.player.pos, v3(0, 0, 4420));
@@ -627,6 +676,31 @@ mod tests {
         let before = (w.player.pos, w.foes[0].body.pos);
         separate(&mut w);
         assert_eq!((w.player.pos, w.foes[0].body.pos), before);
+    }
+
+    /// A guard keeps a foe off: the player walks for three seconds at a
+    /// still orc 1.6 m off whose cleaver is held level across the line to the
+    /// player's chest (its hand 40° down and 10° in), and is held off by the
+    /// blade (it reaches 1.4 m),
+    /// never nearer than a metre, where without it they would walk the
+    /// blade aside and stop only trunk to trunk, 0.4 m apart.
+    #[test]
+    fn a_body_cannot_walk_into_a_blade_held_at_it() {
+        let mut w = World::new(1);
+        crate::player::act(&mut w, "pilot", "still").unwrap();
+        crate::player::act(&mut w, "spawn", "orc").unwrap();
+        crate::player::act(&mut w, "gap", "160").unwrap();
+        w.foes[0].fighter.arm.shell.pitch = -deg(40);
+        w.foes[0].fighter.arm.shell.side = -deg(10);
+        for _ in 0..60 {
+            w.step(&Input::default());
+        }
+        let mut nearest = fx::int(9);
+        for _ in 0..180 {
+            w.step(&hold(FORWARD));
+            nearest = nearest.min(w.foes[0].body.pos.sub(w.player.pos).len_xz());
+        }
+        assert!(nearest > ONE, "walked to {nearest} of the orc");
     }
 
     /// The deepest any two bodies' trunks and legs sink into each other.

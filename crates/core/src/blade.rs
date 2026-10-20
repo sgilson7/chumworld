@@ -256,6 +256,9 @@ pub struct Capsule {
 /// capsule is round, so it is set between the belly's width and its depth.
 pub const HEAD_MM: i32 = 192;
 pub const ORC_HEAD_MM: i32 = 212;
+/// The head's capsule runs this far up from its centre: a cap, a hood or a
+/// topknot sits above the head's ball (the player's cap reaches 218 mm).
+pub const HEAD_TOP_MM: i32 = 70;
 pub const TORSO_MM: i32 = 145;
 pub const UPPER_ARM_MM: i32 = 60;
 pub const FOREARM_MM: i32 = 58;
@@ -284,8 +287,14 @@ pub fn body(kind: Kind, p: &Pose) -> [Capsule; PARTS] {
     let b = pose::build(kind);
     let head = if kind == Kind::Orc { ORC_HEAD_MM } else { HEAD_MM };
     let c = |part, a, bb, r| Capsule { part, a, b: bb, r };
+    let up = p.head.sub(p.chest).norm();
     [
-        c(Part::Head, p.head, p.head, tall(&b, head)),
+        c(
+            Part::Head,
+            p.head,
+            p.head.add(up.scale(tall(&b, HEAD_TOP_MM))),
+            tall(&b, head),
+        ),
         c(Part::Torso, p.pelvis, p.chest, broad(&b, TORSO_MM)),
         c(Part::Arm(0), p.shoulder[0], p.elbow[0], broad(&b, UPPER_ARM_MM)),
         c(Part::Arm(0), p.elbow[0], p.hand[0], broad(&b, FOREARM_MM)),
@@ -928,6 +937,11 @@ mod tests {
             p.y < ONE / 8 && t.y < ONE / 8,
             "the cleaver on the ground: {p:?} {t:?}"
         );
+        // and out of its hands: neither is where it held the haft
+        for (s, h) in arm::HAND.into_iter().enumerate() {
+            let held = orc.arm.hilt_at(orc.arm.weapon.grip[s]);
+            assert!(orc.arm.pts[h].p.dist(held) > ONE / 20, "hand {s} still holds it");
+        }
         let still = (w.foes[0].fighter.pose, w.foes[0].fighter.arm.pts);
         w.step(&Default::default());
         assert_eq!(
@@ -1013,7 +1027,8 @@ mod tests {
 
     /// How deep any held weapon's rails and any hand sit in any body at
     /// the end of a tick, counted from the surface the fences keep (each
-    /// capsule and `arm::SKIN`), and where: every weapon against every body
+    /// capsule and `arm::SKIN`), and where: every weapon in a hand (not one
+    /// riding in its scabbard) against every body
     /// (its own: head, torso and legs, the blade from the guard), every
     /// hand against every other body and its own head.
     pub fn worst_sink(w: &World) -> (Fx, String) {
@@ -1030,7 +1045,7 @@ mod tests {
                     if own && !TRUNK.contains(&k) {
                         continue;
                     }
-                    if a.in_hand {
+                    if a.in_hand && !a.riding {
                         for r in arm::rails(a.weapon.item) {
                             let (x, y, _) = a.rail(r, own, false);
                             let (_, _, p, q) = closest(x, y, c.a, c.b);
@@ -1109,12 +1124,23 @@ mod tests {
     }
 
     /// How deep a blade or hand may sit inside the surface the fences keep
-    /// (a capsule and its 15 mm `arm::SKIN`) at the end of a tick: 512 units
-    /// (7.8 mm), so never inside a capsule. Measured over these 3 600 ticks:
-    /// 325 units (5 mm into the skin, 10 mm clear of the capsule), a
-    /// bandit's sword against the player's forearm held level across the
-    /// torso, the fences' rounds (`arm::FENCE_ROUNDS`) ending a little short.
-    const SINK: Fx = ONE / 128;
+    /// (a capsule and its 15 mm `arm::SKIN`) at the end of a tick: the skin
+    /// itself, so never inside a capsule. Measured over these 3 600 ticks:
+    /// 21 units (0.3 mm) into the skin at worst.
+    const SINK: Fx = arm::SKIN;
+
+    /// The head's capsule takes in a cap: the player's reaches 218 mm above
+    /// the head's centre, inside a capsule 192 mm round running 70 mm up
+    /// (218 − 70 = 148 from its top end).
+    #[test]
+    fn the_head_s_capsule_takes_in_a_cap() {
+        let w = World::new(1);
+        let head = body(Kind::Player, &w.me.pose)[0];
+        let up = w.me.pose.head.sub(w.me.pose.chest).norm();
+        let cap = w.me.pose.head.add(up.scale(ONE * 218 / 1000));
+        let d = arm::nearest_on(head.a, head.b, cap).dist(cap);
+        assert!(d < head.r, "{d} from the capsule's line, round {}", head.r);
+    }
 
     #[test]
     fn closest_points_of_crossing_skew_and_apart_segments() {
