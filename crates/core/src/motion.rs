@@ -755,8 +755,9 @@ mod tests {
             "{:?}",
             w.player.pos
         );
+        let start = crate::player::duel_spot().z - ONE * 3 / 10;
         assert!(
-            w.foes[0].body.pos.z < -ONE,
+            w.foes[0].body.pos.z < start - ONE,
             "the orc gave way: {:?}",
             w.foes[0].body.pos
         );
