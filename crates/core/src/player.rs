@@ -832,12 +832,19 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
 /// than its outline (so a sheathed blade is hidden inside and no face lies
 /// on another, CW-18), set across the same way as the blade (`models::along`
 /// with the world's up), brass at its mouth and its tip.
-fn scabbard(sc: &Scabbard, out: &mut Shapes, look: &Look) {
-    let t = crate::models::table();
-    let (wide, thick) = match sc.wpn.item {
+/// A scabbard's width and thickness at its mouth, mm: M3's blade (46 by 9
+/// mm for the short sword, 54 by 10 for the sword) and its 4 mm outline,
+/// with room.
+pub fn scabbard_size(item: Held) -> (i32, i32) {
+    match item {
         Held::Sword => (74, 32),
         _ => (66, 30),
-    };
+    }
+}
+
+fn scabbard(sc: &Scabbard, out: &mut Shapes, look: &Look) {
+    let t = crate::models::table();
+    let (wide, thick) = scabbard_size(sc.wpn.item);
     let mm = crate::models::mm;
     let along = |d: Fx| sc.grip.add(sc.dir.scale(d));
     // from the mouth (the guard's far side) to past where the point sits:
@@ -1415,6 +1422,24 @@ mod tests {
         assert!(with > without + 10, "framed {with} px, unframed {without} px");
         // a head is about 47 px round here: the blade clears it
         assert!(with > 47, "{with} px");
+    }
+
+    /// By hand: a scabbard hides its blade and the blade's 4 mm outline
+    /// (M3's `ink_item`) all along. The short sword's blade is 46 by 9 mm,
+    /// so 54 by 17 with its outline; the sword's 54 by 10, so 62 by 18. The
+    /// scabbard narrows to 60% over its last 141 mm, from 690 mm past the
+    /// grip; the point begins at 714 (806 less twice the 46 mm width), 24
+    /// mm in, where the short sword's scabbard is 66 × (1 − 0.4 × 24 / 141)
+    /// = 61.5 mm wide and 28 thick, still round the 54 by 17 there.
+    #[test]
+    fn a_scabbard_is_wider_and_thicker_than_the_blade_it_hides() {
+        for (item, blade) in [(Held::ShortSword, (54, 17)), (Held::Sword, (62, 18))] {
+            let (w, t) = scabbard_size(item);
+            assert!(w > blade.0 && t > blade.1, "{item:?}: {w} by {t}");
+        }
+        let (w, t) = scabbard_size(Held::ShortSword);
+        let at = |x: i32| x * (100 - 40 * 24 / 141) / 100;
+        assert!(at(w) > 54 && at(t) > 17, "{} by {} at the point", at(w), at(t));
     }
 
     #[test]

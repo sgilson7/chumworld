@@ -1565,7 +1565,7 @@
     "file": "crates/core/src/player.rs",
     "find": "        _ => (66, 30),",
     "replace": "        _ => (46, 9),",
-    "test": "a_sheathed_sword_its_scabbard_and_the_figure_share_no_face"
+    "test": "a_scabbard_is_wider_and_thicker_than_the_blade_it_hides"
   },
   {
     "name": "M1b feel: a hard blow stops 2 to 4 ticks by its speed",
