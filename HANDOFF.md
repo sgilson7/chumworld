@@ -118,3 +118,22 @@ Waiting on the person: R7.8 (what death after the opening does), R7.14 (where th
 For the coordinator: R7.2 and R7.3 changed M2's `places.rs` (a `moving` flag) and `places.json` (the bed's place); R7.9 the browser check's first view and new test acts (with R6.7); R7.12 the practice depends on standing in front of the trainer (M6's guard rule, R8.3); R7.13 the lookout's gloves are not drawn on it; R7.11 the cart's box; R7.4 throwables and orbs still pass through buildings (R8.13).
 
 Check, 2026-10-20 after merging main at a205e91 (M1 polish and M6): `./scripts/check.sh` steps 1 to 7 pass (format, lint, 344 core tests by `./scripts/count-tests.sh` with 10 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R7.8, R7.14 and R7.22 have status *person* and the journal, which M5 does not edit, does not name them yet; step 9, the browser check run on its own, passes in Chromium, Firefox and WebKit (Chromium's slow pan on the green at 23 of 230 400 pixels, at the bound's edge: R7.9). Breaks: `python3 scripts/break_tests.py M5`, 41 of 41 caught. Screenshots in `shots/m5/` (not committed).
+
+## 2026-10-20: M7 polish, feel (task P1, branch `m7-feel`)
+
+Built:
+- **Sound** (`sound.rs`, `sound/synth.rs`, `data/sound.json`, `web/sound.js`). Every sound is a named row of layers the core makes into samples on the reader's first click; the core lists each tick's sounds and each frame's levels, sides and loops, and the page plays them. Steps by what they land on (grass, road, the bridge's planks, the house's floor), the sword drawn and put away, a blade cutting the air (louder and higher the faster), blades meeting, a blow landing, a body falling, the imbue starting, pulsing in its last two seconds and ending, a volley leaving, an orb turned, throws and landings, the donkey when the cart is stopped, the orcs' shouts, the menus' tick, the dialogue's blip, the pickup chime, the dream's pad and the opening's end; loops for wind, the river by distance, the fires, the cart and the boomerang. The volume setting (M4's) scales everything; pause silences every loop. P4's wound sounds are one row and one `sound::cue` each (R9.1 to R9.4).
+- **The camera's boom** (`boom.rs`): kept 0.45 m clear of every building, tent, fence, trunk and crown, easing in before a wall and out after it, rising over the shoulder when it is short (R9.5).
+- **The player's house** hands over by the ordered dither over 24 ticks, a tick at a time (R9.11).
+- **The opening**: two houses burning either side of the view from the door (flames, embers, smoke), a seventh orc in sight, a villager running past, the view lifting as you get up (R9.8, R9.9).
+- **The practice** from a circle of light 8 m in front of the trainer, in steps: one orb, three, the pattern (R9.12).
+- **The duel**: the spark burns 20 ticks with a white-hot core; the draw takes 19 ticks (0.32 s); the scabbard hangs at 28° (R9.6, R9.7, R9.14). Test acts `feel.freeze_spark`, `feel.stage_spark`, `trainer.mark` (R9.10).
+- **The fade** eases in going dark and out lifting; the story's line drifts in (R9.15).
+- `tools/shoot.py` has ten M7 views (`m7-*`); the browser check sees the sound set up after Play, a burning house held still, and a frozen spark.
+
+Not built here, moved by the coordinator: the hit flash (P4), the imbued guard's framing (P5).
+
+For other tasks: R9.6 (P5: M1's fence fails for draw timings near the one chosen), R9.13 (P3: the house's door is shut and walked through), R9.16 (P3: the HUD and the fade hidden off the play screen), R9.19 (P2: the step's surface should read P2's road rule), R9.20 (a scatter chunk's trees cost 5 to 6 ms to build).
+
+Waiting on the person: R9.17 (the sounds and the mix: `shots/m7feel/sound-mix.wav`), R9.18 (the strings under "### M7 feel" at the foot of `SECOND-ORDER.md`).
+
