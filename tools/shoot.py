@@ -35,7 +35,8 @@ NAME-1.png, NAME-2.png, ... so the best can be chosen:
 
     d2-guard     drawn at the guard, the orc at its range
     d2-overhead  an overhead mid-chop: the mouse up, then down with the button
-    d2-block     a side cut met by the orc's blade, the spark where they meet
+    d2-block     a cut into the orc's guard, the spark where they meet (a
+                 burst, d2-block-N.png, to choose the spark from)
     d2-hit       a low cut that lands, the orc staggering back
     d2-close     the player walked into the orc: pressed close, not overlapping
     d2-sheathed  the sword in its scabbard on the left hip, seen from the side
@@ -467,15 +468,18 @@ def d2_views(browser, base, out, views, logs):
         page.mouse.up()
         page.close()
     if "d2-block" in views:
-        # wound out to the right, the hand level, to meet the orc's guard
+        # wound out to the right, the hand level, then cut into the orc's
+        # guard (held still, 1.35 m off): the blades meet; a burst of frames
+        # from the flick on, from which the one with the spark is chosen
         page = drawn("duel=orc&foe=still&gap=135")
         move(page, 45, -9.3, 10)
         frames(page, 30)
         page.mouse.move(960, 540)
         page.mouse.down()
-        move(page, -150, 0, 6)
+        move(page, -150, 0, 5)
         page.screenshot(path=str(out / "d2-block.png"))
-        burst(page, out, "d2-block", 10)
+        for k in range(1, 9):
+            page.screenshot(path=str(out / f"d2-block-{k}.png"))
         page.mouse.up()
         page.close()
     if "d2-hit" in views:

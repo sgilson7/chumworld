@@ -37,7 +37,7 @@ pub const RING_PCT: i32 = 55;
 pub const QUIET: Fx = ONE / 2000;
 /// Blades meeting faster than this throw a spark that burns `SPARK_TICKS`.
 pub const SPARK_MIN: Fx = ONE * 3 / 2;
-pub const SPARK_TICKS: u8 = 10;
+pub const SPARK_TICKS: u8 = 14;
 /// A struck body staggers for `STAGGER_TICKS`, shoved back at 4 cm/s for
 /// each point of health taken, at most `SHOVE_MAX`.
 pub const STAGGER_TICKS: u8 = 14;
@@ -103,7 +103,7 @@ pub fn step(w: &mut World) {
             w.feel.sparks.push(Spark {
                 at: c.at,
                 age: 0,
-                size: (ONE / 30 + fx::mul(c.speed, ONE / 120)).min(ONE / 6),
+                size: (ONE / 12 + fx::mul(c.speed, ONE / 60)).min(ONE / 4),
             });
         }
         stop = stop.max(stop_ticks(c.speed));
@@ -205,8 +205,8 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
             hot,
             left,
         );
-        let flew = fx::mul(ONE / 8, age / SPARK_TICKS as i32 * 2).min(ONE / 4);
-        let m = r / 4;
+        let flew = fx::mul(ONE / 3, age / SPARK_TICKS as i32 * 2).min(ONE / 2);
+        let m = r / 3;
         for k in 0..6 {
             let a = fx::TURN * k / 6 + fx::deg(15);
             let d = v3(fx::cos(a), fx::sin(a * 2) / 2 + ONE / 3, fx::sin(a)).norm();
