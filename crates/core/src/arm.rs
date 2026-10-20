@@ -884,12 +884,17 @@ mod tests {
     fn no_point_ever_moves_faster_than_the_cap() {
         let mut a = arm(Held::ShortSword);
         let f = frame();
+        // the tip flung at 60 m/s: the next tick holds it to 32 m/s, 32 / 60
+        // m a tick, 34 952 units
+        a.pts[TIP].q = a.pts[TIP].p.sub(v3(ONE, 0, 0));
+        a.step(&f, &goals(&a, a.pts[HAND[1]].p, false));
+        assert!(a.pts[TIP].vel().len() <= 34_952 + 2, "{}", a.pts[TIP].vel().len());
         for t in 0..200 {
             // the target flung from side to side every 10 ticks, swinging
             let x = if (t / 10) % 2 == 0 { ONE } else { -ONE };
             a.step(&f, &goals(&a, v3(x, int(1), -ONE / 2), true));
             for p in &a.pts {
-                assert!(p.vel().len() <= CAP + 2, "tick {t}: {}", p.vel().len());
+                assert!(p.vel().len() <= 34_952 + 2, "tick {t}: {}", p.vel().len());
             }
         }
     }

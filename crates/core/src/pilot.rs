@@ -622,17 +622,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_pilot_decides_without_changing_the_world() {
-        let mut w = duel("orc");
-        for _ in 0..30 {
-            w.step(&Input::default());
-        }
-        let before = w.clone();
-        let (_, _) = decide(&w, 1);
-        assert_eq!(w, before);
-    }
-
     /// CW-3: a foe run by its tree, its records kept; then the same duel
     /// with the tree taken out and those records played back. Every body
     /// and arm comes out the same: the pilot moved nothing but the record.

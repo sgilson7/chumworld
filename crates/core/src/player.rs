@@ -936,12 +936,14 @@ mod tests {
         for _ in 0..DRAW_TICKS + 1 {
             w.step(&press(DRAW));
         }
+        w.me.health = Health::new(80);
         w.me.health.hp = 64;
         let s = crate::page::tests::strings();
         let mut out = Vec::new();
         hud(&w, &s, &mut out);
         assert_eq!(out[0].text, "Your health 64");
-        assert_eq!(out[0].value, Some(64));
+        // 64 of 80: 80%
+        assert_eq!(out[0].value, Some(80));
         // the orc's 140 of 140: 100%
         assert_eq!(out[1].text, "Orc raider 140");
         assert_eq!(out[1].value, Some(100));

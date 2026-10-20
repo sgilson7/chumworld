@@ -79,6 +79,15 @@ One row per assumption, surprise or open item. **Kind** is *divergence* (what wa
 | R5.13 | finding | Twenty figures at about 2 500 to 3 200 triangles each fit the software renderer. | Each figure is 35 to 50 parts and draws its triangles twice (solid and outline): about 5 000 to 6 400 a figure. M0 measured SwiftShader at 23 fps with 17 568 ground triangles (R2.17). | Not measured with a crowd yet. Proposal for M7: a far figure (no marks, fewer parts) chosen by distance, like M2's detail levels. | `crates/core/tests/model_counts.rs` | open |
 | R5.14 | finding | The cart is a prop. | It also rolls with the merchant (M5). | `Prop::Cart` bakes a parked cart; `prop_shapes(Prop::Cart, …)` draws it as 70 moving shapes; its wheels do not turn yet. `donkey` swings its legs with `step_phase`; the donkey stands `DONKEY_TO_CART` (3.2 m) ahead of the cart's base. | `models::DONKEY_TO_CART` | open |
 | R5.15 | worklist | | The colours in `data/models.json`, the four villager looks and each character's identifying prop (nightcap, tusks and pauldron, hood and scarf, spyglass and feather, mantle and caster's orbs, big hat and apron, duelist's coat and eye patch) are my choices. | For the person to judge against Protection of the Spheres in the lineup shots. | | person |
+| R3.10 | divergence | PLAN.md's camera: 2.6 m behind, 0.6 m right, 0.5 m above the head. | It put the body across the lower frame (R2's finding), and drawn, the blade stood behind the body. | Retuned by screenshots at 1920 × 1080: 3.5 m back, 0.85 m right, 0.2 m above the head, opening 12° down. The whole figure stands left of centre (its middle about 39% across); held on a foe, the view looks 7° below the line to their chest, held between 24° down and 10° up, and turns a fifth of the way a tick (at most 6°). The eye still never goes under `MIN_EYE_HEIGHT`. The guard starts 6° right of straight ahead so the blade stands clear of the body. | `camera.rs`, `player::HOLD_*`; `drawn_the_view_holds_on_the_nearest_foe_within_fifteen_metres` | done |
+| R3.18 | finding | R2.19: `World::hash` hashes debug text and needs replacing before a recorded duel. | With the player and seven foes the debug text is 100 KB and hashes in 0.19 ms natively (about 1 ms under the test profile). | Kept. The recorded duel (600 ticks against an orc) hashes every 60 ticks and compares two runs and a run with one record changed; it pins no number, so a renamed field breaks nothing. A field-by-field hash is still needed before a hash is written down in a test or a file (R2.19 stays open). | `a_recorded_duel_hashes_the_same_every_run` | done |
+| R3.19 | divergence | M1 sizes its own blades from PLAN.md (70 cm and 100 cm). | M3's models end the drawn blade at `models::grip_to_tip` (R5.5): short sword 0.806 m, sword 1.138 m, cleaver 0.75 m past the grip. | `arm::weapon` takes its length from `grip_to_tip`, so `Pose::tip` is where the drawn point is and the hit tests use the blade you see. The hilt, the hands' places and the masses stay M1's. | `arm::weapon` | done |
+| R3.20 | finding | | The WebAssembly grew from 343 KB to 527 KB with M1 (the pilots' book read with serde, the duel's code); M3's models came after. Start: 12.7 ms native (4.6 ms in M0). | Recorded; D11 unchanged. | `MEASUREMENTS.md` | done |
+| R3.21 | divergence | `tests/browser/interactions.py` is added to, never rewritten. | Its check that the title lists four controls fails once the title lists M1's. | That one line now counts twelve, with a comment; the M1 checks are added at the end. | `tests/browser/interactions.py` | done |
+| R3.22 | divergence | M1 edits only the `// M1:` lines of `world.rs`. | Drawn, the mouse must not turn the view, so step 1 and `World::camera` changed, and the walking line gave way to `motion::step`. `game.rs` asks the page to read the screen again only when the hint changes, so health on the screen went stale. | Those `world.rs` lines are marked `M1`; `game.rs` gained a two-line `// M1:` check of `player::hud_stamp`. `HudItem` is R3.3. | `world.rs`, `game.rs` | done |
+| R3.23 | finding | Blades are solid to bodies. | Only a blade that moves into a body is caught (the sweep); one that begins a tick already inside, as when a test act stands a foe too close or two fighters walk into each other's guard, rests there unresolved. With a still orc 0.85 m off, its cleaver sat through the player's head in the screenshots. | Left for now; `duel.gap` is a test act. A fix is a push-out of a resting blade from a body, the way an arm keeps out of its own. | `blade::strike` | open |
+| R3.24 | finding | M3's figures need nothing more from M1. | They draw their own shadow, so M1's went; `figure_dressed` shows worn pieces, and M1 gives the player the first n pieces for n worn (`items::speedster_worn` gives a count, not which, R5.4). The physics view now hides the models' weapons, so the two are never drawn over each other. | | `player::draw` | done |
+| R3.25 | finding | A blade's direction is all M1 needs from `Pose` (R5.11). | The blade's roll is free between grip and tip; nothing in M1's rules uses it. | No Pose field proposed; a third point would come with edge-on hits, which the MVP does not have (CW-16). | | done |
 
 ## Strings written by the agent
 
@@ -109,3 +118,23 @@ Each reader-visible string the agent wrote, with its key, for the person to read
 | core: `models.lineup` refusal | The lineup's turn is whole degrees, such as 40, not "…". |
 | core: `models.*` refusal | Unknown action "models.…". |
 | `GLOSSARY.md` | Lineup (definition there) |
+
+### M1
+
+| Key | String |
+| --- | --- |
+| `key_draw`, `control_draw` | X · Draw or sheathe |
+| `key_hand`, `control_hand` | Mouse, sword drawn · Sword hand |
+| `key_swing`, `control_swing` | Left button · Swing |
+| `key_hold_look`, `control_hold_look` | Right button · Look, sword drawn |
+| `key_lock`, `control_lock` | Middle button · Next foe |
+| `key_reach`, `control_reach` | Wheel · Reach |
+| `key_throw`, `control_throw` | F · Throw |
+| `key_dodge`, `control_dodge` | Space · Dodge-step |
+| `health_you` | Your health (shown as "Your health 82") |
+| `foe_orc`, `foe_bandit`, `foe_leader` | Orc raider, Bandit, Bandit leader (shown with the foe's health) |
+| core: `duel.spawn` refusal | A test duel is with an orc, a bandit or a leader, not "…". |
+| core: `duel.pilot` refusal | A foe's pilot is "tree" or "still", not "…". |
+| core: `duel.gap` refusal | A gap is a whole number of centimetres from 40 to 4000, not "…". |
+| core: `motion.speedster` refusal | The speedster pieces are a whole number from 0 to 5, not "…". |
+| `GLOSSARY.md` | Dodge-step, Draw, Health, Reach, Sheathe, Swing, Sword hand, Throw (definitions there) |

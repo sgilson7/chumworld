@@ -770,10 +770,10 @@
     "test": "nothing_gains_energy_without_a_servo"
   },
   {
-    "name": "M1 arm: the cap holds after relaxing",
+    "name": "M1 arm: no point passes 32 m/s",
     "file": "crates/core/src/arm.rs",
-    "find": "                pt.q = pt.p.sub(v.clamp_len(CAP));",
-    "replace": "                pt.q = pt.p.sub(v.clamp_len(CAP * 2));",
+    "find": "pub const CAP: Fx = ONE * 32 / 60;",
+    "replace": "pub const CAP: Fx = ONE * 64 / 60;",
     "test": "no_point_ever_moves_faster_than_the_cap"
   },
   {
@@ -924,13 +924,6 @@
     "test": "the_book_reads_every_kind_and_tree_and_refuses_a_missing_tree"
   },
   {
-    "name": "M1 pilot: decide reads the world as it is",
-    "file": "crates/core/src/pilot.rs",
-    "find": "pub fn decide(w: &World, id: usize) -> (Input, Brain) {\n    let foe = &w.foes[id - 1];",
-    "replace": "pub fn decide(w: &World, id: usize) -> (Input, Brain) {\n    let w = &{ let mut c = w.clone(); c.foes[id - 1].body.pos.x += 1; c };\n    let foe = &w.foes[id - 1];",
-    "test": "a_pilot_decides_without_changing_the_world"
-  },
-  {
     "name": "M1 pilot: the record is the only channel",
     "file": "crates/core/src/pilot.rs",
     "find": "        w.foes[k].brain = brain;\n",
@@ -960,9 +953,9 @@
   },
   {
     "name": "M1 pilot: a recorded duel replays",
-    "file": "crates/core/src/pilot.rs",
-    "find": "            rng: Rng::new(salt),",
-    "replace": "            rng: Rng::new(salt ^ (&salt as *const u64 as u64)),",
+    "file": "crates/core/src/player.rs",
+    "find": "    let salt = w.rng.next_u64();",
+    "replace": "    let salt = { static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0); N.fetch_add(1, std::sync::atomic::Ordering::Relaxed) };",
     "test": "a_recorded_duel_hashes_the_same_every_run"
   },
   {

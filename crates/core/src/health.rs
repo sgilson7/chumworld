@@ -149,8 +149,10 @@ mod tests {
 
     #[test]
     fn at_no_health_a_fighter_is_down_and_falls() {
-        let mut h = Health::new(20);
-        h.take(crate::fx::int(12), Part::Torso);
+        // 10 m/s on the torso takes 42: exactly all of 42
+        let mut h = Health::new(42);
+        h.take(crate::fx::int(10), Part::Torso);
+        assert_eq!(h.hp, 0);
         assert!(h.down());
         assert_eq!(h.pct(), 0);
         h.down_ticks = FALL_TICKS / 2;
