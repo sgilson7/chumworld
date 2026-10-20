@@ -312,3 +312,43 @@ fn probe_dip_map() {
     println!("dips more than 60 m from the centreline: {hits}");
     std::fs::write("../../shots/m2/dbg/dip.ppm", out).unwrap();
 }
+
+#[test]
+#[ignore]
+fn probe_frame_parts() {
+    let mut g = tool_core::game::Game::new(
+        include_str!("../../../data/strings.json"),
+        include_str!("../../../GLOSSARY.md"),
+        include_str!("../../../data/look.json"),
+        7,
+    )
+    .unwrap();
+    g.resize(1920, 1080, 100);
+    g.act("screen.show", "play").unwrap();
+    let (w, look) = (g.world.clone(), g.look.clone());
+    let mut eye = v3(int(2000), int(2), int(2800));
+    let (mut tt, mut ts, mut tf) = (0.0, 0.0, 0.0);
+    let still = std::env::var("M2_STILL").is_ok();
+    for _ in 0..3000 {
+        let mut out = Shapes::default();
+        g.detail.frame(&w, &look, eye, &mut out);
+        let _ = g.detail.uploads();
+    }
+    println!("built after 3000 still frames: {}, resident triangles {}", g.detail.stats.total_builds, g.detail.stats.resident_triangles);
+    for _ in 0..600 {
+        if !still { eye.z -= ONE / 10; }
+        let mut out = Shapes::default();
+        let t = Instant::now();
+        g.detail.terrain(&w.land, eye, &mut out);
+        tt += t.elapsed().as_secs_f64();
+        let t = Instant::now();
+        g.detail.scatter_frame(&w.land, eye, look.ink(), &mut out);
+        ts += t.elapsed().as_secs_f64();
+        let t = Instant::now();
+        g.detail.faded_frame(eye, &mut out);
+        tf += t.elapsed().as_secs_f64();
+        let _ = g.detail.uploads();
+    }
+    println!("resident (kind, level) -> (meshes, triangles): {:?}", g.detail.resident_by());
+    println!("per frame: terrain {:.3} ms, scatter {:.3} ms, faded {:.3} ms", tt / 0.6, ts / 0.6, tf / 0.6);
+}

@@ -500,6 +500,23 @@ pub fn fade(sp: &ScatterSpec, part: u8, d: i64) -> Option<Fx> {
     }
 }
 
+/// The distances a part is drawn between, metres: from where it starts to
+/// come in to where it is gone.
+pub fn interval(sp: &ScatterSpec, part: u8) -> (i32, i32) {
+    match part {
+        CONE => (sp.full_m[0], sp.cone_m[1]),
+        CLUSTER => (sp.cone_m[0], sp.cluster_m[1]),
+        _ => (0, reach(sp, part)),
+    }
+}
+
+/// How far ahead of its interval a part is built (Q16 metres, i64): a
+/// tenth of the interval, 40 m at the least (at 6 m/s, seven seconds).
+pub fn margin(sp: &ScatterSpec, part: u8) -> i64 {
+    let (lo, hi) = interval(sp, part);
+    ((hi - lo) as i64 * ONE as i64 / 10).max(40 * ONE as i64)
+}
+
 /// The farthest a part is drawn, metres.
 pub fn reach(sp: &ScatterSpec, part: u8) -> i32 {
     match part {

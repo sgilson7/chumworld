@@ -11,7 +11,7 @@
     "along_cm": 200,
     "fine_along_cm": 50,
     "fine_reach_m": 40,
-    "across_cm": 75,
+    "across_cm": 100,
     "under_m": 5,
     "chunk_m": 128,
     "near_m": 900,

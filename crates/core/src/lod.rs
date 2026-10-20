@@ -106,6 +106,8 @@ pub struct Stats {
     pub triangles: usize,
     pub resident: usize,
     pub resident_triangles: usize,
+    /// the last thing built because it was needed at once
+    pub last_sync: Option<Key>,
 }
 
 /// A shape the walk drew this frame: the key, and its dither fade.
@@ -160,6 +162,8 @@ pub struct Faded {
 
 pub const WATER: u8 = 1;
 pub const SCATTER: u8 = 2;
+/// a faded group's entry in `drawn`: its place in `faded`
+pub const FADED: u8 = 3;
 
 /// A level's cell, Q16 metres.
 pub fn cell(level: u32) -> Fx {
@@ -234,23 +238,35 @@ impl Detail {
     /// The scatter's share of a frame: each part of each chunk in reach,
     /// at its fade; the parts soon in reach built ahead, a few a frame; the
     /// far ones forgotten.
-    fn scatter_frame(&mut self, land: &Land, eye: V3, ink: look::Rgb, out: &mut Shapes) {
+    pub fn scatter_frame(&mut self, land: &Land, eye: V3, ink: look::Rgb, out: &mut Shapes) {
         let sp = land.spec.scatter.clone();
         let mut ahead: Vec<(i64, Key)> = Vec::new();
         for part in crate::scatter::PARTS {
             let (_, _, side) = crate::scatter::chunk_middle(land, part, 0, 0);
-            let reach = crate::scatter::reach(&sp, part) as i64 * ONE as i64;
-            let soon = reach * self.spec.prefetch_pct as i64 / 100;
+            let (lo, hi) = crate::scatter::interval(&sp, part);
+            let (lo, hi) = (lo as i64 * ONE as i64, hi as i64 * ONE as i64);
+            let margin = crate::scatter::margin(&sp, part);
+            let soon = hi + margin;
             let s = side as i64;
-            let (i0, i1) = ((eye.x as i64 - soon).div_euclid(s), (eye.x as i64 + soon).div_euclid(s));
-            let (j0, j1) = ((eye.z as i64 - soon).div_euclid(s), (eye.z as i64 + soon).div_euclid(s));
+            // within the land the scatter covers
+            let [elo, ehi] = sp.extent_m.map(|v| v as i64 * ONE as i64);
+            let (c0, c1) = (elo.div_euclid(s), ehi.div_euclid(s));
+            let (i0, i1) = ((eye.x as i64 - soon).div_euclid(s).max(c0), (eye.x as i64 + soon).div_euclid(s).min(c1));
+            let (j0, j1) = ((eye.z as i64 - soon).div_euclid(s).max(c0), (eye.z as i64 + soon).div_euclid(s).min(c1));
+            // in 256ths of a metre, so squares fit
+            let (ex, ez) = (eye.x as i64 >> 8, eye.z as i64 >> 8);
+            let (near2, far2) = (((lo - margin).max(0) >> 8).pow(2), (soon >> 8).pow(2));
             for j in j0..=j1 {
+                let cz = (j * s + s / 2) >> 8;
                 for i in i0..=i1 {
-                    let (cx, cz, _) = crate::scatter::chunk_middle(land, part, i as i32, j as i32);
-                    let d = to_square(eye.x as i64, eye.z as i64, cx as i64, cz as i64, 0);
-                    if d > soon {
+                    let cx = (i * s + s / 2) >> 8;
+                    let q = (cx - ex) * (cx - ex) + (cz - ez) * (cz - ez);
+                    // neither drawn nor soon: too far, or well inside where
+                    // the level before it is drawn
+                    if q > far2 || q < near2 {
                         continue;
                     }
+                    let d = (crate::terrain::root(q as u64) as i64) << 8;
                     let key = Key {
                         kind: SCATTER,
                         level: part,
@@ -262,15 +278,17 @@ impl Detail {
                         Some(f) => {
                             if !self.has(&key) && !self.empty.contains(&key) {
                                 self.build_scatter(land, key, ink);
+                                self.stats.last_sync = Some(key);
                                 self.stats.sync_builds += 1;
                                 self.stats.total_sync_builds += 1;
                             }
                             self.draw(key, f, out);
                         }
-                        // not drawn now, but in reach soon: built ahead
+                        // not drawn now, but soon: built ahead, the soonest first
                         None => {
-                            if !self.has(&key) && !self.empty.contains(&key) {
-                                ahead.push((d, key));
+                            let slack = if d < lo { lo - d } else { d - hi };
+                            if slack < margin && !self.has(&key) && !self.empty.contains(&key) {
+                                ahead.push((slack, key));
                             }
                         }
                     }
@@ -295,7 +313,9 @@ impl Detail {
             .filter(|k| {
                 let (cx, cz, _) = crate::scatter::chunk_middle(land, k.level, k.i, k.j);
                 let d = to_square(eye.x as i64, eye.z as i64, cx as i64, cz as i64, 0);
-                d > crate::scatter::reach(&sp, k.level) as i64 * ONE as i64 * self.spec.evict_pct as i64 / 100
+                let (lo, hi) = crate::scatter::interval(&sp, k.level);
+                let m = 2 * crate::scatter::margin(&sp, k.level);
+                d > hi as i64 * ONE as i64 + m || d < lo as i64 * ONE as i64 - m
             })
             .copied()
             .collect();
@@ -381,8 +401,8 @@ impl Detail {
     }
 
     /// The faded groups' share of a frame.
-    fn faded_frame(&mut self, eye: V3, out: &mut Shapes) {
-        for f in &self.faded {
+    pub fn faded_frame(&mut self, eye: V3, out: &mut Shapes) {
+        for (n, f) in self.faded.iter().enumerate() {
             let d = to_square(eye.x as i64, eye.z as i64, f.centre.x as i64, f.centre.z as i64, 0);
             let (a, b) = (f.fade.0 as i64, f.fade.1 as i64);
             // t: the share of the way from near to far
@@ -393,6 +413,16 @@ impl Detail {
             if (f.far && t == 0) || (!f.far && t == ONE) || (f.far && d > FAR as i64) {
                 continue;
             }
+            self.drawn.push(Drawn {
+                key: Key {
+                    kind: FADED,
+                    level: 0,
+                    i: n as i32,
+                    j: 0,
+                    part: 0,
+                },
+                fade,
+            });
             for s in &f.shapes {
                 let mut s = *s;
                 if fade != ONE {
@@ -512,6 +542,7 @@ impl Detail {
     fn need(&mut self, land: &Land, key: Key) {
         if !self.has(&key) {
             self.build_tile(land, key);
+            self.stats.last_sync = Some(key);
             self.stats.sync_builds += 1;
             self.stats.total_sync_builds += 1;
         }
@@ -567,6 +598,12 @@ impl Detail {
         );
         for j in i0..=i1 {
             for i in i0..=i1 {
+                // a top tile soon in range is built ahead too: it has no parent to ask
+                let d = to_square(eye.x as i64, eye.z as i64, i as i64 * side, j as i64 * side, side);
+                let key = Detail::tile_key(top, i, j);
+                if d > FAR as i64 && d < FAR as i64 + side && !self.has(&key) {
+                    ahead.push((d - FAR as i64, key));
+                }
                 self.walk(land, eye, top, i, j, ONE, &mut ahead, out);
             }
         }
@@ -680,6 +717,17 @@ impl Detail {
 
     pub fn id_of(&self, key: &Key) -> Option<u32> {
         self.by_key.get(key).map(|&k| self.first + k as u32)
+    }
+
+    /// Resident triangles and meshes by kind and level, for the probe.
+    pub fn resident_by(&self) -> BTreeMap<(u8, u8), (usize, usize)> {
+        let mut m = BTreeMap::new();
+        for s in self.slots.iter().flatten() {
+            let e = m.entry((s.key.kind, s.key.level)).or_insert((0, 0));
+            e.0 += 1;
+            e.1 += s.vertices / 3;
+        }
+        m
     }
 
     /// The meshes not yet handed to the page.
@@ -804,6 +852,63 @@ mod tests {
             d.terrain(&l, eye, &mut out);
             assert_eq!(d.stats.sync_builds, 0, "a tile was needed before it was built, at {}", eye.x / ONE);
             assert!(d.stats.builds <= d.spec.builds_per_frame);
+        }
+    }
+
+    /// CW-18, PLAN.md flicker test 3: on camera paths at the fastest speeds
+    /// (5 m/s running, 6 m/s with speedster pieces, a frame a tick), every
+    /// surface the detail levels draw (terrain tiles, the scatter's parts,
+    /// the places and the water) changes its share of the pixels by at most
+    /// one cell of the 4 × 4 dither (1/16) a frame: none appears, vanishes
+    /// or changes level except through the dither band, and none waits to
+    /// be built.
+    #[test]
+    fn no_surface_changes_level_without_passing_through_the_dither_band() {
+        let w = crate::world::World::new(1);
+        let look = crate::look::tests::look();
+        let cover = |f: Fx| if f >= 0 { f } else { -f };
+        // (start, metres a tick east, metres a tick south, ticks)
+        let paths = [
+            // running north from the village up the lane and across the road
+            ((2000, 2790), 0, -ONE / 12, 4000),
+            // with speedster pieces, west over the river by the bridge
+            ((900, 2300), -ONE / 10, -ONE / 100, 3000),
+            // into the forest toward the camp
+            ((2860, 1900), ONE / 40, -ONE / 10, 3000),
+        ];
+        for ((x, z), dx, dz, ticks) in paths {
+            let mut d = Detail::new(&w.land.spec.lod, 100);
+            let mut eye = v3(int(x), 0, int(z));
+            let mut last: BTreeMap<Key, Fx> = BTreeMap::new();
+            for t in 0..ticks {
+                eye.x += dx;
+                eye.z += dz;
+                eye.y = w.ground(eye.x, eye.z) + int(2);
+                let mut out = Shapes::default();
+                d.frame(&w, &look, eye, &mut out);
+                let now: BTreeMap<Key, Fx> = d.drawn.iter().map(|dr| (dr.key, cover(dr.fade))).collect();
+                // a terrain tile wholly past the haze's edge (sky.rs: the land
+                // is the sky's own colour there) shows nothing of its own
+                let edge = crate::sky::SkySpec::shipped().edge_m[1] as i64 * ONE as i64;
+                let hidden = |k: &Key| {
+                    k.kind == TERRAIN && {
+                        let side = d.tile_side(k.level as u32);
+                        to_square(eye.x as i64, eye.z as i64, k.i as i64 * side, k.j as i64 * side, side) >= edge
+                    }
+                };
+                if t > 0 {
+                    assert_eq!(d.stats.sync_builds, 0, "{:?} waited to be built at tick {t}, eye {:?}", d.stats.last_sync, (eye.x / ONE, eye.z / ONE));
+                    for k in last.keys().chain(now.keys()).filter(|k| !hidden(k)) {
+                        let (a, b) = (last.get(k).copied().unwrap_or(0), now.get(k).copied().unwrap_or(0));
+                        assert!(
+                            (a - b).abs() <= ONE / 16,
+                            "{k:?} went from {a} to {b} of ONE at tick {t}, eye {:?}",
+                            (eye.x / ONE, eye.z / ONE)
+                        );
+                    }
+                }
+                last = now;
+            }
         }
     }
 

@@ -1076,7 +1076,10 @@ pub fn pieces(land: &crate::terrain::Land) -> Vec<Piece> {
     let fade = (near - band, near);
     let (s0, s1) = (r.stations[a].s, r.stations[b - 1].s);
     let chunk = m.chunk_m.max(8) * ONE;
-    let lanes = 48;
+    // lanes across the widest stretch at the spacing asked for; every row
+    // has as many, so no row's points fall between another's
+    let widest = r.stations[a..b].iter().map(|s| s.half).max().unwrap_or(ONE) + m.under_m * ONE;
+    let lanes = (2 * widest / cm(m.across_cm).max(ONE / 10)).clamp(8, 64) as usize;
     let under = m.under_m * ONE;
     let mut c = s0;
     while c < s1 {
@@ -1303,4 +1306,83 @@ pub fn frame_values(land: &crate::terrain::Land, s: &State, origin: V3) -> Vec<i
     out.extend([ripple, foam, phase, (period * ONE as i64) as i32]);
     out.extend([origin.x, origin.z]);
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fx::int;
+    use crate::terrain::tests::land;
+
+    /// CW-18: the water never fights its banks. Wherever a facet of a tile
+    /// that may be drawn with the water crosses the water's level, the land
+    /// rises out of it steeply enough that the band where the depth buffer
+    /// cannot tell land from water (`DEPTH_STEPS` steps at the farthest the
+    /// tile's level is drawn, in the layer that draws there) is narrower than
+    /// a pixel there (60° high, 1080 pixels). Checked on tiles of every level
+    /// over the river from the north edge to the south, and round the pond.
+    #[test]
+    fn the_water_meets_its_banks_steeply_enough_for_the_depth_buffer() {
+        let l = land();
+        let n = l.spec.lod.tile_cells as i64;
+        let mut checked = 0;
+        // (level, the farthest it is drawn: its ring and a parent tile's
+        // half diagonal past it)
+        for level in 0..6u32 {
+            let side = crate::lod::cell(level) as i64 * n;
+            let far = crate::lod::ring(level) + side * 3 / 2;
+            let step = crate::render::DEPTH_STEPS as i64 * crate::render::layered_depth_step(far.min(crate::render::FAR as i64) as Fx) as i64;
+            // a pixel at `far`: far × 2 tan 30° / 1080
+            let pixel = far * 11_547 / 10_000 / 1080;
+            let mut points: Vec<(Fx, Fx)> = [-1000, 0, 700, 1000, 1500, 2248, 2340, 3000, 4000].iter().map(|&z| {
+                let k = l.river.stations.iter().position(|s| s.at.z >= int(z)).unwrap();
+                (l.river.stations[k].at.x, l.river.stations[k].at.z)
+            }).collect();
+            points.push((int(2030), int(2826)));
+            for (x, z) in points {
+                let (i, j) = ((x as i64).div_euclid(side) as i32, (z as i64).div_euclid(side) as i32);
+                let t = l.tile(level, i, j);
+                let tris = 2 * l.spec.lod.tile_cells as usize * l.spec.lod.tile_cells as usize;
+                for tr in t.vertices.chunks(3 * crate::prim::VERTEX_VALUES).take(tris) {
+                    let p: Vec<V3> = (0..3)
+                        .map(|q| {
+                            let v = &tr[q * crate::prim::VERTEX_VALUES..];
+                            t.at.apply(v3(v[0], v[1], v[2]))
+                        })
+                        .collect();
+                    let mid = v3((p[0].x + p[1].x + p[2].x) / 3, 0, (p[0].z + p[1].z + p[2].z) / 3);
+                    let level_here = match l.river.near(mid.x, mid.z, int(40)) {
+                        Some(nr) if nr.d < nr.half + int(30) => nr.surface,
+                        _ => match l.ponds().iter().find(|(c, r, bank)| v3(mid.x - c.x, 0, mid.z - c.z).len_xz() < r + bank + int(4)) {
+                            Some((c, _, _)) => c.y,
+                            None => continue,
+                        },
+                    };
+                    let (lo, hi) = (p.iter().map(|q| q.y).min().unwrap(), p.iter().map(|q| q.y).max().unwrap());
+                    if !(lo < level_here && hi > level_here) {
+                        continue;
+                    }
+                    checked += 1;
+                    // the facet's steepness: the length of its gradient
+                    let nrm = crate::terrain::facet_normal(p[0], p[1], p[2]);
+                    let flat = v3(nrm.x, 0, nrm.z).len_xz() as i64;
+                    // the width across the facet where land and water are
+                    // nearer than the depth buffer can tell: the doubt over
+                    // the gradient, ny / |n_xz|
+                    let width = step * nrm.y as i64 / flat.max(1);
+                    assert!(
+                        width < pixel,
+                        "level {level} at ({}, {}) m: a facet {} in 1000 steep leaves {} mm of doubt, a pixel is {} mm at {} m",
+                        mid.x / ONE,
+                        mid.z / ONE,
+                        flat * 1000 / nrm.y.max(1) as i64,
+                        width * 1000 / ONE as i64,
+                        pixel * 1000 / ONE as i64,
+                        far / ONE as i64
+                    );
+                }
+            }
+        }
+        assert!(checked > 500, "{checked} crossings checked");
+    }
 }

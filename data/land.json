@@ -176,12 +176,12 @@
     "tile_cells": 32,
     "levels": 7,
     "band_pct": 15,
-    "prefetch_pct": 135,
-    "evict_pct": 170,
-    "builds_per_frame": 3,
+    "prefetch_pct": 115,
+    "evict_pct": 140,
+    "builds_per_frame": 2,
     "skirt_cm": 30,
     "river_dip_from_level": 3,
-    "river_dip_cm": 45,
+    "river_dip_cm": 200,
     "extent_m": [
       -16384,
       20480
