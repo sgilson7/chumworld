@@ -173,7 +173,16 @@ mod tests {
     #[test]
     fn heads_are_a_quarter_of_the_height_give_or_take_two_points() {
         // CW-17: 42 cm of 170 cm is 24.7%; every kind scales both together.
-        for k in [Kind::Player, Kind::Orc, Kind::Bandit, Kind::Leader, Kind::Lookout, Kind::Merchant, Kind::Trainer, Kind::Villager] {
+        for k in [
+            Kind::Player,
+            Kind::Orc,
+            Kind::Bandit,
+            Kind::Leader,
+            Kind::Lookout,
+            Kind::Merchant,
+            Kind::Trainer,
+            Kind::Villager,
+        ] {
             let b = build(k);
             let pct = b.head as i64 * 100 / b.height as i64;
             assert!((23..=27).contains(&pct), "{k:?}: {pct}%");
@@ -186,6 +195,9 @@ mod tests {
         // 2 m, less the one unit (1/65536 m) that 170 cm loses to rounding
         assert!((build(Kind::Orc).height - 2 * crate::fx::ONE).abs() <= 1);
         // an orc's shoulders: 20 cm × 200/170 × 135% = 31.76 cm
-        assert_eq!(build(Kind::Orc).shoulder_x, ((20 * crate::fx::ONE / 100) as i64 * 200 / 170 * 135 / 100) as i32);
+        assert_eq!(
+            build(Kind::Orc).shoulder_x,
+            ((20 * crate::fx::ONE / 100) as i64 * 200 / 170 * 135 / 100) as i32
+        );
     }
 }
