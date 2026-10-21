@@ -2903,5 +2903,19 @@
     "find": "crate::pose::BODY_GIRTH_PCT as i64 / 10_000) as Fx",
     "replace": "100 / 10_000) as Fx",
     "test": "bodies_are_drawn_eight_percent_broader_and_no_taller"
+  },
+  {
+    "name": "M7 quick: a rock taken goes on no key",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if got > 0 && i.def().quick && inv.key_of(i).is_none() {",
+    "replace": "    if false {",
+    "test": "a_quick_item_taken_goes_on_the_first_free_key"
+  },
+  {
+    "name": "M7 quick: an item taken twice goes on two keys",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if got > 0 && i.def().quick && inv.key_of(i).is_none() {",
+    "replace": "    if got > 0 && i.def().quick {",
+    "test": "a_quick_item_taken_goes_on_the_first_free_key"
   }
 ]

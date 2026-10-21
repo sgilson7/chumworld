@@ -2513,6 +2513,35 @@ mod tests {
         assert!(json(&g)["menu"]["quick_info"].is_null());
     }
 
+    /// M7 (R9.102): an item that goes on a key, taken, goes on the first
+    /// free key (1, then 2, then 3); one already on a key stays; with every
+    /// key taken it goes on none.
+    #[test]
+    fn a_quick_item_taken_goes_on_the_first_free_key() {
+        let mut g = playing();
+        let w = &mut g.world;
+        w.inventory.quick = [None, None, None];
+        inventory::give(w, Item::Rock, 3);
+        assert_eq!(w.inventory.quick, [Some(Item::Rock), None, None]);
+        inventory::give(w, Item::Rock, 1);
+        inventory::give(w, Item::Knife, 1);
+        assert_eq!(w.inventory.quick, [Some(Item::Rock), Some(Item::Knife), None]);
+        w.inventory.quick[2] = Some(Item::Rock);
+        w.inventory.quick[0] = None;
+        inventory::give(w, Item::Rock, 1);
+        assert_eq!(
+            w.inventory.quick,
+            [None, Some(Item::Knife), Some(Item::Rock)],
+            "already on 3"
+        );
+        inventory::give(w, Item::ChestKey, 1);
+        assert_eq!(w.inventory.quick[0], None, "a key item goes on no key");
+        inventory::give(w, Item::Bandage, 1);
+        assert_eq!(w.inventory.quick[0], Some(Item::Bandage));
+        inventory::give(w, Item::Boomerang, 1);
+        assert_eq!(w.inventory.key_of(Item::Boomerang), None, "every key taken");
+    }
+
     /// M7 (R9.84): a bandage's key uses it: 30 + 40 = 70 health, one
     /// fewer; 90 + 40 is held to 100; at 100 it keeps.
     #[test]

@@ -198,6 +198,14 @@ pub fn ready(w: &World) -> Option<Item> {
 /// Gives `n` of an item and shows "Received: …"; returns how many fitted.
 pub fn give(w: &mut World, i: Item, n: u32) -> u32 {
     let got = w.inventory.add(i, n);
+    // M7 (R9.102): a quick item taken goes on the first free key, so the HUD
+    // shows what F throws; the ring still moves it to another
+    let inv = &mut w.inventory;
+    if got > 0 && i.def().quick && inv.key_of(i).is_none() {
+        if let Some(k) = inv.quick.iter().position(|q| q.is_none()) {
+            inv.quick[k] = Some(i);
+        }
+    }
     if got > 0 {
         crate::ui::received(w, i, got);
     }
