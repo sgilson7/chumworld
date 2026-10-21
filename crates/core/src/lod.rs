@@ -1260,13 +1260,14 @@ mod tests {
         assert!(things_seen > 1_000, "{things_seen}");
     }
 
-    /// R9.52: two facets sharing an edge, a-b-c red and a-c-d blue, become
-    /// four vertices, not six: a and b, c (the first facet's own last, red),
-    /// then d (the second's own, blue); indices 0 1 2 and 0 2 3. Each
-    /// triangle's last vertex carries its own colour; every normal is twice
-    /// as long, so the shader knows to take them flat.
+    /// R9.52: two facets sharing an edge, a-b-c red and c-d-a blue, become
+    /// five vertices, not six: a, b, c (the first facet's own last, red),
+    /// d, then a again as the second facet's own last (blue), its first two
+    /// (c and d) shared by place; indices 0 1 2 and 2 3 4. Each triangle's
+    /// last vertex carries its own colour; every normal is twice as long,
+    /// so the shader knows to take them flat.
     #[test]
-    fn two_facets_sharing_an_edge_take_four_vertices_each_its_own_last() {
+    fn two_facets_sharing_an_edge_take_five_vertices_each_its_own_last() {
         let up = [0, ONE, 0];
         let v = |p: [i32; 3], c: [i32; 3]| [p[0], p[1], p[2], up[0], up[1], up[2], c[0], c[1], c[2]];
         let (red, blue) = ([ONE, 0, 0], [0, 0, ONE]);
@@ -1275,18 +1276,18 @@ mod tests {
             v(a, red),
             v(b, red),
             v(c, red),
-            v(a, blue),
             v(c, blue),
             v(d, blue),
+            v(a, blue),
         ]
         .concat();
         let (verts, idx) = index_flat(&soup);
-        assert_eq!(idx, vec![0, 1, 2, 0, 2, 3]);
-        assert_eq!(verts.len(), 4 * crate::prim::VERTEX_VALUES);
+        assert_eq!(idx, vec![0, 1, 2, 2, 3, 4]);
+        assert_eq!(verts.len(), 5 * crate::prim::VERTEX_VALUES);
         let at = |k: usize| &verts[k * crate::prim::VERTEX_VALUES..(k + 1) * crate::prim::VERTEX_VALUES];
         assert_eq!(&at(2)[6..9], &red);
-        assert_eq!(&at(3)[6..9], &blue);
-        assert_eq!(at(3)[4], 2 * ONE, "the normal twice as long");
+        assert_eq!(&at(4)[6..9], &blue);
+        assert_eq!(at(4)[4], 2 * ONE, "the normal twice as long");
     }
 
     #[test]
