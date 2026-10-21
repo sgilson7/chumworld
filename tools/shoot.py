@@ -220,6 +220,13 @@ ROADSIDE_VIEWS = {
     "ru-closed-quest": (["story.skip", "rumours.hear:hood", "rumours.hear:sword", "rumours.hear:boomerang",
                          "test.give_all"], ["ring:2"], 150),
     "rs-map": ("", ["map"], 150),
+    # M7 forest (T19): the camp's flag and smoke from the trail's end, a
+    # clearing with foes, animals resting in a clearing, the forest floor,
+    # the forest from a kilometre off
+    "fo-flag": (["story.skip", "places.go:2870,1888 339 2"], [], 200),
+    "fo-animals": (["story.skip", "places.go:3456,752 0 -10"], [], 200),
+    "fo-floor": (["story.skip", "places.go:2700,1000 90 -22"], [], 200),
+    "fo-1km": (["story.skip", "places.go:1170,1000 270 -1"], [], 200),
 }
 # M2: the time each frame callback of the page takes, and the frames
 CALLBACK_TIMES = """() => {
@@ -421,6 +428,8 @@ WANDERER_VIEWS = {
     "wd-orc_fire": (["wanderers.near:orc_fire"], ["run:40"], 120),
     "wd-lean_to": (["wanderers.near:lean_to"], ["run:40"], 120),
     "wd-map": (["wanderers.near:lean_to", "wanderers.seen"], ["map"], 60),
+    # M7 forest (T19): a clearing's foes (this land's two hold a bandit each)
+    "fo-clearing": (["wanderers.near:glade_bandit"], ["run:40"], 120),
 }
 
 

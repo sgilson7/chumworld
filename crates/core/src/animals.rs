@@ -208,7 +208,6 @@ pub fn place(land: &crate::terrain::Land) -> Vec<Herd> {
         .iter()
         .find(|p| p.kind == "camp")
         .map(|p| crate::places::metres(p.centre));
-    let total: i32 = sp.kinds.iter().map(|k| k.share.max(0)).sum::<i32>().max(1);
     let mut out: Vec<Herd> = Vec::new();
     // the forest's box and a band past its edge
     let (rx, rz) = (f.radii_m[0] + 160, f.radii_m[1] + 160);
@@ -218,21 +217,31 @@ pub fn place(land: &crate::terrain::Land) -> Vec<Herd> {
         }
         let x = m(f.centre[0] - rx) + rng.below((2 * m(rx)) as u32) as Fx;
         let z = m(f.centre[1] - rz) + rng.below((2 * m(rz)) as u32) as Fx;
-        let mut pick = rng.below(total as u32) as i32;
-        let kind = sp
-            .kinds
+        // which kinds live here: the forest's thinning edge (and just out
+        // onto the open) or deep in it; one of them drawn by its share
+        let w = land.forest(x, z, &all);
+        let here = if w > ONE as i64 * 6 / 10 {
+            "forest"
+        } else if w < ONE as i64 * 55 / 100 && (w > 0 || near_forest(land, &all, x, z)) {
+            "edge"
+        } else {
+            ""
+        };
+        let fits: Vec<usize> = (0..sp.kinds.len())
+            .filter(|&k| sp.kinds[k].lives == here)
+            .collect();
+        let total: i32 = fits.iter().map(|&k| sp.kinds[k].share.max(0)).sum();
+        let mut pick = rng.below(total.max(1) as u32) as i32;
+        let kind = fits
             .iter()
-            .position(|k| {
-                pick -= k.share.max(0);
+            .copied()
+            .find(|&k| {
+                pick -= sp.kinds[k].share.max(0);
                 pick < 0
             })
             .unwrap_or(0);
         let k = &sp.kinds[kind];
-        let w = land.forest(x, z, &all);
-        let lives = match k.lives.as_str() {
-            "edge" => w < ONE as i64 * 55 / 100 && (w > 0 || near_forest(land, &all, x, z)),
-            _ => w > ONE as i64 * 6 / 10,
-        };
+        let lives = !fits.is_empty() && total > 0;
         let c = v3(x, 0, z);
         let (rd, rh) = land.road_distance(x, z, &all);
         let ok = lives
@@ -310,7 +319,7 @@ pub fn standing(w: &World) -> usize {
 /// Herds stand and park by the player's distance; each animal standing
 /// grazes, walks, rests or runs. After the wanderers (`World::step`).
 pub fn step(w: &mut World) {
-    if w.story.phase == crate::story::Phase::Off || w.story.still {
+    if w.story.phase == crate::story::Phase::Off {
         return;
     }
     ensure(w);
@@ -327,7 +336,16 @@ pub fn step(w: &mut World) {
         }
     }
     let mut count = standing(w);
-    for hi in 0..w.animals.herds.len() {
+    // the nearest first, so the cap keeps those the player is beside
+    let mut order: Vec<(Fx, usize)> = w
+        .animals
+        .herds
+        .iter()
+        .enumerate()
+        .map(|(k, h)| (h.home.sub(me).len_xz(), k))
+        .collect();
+    order.sort();
+    for (_, hi) in order {
         let h = &w.animals.herds[hi];
         if !h.animals.is_empty() || h.home.sub(me).len_xz() > m(sp.wake_m) {
             continue;
@@ -337,6 +355,10 @@ pub fn step(w: &mut World) {
         }
         count += h.count as usize;
         stand(w, hi);
+    }
+    // held still for a view (`story.still`), they stand but do not move
+    if w.story.still {
+        return;
     }
     for hi in 0..w.animals.herds.len() {
         for ai in 0..w.animals.herds[hi].animals.len() {

@@ -157,8 +157,8 @@ fn the_camp_s_smoke_fades_in_thins_with_height_and_widens() {
     assert!(s3 < ONE / 100);
     assert!(born.y < low.y && low.y < high.y);
     assert!(w0 < w1 && w1 < w2);
-    // 34% at its strongest, a quarter of the way up: 34% × (1 − 1/8)
-    assert_eq!(s1, fx::mul(ONE * 34 / 100, ONE - ONE / 8));
+    // 50% at its strongest, a quarter of the way up: 50% × (1 − 1/8)
+    assert_eq!(s1, fx::mul(ONE / 2, ONE - ONE / 8));
     let w = world();
     let mut out = Shapes::default();
     crate::smoke::column(sp, &w, foot, 0, &mut out);
@@ -182,7 +182,15 @@ fn the_clearings_are_placed_from_the_seed_and_the_same_every_time() {
     let mut spec2 = l.spec.clone();
     spec2.seed ^= 0x5eed;
     let other = Land::new(spec2, l.layout.clone(), l.waters.clone());
-    assert_ne!(other.glades, l.glades, "another seed, other clearings");
+    // another seed, other clearings: none within 50 m of one of these (the
+    // same draws over another land's noise would give mostly the same)
+    for g in &other.glades {
+        assert!(
+            l.glades.iter().all(|h| h.centre.sub(g.centre).len_xz() > int(50)),
+            "a clearing of another seed at {:?}",
+            g.centre
+        );
+    }
     for g in &l.glades {
         let inside = things_round(&l, g.centre, g.r);
         assert!(
@@ -272,7 +280,8 @@ fn the_forest_holds_every_kind_of_tree_and_its_floor_is_the_seed_s() {
     }
     let bushes = scatter::floor(&l, scatter::FLOOR, 24, 8);
     assert!(bushes.len() > 40, "{} bushes", bushes.len());
-    let at = |v: &[(V3, crate::rng::Rng)]| v.iter().map(|(p, _)| *p).collect::<Vec<_>>();
+    // where each stands across the ground (its height is the land's)
+    let at = |v: &[(V3, crate::rng::Rng)]| v.iter().map(|(p, _)| (p.x, p.z)).collect::<Vec<_>>();
     assert_eq!(at(&bushes), at(&scatter::floor(&l, scatter::FLOOR, 24, 8)));
     let ferns = (0..6)
         .map(|k| scatter::floor(&l, scatter::FERN, 170 + k, 50).len())
@@ -284,7 +293,14 @@ fn the_forest_holds_every_kind_of_tree_and_its_floor_is_the_seed_s() {
     let mut spec2 = l.spec.clone();
     spec2.seed ^= 0x5eed;
     let other = Land::new(spec2, l.layout.clone(), l.waters.clone());
-    assert_ne!(at(&scatter::floor(&other, scatter::FLOOR, 24, 8)), at(&bushes));
+    // another seed, another floor: hardly a bush in the same place
+    let theirs = at(&scatter::floor(&other, scatter::FLOOR, 24, 8));
+    let shared = theirs.iter().filter(|p| at(&bushes).contains(p)).count();
+    assert!(
+        shared * 10 < bushes.len(),
+        "{shared} of {} bushes where they were",
+        bushes.len()
+    );
     // none on the plains
     assert!(scatter::floor(&l, scatter::FLOOR, 12, 20).is_empty());
     let _ = sp;

@@ -283,3 +283,10 @@ Measured on this Mac while other agents loaded it (load average 35 to 45 during 
 | Flicker: slow pans, Chromium (640 × 360, software) | scratch script over `tests/browser/interactions.py`'s `GRAB` | village 17 of 230 400 (bound 23; with no grass at all 19 to 20: the player 11, far fences and houses 8, R9.56); hill 12; a house 35 m off 6 | 2026-10-20, P2 |
 | Nothing near pops (R9.44) | scratch run of the browser check's probe in three engines | running and turning on the meadow: 0 chunks within 25 m undrawn in any frame; Chromium 2 162 looked at, Firefox 2 880, WebKit 10 309 | 2026-10-20, P2 |
 | WebAssembly size | printed by `./scripts/build.sh` | 2 053 KB | 2026-10-20, P2 |
+
+## M7 forest (P13, T19)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| A forest chunk's builds (8 chunks round the camp, native release) | `cargo test --release -p tool_core --test frame_probe probe_forest_frame_cost -- --ignored --nocapture` | things 0.23 ms; whole trees 4.5 ms; rocks, logs and stumps 0.3 ms; bushes 0.6 ms; ferns and mushrooms 0.25 ms an 18 m chunk. Main before the forest (same chunks, same measure): things 0.15, whole trees 5.35, rocks 0.11 ms. First cut with faceted globes: whole trees 12.9, bushes 12.2 ms (R9.451) | 2026-10-21, P13 |
+| A frame walking past a herd in the forest, 20 s | same probe | 4.6 ms mean, 6.8 ms worst, no frame over 8 ms; 4 animals standing (the cap is 12) | 2026-10-21, P13 |
