@@ -187,6 +187,192 @@ pub fn model(kind: Prop) -> Model {
         Prop::Tor => tor(&mut k),
         Prop::LoneTree => lone_tree(&mut k),
         Prop::Logs => logs(&mut k),
+        Prop::Flagpole => flagpole(&mut k),
+    }
+    k.m
+}
+
+/// M7 forest (P13, T19): the bandits' flagpole, a lashed mast
+/// `FLAGPOLE_TOP` tall over a cairn of stones, a knob at its top and a
+/// ring of rope where the cloth hangs (`forest::cloth` hangs the cloth,
+/// which moves). Thick enough (a 0.6 m mast) to be more than half a pixel
+/// wide a kilometre off, so it does not blink as the view pans (R4.25).
+fn flagpole(k: &mut Kit) {
+    let (wood, stone, rope, dark) = (k.c("wood"), k.c("stone"), k.c("rope"), k.c("tent_dark"));
+    let top = crate::models::FLAGPOLE_TOP / ONE * 1000;
+    k.up(
+        Mesh::Cyl,
+        (0, top / 2 - 200, 0),
+        (600, top + 400 - 300, 600),
+        wood,
+    );
+    // the lashings, wider than the mast, at three heights
+    for (y, h) in [(1500, 160), (top / 2, 180), (top - 900, 200)] {
+        k.up(Mesh::Cyl, (0, y, 0), (680, h, 680), rope);
+    }
+    k.up(Mesh::Facet, (0, top - 100, 0), (820, 700, 820), dark);
+    for i in 0..6 {
+        let a = fx::TURN * i / 6;
+        let (x, z) = (fx::mul(fx::cos(a), 720), fx::mul(fx::sin(a), 720));
+        k.shape(Mesh::Facet, (x, 150, z), (560, 380, 480), Affine::rot_y(a), stone);
+    }
+}
+
+/// M7 forest (P13, T19): an animal of the forest (`Beast`), front to −z,
+/// mid-stride at `phase` (a whole turn a stride), its head lowered
+/// `graze` of the way to the ground (0 to ONE), and lying `lie` of the
+/// way down (0 standing, ONE resting with its legs folded). After the
+/// donkey's build and Long Time Comin's hart (two-part body, pale belly,
+/// a neck to a long head): rebuilt here, no code copied (`LICENSES.md`).
+pub fn beast_model(kind: crate::models::Beast, phase: i32, graze: Fx, lie: Fx) -> Model {
+    use crate::models::Beast;
+    let mut k = Kit::new();
+    k.ink = table().ink_figure;
+    // (hip height, leg length, leg thickness, hips' and shoulders' z, half the stance)
+    let (hip, len, thick, back_z, front_z, half) = match kind {
+        Beast::Deer => (900, 860, 80, 420, -400, 150),
+        Beast::Rabbit => (160, 150, 45, 70, -90, 70),
+        Beast::Boar => (560, 470, 110, 380, -380, 170),
+    };
+    // lying, the body sinks by most of a leg and the legs fold under it
+    let sink = fx::mul(lie, mm(len) * 85 / 100);
+    let lift = |y: i32| mm(y) - sink;
+    let p = |x: i32, y: i32, z: i32| v3(mm(x), lift(y), mm(z));
+    let add = |k: &mut Kit, mesh: Mesh, at: V3, size: (i32, i32, i32), rgb: Rgb| {
+        let a = put(&Affine::IDENTITY, at, v3(mm(size.0), mm(size.1), mm(size.2)));
+        k.m.add(mesh, a, rgb, k.ink)
+    };
+    let hop = if kind == Beast::Rabbit {
+        fx::mul(fx::sin(phase).abs(), mm(60)) * (ONE - lie) / ONE
+    } else {
+        0
+    };
+    let up = |v: V3| v.add(v3(0, hop, 0));
+    match kind {
+        Beast::Deer => {
+            let (coat, pale, dark) = (k.c("deer_coat"), k.c("deer_pale"), k.c("deer_dark"));
+            add(&mut k, Mesh::Facet, p(0, 1000, 0), (430, 460, 1120), coat);
+            add(&mut k, Mesh::Facet, p(0, 900, 60), (340, 290, 840), pale);
+            add(&mut k, Mesh::Facet, p(0, 1040, 540), (250, 300, 150), pale);
+            add(&mut k, Mesh::Facet, p(0, 1150, 600), (110, 170, 90), dark);
+            // the neck to the head, which lowers to graze
+            let head = p(0, 1540, -720).lerp(p(0, 460, -860), graze);
+            let neck = p(0, 1100, -380);
+            let a = bar(neck, head, (mm(190), mm(210)), v3(ONE, 0, 0));
+            k.m.add(Mesh::Taper, a, coat, k.ink);
+            add(&mut k, Mesh::Facet, head, (200, 230, 400), coat);
+            add(
+                &mut k,
+                Mesh::Facet,
+                head.add(v3(0, -mm(40), -mm(200))),
+                (120, 120, 150),
+                dark,
+            );
+            for s in [-1, 1] {
+                let ear = Affine::rot_z(-s * deg(40)).then(&Affine::rot_x(deg(10)));
+                let at = head.add(v3(s * mm(110), mm(150), mm(90)));
+                k.m.add(
+                    Mesh::Facet,
+                    put_turned(&Affine::IDENTITY, at, &ear, v3(mm(80), mm(230), mm(50))),
+                    coat,
+                    k.ink,
+                );
+                add(
+                    &mut k,
+                    Mesh::Facet,
+                    head.add(v3(s * mm(95), mm(40), -mm(60))),
+                    (50, 50, 50),
+                    dark,
+                );
+            }
+        }
+        Beast::Rabbit => {
+            let (coat, pale) = (k.c("rabbit_coat"), k.c("rabbit_pale"));
+            add(&mut k, Mesh::Facet, up(p(0, 190, 20)), (200, 190, 320), coat);
+            for s in [-1, 1] {
+                add(&mut k, Mesh::Facet, up(p(s * 70, 140, 90)), (80, 130, 180), coat);
+            }
+            add(&mut k, Mesh::Facet, up(p(0, 200, 190)), (80, 80, 70), pale);
+            let head = up(p(0, 290, -160).lerp(p(0, 150, -210), graze));
+            add(&mut k, Mesh::Facet, head, (130, 130, 160), coat);
+            add(
+                &mut k,
+                Mesh::Facet,
+                head.add(v3(0, -mm(30), -mm(70))),
+                (60, 50, 50),
+                pale,
+            );
+            for s in [-1, 1] {
+                let ear = Affine::rot_z(-s * deg(12)).then(&Affine::rot_x(deg(18)));
+                let at = head.add(v3(s * mm(35), mm(140), mm(30)));
+                k.m.add(
+                    Mesh::Facet,
+                    put_turned(&Affine::IDENTITY, at, &ear, v3(mm(45), mm(190), mm(28))),
+                    coat,
+                    k.ink,
+                );
+            }
+        }
+        Beast::Boar => {
+            let (coat, dark, snout, tusk) =
+                (k.c("boar_coat"), k.c("boar_dark"), k.c("boar_snout"), k.c("tusk"));
+            add(&mut k, Mesh::Facet, p(0, 640, 0), (540, 580, 1160), coat);
+            add(&mut k, Mesh::Facet, p(0, 880, -120), (170, 180, 760), dark);
+            let head = p(0, 600, -650).lerp(p(0, 300, -720), graze);
+            add(&mut k, Mesh::Facet, head, (320, 330, 440), coat);
+            let a = bar(
+                head.add(v3(0, -mm(40), -mm(170))),
+                head.add(v3(0, -mm(70), -mm(330))),
+                (mm(150), mm(140)),
+                v3(ONE, 0, 0),
+            );
+            k.m.add(Mesh::Cyl, a, snout, k.ink);
+            for s in [-1, 1] {
+                let t = Affine::rot_z(s * deg(25));
+                let at = head.add(v3(s * mm(90), -mm(70), -mm(260)));
+                k.m.add(
+                    Mesh::Cone,
+                    put_turned(&Affine::IDENTITY, at, &t, v3(mm(50), mm(130), mm(50))),
+                    tusk,
+                    k.ink,
+                );
+                let ear = Affine::rot_z(-s * deg(30));
+                let at = head.add(v3(s * mm(120), mm(170), mm(90)));
+                k.m.add(
+                    Mesh::Facet,
+                    put_turned(&Affine::IDENTITY, at, &ear, v3(mm(90), mm(150), mm(60))),
+                    dark,
+                    k.ink,
+                );
+            }
+            add(&mut k, Mesh::Facet, p(0, 700, 610), (70, 160, 60), dark);
+        }
+    }
+    // the legs, swinging about the hip and the shoulder, folded when lying
+    let (leg, hoof) = match kind {
+        Beast::Deer => (k.c("deer_coat"), k.c("deer_dark")),
+        Beast::Rabbit => (k.c("rabbit_coat"), k.c("rabbit_pale")),
+        Beast::Boar => (k.c("boar_dark"), k.c("boar_dark")),
+    };
+    for (x, z, offset, fold) in [
+        (-half, front_z, 0, 1),
+        (half, front_z, fx::HALF_TURN, 1),
+        (-half, back_z, fx::HALF_TURN, -1),
+        (half, back_z, 0, -1),
+    ] {
+        let swing =
+            fx::mul(fx::mul(fx::sin(phase + offset), deg(26)), ONE - lie) + fx::mul(lie, fold * deg(80));
+        let top = up(v3(mm(x), mm(hip) - sink, mm(z)));
+        let l = mm(len);
+        let foot = top.add(v3(0, -fx::mul(fx::cos(swing), l), fx::mul(fx::sin(swing), l)));
+        let a = bar(top, foot, (mm(thick), mm(thick)), v3(ONE, 0, 0));
+        k.m.add(Mesh::Cyl, a, leg, k.ink);
+        let h = put(
+            &Affine::IDENTITY,
+            foot.add(v3(0, mm(thick / 3), 0)),
+            v3(mm(thick * 13 / 10), mm(thick), mm(thick * 3 / 2)),
+        );
+        k.m.add(Mesh::Facet, h, hoof, k.ink);
     }
     k.m
 }

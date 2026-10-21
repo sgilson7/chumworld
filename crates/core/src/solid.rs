@@ -262,6 +262,8 @@ fn small(prop: Prop, mut wall: Wall) -> Wall {
         Prop::Signpost | Prop::Scarecrow | Prop::SavePost => ONE * 38 / 100,
         Prop::Well => ONE * 15 / 100,
         Prop::Campfire => ONE * 25 / 100,
+        // M7 forest: the flagpole's footing, not the ground flattened round it
+        Prop::Flagpole => ONE * 15 / 100,
         Prop::Chest => ONE * 5 / 100,
         // M7 roadside: a lone tree's trunk, not its crown
         Prop::LoneTree => ONE * 115 / 100,
@@ -376,6 +378,44 @@ pub fn keep_out(walls: &[Wall], pos: &mut V3, vel: &mut V3, r: Fx) -> bool {
     pushed
 }
 
+/// M7 forest (T19): a body of radius `r` pushed out of each circle (a
+/// trunk's foot and radius) it sinks into, its speed into it taken away,
+/// so it slides round. Whether any pushed.
+pub fn keep_round(circles: &[(V3, Fx)], pos: &mut V3, vel: &mut V3, r: Fx) -> bool {
+    let mut pushed = false;
+    for _ in 0..2 {
+        for (c, cr) in circles {
+            let d = v3(pos.x - c.x, 0, pos.z - c.z);
+            let len = d.len_xz();
+            let reach = cr + r;
+            if len >= reach {
+                continue;
+            }
+            // dead centre: out to the east
+            let n = if len > 0 {
+                d.scale(fx::div(ONE, len))
+            } else {
+                v3(ONE, 0, 0)
+            };
+            let depth = reach - len;
+            pos.x += fx::mul(n.x, depth);
+            pos.z += fx::mul(n.z, depth);
+            let into = vel.dot(n);
+            if into < 0 {
+                *vel = vel.sub(n.scale(into));
+                // what was lost turns half into a slide round it, the way
+                // the body was already leaning (to the right when dead on),
+                // so a body walking straight at a trunk goes round it
+                let t = v3(-n.z, 0, n.x);
+                let side = if vel.dot(t) < 0 { -1 } else { 1 };
+                *vel = vel.add(t.scale(side * (-into) / 2));
+            }
+            pushed = true;
+        }
+    }
+    pushed
+}
+
 /// The walls near (x, z), within `reach`: a body moves a few centimetres a
 /// tick, so only these can touch it.
 pub fn near(walls: &[Wall], x: Fx, z: Fx, reach: Fx) -> Vec<Wall> {
@@ -393,6 +433,9 @@ pub fn step(w: &mut World) {
         if !in_bed {
             let close = near(&map.walls, pos.x, pos.z, ONE * 2);
             keep_out(&close, &mut pos, &mut vel, RADIUS);
+            // M7 forest (T19): and round the trees' trunks, stumps and logs
+            let trunks = w.obstacles.trunks_near(w, pos, ONE * 2);
+            keep_round(&trunks, &mut pos, &mut vel, RADIUS);
             // M7 roadside: no one walks under a platform or into a rock
             crate::roadside::guard(&map.climbs, b.prev_pos.y, &mut pos, &mut vel);
         }

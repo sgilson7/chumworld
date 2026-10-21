@@ -56,7 +56,15 @@ fn count(w: &World, name: &str) -> usize {
 #[test]
 fn the_wanderers_file_reads_and_refuses_a_weapon_or_armour_as_what_is_left() {
     let s = spec();
-    assert_eq!(s.kinds.iter().filter(|k| k.count.is_none()).count(), 1);
+    // (M7 forest: the kinds met in the clearings have no count either; they
+    // are one a clearing, not drawn for the ways' slots)
+    assert_eq!(
+        s.kinds
+            .iter()
+            .filter(|k| k.count.is_none() && !in_glade(k))
+            .count(),
+        1
+    );
     let mut v: serde_json::Value =
         serde_json::from_str(include_str!("../../../../data/wanderers.json")).unwrap();
     let fire = s.kinds.iter().position(|k| k.name == "orc_fire").unwrap();
@@ -702,4 +710,167 @@ fn a_beaten_encounter_stays_beaten_across_a_save_and_a_load() {
         0
     )));
     assert!(!crate::save::known_foe("wanderer.x.1") && !crate::save::known_foe("wanderer.3.9"));
+}
+
+// ---- M7 forest (P13, T19): the clearings' foes ----------------------------------
+
+fn glade_sites(w: &World) -> Vec<Encounter> {
+    w.wanderers
+        .list
+        .iter()
+        .filter(|e| e.way == GLADE_WAY)
+        .cloned()
+        .collect()
+}
+
+/// Each clearing that holds foes has one encounter of a glade kind, one
+/// or two foes standing round its centre, after the ways' (their ids
+/// follow); for every seed no other encounter comes within `glade_m` of a
+/// clearing's edge, and the keep distances refuse a clearing's centre.
+#[test]
+fn each_clearing_with_foes_holds_one_or_two_and_no_other_wanderer_comes_near() {
+    for seed in [1, 2, 3, 4] {
+        let w = free_world(seed);
+        let sites = glade_sites(&w);
+        let with_foes: Vec<_> = w.land.glades.iter().filter(|g| g.foes).collect();
+        assert_eq!(sites.len(), with_foes.len());
+        assert!(sites.len() >= 2);
+        let first_glade = w.wanderers.list.iter().position(|e| e.way == GLADE_WAY).unwrap();
+        assert!(w.wanderers.list[first_glade..].iter().all(|e| e.way == GLADE_WAY));
+        for (e, g) in sites.iter().zip(&with_foes) {
+            let k = &spec().kinds[e.kind];
+            assert!(in_glade(k) && (1..=2).contains(&k.foes.len()), "{}", k.name);
+            assert!(e.anchor.sub(g.centre).len_xz() < ONE);
+            assert!(e.homes.iter().all(|(p, _)| p.sub(g.centre).len_xz() < g.r));
+        }
+        let z = zones(&w);
+        let keep = m(spec().keep.glade_m);
+        for g in &w.land.glades {
+            assert!(
+                !zone_ok(&z, g.centre),
+                "a clearing's centre is no place for a wanderer"
+            );
+            for e in w.wanderers.list.iter().filter(|e| e.way != GLADE_WAY) {
+                let points = e
+                    .route
+                    .iter()
+                    .chain(e.homes.iter().map(|(p, _)| p))
+                    .chain([&e.anchor]);
+                for p in points {
+                    assert!(
+                        p.sub(g.centre).len_xz() >= g.r + keep,
+                        "seed {seed}: a {} by a clearing",
+                        spec().kinds[e.kind].name
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// CW-3: a clearing's foes move only through their input records: the
+/// same records played back as scripts move them the same.
+#[test]
+fn a_clearing_s_foes_move_only_through_their_input_records() {
+    let mut a = free_world(3);
+    let e = glade_sites(&a)[0].clone();
+    let p = e.anchor.add(v3(0, 0, int(17)));
+    put(&mut a, p);
+    idle(&mut a, 2);
+    let st = a
+        .wanderers
+        .standing
+        .iter()
+        .find(|s| s.enc == e.id as usize)
+        .cloned()
+        .expect("it stands");
+    let ids: Vec<usize> = st.members.iter().map(|m| m.foe).collect();
+    a.aim.yaw = yaw_of(e.anchor.sub(p));
+    a.me.health = crate::health::Health::new(100_000);
+    let mut b = a.clone();
+    let walk: Vec<Input> = (0..400)
+        .map(|k| Input {
+            keys: if k == 3 {
+                DRAW
+            } else if k < 250 {
+                FORWARD
+            } else {
+                0
+            },
+            dx: if k % 40 < 20 { 250 } else { -250 },
+            ..Input::default()
+        })
+        .collect();
+    let before: Vec<u32> = ids.iter().map(|&f| a.foes[f].brain.ticks).collect();
+    let mut kept = vec![Vec::new(); ids.len()];
+    for i in &walk {
+        let held = a.feel.stop > 0;
+        a.step(i);
+        if !held {
+            for (k, list) in kept.iter_mut().enumerate() {
+                list.push(a.foes[ids[k]].fighter.last);
+            }
+        }
+    }
+    let alarm = a
+        .wanderers
+        .standing
+        .iter()
+        .find(|s| s.enc == e.id as usize)
+        .map(|s| s.alarm);
+    assert!(
+        kept[0].iter().any(|i| i.keys != 0),
+        "a foe pressed keys: {} m off, alarm {alarm:?}, {} m walked",
+        a.player.pos.sub(e.anchor).len_xz() / ONE,
+        a.player.pos.sub(p).len_xz() / ONE
+    );
+    for (k, list) in kept.into_iter().enumerate() {
+        let mut l = vec![Input::default(); before[k] as usize];
+        l.extend(list);
+        b.foes[ids[k]].brain.control = Control::Script(l);
+    }
+    for i in &walk {
+        b.step(i);
+    }
+    for &f in &ids {
+        assert_eq!(a.foes[f].body, b.foes[f].body, "foe {f}");
+    }
+}
+
+/// A clearing whose foes are beaten stays beaten across a save and a load:
+/// its foes do not stand again, what they left is not laid again, and the
+/// line said is the clearing's.
+#[test]
+fn a_beaten_clearing_stays_beaten_across_a_save_and_a_load() {
+    let mut w = free_world(2);
+    let site = glade_sites(&w)[0].clone();
+    let p = site.anchor.add(v3(0, 0, int(25)));
+    put(&mut w, p);
+    idle(&mut w, 2);
+    assert!(w.wanderers.standing.iter().any(|s| s.enc == site.id as usize));
+    for f in &mut w.foes {
+        f.fighter.health.hp = 0;
+    }
+    idle(&mut w, 2);
+    assert!(w.wanderers.records[site.id as usize].beaten);
+    let text = crate::save::text(&crate::save::progress(&w));
+    assert!(text.contains(&foe_key(site.id, 0)), "the save names it");
+    let back = crate::save::read(&text).expect("the save reads back");
+    let mut l = crate::save::world(&back);
+    put(&mut l, p);
+    idle(&mut l, 3);
+    let r = l.wanderers.records[site.id as usize];
+    assert!(r.beaten && r.rewarded, "still beaten: {r:?}");
+    assert!(
+        !l.wanderers.standing.iter().any(|s| s.enc == site.id as usize),
+        "it does not stand"
+    );
+    let again = l
+        .story
+        .pickups
+        .iter()
+        .filter(|q| !q.taken && q.at.sub(site.anchor).len_xz() < int(3))
+        .count();
+    assert_eq!(again, 0);
+    assert_eq!(spec().kinds[site.kind].banner.as_deref(), Some("glade_cleared"));
 }

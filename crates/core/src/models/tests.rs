@@ -56,6 +56,30 @@ fn every_other_model() -> Vec<(String, Model)> {
         out.push((format!("{p:?}"), pickup_model(p)));
     }
     out.push(("donkey".into(), donkey_model(fx::QUARTER_TURN / 2)));
+    // M7 forest (T19): each animal standing, mid-stride, grazing and lying
+    // down, and the camp's flag in a calm, a gust and its ripple
+    for b in Beast::ALL {
+        for (phase, graze, lie) in [
+            (0, 0, 0),
+            (fx::QUARTER_TURN / 2, ONE / 2, 0),
+            (fx::QUARTER_TURN, ONE, 0),
+            (0, 0, ONE),
+            (0, 0, ONE / 2),
+        ] {
+            out.push((
+                format!("{b:?} {phase} {graze} {lie}"),
+                super::beast_model(b, phase, graze, lie),
+            ));
+        }
+    }
+    for (gust, phase) in [
+        (0, 0),
+        (ONE, fx::deg(90)),
+        (-ONE, fx::deg(200)),
+        (ONE / 3, fx::deg(300)),
+    ] {
+        out.push((format!("flag {gust} {phase}"), crate::forest::cloth(gust, phase)));
+    }
     for item in [
         Held::ShortSword,
         Held::Sword,

@@ -14,7 +14,7 @@
     "hollow_tree": [3, 3],
     "bed": [1, 2],
     "waystone": [1, 1],
-    "save_post": [1, 1]
+    "save_post": [1, 1], "flagpole": [1, 1]
   },
   "flatten": {
     "_note": "How a footprint meets the ground round it: flat this far past its edge, then blending back to the land over the falloff.",
@@ -62,7 +62,8 @@
         { "prop": "tent", "at": [7, -8], "yaw_deg": 30 },
         { "prop": "tent", "at": [-3, 9], "yaw_deg": 180 },
         { "prop": "campfire", "at": [0, 0], "yaw_deg": 0 },
-        { "prop": "chest", "at": [11, 5], "yaw_deg": 240, "moving": true }
+        { "prop": "chest", "at": [11, 5], "yaw_deg": 240, "moving": true },
+        { "prop": "flagpole", "at": [1, -13], "yaw_deg": 0, "_": "M7 forest (T19): the bandits' flag, its top over the canopy, seen from the trail's end" }
       ]
     },
     {
@@ -216,7 +217,19 @@
     "_note": "the north-east forest round the camp: an ellipse with a ragged edge",
     "centre": [3100, 1000],
     "radii_m": [930, 730],
-    "edge_m": 90
+    "edge_m": 90,
+    "glades": {
+      "_note": "M7 forest (T19): the clearings in the forest, placed from the land's seed (terrain::Land::glades): between count[0] and count[1] of them, each radius_m across at most, deep_pct of the way into the forest at least, camp_m from the camp's centre, way_m past the edge of every road and trail, place_m from every place's centre and apart_m from each other, the first good one of tries draws each. Every foes_every-th holds foes (data/wanderers.json, kinds on 'glade'), the rest animals resting (data/animals.json). Each has a stump and a fallen log.",
+      "count": [4, 6],
+      "radius_m": [13, 18],
+      "deep_pct": 85,
+      "camp_m": 220,
+      "way_m": 70,
+      "place_m": 140,
+      "apart_m": 240,
+      "tries": 900,
+      "foes_every": 2
+    }
   },
   "river": {
     "_note": "Its centreline from upstream (north) to downstream (south), through the journal map's curve (control points (600, 0), (1000, 1087), (400, 1753), (700, 4000)) and on beyond the square as scenery. The water is solved from top to bottom between solve_from_z and solve_to_z with the fishing game's step method (water.rs); its bed falls slope_per_1000 a metre except over the riffles. Widths blend between the given points along the river.",

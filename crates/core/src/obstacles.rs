@@ -229,6 +229,35 @@ pub fn prop_volumes(prop: crate::models::Prop, at: V3, yaw: i32) -> Vec<Volume> 
         .collect()
 }
 
+/// M7 forest (T19): a scatter thing as circles a body walks round
+/// (`Map::trunks_near`): a trunk's foot, a stump's, a log's three, a big
+/// rock's; a small rock and a flower none.
+pub fn trunk_circles(it: &crate::scatter::Item) -> Vec<(V3, Fx)> {
+    use crate::scatter::Thing;
+    let s = |m: Fx| m * it.size / 100;
+    let r = match it.thing {
+        Thing::Pine => s(ONE * 20 / 100),
+        Thing::Leafy => s(ONE * 18 / 100),
+        Thing::Broadleaf => s(ONE * 26 / 100),
+        Thing::Birch => s(ONE * 13 / 100),
+        Thing::Snag => s(ONE * 28 / 100),
+        Thing::Stump => s(ONE * 38 / 100),
+        Thing::Rock if it.size >= 140 => s(ONE * 50 / 100),
+        Thing::Log => {
+            let along = crate::geom::facing(it.yaw - fx::QUARTER_TURN, 0);
+            return [-1, 0, 1]
+                .iter()
+                .map(|&k| (it.at.add(along.scale(s(ONE * 12 / 10) * k)), s(ONE * 25 / 100)))
+                .collect();
+        }
+        Thing::Rock => return Vec::new(),
+    };
+    vec![(it.at, r)]
+}
+
+/// M7 forest: the scatter's trunks by chunk, as worked out so far.
+type Trunks = BTreeMap<(i32, i32), Rc<Vec<(V3, Fx)>>>;
+
 /// The scatter's trees and rocks by chunk, as worked out so far.
 type Trees = BTreeMap<(i32, i32), Rc<Vec<Thing>>>;
 
@@ -238,6 +267,8 @@ type Trees = BTreeMap<(i32, i32), Rc<Vec<Thing>>>;
 pub struct Map {
     pub things: Vec<Thing>,
     trees: RefCell<Trees>,
+    /// M7 forest (T19): the scatter's trunks by chunk, as bodies come near
+    trunks: RefCell<Trunks>,
 }
 
 impl std::fmt::Debug for Map {
@@ -285,6 +316,7 @@ impl Map {
         Map {
             things,
             trees: RefCell::new(BTreeMap::new()),
+            trunks: RefCell::new(BTreeMap::new()),
         }
     }
 
@@ -306,6 +338,39 @@ impl Map {
             .collect();
         let rc = Rc::new(list);
         self.trees.borrow_mut().insert((i, j), rc.clone());
+        rc
+    }
+
+    /// M7 forest (T19): what a body walking meets of the scatter: each
+    /// tree's trunk, a stump, a fallen log (three circles along it) and a
+    /// big rock, as a circle on the ground (its foot and radius), the sizes
+    /// `scatter::tree_parts` draws them at; within `reach` of `p`.
+    pub fn trunks_near(&self, w: &World, p: V3, reach: Fx) -> Vec<(V3, Fx)> {
+        let side = w.land.spec.scatter.chunk_m * ONE;
+        let mut out = Vec::new();
+        for j in (p.z - reach).div_euclid(side)..=(p.z + reach).div_euclid(side) {
+            for i in (p.x - reach).div_euclid(side)..=(p.x + reach).div_euclid(side) {
+                let list = self.trunks_of(w, i, j);
+                out.extend(
+                    list.iter()
+                        .filter(|(c, r)| c.sub(p).len_xz() <= reach + *r)
+                        .copied(),
+                );
+            }
+        }
+        out
+    }
+
+    fn trunks_of(&self, w: &World, i: i32, j: i32) -> Rc<Vec<(V3, Fx)>> {
+        if let Some(t) = self.trunks.borrow().get(&(i, j)) {
+            return t.clone();
+        }
+        let list: Vec<(V3, Fx)> = crate::scatter::items(&w.land, i, j)
+            .iter()
+            .flat_map(trunk_circles)
+            .collect();
+        let rc = Rc::new(list);
+        self.trunks.borrow_mut().insert((i, j), rc.clone());
         rc
     }
 

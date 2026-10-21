@@ -75,6 +75,43 @@ pub struct ScatterSpec {
     pub flower: Vec<[i32; 3]>,
     pub tree_size_pct: [i32; 2],
     pub plains_size_pct: [i32; 2],
+    /// M7 forest (T19): the forest's own trees and floor (`forest_kind`,
+    /// `floor`)
+    pub forest: ForestFloor,
+}
+
+/// M7 forest (T19): the kinds of tree in the forest and what lies on its
+/// floor, in `data/land.json`'s `scatter.forest`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct ForestFloor {
+    /// of every hundred forest trees about this many broadleaves, birches
+    /// and snags (the rest pines); the broadleaves and birches gather in
+    /// patches a slow noise `patch_m` across draws
+    pub kinds_pct: [i32; 3],
+    pub patch_m: i32,
+    pub broadleaf: Vec<[i32; 3]>,
+    pub birch: Vec<[i32; 3]>,
+    pub birch_bark: [i32; 3],
+    pub snag: [i32; 3],
+    /// fallen logs and stumps: a cell `log_cell_m` across holds one of each
+    /// this often in the forest (percent)
+    pub log_cell_m: i32,
+    pub log_pct: i32,
+    pub stump_pct: i32,
+    pub bark: [i32; 3],
+    pub moss: [i32; 3],
+    /// bushes, drawn with the whole trees: a cell this wide, this often
+    pub bush_cell_m: i32,
+    pub bush_pct: i32,
+    pub bush: Vec<[i32; 3]>,
+    /// ferns and mushrooms, drawn with the grass: a cell this wide (cm),
+    /// this often a fern, and of those cells this often mushrooms instead
+    pub fern_cell_cm: i32,
+    pub fern_pct: i32,
+    pub mushroom_pct: i32,
+    pub fern: Vec<[i32; 3]>,
+    pub mushroom: Vec<[i32; 3]>,
+    pub stem: [i32; 3],
 }
 
 /// The parts of a chunk, each its own mesh (`lod::Key::level`).
@@ -92,8 +129,12 @@ pub const ROAD: u8 = 8;
 /// M7 (R9.53): the meadow's far clumps, the middle tier of grass, out to
 /// a few hundred metres
 pub const MEADOW: u8 = 9;
-pub const PARTS: [u8; 10] = [
-    WHOLE, WHOLE_INK, CONE, CLUSTER, ROCK, ROCK_INK, GRASS, TUFT, ROAD, MEADOW,
+/// M7 forest (T19): the forest floor's ferns and mushrooms, faded and sunk
+/// with the grass; its bushes, dithered away with the whole trees
+pub const FERN: u8 = 10;
+pub const FLOOR: u8 = 11;
+pub const PARTS: [u8; 12] = [
+    WHOLE, WHOLE_INK, CONE, CLUSTER, ROCK, ROCK_INK, GRASS, TUFT, ROAD, MEADOW, FERN, FLOOR,
 ];
 
 /// Never: a distance past any the land reaches, metres.
@@ -108,10 +149,13 @@ pub fn band(sp: &ScatterSpec, part: u8) -> [i32; 4] {
     let between = |come: [i32; 2], go: [i32; 2]| [come[0], come[1], go[0], go[1]];
     match part {
         WHOLE | WHOLE_INK => near(sp.full_m),
+        FLOOR => near(sp.rock_m),
         CONE => between(sp.full_m, sp.cone_m),
         CLUSTER => between(sp.cone_m, sp.cluster_m),
         ROCK | ROCK_INK => near(sp.rock_m),
         GRASS => near(sp.grass_m),
+        // M7 forest (T19): the ferns and mushrooms with the grass
+        FERN => near(sp.grass_m),
         TUFT => sp.tuft_m,
         ROAD => near(sp.road_m),
         MEADOW => sp.meadow_m,
@@ -122,11 +166,12 @@ pub fn band(sp: &ScatterSpec, part: u8) -> [i32; 4] {
 /// Which of the shader's bands a part takes (`uBands`, then `uBands2`).
 pub fn band_slot(part: u8) -> usize {
     match part {
-        WHOLE | WHOLE_INK => 0,
+        WHOLE | WHOLE_INK | FLOOR => 0,
         CONE => 1,
         CLUSTER => 2,
         ROCK | ROCK_INK => 3,
         GRASS => 4,
+        FERN => 4,
         TUFT => 5,
         ROAD => 6,
         _ => 7,
@@ -224,6 +269,7 @@ pub fn grown(part: u8) -> i64 {
         WHOLE | WHOLE_INK | CONE => 5,
         CLUSTER => 16,
         ROCK | ROCK_INK | ROAD => 4,
+        FLOOR => 2,
         _ => 1,
     };
     m * ONE as i64
@@ -235,6 +281,48 @@ pub enum Thing {
     Pine,
     Leafy,
     Rock,
+    // M7 forest (T19): the forest's other trees, and what lies on its floor
+    Broadleaf,
+    Birch,
+    Snag,
+    Log,
+    Stump,
+}
+
+impl Thing {
+    /// A tree: drawn whole, then as a cone, with the trees.
+    pub fn tree(self) -> bool {
+        matches!(
+            self,
+            Thing::Pine | Thing::Leafy | Thing::Broadleaf | Thing::Birch | Thing::Snag
+        )
+    }
+}
+
+/// M7 forest (T19): which kind a forest tree at (x, z) is. A hash of the
+/// spot draws it; the broadleaves gather where a slow noise is low and the
+/// birches where it is high, so the forest has stands of each, not a mix
+/// even everywhere; the rest are pines. The tree's place, size and turn
+/// are drawn before and are the same as before (`items`).
+pub fn forest_kind(sp: &ScatterSpec, seed: u32, x: Fx, z: Fx) -> Thing {
+    let f = &sp.forest;
+    let n = crate::terrain::noise(x, z, f.patch_m.max(1), seed ^ 0x6b1d);
+    let u = (hash(x >> 14, z >> 14, seed ^ 0x4b1d) % 10_000) as i64;
+    let o = ONE as i64;
+    // each share in hundredths of a percent, the patches doubling it or
+    // taking it away
+    let snag = f.kinds_pct[2] as i64 * 100;
+    let birch = f.kinds_pct[1] as i64 * 100 * (o + n).clamp(0, 2 * o) / o;
+    let broad = f.kinds_pct[0] as i64 * 100 * (o - n).clamp(0, 2 * o) / o;
+    if u < snag {
+        Thing::Snag
+    } else if u < snag + birch {
+        Thing::Birch
+    } else if u < snag + birch + broad {
+        Thing::Broadleaf
+    } else {
+        Thing::Pine
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -345,6 +433,54 @@ pub fn tufts(land: &Land, part: u8, i: i32, j: i32) -> Vec<(V3, crate::rng::Rng)
     out
 }
 
+/// M7 forest (T19): the forest floor's ferns and mushrooms (a `FERN`
+/// chunk, `grass_chunk_m` square) or its bushes (a `FLOOR` chunk,
+/// `chunk_m`): each one's foot on the ground and its generator, seeded by
+/// its cell, where the forest is (its depth times the share) and there is
+/// room for grass (not on a road, a footprint, in water or a clearing).
+pub fn floor(land: &Land, part: u8, i: i32, j: i32) -> Vec<(V3, crate::rng::Rng)> {
+    let sp = &land.spec.scatter;
+    let f = &sp.forest;
+    let (side, cell, pct, salt) = match part {
+        FLOOR => (sp.chunk_m * ONE, f.bush_cell_m.max(1) * ONE, f.bush_pct, 0xb05),
+        _ => (
+            sp.grass_chunk_m * ONE,
+            f.fern_cell_cm.max(20) * ONE / 100,
+            f.fern_pct,
+            0xfe7,
+        ),
+    };
+    let (x0, z0) = (i * side, j * side);
+    let sc = land.scope(x0 - ONE, z0 - ONE, x0 + side + ONE, z0 + side + ONE);
+    if !sc_forest(land, &sc, x0, z0, side) {
+        return Vec::new();
+    }
+    let n = side / cell;
+    let mut out = Vec::new();
+    for q in 0..n {
+        for p in 0..n {
+            let mut r = cell_rng(land.spec.seed, salt, i * n + p, j * n + q);
+            let x = x0 + p * cell + r.below(cell as u32) as Fx;
+            let z = z0 + q * cell + r.below(cell as u32) as Fx;
+            let w = land.forest(x, z, &sc);
+            if (r.below(ONE as u32) as i64) >= w * pct.max(0) as i64 / 100 || !room_grass(land, &sc, x, z) {
+                continue;
+            }
+            out.push((v3(x, land.ground(x, z), z), r));
+        }
+    }
+    out
+}
+
+/// Whether any of a square's corners or its middle is in the forest at all.
+fn sc_forest(land: &Land, sc: &crate::terrain::Scope, x0: Fx, z0: Fx, side: Fx) -> bool {
+    [(0, 0), (1, 0), (0, 1), (1, 1)]
+        .iter()
+        .map(|&(a, b)| (x0 + a * side, z0 + b * side))
+        .chain([(x0 + side / 2, z0 + side / 2)])
+        .any(|(x, z)| land.forest(x, z, sc) > 0)
+}
+
 /// The trees and rocks of chunk (i, j).
 pub fn items(land: &Land, i: i32, j: i32) -> Vec<Item> {
     let sp = &land.spec.scatter;
@@ -399,13 +535,19 @@ pub fn items(land: &Land, i: i32, j: i32) -> Vec<Item> {
                 } else {
                     (Thing::Leafy, sp.leafy.len())
                 };
-                out.push(Item {
+                let mut it = Item {
                     thing,
                     at: v3(x, land.ground(x, z), z),
                     size: r.between(s0, s1),
                     yaw: r.below(fx::TURN as u32) as i32,
                     tone: r.below(tones.max(1) as u32) as usize,
-                });
+                };
+                // M7 forest (T19): the same place, size and turn, its kind
+                // drawn after
+                if forest {
+                    it.thing = forest_kind(sp, seed, x, z);
+                }
+                out.push(it);
             }
         }
     }
@@ -432,6 +574,62 @@ pub fn items(land: &Land, i: i32, j: i32) -> Vec<Item> {
                 },
                 yaw: r.below(fx::TURN as u32) as i32,
                 tone: r.below(sp.rock.len().max(1) as u32) as usize,
+            });
+        }
+    }
+    // M7 forest (T19): fallen logs and stumps in the forest, on a grid of
+    // their own, and the clearings' own stump and log
+    let ff = &sp.forest;
+    let cell = ff.log_cell_m.max(1) * ONE;
+    let n = side / cell;
+    for b in 0..n {
+        for a in 0..n {
+            let (ci, cj) = (i * n + a, j * n + b);
+            let mut r = cell_rng(seed, 0x109, ci, cj);
+            let x = x0 + a * cell + r.below(cell as u32) as Fx;
+            let z = z0 + b * cell + r.below(cell as u32) as Fx;
+            let roll = r.below(100) as i32;
+            let thing = if roll < ff.log_pct {
+                Thing::Log
+            } else if roll < ff.log_pct + ff.stump_pct {
+                Thing::Stump
+            } else {
+                continue;
+            };
+            if land.forest(x, z, &sc) < ONE as i64 * 4 / 10 || !room(land, &sc, x, z, 2 * ONE) {
+                continue;
+            }
+            // clear of the trees' trunks, so a log lies between them
+            let near_tree = out
+                .iter()
+                .any(|t| t.thing.tree() && t.at.sub(v3(x, 0, z)).len_xz() < 3 * ONE);
+            if near_tree {
+                continue;
+            }
+            out.push(Item {
+                thing,
+                at: v3(x, land.ground(x, z), z),
+                size: r.between(80, 125),
+                yaw: r.below(fx::TURN as u32) as i32,
+                tone: r.below(2) as usize,
+            });
+        }
+    }
+    for g in &land.glades {
+        for p in &g.props {
+            let inside = p.x >= x0 && p.x < x0 + side && p.z >= z0 && p.z < z0 + side;
+            if !inside {
+                continue;
+            }
+            out.push(Item {
+                thing: match p.thing {
+                    crate::terrain::GladeThing::Stump => Thing::Stump,
+                    crate::terrain::GladeThing::Log => Thing::Log,
+                },
+                at: v3(p.x, land.ground(p.x, p.z), p.z),
+                size: p.size,
+                yaw: p.yaw,
+                tone: 1,
             });
         }
     }
@@ -813,6 +1011,116 @@ pub fn tree_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
             let w = s(ONE * 12 / 10);
             out.push((Mesh::Blob, place(w / 5, w, w * 7 / 10, w * 85 / 100), c));
         }
+        // M7 forest (T19): the forest's other trees and its floor's wood
+        Thing::Broadleaf | Thing::Birch | Thing::Snag | Thing::Log | Thing::Stump => {
+            out.extend(forest_parts(sp, it));
+        }
+    }
+    out
+}
+
+/// M7 forest (T19): a broadleaf (a stout trunk under three faceted crowns
+/// heaped together), a birch (a tall pale trunk, two narrow crowns high
+/// up), a snag (a dead grey trunk narrowing, two bare boughs and a
+/// broken top), a fallen log (a trunk on its side, moss along it, a stub
+/// of a bough) and a stump (a short trunk and three roots). Every part of
+/// one meets another at an angle or a different size, never in one plane
+/// (CW-18).
+fn forest_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
+    let f = &sp.forest;
+    let s = |m: Fx| m * it.size / 100;
+    let mm = |v: i32| s(ONE * v / 1000);
+    let at = it.at;
+    let turn = Affine::rot_y(it.yaw);
+    // a point `(x, y, z)` mm in the thing's own frame, turned and sized
+    let pt = |x: i32, y: i32, z: i32| at.add(turn.apply_dir(v3(mm(x), mm(y), mm(z))));
+    let place = |x: i32, y: i32, z: i32, w: i32, h: i32, d: i32| {
+        Affine::translate(pt(x, y, z))
+            .then(&turn)
+            .then(&Affine::scale(v3(mm(w), mm(h), mm(d))))
+    };
+    let up = v3(0, ONE, 0);
+    let side = turn.apply_dir(v3(ONE, 0, 0));
+    let bark = rgb(f.bark);
+    let mut out = Vec::new();
+    match it.thing {
+        Thing::Broadleaf => {
+            let leaf = rgb(f.broadleaf[it.tone % f.broadleaf.len().max(1)]);
+            out.push((Mesh::Cyl, place(0, 900, 0, 520, 2300, 520), rgb(sp.trunk)));
+            out.push((Mesh::Blob, place(0, 3600, 0, 4400, 3100, 4000), leaf));
+            out.push((
+                Mesh::Blob,
+                place(1150, 4500, 300, 2700, 2200, 2500),
+                shade(leaf, 108),
+            ));
+            out.push((
+                Mesh::Blob,
+                place(-1050, 4150, -600, 2500, 1900, 2300),
+                shade(leaf, 93),
+            ));
+        }
+        Thing::Birch => {
+            let leaf = rgb(f.birch[it.tone % f.birch.len().max(1)]);
+            let pale = rgb(f.birch_bark);
+            out.push((Mesh::Cyl, place(0, 2050, 0, 260, 4600, 260), pale));
+            // a dark knot band low on the trunk, wider than the trunk
+            out.push((Mesh::Cyl, place(0, 1300, 0, 330, 140, 330), shade(pale, 45)));
+            out.push((Mesh::Cyl, place(0, 2600, 0, 320, 110, 320), shade(pale, 50)));
+            out.push((Mesh::Blob, place(0, 4700, 0, 2300, 3300, 2100), leaf));
+            out.push((
+                Mesh::Blob,
+                place(200, 6250, -150, 1500, 2100, 1450),
+                shade(leaf, 110),
+            ));
+        }
+        Thing::Snag => {
+            let grey = rgb(f.snag);
+            out.push((Mesh::Taper, place(0, 2200, 0, 560, 4900, 560), grey));
+            // the broken top, leaning
+            let top = Affine::translate(pt(60, 4900, 0))
+                .then(&turn)
+                .then(&Affine::rot_z(fx::deg(14)))
+                .then(&Affine::scale(v3(mm(240), mm(900), mm(240))));
+            out.push((Mesh::Cone, top, shade(grey, 92)));
+            for (y, dx, dz, len) in [(2600, 1, 0, 1600), (3500, -1, 1, 1200)] {
+                let a = pt(0, y, 0);
+                let b = pt(dx * len * 8 / 10, y + len * 6 / 10, dz * len / 2);
+                out.push((
+                    Mesh::Cyl,
+                    crate::models::bar(a, b, (mm(130), mm(130)), side),
+                    shade(grey, 96),
+                ));
+            }
+        }
+        Thing::Log => {
+            // 3.6 m long, 0.5 m thick, lying along its own x, a little sunk
+            let a = pt(-1800, 210, 0);
+            let b = pt(1800, 210, 0);
+            out.push((Mesh::Cyl, crate::models::bar(a, b, (mm(500), mm(500)), up), bark));
+            out.push((Mesh::Blob, place(-300, 420, 40, 2000, 220, 380), rgb(f.moss)));
+            let c = pt(900, 300, 0);
+            let d = pt(1150, 650, -350);
+            out.push((
+                Mesh::Cyl,
+                crate::models::bar(c, d, (mm(150), mm(150)), side),
+                shade(bark, 94),
+            ));
+        }
+        Thing::Stump => {
+            out.push((Mesh::Cyl, place(0, 200, 0, 760, 800, 760), bark));
+            for k in 0..3 {
+                let a = fx::TURN * k / 3 + fx::deg(20);
+                let (c, sn) = (fx::cos(a), fx::sin(a));
+                let p0 = at.add(turn.apply_dir(v3(fx::mul(c, mm(250)), mm(260), fx::mul(sn, mm(250)))));
+                let p1 = at.add(turn.apply_dir(v3(fx::mul(c, mm(720)), mm(-40), fx::mul(sn, mm(720)))));
+                out.push((
+                    Mesh::Cyl,
+                    crate::models::bar(p0, p1, (mm(170), mm(170)), up),
+                    shade(bark, 92),
+                ));
+            }
+        }
+        _ => {}
     }
     out
 }
@@ -827,7 +1135,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
     let mut pass = Pass::Dither;
     match part {
         WHOLE | WHOLE_INK => {
-            for it in items.iter().filter(|it| it.thing != Thing::Rock) {
+            for it in items.iter().filter(|it| it.thing.tree()) {
                 for (m, a, c) in tree_parts(sp, it) {
                     if part == WHOLE {
                         b.shape(m, &a, c);
@@ -841,7 +1149,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
             }
         }
         ROCK | ROCK_INK => {
-            for it in items.iter().filter(|it| it.thing == Thing::Rock) {
+            for it in items.iter().filter(|it| !it.thing.tree()) {
                 for (m, a, c) in tree_parts(sp, it) {
                     if part == ROCK {
                         b.shape(m, &a, c);
@@ -856,13 +1164,29 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
         }
         CONE => {
             // one cone a tree, as wide as its widest crown, from low on the trunk
-            for it in items.iter().filter(|it| it.thing != Thing::Rock) {
+            // (a snag far off is a sliver: it is left out, R4.25)
+            for it in items
+                .iter()
+                .filter(|it| it.thing.tree() && it.thing != Thing::Snag)
+            {
                 let s = |m: Fx| m * it.size / 100;
+                let ff = &sp.forest;
                 let (w, h, c) = match it.thing {
                     Thing::Pine => (
                         s(ONE * 36 / 10),
                         s(ONE * 47 / 10),
                         rgb(sp.pine[it.tone % sp.pine.len()]),
+                    ),
+                    // M7 forest (T19): a broadleaf's wide crown, a birch's narrow one
+                    Thing::Broadleaf => (
+                        s(ONE * 42 / 10),
+                        s(ONE * 44 / 10),
+                        rgb(ff.broadleaf[it.tone % ff.broadleaf.len().max(1)]),
+                    ),
+                    Thing::Birch => (
+                        s(ONE * 23 / 10),
+                        s(ONE * 52 / 10),
+                        rgb(ff.birch[it.tone % ff.birch.len().max(1)]),
                     ),
                     _ => (
                         s(ONE * 36 / 10),
@@ -877,55 +1201,8 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
             }
         }
         CLUSTER => {
-            // a crown for a cluster cell of the forest, in its mean green
-            let cell = sp.cluster_cell_m.max(1) * ONE;
-            let n = side / cell;
-            let sc = land.scope(i * side, j * side, (i + 1) * side, (j + 1) * side);
-            let mean = sp
-                .pine
-                .iter()
-                .fold([0; 3], |acc, c| [acc[0] + c[0], acc[1] + c[1], acc[2] + c[2]]);
-            let mean = rgb(mean.map(|v| v / sp.pine.len().max(1) as i32));
-            for q in 0..n {
-                for p in 0..n {
-                    let (ci, cj) = (i * n + p, j * n + q);
-                    let mut r = cell_rng(land.spec.seed, 0x0c1c, ci, cj);
-                    let x = i * side + p * cell + r.below(cell as u32) as Fx;
-                    let z = j * side + q * cell + r.below(cell as u32) as Fx;
-                    if land.forest(x, z, &sc) < ONE as i64 / 2 || !room(land, &sc, x, z, 3 * ONE) {
-                        continue;
-                    }
-                    // a rounded, faceted crown with no point: a point thinner
-                    // than a pixel blinks as the view pans (R4.25)
-                    let size = r.between(80, 125);
-                    // M7 (R9.49): a skyline, not a strip. The crowns stand
-                    // taller deep in the forest and where a slow noise
-                    // lifts them (70% to 190% of 15 m), and about a third
-                    // carry a narrower crown above, a spruce's top seen
-                    // from kilometres off, still blunt
-                    let deep = land.forest(x, z, &sc);
-                    let lift = crate::terrain::noise(x, z, 90, land.spec.seed ^ 0x51e1) + ONE as i64;
-                    let tall_pct =
-                        70 + (lift * 60 / ONE as i64) as i32 + (deep * 60 / ONE as i64) as i32 - 30;
-                    let (w, h) = (
-                        ONE * 14 * size / 100,
-                        ONE * 15 * size / 100 * tall_pct.clamp(70, 190) / 100,
-                    );
-                    let foot = land.height(x, z) + 2 * ONE;
-                    let turn = Affine::rot_y(r.below(fx::TURN as u32) as i32);
-                    let a = Affine::translate(v3(x, foot + h / 2, z))
-                        .then(&turn)
-                        .then(&Affine::scale(v3(w, h, w)));
-                    let tone = shade(mean, 88 + r.between(0, 12));
-                    b.shape(Mesh::Blob, &a, tone);
-                    if r.chance(1, 3) {
-                        let (w2, h2) = (w * 55 / 100, h * 75 / 100);
-                        let top = Affine::translate(v3(x, foot + h * 85 / 100 + h2 / 2, z))
-                            .then(&turn)
-                            .then(&Affine::scale(v3(w2, h2, w2)));
-                        b.shape(Mesh::Blob, &top, shade(tone, 94));
-                    }
-                }
+            for (a, tone) in cluster_crowns(land, i, j) {
+                b.shape(Mesh::Blob, &a, tone);
             }
         }
         GRASS => {
@@ -1018,6 +1295,62 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
             }
         }
         ROAD => road_surface(land, i, j, &mut b),
+        FERN => {
+            // M7 forest (T19): a fern, five to seven fronds leaning out
+            // from its foot, swaying with the wind; or a few mushrooms
+            let ff = &sp.forest;
+            for (foot, mut r) in floor(land, FERN, i, j) {
+                let from = b.out.len();
+                if r.chance(ff.mushroom_pct.max(0) as u32, 100) {
+                    let cap = rgb(ff.mushroom[r.below(ff.mushroom.len().max(1) as u32) as usize]);
+                    let stem = rgb(ff.stem);
+                    for k in 0..r.between(2, 4) {
+                        let a = r.below(fx::TURN as u32) as i32;
+                        let d = ONE * r.between(4, 22) / 100;
+                        let at = foot.add(v3(fx::mul(fx::cos(a), d), 0, fx::mul(fx::sin(a), d)));
+                        let tall = ONE * r.between(7, 15) / 100;
+                        b.blade(at, at.add(v3(0, tall, 0)), ONE * 22 / 1000, stem);
+                        let w = ONE * r.between(9, 16) / 100 + k * ONE / 100;
+                        let head = Affine::translate(at.add(v3(0, tall + w / 5, 0)))
+                            .then(&Affine::rot_y(a))
+                            .then(&Affine::scale(v3(w, w * 6 / 10, w)));
+                        b.shape(Mesh::Blob, &head, cap);
+                    }
+                    continue;
+                }
+                let c = rgb(ff.fern[r.below(ff.fern.len().max(1) as u32) as usize]);
+                let fronds = r.between(5, 7);
+                let turn0 = r.below(fx::TURN as u32) as i32;
+                for k in 0..fronds {
+                    let a = turn0 + fx::TURN * k / fronds + r.between(-6, 6) * fx::TURN / 360;
+                    let reach = ONE * r.between(45, 80) / 100;
+                    let tall = ONE * r.between(30, 55) / 100;
+                    let tip = foot.add(v3(fx::mul(fx::cos(a), reach), tall, fx::mul(fx::sin(a), reach)));
+                    let shade_k = if k % 2 == 0 { 100 } else { 90 };
+                    b.blade_lit(foot, tip, ONE * 7 / 100, shade(c, shade_k), ONE / 3);
+                }
+                b.bend_from(from, foot.y);
+            }
+        }
+        FLOOR => {
+            // M7 forest (T19): a bush, one to three faceted clumps heaped
+            let ff = &sp.forest;
+            for (foot, mut r) in floor(land, FLOOR, i, j) {
+                let c = rgb(ff.bush[r.below(ff.bush.len().max(1) as u32) as usize]);
+                let size = r.between(60, 140);
+                let s = |v: i32| ONE * v / 100 * size / 100;
+                let turn = Affine::rot_y(r.below(fx::TURN as u32) as i32);
+                let clumps = r.between(1, 3);
+                for k in 0..clumps {
+                    let (dx, dz) = [(0, 0), (55, 20), (-40, 45)][k as usize];
+                    let w = s([140, 105, 95][k as usize]);
+                    let at = Affine::translate(foot.add(turn.apply_dir(v3(s(dx), s(38 + 8 * k), s(dz)))))
+                        .then(&turn)
+                        .then(&Affine::scale(v3(w, w * 72 / 100, w * 92 / 100)));
+                    b.shape(Mesh::Blob, &at, shade(c, 100 + 6 * k));
+                }
+            }
+        }
         _ => {}
     }
     if b.out.is_empty() {
@@ -1030,6 +1363,79 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
     })
 }
 
+/// The forest's far crowns of cluster chunk (i, j) (`CLUSTER`): each
+/// crown's affine and colour, one a cluster cell where the forest is deep.
+pub fn cluster_crowns(land: &Land, i: i32, j: i32) -> Vec<(Affine, Rgb)> {
+    let sp = &land.spec.scatter;
+    let side = side_of(sp, CLUSTER);
+    let mut out = Vec::new();
+    // a crown for a cluster cell of the forest, in its mean green
+    let cell = sp.cluster_cell_m.max(1) * ONE;
+    let n = side / cell;
+    let sc = land.scope(i * side, j * side, (i + 1) * side, (j + 1) * side);
+    let mean = sp
+        .pine
+        .iter()
+        .fold([0; 3], |acc, c| [acc[0] + c[0], acc[1] + c[1], acc[2] + c[2]]);
+    let mean = rgb(mean.map(|v| v / sp.pine.len().max(1) as i32));
+    for q in 0..n {
+        for p in 0..n {
+            let (ci, cj) = (i * n + p, j * n + q);
+            let mut r = cell_rng(land.spec.seed, 0x0c1c, ci, cj);
+            let x = i * side + p * cell + r.below(cell as u32) as Fx;
+            let z = j * side + q * cell + r.below(cell as u32) as Fx;
+            if land.forest(x, z, &sc) < ONE as i64 / 2 || !room(land, &sc, x, z, 3 * ONE) {
+                continue;
+            }
+            // a rounded, faceted crown with no point: a point thinner
+            // than a pixel blinks as the view pans (R4.25)
+            let size = r.between(80, 125);
+            // M7 (R9.49): a skyline, not a strip. The crowns stand
+            // taller deep in the forest and where a slow noise
+            // lifts them (70% to 190% of 15 m), and about a third
+            // carry a narrower crown above, a spruce's top seen
+            // from kilometres off, still blunt
+            let deep = land.forest(x, z, &sc);
+            let lift = crate::terrain::noise(x, z, 90, land.spec.seed ^ 0x51e1) + ONE as i64;
+            let tall_pct = 70 + (lift * 60 / ONE as i64) as i32 + (deep * 60 / ONE as i64) as i32 - 30;
+            let (w, h) = (
+                ONE * 14 * size / 100,
+                ONE * 15 * size / 100 * tall_pct.clamp(70, 190) / 100,
+            );
+            let foot = land.height(x, z) + 2 * ONE;
+            let turn = Affine::rot_y(r.below(fx::TURN as u32) as i32);
+            let a = Affine::translate(v3(x, foot + h / 2, z))
+                .then(&turn)
+                .then(&Affine::scale(v3(w, h, w)));
+            // M7 forest (T19): a stand of broadleaves or birches far
+            // off is its own green (`forest_kind` where the crown stands)
+            let ff = &sp.forest;
+            let kind_mean = |list: &Vec<[i32; 3]>| {
+                let n = list.len().max(1) as i32;
+                let t = list
+                    .iter()
+                    .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]]);
+                rgb(t.map(|v| v / n))
+            };
+            let base = match forest_kind(sp, land.spec.seed, x, z) {
+                Thing::Birch => kind_mean(&ff.birch),
+                Thing::Broadleaf => kind_mean(&ff.broadleaf),
+                _ => mean,
+            };
+            let tone = shade(base, 88 + r.between(0, 12));
+            out.push((a, tone));
+            if r.chance(1, 3) {
+                let (w2, h2) = (w * 55 / 100, h * 75 / 100);
+                let top = Affine::translate(v3(x, foot + h * 85 / 100 + h2 / 2, z))
+                    .then(&turn)
+                    .then(&Affine::scale(v3(w2, h2, w2)));
+                out.push((top, shade(tone, 94)));
+            }
+        }
+    }
+    out
+}
+
 /// The middle of a part's chunk and its side.
 pub fn chunk_middle(land: &Land, part: u8, i: i32, j: i32) -> (Fx, Fx, Fx) {
     let side = side_of(&land.spec.scatter, part);
@@ -1039,7 +1445,7 @@ pub fn chunk_middle(land: &Land, part: u8, i: i32, j: i32) -> (Fx, Fx, Fx) {
 /// A part's chunk's side, Q16 metres.
 pub fn side_of(sp: &ScatterSpec, part: u8) -> Fx {
     let m = match part {
-        GRASS => sp.grass_chunk_m,
+        GRASS | FERN => sp.grass_chunk_m,
         TUFT => sp.tuft_chunk_m,
         ROAD => sp.road_chunk_m,
         MEADOW => sp.meadow_chunk_m,
@@ -1080,9 +1486,12 @@ mod tests {
         let (i, j) = (3100 / 128, 1000 / 128);
         let a = items(&l, i, j);
         assert_eq!(a, items(&l, i, j));
+        // 128 m / 9 m = 14 cells a side, 196 cells, about 82% deep in the
+        // forest; M7 forest (T19): of every kind of tree, most of them pines
+        let trees = a.iter().filter(|x| x.thing.tree()).count();
         let pines = a.iter().filter(|x| x.thing == Thing::Pine).count();
-        // 128 m / 9 m = 14 cells a side, 196 cells, about 82% deep in the forest
-        assert!(pines > 100, "{pines} pines");
+        assert!(trees > 100, "{trees} trees");
+        assert!(pines * 2 > trees, "{pines} pines of {trees}");
         // the chunks over the river and the bridge, the village, the road
         // through the forest
         let chunks = [

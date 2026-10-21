@@ -1,0 +1,16 @@
+{
+  "_note": "M7 forest (P13, T19, crates/core/src/animals.rs): the forest's animals. Herds are placed once from the land's seed: herds of them where each kind lives ('edge': where the forest thins, a little out onto the open; 'forest': inside it) and one resting in each clearing without foes (data/places.json's forest.glades), of a kind drawn from glade_kinds. A herd stands when the player comes within wake_m of its home, if no more than most_near animals would then be standing, and is parked (taken out) past park_m. Each animal grazes (head down, graze_s), walks to a new spot within roam_m of home (walk_s), rests lying down (rest_pct of its pauses; always at first in a clearing), and runs from the player who comes within flee_m until it is calm_m away. None can be fought: they are not foes (SECOND-ORDER R9.446). Speeds are centimetres a second; a stride is stride_cm.",
+  "wake_m": 200,
+  "park_m": 260,
+  "most_near": 12,
+  "herds": 16,
+  "tries": 1200,
+  "apart_m": 90,
+  "camp_m": 140,
+  "glade_kinds": ["deer", "rabbit", "deer"],
+  "kinds": [
+    {"name": "deer", "beast": "deer", "where": "edge", "share": 40, "count": [2, 4], "walk_cms": 110, "run_cms": 950, "stride_cm": 160, "flee_m": 26, "calm_m": 70, "roam_m": 40, "graze_s": [4, 11], "walk_s": [3, 7], "rest_pct": 20, "radius_cm": 45},
+    {"name": "rabbit", "beast": "rabbit", "where": "edge", "share": 35, "count": [2, 5], "walk_cms": 50, "run_cms": 650, "stride_cm": 40, "flee_m": 11, "calm_m": 32, "roam_m": 16, "graze_s": [2, 7], "walk_s": [1, 3], "rest_pct": 15, "radius_cm": 15},
+    {"name": "boar", "beast": "boar", "where": "forest", "share": 25, "count": [1, 3], "walk_cms": 80, "run_cms": 700, "stride_cm": 110, "flee_m": 15, "calm_m": 50, "roam_m": 30, "graze_s": [5, 12], "walk_s": [3, 8], "rest_pct": 25, "radius_cm": 40}
+  ]
+}

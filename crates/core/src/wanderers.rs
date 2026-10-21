@@ -111,6 +111,10 @@ pub struct Keep {
     pub waystone_m: i32,
     pub people_m: i32,
     pub beat_m: i32,
+    /// M7 forest (T19): this far past the edge of each of the forest's
+    /// clearings (`terrain::Land::glades`)
+    #[serde(default)]
+    pub glade_m: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -176,6 +180,10 @@ pub struct KindSpec {
     pub cleared: Vec<Reward>,
     #[serde(default)]
     pub mark: Option<String>,
+    /// M7 forest (T19): the line said when a held site is beaten
+    /// (`wanderer_cleared` when none is named)
+    #[serde(default)]
+    pub banner: Option<String>,
     #[serde(default)]
     pub half_m: i32,
     #[serde(default)]
@@ -225,7 +233,11 @@ impl Spec {
     pub fn parse(json: &str) -> Result<Spec, String> {
         let s: Spec =
             serde_json::from_str(json).map_err(|e| format!("The wanderers file could not be read: {e}"))?;
-        let fills = s.kinds.iter().filter(|k| k.count.is_none()).count();
+        let fills = s
+            .kinds
+            .iter()
+            .filter(|k| k.count.is_none() && !in_glade(k))
+            .count();
         if fills != 1 {
             return Err("The wanderers file needs one kind without a count, to fill the rest.".into());
         }
@@ -244,10 +256,10 @@ impl Spec {
             }
             if let Some(b) =
                 k.on.iter()
-                    .find(|b| !matches!(b.as_str(), "road" | "trail" | "open"))
+                    .find(|b| !matches!(b.as_str(), "road" | "trail" | "open" | "glade"))
             {
                 return Err(format!(
-                    "The wanderers kind \"{}\" goes on \"{b}\"; a way is road, trail or open.",
+                    "The wanderers kind \"{}\" goes on \"{b}\"; a way is road, trail or open, or a clearing, glade.",
                     k.name
                 ));
             }
@@ -493,6 +505,8 @@ struct Zones {
     beat: Vec<V3>,
     /// every road, lane and trail, worked out once
     roads: Vec<crate::places::Way>,
+    /// M7 forest (T19): the forest's clearings, each a centre and a radius
+    glades: Vec<(V3, Fx)>,
     /// the land's things by chunk, as each is first asked for
     chunks: std::cell::RefCell<Vec<Chunk>>,
 }
@@ -548,6 +562,7 @@ fn zones(w: &World) -> Zones {
         people,
         beat,
         roads,
+        glades: w.land.glades.iter().map(|g| (g.centre, g.r)).collect(),
         chunks: std::cell::RefCell::new(Vec::new()),
     }
 }
@@ -565,7 +580,69 @@ fn zone_ok(z: &Zones, p: V3) -> bool {
         && far_from(p, &z.places, m(k.place_m))
         && far_from(p, &z.waystones, m(k.waystone_m))
         && far_from(p, &z.people, m(k.people_m))
+        && z.glades
+            .iter()
+            .all(|(c, r)| c.sub(p).len_xz() >= *r + m(k.glade_m))
 }
+
+/// M7 forest (T19): a kind met in the forest's clearings, not along a way.
+pub fn in_glade(k: &KindSpec) -> bool {
+    k.on.iter().any(|o| o == "glade")
+}
+
+/// M7 forest (T19): the encounters in the forest's clearings that hold
+/// foes, one a clearing, after the ways' (so their ids follow), each of a
+/// glade kind drawn by the clearing's own number: its foes at the kind's
+/// `stand` round the clearing's centre, facing it.
+fn glade_encounters(w: &World) -> Vec<Encounter> {
+    let sp = spec();
+    let kinds: Vec<usize> = (0..sp.kinds.len()).filter(|&k| in_glade(&sp.kinds[k])).collect();
+    if kinds.is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for g in w.land.glades.iter().filter(|g| g.foes) {
+        let kind = kinds[g.pick as usize % kinds.len()];
+        let k = &sp.kinds[kind];
+        let c = on_ground(w, g.centre);
+        let yaw = (g.pick as i64 * fx::TURN as i64 / 65_536) as i32;
+        let homes = k
+            .stand
+            .iter()
+            .map(|s| {
+                let p = on_ground(w, local(c, yaw, m(s[0]), m(s[1])));
+                (p, yaw_of(c.sub(p)))
+            })
+            .collect();
+        let props = k
+            .props
+            .iter()
+            .filter_map(|p| {
+                let at = on_ground(w, local(c, yaw, m(p.at[0]), m(p.at[1])));
+                Some((
+                    crate::places::prop_kind(&p.prop)?,
+                    at,
+                    fx::wrap(yaw + fx::deg(p.yaw_deg)),
+                ))
+            })
+            .collect();
+        out.push(Encounter {
+            id: 0,
+            kind,
+            moves: Moves::Hold,
+            anchor: c,
+            route: Vec::new(),
+            homes,
+            props,
+            way: GLADE_WAY,
+            along: 0,
+        });
+    }
+    out
+}
+
+/// The `way` of an encounter met in a clearing: on none of the file's ways.
+pub const GLADE_WAY: usize = usize::MAX;
 
 /// Where a foe, a route or a prop may be: clear of every keep distance and
 /// out of the water.
@@ -943,6 +1020,9 @@ pub fn place(w: &World, seed: u64) -> Vec<Encounter> {
         let Some([lo, hi]) = k.count else {
             continue;
         };
+        if in_glade(k) {
+            continue;
+        }
         let mut want = rng.between(lo, hi);
         // the open slots in an order drawn from the seed
         let mut order: Vec<usize> = (0..slots.len()).filter(|&i| taken[i].is_none()).collect();
@@ -960,7 +1040,7 @@ pub fn place(w: &World, seed: u64) -> Vec<Encounter> {
             }
         }
     }
-    if let Some(fill) = sp.kinds.iter().position(|k| k.count.is_none()) {
+    if let Some(fill) = sp.kinds.iter().position(|k| k.count.is_none() && !in_glade(k)) {
         for i in 0..slots.len() {
             if taken[i].is_none() {
                 taken[i] = build(w, &z, fill, &runs[slots[i].run], &slots[i]);
@@ -968,6 +1048,8 @@ pub fn place(w: &World, seed: u64) -> Vec<Encounter> {
         }
     }
     let mut out: Vec<Encounter> = taken.into_iter().flatten().collect();
+    // M7 forest (T19): then the clearings' foes, whose ids follow
+    out.extend(glade_encounters(w));
     for (i, e) in out.iter_mut().enumerate() {
         e.id = i as u16;
     }
@@ -1113,7 +1195,7 @@ fn tend(w: &mut World) {
                     crate::save::drop(w, &key, g, at.add(facing(turn, 0).scale(ONE * 14 / 10)));
                 }
                 if enc.moves == Moves::Hold {
-                    story::banner(w, "wanderer_cleared");
+                    story::banner(w, k.banner.as_deref().unwrap_or("wanderer_cleared"));
                 }
             }
         }
@@ -1698,6 +1780,11 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             let Some(e) = w.wanderers.list.iter().filter(|e| e.kind == ki).nth(nth).cloned() else {
                 return Err(format!("This world has no {kind} {nth}."));
             };
+            if e.way == GLADE_WAY {
+                // M7 forest (T19): 45 m south of the clearing's centre, facing it
+                let p = e.anchor.add(v3(0, 0, m(45)));
+                return crate::places::act(w, "go", &format!("{},{} 0 -8", fx::floor(p.x), fx::floor(p.z)));
+            }
             let runs = runs(w);
             let run = &runs[e.way];
             let (s, _) = run.nearest(e.anchor);

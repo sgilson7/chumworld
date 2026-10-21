@@ -250,6 +250,8 @@ impl Detail {
                 | crate::scatter::TUFT
                 | crate::scatter::ROAD
                 | crate::scatter::MEADOW
+                | crate::scatter::FERN
+                | crate::scatter::FLOOR
         ) {
             Vec::new()
         } else {
