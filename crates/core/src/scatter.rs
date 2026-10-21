@@ -182,6 +182,8 @@ pub fn uniform_values(sp: &ScatterSpec) -> Vec<i32> {
     }
     out.push(SINK);
     out.extend([band_value(WHOLE), 4 * ONE, 6 * ONE]);
+    // a unit normal is 1 long, an indexed facet's 2 (`lod::index_flat`)
+    out.push(ONE * 3 / 2);
     out
 }
 
@@ -191,6 +193,7 @@ pub const UNIFORMS: &[(&str, &str, usize)] = &[
     ("uBands2", "uniformMatrix4fv", 16),
     ("uSink", "uniform1fv", 1),
     ("uBandKey", "uniform3fv", 3),
+    ("uFlatKey", "uniform1fv", 1),
 ];
 
 /// How deep grass and tufts sink as they fade (the second matrix's bands):
@@ -859,11 +862,33 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                     // a rounded, faceted crown with no point: a point thinner
                     // than a pixel blinks as the view pans (R4.25)
                     let size = r.between(80, 125);
-                    let (w, h) = (ONE * 12 * size / 100, ONE * 11 * size / 100);
-                    let a = Affine::translate(v3(x, land.height(x, z) + h / 2 + 2 * ONE, z))
-                        .then(&Affine::rot_y(r.below(fx::TURN as u32) as i32))
+                    // M7 (R9.49): a skyline, not a strip. The crowns stand
+                    // taller deep in the forest and where a slow noise
+                    // lifts them (70% to 190% of 11 m), and about a third
+                    // carry a narrower crown above, a spruce's top seen
+                    // from kilometres off, still blunt
+                    let deep = land.forest(x, z, &sc);
+                    let lift = crate::terrain::noise(x, z, 90, land.spec.seed ^ 0x51e1) + ONE as i64;
+                    let tall_pct =
+                        70 + (lift * 60 / ONE as i64) as i32 + (deep * 60 / ONE as i64) as i32 - 30;
+                    let (w, h) = (
+                        ONE * 12 * size / 100,
+                        ONE * 11 * size / 100 * tall_pct.clamp(70, 190) / 100,
+                    );
+                    let foot = land.height(x, z) + 2 * ONE;
+                    let turn = Affine::rot_y(r.below(fx::TURN as u32) as i32);
+                    let a = Affine::translate(v3(x, foot + h / 2, z))
+                        .then(&turn)
                         .then(&Affine::scale(v3(w, h, w)));
-                    b.shape(Mesh::Blob, &a, shade(mean, 88 + r.between(0, 12)));
+                    let tone = shade(mean, 88 + r.between(0, 12));
+                    b.shape(Mesh::Blob, &a, tone);
+                    if r.chance(1, 3) {
+                        let (w2, h2) = (w * 55 / 100, h * 75 / 100);
+                        let top = Affine::translate(v3(x, foot + h * 85 / 100 + h2 / 2, z))
+                            .then(&turn)
+                            .then(&Affine::scale(v3(w2, h2, w2)));
+                        b.shape(Mesh::Blob, &top, shade(tone, 94));
+                    }
                 }
             }
         }
@@ -1074,7 +1099,7 @@ mod tests {
     fn the_shader_fades_each_triangle_through_the_core_s_band() {
         let sp = &land().spec.scatter;
         let u = uniform_values(sp);
-        assert_eq!(u.len(), BANDS * 4 + 4);
+        assert_eq!(u.len(), BANDS * 4 + 5);
         // grass's band in slot 4: from −1 m (whole from the eye), 28 to 38 m
         assert_eq!(&u[16..20], &[-ONE, -ONE, int(28), int(38)]);
         assert_eq!(band_value(GRASS), 6 * ONE);
@@ -1082,7 +1107,9 @@ mod tests {
         assert!(vert.contains("return go > 0.0 ? go - 1.0 : come;"));
         assert!(vert.contains("float f = k >= 0.0 ? band(length((w - uEye).xz), k) : iD.a;"));
         // the first band's value, 2, and four bands a matrix
-        assert_eq!(&u[BANDS * 4 + 1..], &[2 * ONE, 4 * ONE, 6 * ONE]);
+        assert_eq!(&u[BANDS * 4 + 1..BANDS * 4 + 4], &[2 * ONE, 4 * ONE, 6 * ONE]);
+        // an indexed facet's normal is twice a unit's: 1.5 tells them apart
+        assert_eq!(u[BANDS * 4 + 4], ONE * 3 / 2);
         assert!(vert.contains("w.y -= (1.0 - (f >= 0.0 ? f : -f)) * uSink;"));
         // grass and tufts take the second matrix's slots, which sink
         assert!(band_slot(GRASS) >= 4 && band_slot(TUFT) >= 4 && band_slot(ROCK) < 4);

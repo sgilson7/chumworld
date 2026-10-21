@@ -145,11 +145,15 @@ export function makeRenderer(canvas, N, shaders, meshList, meshData) {
     },
     // A mesh the core built as the camera moved (terrain, scatter): uploaded
     // once into its slot, which the core may later fill again.
-    setMesh(id, data, vertices) {
-      if (!meshes[id]) meshes[id] = { buffer: gl.createBuffer(), vertices: 0 };
+    // M7: with its indices (count 0: drawn as it is)
+    setMesh(id, data, vertices, indices, count) {
+      if (!meshes[id]) meshes[id] = { buffer: gl.createBuffer(), vertices: 0, elements: gl.createBuffer(), count: 0 };
       gl.bindBuffer(gl.ARRAY_BUFFER, meshes[id].buffer);
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
       meshes[id].vertices = vertices;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, meshes[id].elements);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+      meshes[id].count = count;
     },
     // What never moves: uploaded again only when the core's origin moves.
     setStatic(values) {
@@ -203,7 +207,12 @@ export function makeRenderer(canvas, N, shaders, meshList, meshData) {
         for (const a of prog.instanceAttributes) {
           gl.vertexAttribPointer(a.loc, a.size, gl.FLOAT, false, N.instance.stride, a.offset + byteOffset);
         }
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, mesh.vertices, count);
+        if (mesh.count) {
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.elements);
+          gl.drawElementsInstanced(gl.TRIANGLES, mesh.count, gl.UNSIGNED_INT, 0, count);
+        } else {
+          gl.drawArraysInstanced(gl.TRIANGLES, 0, mesh.vertices, count);
+        }
       }
       gl.depthMask(true);
     },

@@ -218,7 +218,10 @@ async function main() {
     game.advance(now, bits, dx, dy, wheel);
     // the meshes the core built this frame, each uploaded once
     const ups = game.uploads();
-    for (let i = 0; i < ups.length; i += N.upload_values) renderer.setMesh(ups[i], game.mesh(ups[i]), ups[i + 1]);
+    for (let i = 0; i < ups.length; i += N.upload_values) {
+      const indices = game.mesh_indices(ups[i]);
+      renderer.setMesh(ups[i], game.mesh(ups[i]), ups[i + 1], indices, indices.length);
+    }
     if (game.static_version() !== staticVersion) {
       staticVersion = game.static_version();
       renderer.setStatic(game.static_values());

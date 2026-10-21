@@ -1720,6 +1720,18 @@ struct Parchment {
     edge_px: i32,
     edge_pct: i32,
     hatch_every: i32,
+    // M7: the land's colours (R9.48)
+    land_pct: i32,
+    forest: [i32; 3],
+    forest_dot: [i32; 3],
+    forest_dot_every: i32,
+    shade_pct: i32,
+    shade_steps: i32,
+    contour_m: i32,
+    contour_pct: i32,
+    shore: [i32; 3],
+    road: [i32; 3],
+    roof: [i32; 3],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -1746,19 +1758,22 @@ fn mix(a: [i32; 3], b: [i32; 3], pct: i32) -> [i32; 3] {
 }
 
 /// The map as RGBA pixels, `MAP_PX` a side, row by row from the north-west
-/// corner: parchment where the player has walked, shaded by the ground's
-/// slope, water in blue, hatched paper where they have not, the edges
-/// darkened like old paper. The page puts it on a canvas as it is.
+/// corner (M7, R9.48): where the player has walked, the land as Ocarina of
+/// Time's and Majora's Mask's maps draw it, on M4's parchment: the ground's
+/// own colours (`terrain::Land::map`) softened by the paper, the forest
+/// dotted with trees, the relief lit from the north-west in a few flat
+/// steps, a contour every 10 m, the water with a darker shore, the roads
+/// and the buildings; where not, hatched paper; the edges darkened like
+/// old paper. The page puts it on a canvas as it is.
 pub fn map_pixels(g: &Game) -> Vec<u8> {
     let w = &g.world;
     let p = &menus().map;
-    let land = mix(p.paper, g.look.palette.grass_far, p.land_tint_pct);
     let fog = &w.ui.fog;
+    let cells = w.land.map(MAP_PX);
+    let at = |x: i32, y: i32| &cells[(y.clamp(0, MAP_PX - 1) * MAP_PX + x.clamp(0, MAP_PX - 1)) as usize];
     let mut out = Vec::with_capacity((MAP_PX * MAP_PX * 4) as usize);
     for py in 0..MAP_PX {
         for px in 0..MAP_PX {
-            let x = fx::int(px * PX_M + PX_M / 2);
-            let z = fx::int(py * PX_M + PX_M / 2);
             // how much of the pixel has been seen: the four nearest cells'
             // centres, weighted by nearness, in sixteenths
             let qx = 2 * px - 1;
@@ -1773,22 +1788,49 @@ pub fn map_pixels(g: &Game) -> Vec<u8> {
                     }
                 }
             }
-            let h = w.ground(x, z);
-            let behind = w.ground(x - fx::int(PX_M), z - fx::int(PX_M));
-            let rise_cm = ((h - behind) as i64 * 100 / ONE as i64) as i32;
-            let mut lit = land;
-            if crate::terrain::is_water(w, x, z) {
-                lit = mix(land, p.water, 80);
-            } else if rise_cm != 0 {
-                let shade = (rise_cm * p.relief_pct / 10).clamp(-40, 40);
-                lit = if shade > 0 {
-                    mix(lit, [255; 3], shade)
-                } else {
-                    mix(lit, p.ink, -shade)
-                };
+            let c0 = at(px, py);
+            let mut lit = mix(p.paper, c0.colour, p.land_pct);
+            if c0.forest > ONE / 4 {
+                lit = mix(lit, p.forest, c0.forest * 80 / ONE);
+                let every = p.forest_dot_every.max(2);
+                if c0.forest > ONE / 2 && (px + 2 * (py / every)) % every == 0 && py % every == 0 {
+                    lit = p.forest_dot;
+                }
             }
-            if fx::floor(h).div_euclid(10) != fx::floor(behind).div_euclid(10) {
-                lit = mix(lit, p.ink, 30);
+            if c0.water {
+                lit = mix(p.paper, p.water, 85);
+                let shore = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                    .iter()
+                    .any(|&(dx, dy)| !at(px + dx, py + dy).water);
+                if shore {
+                    lit = p.shore;
+                }
+            } else {
+                // the relief, lit from the north-west, in flat steps: the
+                // rise from the pixel up-left to the one down-right, over
+                // their 22.6 m apart, per cent
+                let rise = (at(px + 1, py + 1).h - at(px - 1, py - 1).h) as i64 * 100
+                    / fx::int(PX_M * 2 * 1414 / 1000) as i64;
+                let steps = p.shade_steps.max(1) as i64;
+                let step = (rise.clamp(-steps * 3, steps * 3) / 3) as i32;
+                if step != 0 {
+                    let pct = (p.shade_pct * step.abs() / steps as i32).min(60);
+                    lit = if step < 0 {
+                        mix(lit, [255; 3], pct)
+                    } else {
+                        mix(lit, p.ink, pct)
+                    };
+                }
+                let band = |c: &crate::terrain::MapCell| fx::floor(c.h).div_euclid(p.contour_m.max(1));
+                if band(c0) != band(at(px + 1, py)) || band(c0) != band(at(px, py + 1)) {
+                    lit = mix(lit, p.ink, p.contour_pct);
+                }
+                if c0.road {
+                    lit = p.road;
+                }
+                if c0.building {
+                    lit = p.roof;
+                }
             }
             let hatched = (px + py).rem_euclid(p.hatch_every) == 0;
             let unseen = if hatched { p.hatch } else { p.unseen };
@@ -2072,8 +2114,14 @@ mod tests {
         assert_eq!(map_pixels(&g).len(), 250 * 250 * 4);
     }
 
+    /// R9.48: walked, the map shows the land's own colours, not plain
+    /// parchment. The start is pixel (125, 175), the village green: its
+    /// grass (150 to 175 red, 176 to 201 green, data/land.json) at 72% over
+    /// the paper (248, 238, 212) is about (177, 201, 134) give or take the
+    /// patchwork: greener than it is red by 15 or more, and more than 40
+    /// off the paper's red. Far off, unwalked, it is hatched paper still.
     #[test]
-    fn the_map_image_is_paper_where_walked_and_hatched_where_not() {
+    fn the_map_image_shows_the_land_where_walked_and_hatched_paper_where_not() {
         let mut g = playing();
         frames(&mut g, 1, 0, 0);
         let px = map_pixels(&g);
@@ -2082,16 +2130,32 @@ mod tests {
             [px[k] as i32, px[k + 1] as i32, px[k + 2] as i32]
         };
         let p = &menus().map;
-        let land = mix(p.paper, g.look.palette.grass_far, p.land_tint_pct);
-        // the start is pixel (125, 175); a pixel far off is unseen
+        let green = at(125, 175);
+        assert!(green[1] - green[0] >= 15, "{green:?} is not the green's grass");
+        assert!((green[0] - p.paper[0]).abs() > 40, "{green:?} is parchment");
         let near = |a: [i32; 3], b: [i32; 3]| (0..3).all(|k| (a[k] - b[k]).abs() <= p.grain);
-        assert!(near(at(125, 175), land), "{:?} {:?}", at(125, 175), land);
         assert!(
             near(at(126, 40), p.unseen) || near(at(126, 40), p.hatch),
             "{:?}",
             at(126, 40)
         );
         assert_eq!(px[3], 255);
+    }
+
+    /// The map's pixels know the river, the roads and the forest: the south
+    /// ford, 36 m across at (642, 3300), takes pixel (40, 206), whose middle
+    /// (648, 3304) is 6 m from the river's, water; the lane
+    /// north of the village at (1994, 2550), pixel (124, 159), is road, the
+    /// camp's forest at (3100, 1200), pixel (193, 75), is deep forest.
+    #[test]
+    fn the_map_knows_the_water_the_roads_and_the_forest() {
+        let g = playing();
+        let cells = g.world.land.map(MAP_PX);
+        let cell = |x: i32, y: i32| cells[(y * MAP_PX + x) as usize];
+        assert!(cell(40, 206).water);
+        assert!(cell(124, 159).road);
+        assert!(cell(193, 75).forest > ONE * 9 / 10);
+        assert!(!cell(125, 175).water && !cell(125, 175).road);
     }
 
     #[test]

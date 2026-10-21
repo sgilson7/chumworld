@@ -392,6 +392,22 @@ pub struct Land {
     pub reach: Fx,
     /// the raw land's height at the village centre, taken off everywhere
     zero: i64,
+    /// M7: what the map menu shows of each of its pixels, worked out the
+    /// first time it is asked for (`Land::map`)
+    map: std::cell::OnceCell<Vec<MapCell>>,
+}
+
+/// What the map menu needs to know of one of its pixels (R9.48): the
+/// ground's height and colour there (0 to 255 each), and what lies there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MapCell {
+    pub h: Fx,
+    pub colour: [i32; 3],
+    pub water: bool,
+    pub road: bool,
+    /// how deep in the forest, 0 to ONE
+    pub forest: Fx,
+    pub building: bool,
 }
 
 impl std::fmt::Debug for Land {
@@ -479,6 +495,7 @@ impl Land {
             clearings: Vec::new(),
             reach,
             zero: 0,
+            map: std::cell::OnceCell::new(),
         };
         let village = land
             .layout
@@ -697,7 +714,9 @@ impl Land {
         for &k in &sc.clearings {
             let (c, r) = self.clearings[k];
             let d = hypot(x as i64 - c.x as i64, z as i64 - c.z as i64);
-            w = qmul(w, sstep(r as i64, r as i64 + 12 * O, d));
+            // M7 (R9.51): the clearing's grass blends into the forest's floor
+            // over 24 m, so the camp's ground has no ragged edge
+            w = qmul(w, sstep(r as i64 - 4 * O, r as i64 + 20 * O, d));
         }
         w
     }
@@ -1114,6 +1133,70 @@ impl Land {
         level - g
     }
 
+    /// The map menu's pixels (R9.48), `px` a side over the walkable square,
+    /// row by row from its north-west corner, each sampled at its middle:
+    /// worked out once, a 16-pixel block at a time with that block's
+    /// features (40 ms natively), then kept.
+    pub fn map(&self, px: i32) -> &Vec<MapCell> {
+        self.map.get_or_init(|| {
+            let m = 4000 * ONE / px.max(1);
+            let mut out = vec![
+                MapCell {
+                    h: 0,
+                    colour: [0; 3],
+                    water: false,
+                    road: false,
+                    forest: 0,
+                    building: false,
+                };
+                (px * px) as usize
+            ];
+            let block = 16;
+            for by in (0..px).step_by(block) {
+                for bx in (0..px).step_by(block) {
+                    let (x0, z0) = (bx * m, by * m);
+                    let side = m * block as i32;
+                    let sc = self.scope(x0 - m, z0 - m, x0 + side + m, z0 + side + m);
+                    let mut hint = None;
+                    for py in by..(by + block as i32).min(px) {
+                        for qx in bx..(bx + block as i32).min(px) {
+                            let (x, z) = (qx * m + m / 2, py * m + m / 2);
+                            let near = if sc.river {
+                                self.river.near_from(x, z, self.reach, &mut hint)
+                            } else {
+                                None
+                            };
+                            let h = self.height_near(x, z, &sc, near);
+                            // the meadow's own colour, and the field's strips' mean
+                            // (the rest the map draws for itself)
+                            let mut c = self.meadow_in(x, z, 3, &sc);
+                            if self.in_field(x, z, &sc) {
+                                c = mix(self.paint.crop, self.paint.furrow, ONE / 2);
+                            }
+                            let water = match near {
+                                Some(n) if n.d < n.half + ONE * 2 => h < n.surface,
+                                _ => false,
+                            } || sc.ponds.iter().any(|&k| {
+                                let p = &self.ponds[k];
+                                hypot(x as i64 - p.c.0, z as i64 - p.c.1) < p.r && (h as i64) < p.level
+                            });
+                            let (rd, rh) = self.road_distance(x, z, &sc);
+                            out[(py * px + qx) as usize] = MapCell {
+                                h,
+                                colour: c.map(|v| ((v as i64 * 255) >> 16) as i32),
+                                water,
+                                road: rh > 0 && rd < rh + m / 2,
+                                forest: self.forest(x, z, &sc) as Fx,
+                                building: self.footprint_distance(x, z, &sc) < m / 3,
+                            };
+                        }
+                    }
+                }
+            }
+            out
+        })
+    }
+
     /// The ponds: centre, radius and still level.
     pub fn ponds(&self) -> Vec<(V3, Fx, Fx)> {
         self.ponds
@@ -1205,6 +1288,10 @@ impl Land {
         let f = self.forest(x, z, sc);
         if f > 0 {
             let floor = if level >= 4 { p.canopy } else { p.floor };
+            // the floor's own tones, broad and soft, so grass and floor meet
+            // in drifts rather than blotches
+            let drift = noise01(x, z, 23, seed ^ 0x4f4f);
+            let f = qmul(f, O * 3 / 4 + drift / 4);
             c = mix(c, floor, f as Fx);
         }
         c
@@ -1253,7 +1340,14 @@ impl Land {
         let foot = self.footprint_distance(x, z, sc) as i64;
         if foot < 8 * O {
             let worn = qmul(O - sstep(O, 8 * O, foot), sh.village_earth_pct as i64 * O / 100);
-            let worn = qmul(worn, noise01(x, z, 7, seed ^ 0x1e1e) / 2 + O / 2);
+            // patchy in the village; in the forest's camp worn smooth, the
+            // floor already patchy enough (R9.51)
+            let patch = if self.forest(x, z, sc) > 0 {
+                O * 3 / 4 + noise01(x, z, 7, seed ^ 0x1e1e) / 4
+            } else {
+                noise01(x, z, 7, seed ^ 0x1e1e) / 2 + O / 2
+            };
+            let worn = qmul(worn, patch);
             c = mix(c, p.earth, worn as Fx);
         }
         // the roads, lanes and trails: dirt, patchy

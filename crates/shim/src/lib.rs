@@ -94,6 +94,11 @@ impl Game {
         floats(api::mesh(&self.inner, id))
     }
 
+    /// M7: a built mesh's indices (none: drawn as it is).
+    pub fn mesh_indices(&self, id: u32) -> Vec<u32> {
+        api::mesh_indices(&self.inner, id)
+    }
+
     /// The water program's own uniforms (M2, `water::UNIFORMS`).
     pub fn water_uniforms(&self) -> Vec<f32> {
         floats(tool_core::water::uniform_values(&self.inner.world.land))

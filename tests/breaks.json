@@ -2784,5 +2784,40 @@
     "find": "        let mut k = O * 60 / 100 + qmul(wander, O * 70 / 100);",
     "replace": "        let mut k = O + 0 * qmul(wander, O * 70 / 100);",
     "test": "the_river_s_banks_vary_and_meet_the_water_at_its_slope"
+  },
+  {
+    "name": "M7 land: the map's walked land is plain parchment",
+    "file": "crates/core/src/ui.rs",
+    "find": "            let mut lit = mix(p.paper, c0.colour, p.land_pct);",
+    "replace": "            let mut lit = mix(p.paper, c0.colour, 0);",
+    "test": "the_map_image_shows_the_land_where_walked_and_hatched_paper_where_not"
+  },
+  {
+    "name": "M7 land: the map knows no roads",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                                road: rh > 0 && rd < rh + m / 2,",
+    "replace": "                                road: rh > 0 && rd < 0,",
+    "test": "the_map_knows_the_water_the_roads_and_the_forest"
+  },
+  {
+    "name": "M7 land: the map knows no water",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                                Some(n) if n.d < n.half + ONE * 2 => h < n.surface,",
+    "replace": "                                Some(n) if n.d < n.half + ONE * 2 => h < n.surface - 100 * ONE,",
+    "test": "the_map_knows_the_water_the_roads_and_the_forest"
+  },
+  {
+    "name": "M7 land: indexed facets not told apart",
+    "file": "crates/core/src/scatter.rs",
+    "find": "    out.push(ONE * 3 / 2);",
+    "replace": "    out.push(ONE * 5 / 2);",
+    "test": "the_shader_fades_each_triangle_through_the_core_s_band"
+  },
+  {
+    "name": "M7 land: an indexed triangle's last vertex shared",
+    "file": "crates/core/src/lod.rs",
+    "find": "        let k = push(&mut out, v);\n        at.entry((v[0], v[1], v[2])).or_insert(k);",
+    "replace": "        let k = *at.entry((v[0], v[1], v[2])).or_insert_with(|| push(&mut out, v));",
+    "test": "two_facets_sharing_an_edge_take_four_vertices_each_its_own_last"
   }
 ]

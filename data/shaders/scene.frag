@@ -13,6 +13,9 @@ in vec3 vNormal;
 in vec4 vColor;
 in vec3 vLocal;
 flat in float vFade;
+flat in vec3 vNormalF;
+flat in vec3 vColorF;
+flat in float vFlat;
 uniform vec3 uEye;
 uniform vec4 uModeA;
 uniform vec4 uModeB;
@@ -85,11 +88,14 @@ void main() {
   }
   if ((uModeA.y + uModeA.w) > 0.0 && !keep(vFade)) discard;
   vec4 h = haze();
+  // M7: and its triangle's own colour
+  vec3 facet = vFlat > 0.0 ? vColorF : vColor.rgb;
   if (uModeA.y > 0.0) {
-    outColor = vec4(mix(vColor.rgb, h.rgb, h.a * uK.z), 1.0);
+    outColor = vec4(mix(facet, h.rgb, h.a * uK.z), 1.0);
     return;
   }
-  vec3 n = normalize(vNormal);
+  // M7: an indexed facet mesh takes its triangle's own normal
+  vec3 n = normalize(vFlat > 0.0 ? vNormalF : vNormal);
   if (uModeA.z > 0.0) {
     vec3 v = normalize(uEye - vWorld);
     float a = pow(abs(dot(n, v)), uK.y) * vColor.a * (1.0 - h.a);
@@ -102,7 +108,7 @@ void main() {
     outColor = vec4(vColor.rgb, a);
     return;
   }
-  vec3 base = vColor.rgb;
+  vec3 base = facet;
   float wrapped = clamp((dot(n, uLightDir) + uWrap.x) / (1.0 + uWrap.x), 0.0, 1.0);
   float key = mix(wrapped, smoothstep(uWrap.y, uWrap.z, wrapped), uWrap.w);
   vec3 fill = mix(uBounce, uSkyFill, n.y * uK.x + uK.x);

@@ -35,9 +35,16 @@ uniform float uSink;
 // the value that names the first band, the first band that sinks, and the
 // first after them that dithers again
 uniform vec3 uBandKey;
+// M7 (lod::index_flat): a vertex whose normal is longer than this is from an
+// indexed facet mesh, whose triangles take their last vertex's values flat
+uniform float uFlatKey;
 out vec3 vWorld;
 // the dither's fade for the whole triangle, taken from its last vertex
 flat out float vFade;
+// an indexed facet mesh's normal and colour, flat, and whether it is one
+flat out vec3 vNormalF;
+flat out vec3 vColorF;
+flat out float vFlat;
 out vec3 vNormal;
 out vec4 vColor;
 out vec3 vLocal;
@@ -74,6 +81,9 @@ void main() {
   vColor = vec4(iD.rgb * aColor, iD.a);
   vLocal = p;
   vFade = f;
+  vNormalF = vNormal;
+  vColorF = vColor.rgb;
+  vFlat = length(n) > uFlatKey ? 1.0 : 0.0;
   gl_Position = uVP * vec4(w - uEye, 1.0);
   gl_Position.z += (uModeA.y * uBias.x - (uModeA.z + uModeB.x) * uBias.y) * uQ * gl_Position.w;
   // the sky dome: never clipped by the near or the far plane

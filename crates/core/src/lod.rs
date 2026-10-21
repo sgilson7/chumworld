@@ -79,7 +79,9 @@ pub struct Slot {
     pub at: Affine,
     pub pass: Pass,
     pub rgb: look::Rgb,
+    /// the vertices the page holds, and the triangles they make
     pub vertices: usize,
+    pub triangles: usize,
 }
 
 /// A mesh built: its vertices and how it is drawn.
@@ -106,6 +108,9 @@ pub struct Stats {
     pub triangles: usize,
     pub resident: usize,
     pub resident_triangles: usize,
+    /// M7: the vertices and indices the page holds for them
+    pub resident_vertices: usize,
+    pub resident_indices: usize,
     /// the last thing built because it was needed at once
     pub last_sync: Option<Key>,
 }
@@ -127,9 +132,9 @@ pub struct Detail {
     free: Vec<usize>,
     by_key: BTreeMap<Key, usize>,
     /// built since the page last asked
-    uploads: Vec<(u32, Vec<i32>)>,
+    uploads: Vec<(u32, Vec<i32>, Vec<u32>)>,
     /// what the page is reading now
-    lent: Vec<(u32, Vec<i32>)>,
+    lent: Vec<(u32, Vec<i32>, Vec<u32>)>,
     pub stats: Stats,
     /// what was drawn this frame, in order
     pub drawn: Vec<Drawn>,
@@ -559,14 +564,25 @@ impl Detail {
     }
 
     fn put(&mut self, key: Key, b: Built) {
+        let triangles = b.vertices.len() / crate::prim::VERTEX_VALUES / 3;
+        // M7 (R9.52): every faceted mesh is handed over indexed (the water,
+        // whose vertices each carry their own flow, is not)
+        let (vertices, indices) = if key.kind == WATER {
+            (b.vertices.clone(), Vec::new())
+        } else {
+            index_flat(&b.vertices)
+        };
         let slot = Slot {
             key,
             at: b.at,
             pass: b.pass,
             rgb: [ONE; 3],
-            vertices: b.vertices.len() / crate::prim::VERTEX_VALUES,
+            vertices: vertices.len() / crate::prim::VERTEX_VALUES,
+            triangles,
         };
-        self.stats.resident_triangles += slot.vertices / 3;
+        self.stats.resident_triangles += slot.triangles;
+        self.stats.resident_vertices += slot.vertices;
+        self.stats.resident_indices += indices.len();
         let index = match self.free.pop() {
             Some(k) => {
                 self.slots[k] = Some(slot);
@@ -584,13 +600,15 @@ impl Detail {
         }
         // a slot taken again replaces what the page still had for it
         self.uploads.retain(|u| u.0 != id);
-        self.uploads.push((id, b.vertices));
+        self.uploads.push((id, vertices, indices));
     }
 
     fn forget(&mut self, key: Key) {
         if let Some(index) = self.by_key.remove(&key) {
             if let Some(s) = self.slots[index].take() {
-                self.stats.resident_triangles -= s.vertices / 3;
+                self.stats.resident_triangles -= s.triangles;
+                self.stats.resident_vertices -= s.vertices;
+                self.stats.resident_indices -= if s.key.kind == WATER { 0 } else { s.triangles * 3 };
             }
             self.free.push(index);
             self.stats.evictions += 1;
@@ -651,7 +669,7 @@ impl Detail {
             pass: s.pass,
         });
         self.stats.drawn += 1;
-        self.stats.triangles += s.vertices / 3;
+        self.stats.triangles += s.triangles;
         self.drawn.push(Drawn { key, fade });
     }
 
@@ -792,20 +810,26 @@ impl Detail {
         }
     }
 
-    /// The meshes built since the page last asked, as (id, vertex count)
-    /// pairs; their vertices are lent to the page (`lent`) until it asks
-    /// again.
+    /// The meshes built since the page last asked, as (id, vertex count,
+    /// index count) triples, the last 0 for a mesh drawn unindexed; their
+    /// vertices and indices are lent to the page (`lent`, `lent_indices`)
+    /// until it asks again.
     pub fn uploads(&mut self) -> Vec<u32> {
         self.lent = std::mem::take(&mut self.uploads);
         self.lent
             .iter()
-            .flat_map(|(id, v)| [*id, (v.len() / crate::prim::VERTEX_VALUES) as u32])
+            .flat_map(|(id, v, i)| [*id, (v.len() / crate::prim::VERTEX_VALUES) as u32, i.len() as u32])
             .collect()
     }
 
     /// A mesh the page is reading.
     pub fn lent(&self, id: u32) -> Option<&Vec<i32>> {
         self.lent.iter().find(|u| u.0 == id).map(|u| &u.1)
+    }
+
+    /// Its indices, three a triangle (none: drawn as it is).
+    pub fn lent_indices(&self, id: u32) -> Option<&Vec<u32>> {
+        self.lent.iter().find(|u| u.0 == id).map(|u| &u.2)
     }
 
     /// A slot's numbers by its key, for the tests and the probe.
@@ -823,7 +847,7 @@ impl Detail {
         for s in self.slots.iter().flatten() {
             let e = m.entry((s.key.kind, s.key.level)).or_insert((0, 0));
             e.0 += 1;
-            e.1 += s.vertices / 3;
+            e.1 += s.triangles;
         }
         m
     }
@@ -832,6 +856,47 @@ impl Detail {
     pub fn pending(&self) -> usize {
         self.uploads.len()
     }
+}
+
+/// How a flat-faceted mesh (each triangle's three vertices alike in normal
+/// and colour) is handed to the page indexed (R9.52): a triangle's last
+/// vertex, the one WebGL takes a `flat` value from, is its own, carrying
+/// the facet's normal and colour; its first two share any vertex already
+/// at their place, whatever it carries. So a grid of facets holds about one
+/// vertex a triangle instead of three. Each normal is stored twice as long,
+/// which tells the shader to take the facet's values flat (`scene.vert`).
+pub fn index_flat(soup: &[i32]) -> (Vec<i32>, Vec<u32>) {
+    let vv = crate::prim::VERTEX_VALUES;
+    let mut out: Vec<i32> = Vec::with_capacity(soup.len() / 2);
+    let mut indices = Vec::with_capacity(soup.len() / vv);
+    let mut at: BTreeMap<(i32, i32, i32), u32> = BTreeMap::new();
+    let push = |out: &mut Vec<i32>, v: &[i32]| -> u32 {
+        let k = (out.len() / vv) as u32;
+        out.extend_from_slice(&v[..3]);
+        out.extend(v[3..6].iter().map(|n| n * 2));
+        out.extend_from_slice(&v[6..vv]);
+        k
+    };
+    for tri in soup.chunks(3 * vv) {
+        for q in 0..2 {
+            let v = &tri[q * vv..(q + 1) * vv];
+            let key = (v[0], v[1], v[2]);
+            let k = match at.get(&key) {
+                Some(&k) => k,
+                None => {
+                    let k = push(&mut out, v);
+                    at.insert(key, k);
+                    k
+                }
+            };
+            indices.push(k);
+        }
+        let v = &tri[2 * vv..3 * vv];
+        let k = push(&mut out, v);
+        at.entry((v[0], v[1], v[2])).or_insert(k);
+        indices.push(k);
+    }
+    (out, indices)
 }
 
 /// The affine that draws a mesh built about `centre` with x and z divided
@@ -1195,6 +1260,35 @@ mod tests {
         assert!(things_seen > 1_000, "{things_seen}");
     }
 
+    /// R9.52: two facets sharing an edge, a-b-c red and a-c-d blue, become
+    /// four vertices, not six: a and b, c (the first facet's own last, red),
+    /// then d (the second's own, blue); indices 0 1 2 and 0 2 3. Each
+    /// triangle's last vertex carries its own colour; every normal is twice
+    /// as long, so the shader knows to take them flat.
+    #[test]
+    fn two_facets_sharing_an_edge_take_four_vertices_each_its_own_last() {
+        let up = [0, ONE, 0];
+        let v = |p: [i32; 3], c: [i32; 3]| [p[0], p[1], p[2], up[0], up[1], up[2], c[0], c[1], c[2]];
+        let (red, blue) = ([ONE, 0, 0], [0, 0, ONE]);
+        let (a, b, c, d) = ([0, 0, 0], [ONE, 0, 0], [ONE, 0, ONE], [0, 0, ONE]);
+        let soup: Vec<i32> = [
+            v(a, red),
+            v(b, red),
+            v(c, red),
+            v(a, blue),
+            v(c, blue),
+            v(d, blue),
+        ]
+        .concat();
+        let (verts, idx) = index_flat(&soup);
+        assert_eq!(idx, vec![0, 1, 2, 0, 2, 3]);
+        assert_eq!(verts.len(), 4 * crate::prim::VERTEX_VALUES);
+        let at = |k: usize| &verts[k * crate::prim::VERTEX_VALUES..(k + 1) * crate::prim::VERTEX_VALUES];
+        assert_eq!(&at(2)[6..9], &red);
+        assert_eq!(&at(3)[6..9], &blue);
+        assert_eq!(at(3)[4], 2 * ONE, "the normal twice as long");
+    }
+
     #[test]
     fn the_page_is_handed_each_new_mesh_once() {
         let l = land();
@@ -1202,13 +1296,14 @@ mod tests {
         let mut out = Shapes::default();
         d.terrain(&l, v3(int(2000), 0, int(2800)), &mut out);
         let ups = d.uploads();
-        assert!(ups.len() > 20);
-        let (id, count) = (ups[0], ups[1]);
+        assert!(ups.len() > 30);
+        let (id, count, indices) = (ups[0], ups[1], ups[2]);
         assert!(id >= 100, "after the static table");
         assert_eq!(
             d.lent(id).unwrap().len(),
             count as usize * crate::prim::VERTEX_VALUES
         );
+        assert_eq!(d.lent_indices(id).unwrap().len(), indices as usize);
         // the frames after build ahead, a few at a time, until all is built
         let mut frames = 0;
         loop {

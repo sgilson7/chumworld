@@ -228,10 +228,11 @@ pub fn numbers() -> String {
         "uniforms": look::UNIFORMS.iter().chain(crate::sky::UNIFORMS).chain(crate::scatter::UNIFORMS).map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
         // the view values: each layer's matrix by layer number, then the eye
         "view": { "layers": [[0, 16], [16, 32]], "eye": [32, 35] },
-        // M2: `uploads` lists each new mesh as (id, vertex count); the water
+        // M2: `uploads` lists each new mesh as (id, vertex count, M7: index
+        // count, 0 for one drawn as it is); the water
         // program's own uniforms (once) and its frame's (each frame), and the
         // nearest distance each layer draws water at, by layer number
-        "upload_values": 2,
+        "upload_values": 3,
         "water": {
             "uniforms": crate::water::UNIFORMS.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
             "frame": crate::water::FRAME.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
@@ -266,6 +267,12 @@ pub fn mesh(g: &Game, id: u32) -> Vec<i32> {
         return g.meshes.vertices(MeshId(id));
     }
     g.detail.lent(id).cloned().unwrap_or_default()
+}
+
+/// M7: a built mesh's indices, three a triangle; none for a mesh drawn as
+/// it is (the static table's, the water's).
+pub fn mesh_indices(g: &Game, id: u32) -> Vec<u32> {
+    g.detail.lent_indices(id).cloned().unwrap_or_default()
 }
 
 #[cfg(test)]
