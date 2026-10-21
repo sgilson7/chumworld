@@ -484,6 +484,9 @@ pub struct Turn {
     pub gain: Fx,
     pub on: V3,
     pub line: V3,
+    /// a thrust's drive (R9.177): the weapon is pushed along `axis` (a
+    /// line, not a turn) at up to `most` metres a tick
+    pub push: bool,
 }
 
 /// How hard a cut's motor holds the hand to its arc and the blade to its
@@ -769,7 +772,11 @@ impl Arm {
         let tip = self.pts[TIP];
         let r = tip.p.sub(t.pivot);
         let rr = r.dot(r).max(1);
-        let now = fx::div(r.cross(tip.vel()).dot(t.axis), rr);
+        let now = if t.push {
+            tip.vel().dot(t.axis)
+        } else {
+            fx::div(r.cross(tip.vel()).dot(t.axis), rr)
+        };
         let gain = (t.gain as i64 * pct as i64 / 100) as Fx;
         // a heavy weapon comes round slower: its heft takes half its share
         // from the turn's top speed
@@ -805,7 +812,12 @@ impl Arm {
                 wpn.grip[if k == HAND[0] { 0 } else { 1 }]
             };
             let spin = mul_div(turn, (at - wpn.grip[1]) as i64, reach as i64);
-            let v = t.axis.cross(p.sub(t.pivot)).scale(w).add(onto).add(spin);
+            let along = if t.push {
+                t.axis.scale(w)
+            } else {
+                t.axis.cross(p.sub(t.pivot)).scale(w)
+            };
+            let v = along.add(onto).add(spin);
             acc[k] = v.sub(self.pts[k].vel()).add(v3(0, GRAVITY, 0));
         }
     }
@@ -1253,6 +1265,7 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
         f.tilt = tilt;
         f.arm.fences = near;
         f.arm.step(&frame, &goals);
+        crate::swing::trail(&mut f.arm); // M7 (R9.175)
         f.arm.meant = (f.arm.pts[POMMEL].p, f.arm.pts[TIP].p);
         caps[id] = crate::blade::body(player::fighter(w, id).kind, &player::pose_of(w, id));
     }
@@ -1268,7 +1281,9 @@ pub const FENCE_ROUNDS: usize = 16;
 pub fn move_shell(w: &mut World, id: usize, inp: &Input) {
     let f = player::fighter(w, id);
     if f.sheath != Sheath::Drawn || f.health.down() {
-        let a = &mut player::parts_mut(w, id).1.arm;
+        let f = player::parts_mut(w, id).1;
+        f.gait.lunge = fx::approach(f.gait.lunge, 0, crate::swing::LUNGE_STEP);
+        let a = &mut f.arm;
         a.swing = crate::swing::Swing::default();
         a.shell.swing = Shell::eased(a.shell.swing, (0, 0, 0));
         return;

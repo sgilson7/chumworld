@@ -2730,6 +2730,300 @@
     "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   },
   {
+    "name": "M7 travel: the right phrase is judged right only when it is the song",
+    "file": "crates/core/src/travel.rs",
+    "find": "    let right = s.played == spec().song;\n",
+    "replace": "    let right = true;\n",
+    "test": "playing_the_exact_song_opens_the_list_and_a_wrong_note_does_not"
+  },
+  {
+    "name": "M7 travel: the song held on the staff opens the list",
+    "file": "crates/core/src/travel.rs",
+    "find": "        *s = Song::new(Phase::Pick { ride: false });\n    } else if !j.right",
+    "replace": "        s.judged = None;\n    } else if !j.right",
+    "test": "playing_the_exact_song_opens_the_list_and_a_wrong_note_does_not"
+  },
+  {
+    "name": "M7 travel: a wrong phrase clears from the staff",
+    "file": "crates/core/src/travel.rs",
+    "find": "        s.played.clear();\n        s.judged = None;",
+    "replace": "        s.judged = None;",
+    "test": "playing_the_exact_song_opens_the_list_and_a_wrong_note_does_not"
+  },
+  {
+    "name": "M7 travel: each note sounds",
+    "file": "crates/core/src/travel.rs",
+    "find": "    sound(w, id);\n    if done {",
+    "replace": "    if done {",
+    "test": "each_note_sounds_and_shows_on_the_staff_at_its_line"
+  },
+  {
+    "name": "M7 travel: the flute lists woken waystones only",
+    "file": "crates/core/src/travel.rs",
+    "find": "                p.woken\n            }",
+    "replace": "                true\n            }",
+    "test": "only_woken_waystones_are_listed_and_only_unreached_ones_offered"
+  },
+  {
+    "name": "M7 travel: the traveller offers only places not reached",
+    "file": "crates/core/src/travel.rs",
+    "find": "                !p.reached && !p.woken",
+    "replace": "                !p.woken",
+    "test": "only_woken_waystones_are_listed_and_only_unreached_ones_offered"
+  },
+  {
+    "name": "M7 travel: no travel in the opening",
+    "file": "crates/core/src/travel.rs",
+    "find": "    if w.story.opening() {\n        return Some(\"travel_refuse_opening\");",
+    "replace": "    if false {\n        return Some(\"travel_refuse_opening\");",
+    "test": "travel_is_refused_during_the_opening_with_its_line"
+  },
+  {
+    "name": "M7 travel: no travel mid-dialogue",
+    "file": "crates/core/src/travel.rs",
+    "find": "    if w.ui.dialogue.is_some() || w.ui.shop_open {",
+    "replace": "    if w.ui.shop_open {",
+    "test": "travel_is_refused_mid_dialogue_with_its_line"
+  },
+  {
+    "name": "M7 travel: no travel with a drawn foe near",
+    "file": "crates/core/src/travel.rs",
+    "find": "        (f.drawn() && near) || f.engaged == Some(0)",
+    "replace": "        f.engaged == Some(0)",
+    "test": "travel_is_refused_in_a_duel_and_allowed_once_clear"
+  },
+  {
+    "name": "M7 travel: a drawn foe past 32 m is no duel",
+    "file": "crates/core/src/travel.rs",
+    "find": "pos.sub(me).len_xz() < spec().danger;",
+    "replace": "pos.sub(me).len_xz() < fx::int(1000);",
+    "test": "travel_is_refused_in_a_duel_and_allowed_once_clear"
+  },
+  {
+    "name": "M7 travel: arrival is in front of the waystone",
+    "file": "crates/core/src/travel.rs",
+    "find": "    let mut p = at.add(facing(yaw, 0).scale(spec().arrive));",
+    "replace": "    let mut p = at;",
+    "test": "arrival_is_in_front_of_the_waystone_on_dry_ground_outside_any_wall"
+  },
+  {
+    "name": "M7 travel: arrival stands on what is underfoot",
+    "file": "crates/core/src/travel.rs",
+    "find": "    p.y = crate::solid::surface(w, p.x, p.z);\n    Some((p, yaw))",
+    "replace": "    Some((p, yaw))",
+    "test": "arrival_is_in_front_of_the_waystone_on_dry_ground_outside_any_wall"
+  },
+  {
+    "name": "M7 travel: a journey moves the player in the dark",
+    "file": "crates/core/src/travel.rs",
+    "find": "        put_at(w, j.to);\n        sound(w, \"travel_in\");",
+    "replace": "        sound(w, \"travel_in\");",
+    "test": "a_journey_fades_out_moves_the_player_and_fades_back"
+  },
+  {
+    "name": "M7 travel: the keys do nothing on a journey",
+    "file": "crates/core/src/travel.rs",
+    "find": "    if w.travel.warp.is_some() {\n        Input::default()",
+    "replace": "    if false {\n        Input::default()",
+    "test": "a_journey_fades_out_moves_the_player_and_fades_back"
+  },
+  {
+    "name": "M7 travel: a ride costs at most the most",
+    "file": "crates/core/src/travel.rs",
+    "find": "    (p.base + (metres / p.per_m) as u32).min(p.most)",
+    "replace": "    p.base + (metres / p.per_m) as u32",
+    "test": "each_ride_is_priced_by_its_distance"
+  },
+  {
+    "name": "M7 travel: a ride takes its price",
+    "file": "crates/core/src/travel.rs",
+    "find": "        g.world.inventory.coins -= cost;\n",
+    "replace": "",
+    "test": "the_traveller_charges_exactly_refuses_short_and_the_ride_wakes_the_waystone"
+  },
+  {
+    "name": "M7 travel: a ride short of coins is refused",
+    "file": "crates/core/src/travel.rs",
+    "find": "        if have < cost {",
+    "replace": "        if false {",
+    "test": "the_traveller_charges_exactly_refuses_short_and_the_ride_wakes_the_waystone"
+  },
+  {
+    "name": "M7 travel: arriving wakes the waystone",
+    "file": "crates/core/src/travel.rs",
+    "find": "    wake(w, k);\n    if let Some(p) = w.travel.points.get_mut(k) {",
+    "replace": "    if let Some(p) = w.travel.points.get_mut(k) {",
+    "test": "the_traveller_charges_exactly_refuses_short_and_the_ride_wakes_the_waystone"
+  },
+  {
+    "name": "M7 travel: the trainer gives the flute",
+    "file": "crates/core/src/travel.rs",
+    "find": "        crate::inventory::give(w, Item::Flute, 1);\n        crate::ui::say(",
+    "replace": "        crate::ui::say(",
+    "test": "the_trainer_gives_the_flute_and_teaches_the_song_with_its_notes"
+  },
+  {
+    "name": "M7 travel: the teaching line shows the notes",
+    "file": "crates/core/src/ui.rs",
+    "find": "        song: (d.lines[d.line] == crate::travel::TEACH_LINE).then(|| crate::travel::song_card(s)),",
+    "replace": "        song: None,",
+    "test": "the_trainer_gives_the_flute_and_teaches_the_song_with_its_notes"
+  },
+  {
+    "name": "M7 travel: the quest line names the flute",
+    "file": "crates/core/src/story.rs",
+    "find": "    if crate::travel::quest(w) {\n        return \"quest_flute\";",
+    "replace": "    if false {\n        return \"quest_flute\";",
+    "test": "the_trainer_gives_the_flute_and_teaches_the_song_with_its_notes"
+  },
+  {
+    "name": "M7 travel: the quest screen shows the song",
+    "file": "crates/core/src/ui.rs",
+    "find": "            song: crate::travel::known(w, s),",
+    "replace": "            song: None,",
+    "test": "the_quest_screen_shows_the_song_and_the_line_moves_on_once_one_is_woken"
+  },
+  {
+    "name": "M7 travel: the flute's quick key plays it",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if pressed && inv.quick[k] == Some(Item::Flute) {\n            play = true;",
+    "replace": "        if false {\n            play = true;",
+    "test": "the_flute_s_quick_key_plays_it_and_never_readies_it"
+  },
+  {
+    "name": "M7 travel: Enter on the flute plays it",
+    "file": "crates/core/src/ui.rs",
+    "find": "    if face == SELECT && select_item(&g.world.inventory, g.menu.cursor[SELECT]) == Some(Item::Flute) {",
+    "replace": "    if false {",
+    "test": "enter_on_the_flute_in_select_item_plays_it"
+  },
+  {
+    "name": "M7 travel: Esc puts the flute away",
+    "file": "crates/core/src/ui.rs",
+    "find": "        Screen::Song => crate::travel::cancel(g),\n",
+    "replace": "",
+    "test": "escape_puts_the_flute_away"
+  },
+  {
+    "name": "M7 travel: E is offered by a dormant waystone",
+    "file": "crates/core/src/story.rs",
+    "find": "        offer(Use::Waystone(k), d);",
+    "replace": "        let _ = (k, d);",
+    "test": "e_wakes_a_waystone_and_its_mark_appears_on_the_map"
+  },
+  {
+    "name": "M7 travel: a woken waystone is marked on the map",
+    "file": "crates/core/src/places.rs",
+    "find": "        .chain(crate::travel::marks(w))\n",
+    "replace": "",
+    "test": "e_wakes_a_waystone_and_its_mark_appears_on_the_map"
+  },
+  {
+    "name": "M7 travel: E reaches a waystone from 1.2 m past its edge",
+    "file": "crates/core/src/travel.rs",
+    "find": "    let edge = ONE / 2 + spec().wake;",
+    "replace": "    let edge = ONE * 4;",
+    "test": "a_waystone_out_of_reach_is_not_offered"
+  },
+  {
+    "name": "M7 travel: coming within 20 m counts as reached",
+    "file": "crates/core/src/travel.rs",
+    "find": "is_some_and(|at| at.sub(me).len_xz() < sp.reach)",
+    "replace": "is_some_and(|at| at.sub(me).len_xz() < fx::int(30))",
+    "test": "coming_within_twenty_metres_counts_as_having_been_there"
+  },
+  {
+    "name": "M7 travel: a dormant waystone draws no light",
+    "file": "crates/core/src/travel.rs",
+    "find": "        if !w.travel.points[k].woken {\n            continue;\n        }\n",
+    "replace": "",
+    "test": "a_dormant_waystone_draws_no_light"
+  },
+  {
+    "name": "M7 travel: a woken waystone's light holds still",
+    "file": "crates/core/src/travel.rs",
+    "find": "        let place = Affine::translate(at).then(&Affine::rot_y(yaw));\n        glow.placed",
+    "replace": "        let place = Affine::translate(at.add(v3(0, (w.tick % 2) as i32, 0))).then(&Affine::rot_y(yaw));\n        glow.placed",
+    "test": "a_woken_waystone_in_view_draws_the_same_frame_tick_after_tick"
+  },
+  {
+    "name": "M7 travel: a journey goes where it was chosen",
+    "file": "crates/core/src/travel.rs",
+    "find": "        to: k,\n        ticks: 0,\n        ride: false,",
+    "replace": "        to: 2,\n        ticks: 0,\n        ride: false,",
+    "test": "a_recorded_journey_hashes_the_same_every_run"
+  },
+  {
+    "name": "M7 travel: the staff needs each note a line",
+    "file": "crates/core/src/travel.rs",
+    "find": "        if Note::ALL.iter().any(|n| !staff.contains(n)) || staff.len() != Note::ALL.len() {",
+    "replace": "        if false {",
+    "test": "the_travel_file_gives_a_six_note_song_and_refuses_an_unknown_note"
+  },
+  {
+    "name": "M7 travel: CW-6: the flute's route is its own",
+    "file": "data/items.json",
+    "find": "      \"routes\": [\"trainer_gift\"],",
+    "replace": "      \"routes\": [\"trainer\"],",
+    "test": "the_flute_has_one_route_and_one_mechanic_of_its_own"
+  },
+  {
+    "name": "M7 travel: CW-6: the flute's mechanic is its own",
+    "file": "data/items.json",
+    "find": "      \"mechanic\": \"songs\",",
+    "replace": "      \"mechanic\": \"arc_return\",",
+    "test": "the_flute_has_one_route_and_one_mechanic_of_its_own"
+  },
+  {
+    "name": "M7b swing: a strike leaves a trail",
+    "file": "crates/core/src/swing.rs",
+    "find": "        sw.trail_len = (sw.trail_len + 1).min(TRAIL as u8);",
+    "replace": "        sw.trail_len = (sw.trail_len + 1).min(2);",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b swing: the trail fades to nothing",
+    "file": "crates/core/src/swing.rs",
+    "find": "        sw.trail_len = sw.trail_len.saturating_sub(TRAIL_FADE);",
+    "replace": "        sw.trail_len = sw.trail_len.saturating_sub(TRAIL_FADE).max(sw.trail_len.min(1));",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b swing: the cue off draws no trail",
+    "file": "crates/core/src/swing.rs",
+    "find": "    if !w.ui.settings.cue {\n        return;\n    }\n    let colour = rgb(look.palette.lamp);\n    for id in 0..player::count(w) {",
+    "replace": "    if false {\n        return;\n    }\n    let colour = rgb(look.palette.lamp);\n    for id in 0..player::count(w) {",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b arm: every fighter's blade keeps its trail",
+    "file": "crates/core/src/arm.rs",
+    "find": "        crate::swing::trail(&mut f.arm); // M7 (R9.175)",
+    "replace": "        if id == 0 { crate::swing::trail(&mut f.arm); } // M7 (R9.175)",
+    "test": "a_foe_s_cut_leaves_a_trail"
+  },
+  {
+    "name": "M7b swing: a thrust is pushed fast",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const THRUST_MOST: Fx = ONE * 26 / 100;",
+    "replace": "pub const THRUST_MOST: Fx = ONE * 8 / 100;",
+    "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
+    "name": "M7b player: a thrust leans the body in",
+    "file": "crates/core/src/player.rs",
+    "find": "    let tilt = tilt.then(&tip(b.facing, -fx::mul(crate::swing::LUNGE_LEAN, g.lunge)));",
+    "replace": "    let tilt = tilt.then(&tip(b.facing, -fx::mul(0, g.lunge)));",
+    "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
+    "name": "M7b swing: the lunge eases out",
+    "file": "crates/core/src/swing.rs",
+    "find": "    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { 0 }, LUNGE_STEP);",
+    "replace": "    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { ONE / 2 }, LUNGE_STEP);",
+    "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
     "name": "M7 wounds: a blow's damage is kept on its part",
     "file": "crates/core/src/wounds.rs",
     "find": "        l.dmg[s] += taken;",

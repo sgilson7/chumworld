@@ -112,6 +112,8 @@ pub struct World {
     // M6: the orbs in flight and the casts under way; the imbue
     pub orbs: crate::orbs::State,
     pub imbue: crate::imbue::State,
+    // M7 travel (T11): the waystones, the flute's song screen, a journey
+    pub travel: crate::travel::State,
     // M7 (P4): blood in flight and on the ground, parts taken off, the cues
     pub wounds: crate::wounds::State,
 }
@@ -157,6 +159,7 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
+            travel: crate::travel::State::default(), // M7 travel
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w
@@ -177,6 +180,8 @@ impl World {
             return;
         }
         let input = &crate::story::filter(self, input);
+        // M7 travel: on a journey, the keys and the mouse do nothing
+        let input = &crate::travel::filter(self, input);
         self.tick += 1;
         // M6: the scripted defender's hand added to the record, for a view
         // (`magic.defend`, a test act)
@@ -225,6 +230,8 @@ impl World {
         crate::orbs::step(self);
         // 7. M5: the opening, E and the pickups, the merchant, the camp, the trainer
         crate::story::step(self, input);
+        // M7 travel: the waystones come near, the flute given, a journey
+        crate::travel::step(self);
         // 8. M2: the water
         crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
@@ -246,6 +253,8 @@ impl World {
                                                      // M6: the imbued blade's glow, then the orbs and their sparks
         crate::imbue::draw(self, alpha, look, out);
         crate::orbs::draw(self, alpha, look, out);
+        // M7 travel: the woken waystones' light, the traveller and the mule
+        crate::travel::draw(self, alpha, look, out);
     }
 
     /// What never moves: the static groups, and the meshes they draw.

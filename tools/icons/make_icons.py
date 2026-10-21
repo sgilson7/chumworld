@@ -225,6 +225,43 @@ icons["place_scarecrow"] = mark(f'<path d="M16 12 L 16 27 M 7 15 L 25 15" fill="
 icons["place_chest"] = mark(f'<rect x="7" y="12" width="18" height="12" rx="2" fill="{WOOD}" {M}/><path d="M7 17 L 25 17" {M}/><rect x="14.5" y="15" width="3" height="5" fill="{GOLD}" {st("1.4")}/>')
 icons["place"] = mark(f'<polygon points="16,6 24,16 16,26 8,16" fill="{ACC}" {M}/>')
 
+# M7 travel (T11): the flute, its five notes, the waystones' map marks and
+# the traveller's portrait
+icons["flute"] = svg(
+    f'<polygon points="12,50 48,14 54,20 18,56" fill="{WOOD_D}" {S}/>'
+    f'<polygon points="12,50 48,14 50,16 14,52" fill="{WOOD}"/>'
+    f'<polygon points="12,50 48,14 54,20 18,56" fill="none" {S}/>'
+    f'<polygon points="44,18 48,14 54,20 50,24" fill="{ACC}" {st("2")}/>'
+    f'<polygon points="12,50 16,46 22,52 18,56" fill="{ACC}" {st("2")}/>'
+    + "".join(f'<circle cx="{x}" cy="{y}" r="2.2" fill="{INK}"/>' for x, y in [(23, 41), (28, 36), (33, 31), (38, 26)])
+    + f'<circle cx="46" cy="18" r="1.2" fill="{PAPER}"/>',
+    view="6 8 52 52",
+)
+# notes: Ocarina of Time's C buttons and A, here the arrows and Space
+NOTE, NOTE_D = "#ffd68c", "#e0a640"
+def note(body):
+    return svg(f'<circle cx="16" cy="16" r="13" fill="{NOTE_D}" {S}/><circle cx="15" cy="15" r="11" fill="{NOTE}"/>' + body, view="0 0 32 32")
+icons["note_up"] = note(f'<polygon points="16,7 24,20 8,20" fill="{INK}"/>')
+icons["note_down"] = note(f'<polygon points="16,25 24,12 8,12" fill="{INK}"/>')
+icons["note_left"] = note(f'<polygon points="7,16 20,8 20,24" fill="{INK}"/>')
+icons["note_right"] = note(f'<polygon points="25,16 12,8 12,24" fill="{INK}"/>')
+icons["note_a"] = svg(f'<circle cx="16" cy="16" r="13" fill="{SKY_D}" {S}/><circle cx="15" cy="15" r="11" fill="{SKY}"/><circle cx="16" cy="16" r="5" fill="{PAPER}" {st("2")}/>', view="0 0 32 32")
+WAY, WAY_D, GLOW = "#ccc4d4", "#988ea2", "#c4d8ff"
+waystone = mark(
+    f'<path d="M10 27 L 10 10 L 16 5 L 22 10 L 22 27 Z" fill="{WAY}" {M}/>'
+    f'<circle cx="16" cy="12" r="2.4" fill="none" stroke="{SKY_D}" stroke-width="1.8"/>'
+    f'<path d="M16 16 L 16 24 M 13 19 L 16 21 L 19 19" fill="none" stroke="{SKY_D}" stroke-width="1.8" stroke-linecap="round"/>'
+    f'<path d="M6 27 L 26 27" {M}/>'
+)
+for k in ["village", "bridge", "hill", "shrine", "camp"]:
+    icons[f"place_waystone_{k}"] = waystone
+icons["portrait_traveller"] = face(SKIN_D, "#5c4a42",
+    '<path d="M6 30 C 10 24, 70 24, 74 30 C 66 34, 14 34, 6 30 Z" fill="#5c4a42" stroke="{ink}" stroke-width="2.6" stroke-linejoin="round"/>'
+    '<path d="M20 28 C 20 12, 60 12, 60 28 Z" fill="#5c4a42" stroke="{ink}" stroke-width="2.6" stroke-linejoin="round"/>'
+    '<path d="M21 24 L 59 24" stroke="#c4a070" stroke-width="3"/>'
+    '<path d="M26 60 C 30 72, 50 72, 54 60 C 48 64, 32 64, 26 60 Z" fill="#8a7466" stroke="{ink}" stroke-width="2.2" stroke-linejoin="round"/>'
+    '<path d="M33 57 Q 40 61 47 57" fill="none" stroke="{ink}" stroke-width="2.4" stroke-linecap="round"/>')
+
 OUT.mkdir(parents=True, exist_ok=True)
 for name, text in icons.items():
     (OUT / f"{name}.svg").write_text(text)

@@ -82,6 +82,9 @@ pub struct Gait {
     /// body leans back along it, the arms lose half their strength
     pub stagger: u8,
     pub stagger_way: V3,
+    /// M7 (R9.177): how far a thrust has the body lunging forward, `ONE`
+    /// fully (`swing::LUNGE_LEAN`), set by the cut, eased in and out
+    pub lunge: Fx,
     /// M7 (P4): bent down to take up a weapon, `ONE` fully (`wounds::bend`);
     /// a hop on one leg: ticks into the hop, and how high the body is off
     /// the ground

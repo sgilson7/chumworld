@@ -44,10 +44,12 @@ pub enum Item {
     Gloves,
     Trousers,
     Boots,
+    // M7 travel (T11)
+    Flute,
 }
 
 impl Item {
-    pub const ALL: [Item; 12] = [
+    pub const ALL: [Item; 13] = [
         Item::ShortSword,
         Item::Sword,
         Item::Boomerang,
@@ -60,6 +62,7 @@ impl Item {
         Item::Gloves,
         Item::Trousers,
         Item::Boots,
+        Item::Flute,
     ];
 
     /// The id in `data/items.json`, and in string keys (`item_<id>`).
@@ -77,6 +80,7 @@ impl Item {
             Item::Gloves => "gloves",
             Item::Trousers => "trousers",
             Item::Boots => "boots",
+            Item::Flute => "flute",
         }
     }
 
@@ -99,6 +103,8 @@ pub enum Kind {
     Supply,
     Key,
     Armour,
+    /// M7 travel: played, not held or worn
+    Instrument,
 }
 
 /// Which hand a weapon goes in: the sword hand (Equipment) or the free hand
@@ -385,6 +391,31 @@ mod tests {
             .filter_map(|d| d.slot)
             .collect();
         assert_eq!(set, Slot::ALL.to_vec());
+    }
+
+    /// CW-6 with the flute (M7 travel, T11): the instrument has exactly one
+    /// route, which no other item and not the imbue shares, and a mechanic
+    /// no other item has. Worked by hand from data/items.json: its route is
+    /// "trainer_gift" (the imbue's is "trainer", a teaching, not a gift) and
+    /// its mechanic "songs".
+    #[test]
+    fn the_flute_has_one_route_and_one_mechanic_of_its_own() {
+        let f = Item::Flute.def();
+        assert_eq!(f.kind, Kind::Instrument);
+        assert_eq!(f.routes, vec!["trainer_gift".to_string()]);
+        assert_eq!(f.mechanic, "songs");
+        for d in defs().iter().filter(|d| d.id != f.id) {
+            assert!(
+                d.routes.iter().all(|r| !f.routes.contains(r)),
+                "{} shares the flute's route",
+                d.id
+            );
+            assert_ne!(d.mechanic, f.mechanic, "{} shares the flute's mechanic", d.id);
+        }
+        assert!(!catalogue().imbue.routes.contains(&f.routes[0]));
+        // it goes on a quick key and in Select Item's fifth cell, and the
+        // merchant never buys it
+        assert_eq!((f.quick, f.grid, f.keep, f.stack), (true, Some(4), true, 1));
     }
 
     /// The routes the journal's items entry gives (2026-10-20-items).
