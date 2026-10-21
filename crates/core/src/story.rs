@@ -1809,6 +1809,31 @@ mod tests {
         assert_ne!(b[14], a[14]);
     }
 
+    /// M7 (QA): every pickup outside the house can be taken from every
+    /// side: north, east, south and west of it there is a place a body can
+    /// stand, within E's reach less 0.2 m (from 0.6 m out to 2.0 m), clear of
+    /// every wall (`solid::Wall::holds`, grown by a body's radius) and dry.
+    /// The trousers lay 1.7 m from the hollow tree's middle, inside its
+    /// 3 × 3 m footprint's corner, and the boots 0.9 m past the shrine's.
+    #[test]
+    fn every_pickup_can_be_reached_from_every_side() {
+        let w = crate::world::World::new(1);
+        for p in spec()
+            .pickups
+            .iter()
+            .filter(|p| p.place != "bed" && p.place != "village")
+        {
+            let at = pickup_at(&w, p);
+            for (dx, dz) in [(0, -1), (1, 0), (0, 1), (-1, 0)] {
+                let free = (6..=20).any(|t| {
+                    let (x, z) = (at.x + dx * ONE * t / 10, at.z + dz * ONE * t / 10);
+                    !w.solid.walls.iter().any(|wl| wl.holds(x, z, solid::RADIUS)) && !w.land.is_water(x, z)
+                });
+                assert!(free, "the {:?} at {}: no room {dx},{dz} of it", p.item, p.place);
+            }
+        }
+    }
+
     #[test]
     fn e_picks_up_what_lies_in_reach_and_the_prompt_names_it() {
         let mut w = opening(3);

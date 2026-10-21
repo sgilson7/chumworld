@@ -3771,5 +3771,19 @@
     "find": "            at.y = solid::surface(w, at.x, at.z);\n            w.player = crate::player::Body::new(at, w.player.facing);",
     "replace": "            at.y = w.ground(at.x, at.z);\n            w.player = crate::player::Body::new(at, w.player.facing);",
     "test": "the_views_stand_the_player_where_they_say"
+  },
+  {
+    "name": "M7 land: the trousers back against the hollow tree",
+    "file": "data/story.json",
+    "find": "\"place\": \"hollow_tree\", \"at_cm\": [0, -350]",
+    "replace": "\"place\": \"hollow_tree\", \"at_cm\": [50, -160]",
+    "test": "every_pickup_can_be_reached_from_every_side"
+  },
+  {
+    "name": "M7 land: the boots back against the shrine",
+    "file": "data/story.json",
+    "find": "\"place\": \"shrine\", \"at_cm\": [0, 320]",
+    "replace": "\"place\": \"shrine\", \"at_cm\": [0, 240]",
+    "test": "every_pickup_can_be_reached_from_every_side"
   }
 ]
