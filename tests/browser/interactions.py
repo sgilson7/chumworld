@@ -457,7 +457,13 @@ def flicker_audit(page, check, engine, base):
             software = page.get_attribute("body", "data-software") == "true"
             least = 2 if software else 8
             check(fig["frames"][0]["colours"] > least, f"the Equipment screen draws the player's figure on its canvas ({fig['frames'][0]['colours']} colours)")
-            check(fig["frames"][0]["hash"] != fig["frames"][2]["hash"], "the figure turns")
+            # the figure turns once in 16 s, under a degree over three frames:
+            # three frames that land in one tick hold it still (WebKit under
+            # load, R9.402), so the turn is read over 20 frames, a third of a
+            # second, and the three frames above stay for the shimmer
+            page.evaluate(WAIT_FRAMES, [20, 400])
+            later = page.evaluate(GRAB_ON, [1, 0, False, "#menu .equip-figure canvas.figure"])
+            check(fig["frames"][0]["hash"] != later["frames"][0]["hash"], "the figure turns")
             if not software:
                 check(share < 0.0005, f"the turning figure shows no shimmer: {fig['flips']} of {fig['pixels']} pixels flipped and back")
             print(f"  ({engine}: the Equipment figure, {fig['flips']} A-B-A pixels of {fig['pixels']})")
