@@ -371,7 +371,15 @@ fn drops(w: &mut World) {
         let at = leader(w)
             .map(|id| player::body(w, id).pos)
             .unwrap_or_else(|| centre(w));
-        story::drop(w, Gift::Item(Item::ChestKey, 1), at.add(v3(0, 0, ONE * 7 / 10)));
+        // M7 (R9.25): toward the player, clear of the fallen leader's body
+        // (the camp now falls where it waits, by the tents and the chest)
+        let to = w.player.pos.sub(at);
+        let way = if to.len_xz() > 0 {
+            v3(to.x, 0, to.z).norm()
+        } else {
+            v3(0, 0, ONE)
+        };
+        story::drop(w, Gift::Item(Item::ChestKey, 1), at.add(way.scale(ONE * 12 / 10)));
         story::banner(w, "story_camp_cleared");
     }
 }
