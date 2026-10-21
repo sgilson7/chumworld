@@ -656,6 +656,15 @@ pub fn walls(w: &World) -> Vec<Wall> {
 /// stair or a ramp from its foot and onto the top from its head, but not
 /// under a platform or through a rock's side.
 pub fn guard(climbs: &[Climb], feet_y: Fx, pos: &mut V3, vel: &mut V3) -> bool {
+    let mut one = [*vel];
+    let pushed = guard_all(climbs, feet_y, pos, &mut one);
+    *vel = one[0];
+    pushed
+}
+
+/// `guard` taking the share into a climb away from each of `vels` (T18,
+/// `solid::step`'s swept move).
+pub fn guard_all(climbs: &[Climb], feet_y: Fx, pos: &mut V3, vels: &mut [V3]) -> bool {
     let high: Vec<Wall> = climbs
         .iter()
         .filter(|c| c.rect.holds(pos.x, pos.z, solid::RADIUS + ONE))
@@ -665,7 +674,7 @@ pub fn guard(climbs: &[Climb], feet_y: Fx, pos: &mut V3, vel: &mut V3) -> bool {
         })
         .map(|c| c.rect)
         .collect();
-    solid::keep_out(&high, pos, vel, solid::RADIUS)
+    solid::keep_out_all(&high, pos, vels, solid::RADIUS)
 }
 
 /// The highest climbed surface at (x, z), if one is there.

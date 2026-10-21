@@ -168,23 +168,35 @@ fn probe_pop_in_near_the_player() {
         ("the meadow", "1500,2650,80,-3"),
         ("the camp's edge", "3150,1060,300,-6"),
     ] {
-        for (what, bits, turn, n) in [
-            ("walking straight", FORWARD, 0, 480),
-            ("running straight", FORWARD | RUN, 0, 480),
-            ("turning a whole way round", 0, dx, 480),
+        // T18 (R9.423): and sprinting at its top, 35 m/s, and at the top
+        // with five speedster pieces, 70 m/s (the sprint set at its top;
+        // five pieces' grip takes a few seconds to reach it)
+        let sprint: &[(&str, &str)] = &[("sprint.set", "480")];
+        let fast: &[(&str, &str)] = &[("motion.speedster", "5"), ("sprint.set", "480")];
+        for (what, bits, turn, n, acts) in [
+            ("walking straight", FORWARD, 0, 480, &[][..]),
+            ("running straight", FORWARD | RUN, 0, 480, &[][..]),
+            ("turning a whole way round", 0, dx, 480, &[][..]),
+            ("sprinting straight at 35 m/s", FORWARD, 0, 480, sprint),
+            ("sprinting straight at 70 m/s", FORWARD, 0, 480, fast),
         ] {
             let mut g = game();
+            g.act("story.skip", "").unwrap();
             g.act("places.go", go).unwrap();
             g.act("story.still", "on").unwrap();
             g.act("screen.show", "play").unwrap();
             for _ in 0..180 {
                 frame(&mut g, 0, 0);
             }
+            for (name, value) in acts {
+                g.act(name, value).unwrap();
+            }
             let from: Fx = g.world.player.pos.x;
             let (frames, pops, by_mesh) = walk(&mut g, n, bits, turn);
             let moved = (g.world.player.pos.x - from) as f64 / ONE as f64;
+            let speed = g.world.player.vel.len_xz() as f64 * 60.0 / ONE as f64;
             println!(
-                "{place}, {what}: {frames} of {n} frames with a pop within {NEAR_M} m, {pops} pops (by mesh {by_mesh:?}); moved {moved:.1} m east"
+                "{place}, {what}: {frames} of {n} frames with a pop within {NEAR_M} m, {pops} pops (by mesh {by_mesh:?}); moved {moved:.1} m east, at {speed:.1} m/s at the end"
             );
         }
     }

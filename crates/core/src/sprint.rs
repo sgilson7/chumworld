@@ -11,12 +11,15 @@
 //! (`story::RUN_TICKS`), never one.
 //!
 //! **The build.** A sprint runs at the run speed. After `BUILD_AFTER` ticks
-//! (5 s) unbroken, its speed eases up over `RAMP` ticks (4 s, a smoothstep,
+//! (4 s) unbroken, its speed eases up over `RAMP` ticks (4 s, a smoothstep,
 //! so it starts and ends without a kink) to `TOP` times the run speed. It
 //! is a multiplier on `motion::RUN` and whatever a road gives, so it carries
-//! over any change to those (R9.251). The speedster's pieces add their 20%
-//! a piece of the run speed on top of the sprint, not of the sprint, and
-//! nothing goes past `CAP` times the run speed (R9.252).
+//! over any change to those (R9.251). The person (T18): "change the sprint
+//! time to 4 seconds, and make it go up to 5x, and the speedster can make
+//! you go 10x": the speedster's pieces multiply the sprint, the bare run
+//! times the sprint times 1 + 0.2 a piece, so the top is 5 to 10 times the
+//! bare run for 0 to 5 pieces, and nothing goes past `CAP`, ten times it
+//! (R9.420, replacing R9.252's sum).
 //!
 //! **What ends it**: another tap; no movement key (a stop); the sword drawn
 //! or a foe held on; a blow (a stagger, or health lost); a dodge-step; a
@@ -24,7 +27,7 @@
 //!
 //! **Feel at speed.** A sprint runs along its own heading, which turns
 //! toward the way the keys ask at a rate that falls with speed (`turn_rate`):
-//! 600° a second at a run, 120° at three times it. Ended at speed, a body
+//! 600° a second at a run, 120° at `TOP` times it. Ended at speed, a body
 //! skids: it loses at most `SKID` of speed a tick until it is back at the run
 //! speed. Uphill, the build gives way (`STEEP`). The camera pulls back and
 //! the view widens with the build (`view`), eased in and out.
@@ -51,19 +54,19 @@ pub const TAP_MOST: u16 = 12;
 /// has stayed up this many more (0.1 s): a press soon after is a run.
 pub const QUIET: u16 = 12;
 pub const SETTLE: u16 = 6;
-/// A sprint runs this many ticks (5 s) at the run speed before it builds.
-pub const BUILD_AFTER: u32 = 300;
+/// A sprint runs this many ticks (4 s) at the run speed before it builds.
+pub const BUILD_AFTER: u32 = 240;
 /// The build takes this many ticks (4 s) from the run speed to the top.
 pub const RAMP: u32 = 240;
-/// The top: three times the run speed.
-pub const TOP: Fx = fx::int(3);
-/// Nothing sprints faster than four times the bare run speed, whatever is
-/// worn and whatever the road.
-pub const CAP: Fx = fx::int(4);
+/// The top: five times the run speed.
+pub const TOP: Fx = fx::int(5);
+/// Nothing sprints faster than ten times the bare run speed (70 m/s),
+/// whatever is worn and whatever the road.
+pub const CAP: Fx = fx::int(10);
 /// The keys asking for more than this from the way the sprint runs end it.
 pub const HARD_TURN: i32 = deg(100);
 /// The most the sprint's heading turns a tick: this at the run speed (600°
-/// a second), falling to `TURN_AT_TOP` at three times it (120° a second).
+/// a second), falling to `TURN_AT_TOP` at `TOP` times it (120° a second).
 pub const TURN_AT_RUN: i32 = deg(10);
 pub const TURN_AT_TOP: i32 = deg(2);
 /// Skidding, a body loses at most this much speed a tick: 0.5 m/s, a
@@ -161,26 +164,25 @@ pub fn mult(s: &Sprint) -> Fx {
     ONE + fx::mul(TOP - ONE, fx::mul(share(s.ticks), s.slope))
 }
 
-/// The speed a sprint asks for, a tick: the bare run speed times `mult`,
-/// plus what `n` speedster pieces add to the run speed, times the road's
-/// share (`want_len` over `asked`, the speed the keys asked for before the
-/// road), held under `CAP`. At `mult` = `ONE` with Shift held this is
-/// `want_len` exactly.
+/// The speed a sprint asks for, a tick: the run speed with `n` speedster
+/// pieces (the bare run times 1 + 0.2 n, CW-8) times `mult`, times the
+/// road's share (`want_len` over `asked`, the speed the keys asked for
+/// before the road), held under `CAP` times the bare run. At `mult` =
+/// `ONE` with Shift held this is `want_len` exactly.
 pub fn speed(n: u8, mult: Fx, want_len: Fx, asked: Fx) -> Fx {
     let bare = motion::per_tick(motion::RUN, 0);
-    let pieces = motion::per_tick(motion::RUN, n) - bare;
-    let sprint = fx::mul(bare, mult) + pieces;
+    let sprint = fx::mul(motion::per_tick(motion::RUN, n), mult);
     let road = (want_len as i64 * sprint as i64 / asked.max(1) as i64) as Fx;
     road.min(fx::mul(bare, CAP))
 }
 
 /// The most the heading turns a tick at `speed` (a tick): `TURN_AT_RUN` at
-/// the bare run speed or slower, `TURN_AT_TOP` at three times it or faster,
+/// the bare run speed or slower, `TURN_AT_TOP` at `TOP` times it or faster,
 /// in a straight line between.
 pub fn turn_rate(speed: Fx) -> i32 {
     let bare = motion::per_tick(motion::RUN, 0);
     let q = fx::div(speed, bare.max(1));
-    let past = ((q - ONE) / 2).clamp(0, ONE);
+    let past = fx::div((q - ONE).max(0), TOP - ONE).clamp(0, ONE);
     TURN_AT_RUN - fx::mul(TURN_AT_RUN - TURN_AT_TOP, past)
 }
 
@@ -347,25 +349,33 @@ pub fn view(w: &World, alpha: Fx) -> (Fx, i32) {
     (fx::mul(PULL, e), fx::mul(WIDEN, e))
 }
 
-/// The HUD's sprint bar while the player sprints: the build's share filled,
-/// the seconds until it starts or how many times the run speed it gives.
+/// The HUD's sprint bar while the player sprints: the seconds until the
+/// build starts, then how many times the bare run speed the sprint asks
+/// for, the speedster's pieces included, to the nearest whole number (T18,
+/// R9.424); filled by the same multiple's share of the way from the bare
+/// run to `CAP`.
 pub fn bar(s: &Strings, w: &World) -> Option<crate::ui::Bar> {
     let sp = &w.me.gait.sprint;
     if !sp.on {
         return None;
     }
-    let build = share(sp.ticks);
+    let n = motion::pieces(w);
+    let (bare, run) = (motion::per_tick(motion::RUN, 0), motion::per_tick(motion::RUN, n));
+    let times = fx::div(speed(n, mult(sp), run, run), bare.max(1));
     let text = if sp.ticks < BUILD_AFTER {
         let left = (BUILD_AFTER - sp.ticks).div_ceil(TICKS_PER_SECOND as u32);
         crate::api::fill(&s.get("sprint_builds"), &[("n", left.to_string())])
     } else {
-        crate::api::fill(&s.get("sprint_times"), &[("n", fx::decimal(mult(sp), 1))])
+        let whole = (times + ONE / 2) / ONE;
+        crate::api::fill(&s.get("sprint_times"), &[("n", whole.to_string())])
     };
+    let past = (times - ONE).max(0) as i64;
+    let span = (CAP - ONE) as i64;
     Some(crate::ui::Bar {
         id: "sprint".into(),
         label: s.get("sprint"),
         text,
-        pct: ((build as i64 * 100 + ONE as i64 / 2) / ONE as i64) as i32,
+        pct: ((past * 100 + span / 2) / span).min(100) as i32,
     })
 }
 
