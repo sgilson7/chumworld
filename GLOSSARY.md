@@ -14,6 +14,12 @@ Where slush comes out. Each line has up to {line.spouts} spouts.
 Not: tap, dispenser, nozzle
 -->
 
+### Ambush
+
+Bandits hidden behind a tree or a rock beside a trail. They break from cover when you pass close.
+
+Not: trap
+
 ### Autosave
 
 The game saving itself in the browser: when you leave the village, when a waystone is first woken, when a quest step is done, when you walk into or out of a place, and after {autosave.minutes} minutes of play. Never mid-duel or while someone is talking. A small Saved mark shows it.
@@ -21,6 +27,10 @@ The game saving itself in the browser: when you leave the village, when a waysto
 ### Bandage
 
 Wraps a wound and gives back {bandage.heals} health. The merchant sells them.
+
+### Bandit lean-to
+
+A small bandit site off a way, a tent and a fire with a lookout. Once seen, the map marks it.
 
 ### Blood
 
@@ -158,6 +168,10 @@ Not: inventory
 
 A setting: how far the sword hand moves for a movement of the mouse, as a percentage.
 
+### Orc fire
+
+A small fire off a way where two orcs sit. Once seen, the map marks it.
+
 ### Orb
 
 One shape of magic in flight. Each kind of orb has its own shape and its own colour, and one kind cannot be deflected.
@@ -180,6 +194,12 @@ The menu screen for the imbue, your coins and what to do next.
 
 Not: journal
 
+### Quest line
+
+Something to go after that a rumour started: the speedster's armour, the leader's sword, the bandits' chest, the trainer, the waystones. The Quest screen lists each with what you last heard of it and how far you are; it moves on as its items come to hand and is done once they all have.
+
+Not: quest log, mission
+
 ### Quick item
 
 An item put on a number key from Select Item. Pressing the key readies it in the free hand.
@@ -199,6 +219,12 @@ A cut from low in front up over the shoulder: hold the left button and move the 
 A throwable from the ground. One that lands on the merchant's cart stops the cart.
 
 Not: stone
+
+### Rumour
+
+What a person tells you about where something is or how to get it. Talk to someone with E and they tell you one rumour; talk again for the next, until they have no more to tell. A rumour starts or moves on a quest line, and may mark a place on the map.
+
+Not: hint, gossip
 
 ### Run
 

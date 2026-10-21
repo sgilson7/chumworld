@@ -75,9 +75,13 @@ pub mod swing;
 pub mod travel;
 // M7 polish (P4): hits read on the body
 pub mod wounds;
+// M7 polish (P9, T15): foes met between the major areas
+pub mod wanderers;
 // M7 save (P10, T16): saves, save points, the autosave
 pub mod save;
 // M7 roadside (T12)
 pub mod roadside;
+// M7 rumours (T17): who tells what, and the quest lines it starts
+pub mod rumours;
 // M7 polish (P8, T14): the sprint that builds to triple speed
 pub mod sprint;

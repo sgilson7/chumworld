@@ -1,0 +1,181 @@
+{
+  "_note": "T17 (M7 rumours, crates/core/src/rumours.rs, compiled in): what people tell, who tells it, the quest line each rumour starts or moves on, the place it marks on the map, and when it is offered. Text is in data/strings.json under rumour_<id>. A rumour's claim ('of' and 'route') must be the thing's one route in data/items.json (or travel.json for the traveller and the waystones); rumours.rs's tests hold it. Every rumour waits for the opening to end. 'until' lists what makes a rumour moot (any one is enough): has:<item>, knows:imbue, woke:<point>|any, reached:all; a | inside one entry is an or. A rumour is moot too once its line is done. A teller's talk goes through the rumours that name it in this file's order; once all it knows are heard or moot it says its closing line. Names stay descriptive (CW-20).",
+  "lines": [
+    {
+      "id": "speedster",
+      "steps": ["has:hood", "has:jacket", "has:gloves", "has:trousers", "has:boots"]
+    },
+    { "id": "sword", "steps": ["has:sword"] },
+    {
+      "id": "chest",
+      "_steps": "the key, then the boomerang (the key stays in the lock once the chest is open)",
+      "steps": ["has:chest_key|has:boomerang", "has:boomerang"]
+    },
+    { "id": "trainer", "steps": ["knows:imbue", "has:flute"] },
+    {
+      "id": "waystones",
+      "steps": ["woke:village", "woke:bridge", "woke:hill", "woke:shrine", "woke:camp"]
+    }
+  ],
+  "rumours": [
+    {
+      "id": "hood",
+      "of": "hood",
+      "route": "merchant",
+      "line": "speedster",
+      "told_by": ["north_villager", "woodcutter"],
+      "until": ["has:hood"]
+    },
+    {
+      "id": "jacket",
+      "of": "jacket",
+      "route": "scarecrow",
+      "line": "speedster",
+      "reveals": { "place": "scarecrow", "label": "place_scarecrow" },
+      "told_by": ["west_villager", "merchant"],
+      "until": ["has:jacket"]
+    },
+    {
+      "id": "gloves",
+      "of": "gloves",
+      "route": "lookout",
+      "line": "speedster",
+      "reveals": { "place": "camp", "label": "place_camp" },
+      "told_by": ["north_east_villager", "woodcutter"],
+      "until": ["has:gloves"]
+    },
+    {
+      "id": "trousers",
+      "of": "trousers",
+      "route": "hollow_tree",
+      "line": "speedster",
+      "reveals": { "place": "hollow_tree", "label": "place_tree" },
+      "told_by": ["north_east_villager", "traveller", "woodcutter"],
+      "until": ["has:trousers"]
+    },
+    {
+      "id": "boots",
+      "of": "boots",
+      "route": "river_shrine",
+      "line": "speedster",
+      "reveals": { "place": "shrine", "label": "place_shrine" },
+      "told_by": ["north_west_villager", "trainer", "fisher"],
+      "until": ["has:boots"]
+    },
+    {
+      "id": "sword",
+      "of": "sword",
+      "route": "leader_duel",
+      "line": "sword",
+      "reveals": { "place": "camp", "label": "place_camp" },
+      "told_by": ["merchant", "trainer", "woodcutter"],
+      "until": ["has:sword"]
+    },
+    {
+      "id": "chest_key",
+      "of": "chest_key",
+      "route": "leader_drop",
+      "line": "chest",
+      "reveals": { "place": "camp", "label": "place_camp" },
+      "told_by": ["merchant", "fisher"],
+      "until": ["has:chest_key", "has:boomerang"]
+    },
+    {
+      "id": "boomerang",
+      "of": "boomerang",
+      "route": "camp_chest",
+      "line": "chest",
+      "reveals": { "place": "camp", "label": "place_camp" },
+      "told_by": ["north_east_villager", "traveller"],
+      "until": ["has:boomerang"]
+    },
+    {
+      "id": "imbue",
+      "of": "imbue",
+      "route": "trainer",
+      "line": "trainer",
+      "reveals": { "place": "hut", "label": "place_hut" },
+      "told_by": ["north_west_villager", "fisher", "herder"],
+      "until": ["knows:imbue"]
+    },
+    {
+      "id": "flute",
+      "of": "flute",
+      "route": "trainer_gift",
+      "line": "trainer",
+      "reveals": { "place": "hut", "label": "place_hut" },
+      "told_by": ["herder"],
+      "until": ["has:flute"]
+    },
+    {
+      "id": "traveller",
+      "of": "traveller",
+      "route": "ride",
+      "_route": "travel.json's traveller: waits at its place and rides you, for coins, to a waystone you have not been near",
+      "line": "waystones",
+      "reveals": { "place": "crossroads", "label": "place_crossroads" },
+      "told_by": ["north_villager", "fisher", "merchant"],
+      "until": ["reached:all"]
+    },
+    {
+      "id": "waystone",
+      "of": "waystone",
+      "route": "wake",
+      "_route": "travel.json's points: E by a dormant waystone wakes it",
+      "line": "waystones",
+      "reveals": { "place": "waystone_village", "label": "place_waystone_village" },
+      "told_by": ["west_villager", "traveller", "trainer", "herder"],
+      "until": ["woke:any"]
+    }
+  ],
+  "_tellers": "Who tells: the four roadside villagers (data/roadside.json's stops, after their own lines), the merchant (after the greeting, before the shop), the traveller (after the greeting, before the rides) and the trainer (once the practice is passed), and three people of their own, each standing beside a woodpile (the 'logs' prop) so its ground is flattened (places.rs). 'at' is metres east and south in the world, 'logs' metres from where the person stands, 'look' a villager's look (0 to 3). 'hello' is said the first time only; 'closing' once everything they know is heard or moot.",
+  "tellers": [
+    { "id": "north_villager", "stop": "north_villager", "closing": "rumour_villager_done" },
+    { "id": "north_west_villager", "stop": "north_west_villager", "closing": "rumour_villager_done" },
+    { "id": "north_east_villager", "stop": "north_east_villager", "closing": "rumour_villager_done" },
+    { "id": "west_villager", "stop": "west_villager", "closing": "rumour_villager_done" },
+    { "id": "merchant" },
+    { "id": "traveller" },
+    { "id": "trainer", "closing": "trainer_done" },
+    {
+      "id": "woodcutter",
+      "who": "woodcutter",
+      "_at": "north of the crossroads, across the road from the traveller",
+      "at": [2014, 2226],
+      "yaw_deg": 150,
+      "logs": [2, -2],
+      "logs_yaw_deg": 60,
+      "look": 1,
+      "hello": "woodcutter_hello",
+      "closing": "rumour_woodcutter_done"
+    },
+    {
+      "id": "fisher",
+      "who": "fisher",
+      "_at": "on the river's east bank north of the bridge, facing the water",
+      "at": [652, 2188],
+      "yaw_deg": 90,
+      "logs": [3, 1],
+      "logs_yaw_deg": 0,
+      "look": 3,
+      "hello": "fisher_hello",
+      "closing": "rumour_fisher_done"
+    },
+    {
+      "id": "herder",
+      "who": "herder",
+      "_at": "beside the trail up the trainer's hill, below the hut",
+      "at": [482, 2060],
+      "yaw_deg": 60,
+      "logs": [1, 2],
+      "logs_yaw_deg": 30,
+      "look": 0,
+      "hello": "herder_hello",
+      "closing": "rumour_herder_done"
+    }
+  ],
+  "footprints_m": { "logs": [2, 1] },
+  "talk_cm": 220,
+  "keep_clear_m": 20,
+  "_keep_clear_m": "no teller stands this near a waystone (travel.json's points), as the roadside keeps clear of the village's"
+}

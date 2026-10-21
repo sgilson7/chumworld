@@ -151,6 +151,8 @@ impl Layout {
         let mut l = Layout::parse(include_str!("../../../data/places.json")).expect("data/places.json");
         // M7 roadside (T12): the stops beside the ways out, as places
         crate::roadside::lay(&mut l);
+        // M7 rumours (T17): the people who tell rumours, by their woodpiles
+        crate::rumours::lay(&mut l);
         l
     }
 }
@@ -181,6 +183,8 @@ pub fn prop_kind(name: &str) -> Option<Prop> {
         "watchtower" => Prop::Watchtower,
         "tor" => Prop::Tor,
         "lone_tree" => Prop::LoneTree,
+        // M7 rumours (T17)
+        "logs" => Prop::Logs,
         _ => return None,
     })
 }
@@ -411,6 +415,8 @@ pub fn markers(w: &World) -> Vec<(&'static str, V3)> {
         .chain(crate::save::marks(w))
         // M7 roadside: the stops with models
         .chain(crate::roadside::marks(w))
+        // M7 (P9): the held sites seen
+        .chain(crate::wanderers::marks(w))
         .collect()
 }
 

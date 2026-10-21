@@ -186,6 +186,7 @@ pub fn model(kind: Prop) -> Model {
         Prop::Watchtower => watchtower(&mut k),
         Prop::Tor => tor(&mut k),
         Prop::LoneTree => lone_tree(&mut k),
+        Prop::Logs => logs(&mut k),
     }
     k.m
 }
@@ -1301,4 +1302,19 @@ fn lone_tree(k: &mut Kit) {
         let out = Affine::rot_y(a - fx::QUARTER_TURN).then(&Affine::rot_x(-deg(70)));
         k.shape(Mesh::Cone, (x, 200, z), (440, 1100, 320), out, bark);
     }
+}
+
+/// A woodpile (M7 rumours, T17): three logs lying side by side and two in
+/// the grooves on top, each a little longer or shorter than its neighbours
+/// so no two ends share a plane, sunk a centimetre into the ground.
+fn logs(k: &mut Kit) {
+    let (bark, cut) = (k.c("bark"), k.c("cart_wood"));
+    for (z, x0, x1) in [(-330, -900, 880), (0, -860, 920), (330, -920, 850)] {
+        k.bar(Mesh::Cyl, (x0, 140, z), (x1, 140, z), 300, bark);
+    }
+    for (z, x0, x1) in [(-165, -800, 820), (165, -840, 790)] {
+        k.bar(Mesh::Cyl, (x0, 400, z), (x1, 400, z), 300, bark);
+    }
+    // the cut end of the top log, paler, standing a little proud of it
+    k.bar(Mesh::Cyl, (815, 400, -165), (845, 400, -165), 240, cut);
 }

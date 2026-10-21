@@ -253,6 +253,46 @@ Check, 2026-10-20, after merging main at f86779b (swings, travel, triage T12 and
 
 Waiting on the person: R9.104 (the hood cannot be bought the first time the cart is met), R9.100 (item names capitalised inside a line: a lower-case form, or keep them) and R9.101 (the strings this task wrote, under "### M7 (P3, qa)" at the foot of `SECOND-ORDER.md`).
 
+## 2026-10-20: M7 rumours (part P11, branch `m7-rumours`, T17)
+
+The person: "you should also be able to talk to people to get rumors / start quest lines, so you should be able to talk to some people who point out the speedsters outfit, where to get the long sword, boomerang, imbue, etc".
+
+Built (`crates/core/src/rumours.rs`, `data/rumours.json`):
+- **Rumours.** Twelve, one for each route that matters: the five speedster's pieces, the sword (the leader's duel), the chest key and the boomerang, the imbue, the flute, the traveller and the waystones. Each names its thing's one route; a test holds it against `data/items.json` (R9.347). None is told during the opening; each is moot once its thing is in hand.
+- **Who tells.** The four roadside villagers (after their own lines, the first time), the merchant (after the greeting), the traveller (after the greeting), the trainer (once the practice is passed), and three new people beside woodpiles: a woodcutter at the crossroads, a fisher by the bridge, a herder on the trainer's hill (R9.343). A talk tells the next rumour neither heard nor moot; then a closing line (R9.345).
+- **Quest lines.** Speedster's armour, The leader's sword, The bandits' chest, The trainer, The waystones (R9.348), on the Quest screen with their latest rumour and progress, done ones last. A rumour that names a place marks it on the map with a question mark until walked (R9.351).
+- **Saved.** `rumours::State` holds it all by stable ids (R9.344); it is the part "rumours" in `save::PARTS` and comes back from a save (R9.358).
+
+Rows: R9.340 to R9.359; strings under "### M7 rumours (P11)" in `SECOND-ORDER.md`. Tests: 12 in `rumours/tests.rs`; 19 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "T17 rumours"`).
+
+Check (after merging main at da5ffa3): steps 1 to 8 of `./scripts/check.sh` pass but for the journal check, which fails only on this part's three person rows (R9.343, R9.353, R9.355) until the journal names them; step 9, the browser check, was left to the coordinator's batch. `python3 scripts/break_tests.py "T17 rumours"`: 19 of 19 caught.
+
+Waiting on the person: R9.343 (the three new people, where they stand, the woodpile), R9.353 (no rumours for rocks, knives and bandages), R9.355 (the strings).
+
+For the coordinator: R9.344 (P10 saves `rumours::State`), R9.349 (the Quest glossary entry is out of date), R9.350 (files touched, three other parts' tests updated), R9.354 (not measured), R9.357 and R9.359 (browser check not run here; a page error in the new Quest card was found by screenshot and fixed, so the batch should open Quest with a line open).
+## 2026-10-20: M7 wanderers (part P9, branch `m7-wanderers`, T15)
+
+The person: "there needs to be a bit more in the overworld in between these major areas ... plus, add more random enemies in the overworld".
+
+Built (`crates/core/src/wanderers.rs`, `data/wanderers.json`):
+- **Where.** Eight ways between the major areas (R9.280), measured where clear of the village's 700 m band (P7's), the camp's 400 m, every other place, the waystones, the trainer and the traveller (R9.283). Slots every 400 m or less, placed from the world's seed; something to meet every 500 m or less along each way (R9.281).
+- **What.** 1 or 2 ambushes behind a tree or big rock beside a trail, springing at 14 m with a line; 1 or 2 bandit patrols on the east road and the trails (the merchant has the west road, R9.282); 2 to 4 held sites: orc fires (two orcs, a fire) and bandit lean-tos (a tent, a fire, a lookout and a bandit), each marked on the map once seen; orc pairs roaming a loop across or beside the way in the rest. Only orcs, bandits and the lookout's look; the trees in `pilots.json` unchanged; no captain (R9.291).
+- **When.** Only after the opening. An encounter stands within 250 m if the hostile foes near the player stay at 6 or under, and is parked past 300 m: its foes leave the world (R9.284). Every foe moves through its input record (CW-3).
+- **Kept.** One `Record` per encounter (`State::records`, by `id`): beaten, when, which foes are down, seen, rewarded. In the save by key (R9.287). Roaming groups come back 20 minutes after being beaten; held sites and ambushes never (R9.286).
+- **Cost.** 0.55 ms a tick with the cap's six fighting, 0.07 ms with everything parked; placing (30 ms) happens at load (R9.285, `MEASUREMENTS.md`).
+- **Views.** `tools/shoot.py` `WANDERER_VIEWS` (`wd-*`), driven by `wanderers.near:<kind>` and `wanderers.seen`. Screenshots in `shots/wanderers/` (not committed).
+
+Rows: R9.280 to R9.293 in `SECOND-ORDER.md`, strings under "### M7 wanderers". Tests: 18 in `wanderers/tests.rs`, one probe (`probe_wanderers_tick_cost`). Break rows: 21, all caught.
+
+Merged main at 88e45bd (roadside), 60a1d64 (save) and 4763a93 (feel, sprint): `lib.rs`, `world.rs`, `GLOSSARY.md` and `tests/breaks.json` kept both sides.
+
+Waiting on the person: R9.286 (whether beaten groups come back, and after how long), R9.290 (the kinds, counts, rewards and the lean-to's look), R9.291 (a captain would need its own kind and name), R9.293 (the strings).
+
+For the coordinator:
+- `./scripts/check.sh` steps 1 to 7 pass; step 8 (journal) fails only on R9.286, R9.290, R9.291 and R9.293, the journal entry being yours; step 9 (the browser check) was not run, per the new rule. Please include in the batch: the `wd-*` views load, and a still view by a held site renders the same pixels on consecutive frames (the core's coplanar scan passes at each site).
+- R9.288: wanderers appear at 250 m with no dither. R9.289: an ambush on the open hill trail is easy to see.
+- R9.292: the one-line hooks outside `wanderers.rs`.
+
 ## 2026-10-20: M7 sprint (part P8, branch `m7-sprint`, T14)
 
 The person: "you should be able to set yourself to sprinting, and if you've been sprinting for 5seconds you start to go faster and faster until you are running at triple speed".

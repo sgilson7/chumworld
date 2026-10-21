@@ -427,7 +427,13 @@ export function makeMenus(root, { act, pixels, keys }) {
       face.songRow = make("div", "note-row");
       face.songAbout = make("p", "song-about");
       face.songs.append(face.songsHeading, face.songName, face.songRow, face.songAbout);
-      wrap.append(ability, face.coins, task, face.songs);
+      // M7 rumours (T17): the quest lines, each with its latest rumour
+      face.lines = make("div", "quest-card quest-lines");
+      face.linesHeading = make("h3");
+      face.linesNone = make("p", "lines-none");
+      face.lineList = make("ul", "line-list");
+      face.lines.append(face.linesHeading, face.linesNone, face.lineList);
+      wrap.append(ability, face.coins, task, face.songs, face.lines);
       face.body.append(wrap);
     },
   };
@@ -518,6 +524,30 @@ export function makeMenus(root, { act, pixels, keys }) {
         text(face.songAbout, q.song.about);
         term(face.songName);
       }
+      text(face.linesHeading, q.lines_heading);
+      text(face.linesNone, q.lines_none);
+      face.linesNone.hidden = q.lines.length > 0;
+      keyed(
+        face.lineList,
+        q.lines,
+        (l) => l.id,
+        () => {
+          const li = make("li");
+          li.head = make("div", "line-head");
+          li.lineName = make("span", "line-title");
+          li.progress = make("span", "line-progress");
+          li.head.append(li.lineName, li.progress);
+          li.lineText = make("p", "line-text");
+          li.append(li.head, li.lineText);
+          return li;
+        },
+        (li, l) => {
+          text(li.lineName, l.title);
+          text(li.progress, l.done ? l.done_label : l.progress);
+          text(li.lineText, l.text);
+          flag(li, "done", l.done);
+        },
+      );
     },
   };
 

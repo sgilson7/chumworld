@@ -312,6 +312,106 @@ fn probe_raid_wounds_cost() {
     assert!(mean < 2.0, "the raid's tick with wounds is over the core's 2 ms");
 }
 
+/// M7 (P9, T15, CW-11): the wanderers' tick. Three encounters moved beside
+/// the player so the cap's six foes stand and fight (more than the shipped
+/// spacing ever brings together), against a player who does not fall; then
+/// the same world with every encounter parked far off. Native release.
+#[test]
+#[ignore]
+fn probe_wanderers_tick_cost() {
+    use tool_core::geom::v3;
+    use tool_core::input::Input;
+    use tool_core::wanderers::{self, Moves};
+    let mut w = tool_core::world::World::new(9);
+    w.story.phase = tool_core::story::Phase::Free;
+    w.story.crossed = Some(tool_core::world::START);
+    wanderers::ensure(&mut w);
+    let pairs: Vec<usize> = (0..w.wanderers.list.len())
+        .filter(|&i| w.wanderers.list[i].moves == Moves::Roam)
+        .take(3)
+        .collect();
+    let here = w.wanderers.list[pairs[0]].anchor;
+    for (n, &i) in pairs.iter().enumerate() {
+        let e = &mut w.wanderers.list[i];
+        let d = here.add(v3((n as i32 * 6 - 6) * 65536, 0, 0)).sub(e.anchor);
+        e.anchor = e.anchor.add(d);
+        for p in &mut e.route {
+            *p = p.add(d);
+        }
+    }
+    let mut at = here.add(v3(0, 0, 12 * 65536));
+    at.y = w.ground(at.x, at.z);
+    w.player = tool_core::player::Body::new(at, 0);
+    w.me = tool_core::player::Fighter::new(
+        tool_core::pose::Kind::Player,
+        tool_core::pose::Held::ShortSword,
+        0,
+        at,
+        0,
+        false,
+    );
+    let measure = |w: &mut tool_core::world::World, ticks: u32| {
+        let mut worst = 0.0f64;
+        let t = Instant::now();
+        for k in 0..ticks {
+            w.me.health = tool_core::health::Health::new(1_000_000);
+            let i = Input {
+                keys: if k == 2 { tool_core::input::DRAW } else { 0 },
+                dx: if k % 40 < 20 { 2_000 } else { -2_000 },
+                buttons: if k % 40 > 30 { tool_core::input::SWING } else { 0 },
+                ..Input::default()
+            };
+            let f = Instant::now();
+            w.step(&i);
+            worst = worst.max(f.elapsed().as_secs_f64() * 1000.0);
+        }
+        (t.elapsed().as_secs_f64() * 1000.0 / ticks as f64, worst)
+    };
+    let (mean, worst) = measure(&mut w, 600);
+    println!(
+        "wanderers, {} foes standing near: {mean:.3} ms mean, {worst:.3} ms worst",
+        wanderers::near_count(&w)
+    );
+    // every encounter parked: the player at the village centre
+    let at = tool_core::world::START;
+    w.player = tool_core::player::Body::new(at, 0);
+    w.me = tool_core::player::Fighter::new(
+        tool_core::pose::Kind::Player,
+        tool_core::pose::Held::ShortSword,
+        0,
+        at,
+        0,
+        false,
+    );
+    measure(&mut w, 5);
+    let (pm, pw) = measure(&mut w, 600);
+    println!(
+        "all parked ({} foes left in the world): {pm:.4} ms mean, {pw:.3} ms worst",
+        w.foes.len()
+    );
+    let t = Instant::now();
+    for _ in 0..600 {
+        wanderers::step(&mut w);
+    }
+    println!(
+        "wanderers::step alone, {} encounters parked: {:.2} us",
+        w.wanderers.list.len(),
+        t.elapsed().as_secs_f64() * 1e6 / 600.0
+    );
+    let best = |f: &dyn Fn() -> usize| {
+        (0..5)
+            .map(|_| {
+                let t = Instant::now();
+                let n = f();
+                (t.elapsed().as_secs_f64() * 1000.0, n)
+            })
+            .fold((f64::MAX, 0), |a, b| if b.0 < a.0 { b } else { a })
+    };
+    let (ms, n) = best(&|| wanderers::place(&w, 9).len());
+    let (rms, _) = best(&|| wanderers::runs(&w).len());
+    println!("placing {n} encounters: {ms:.1} ms (best of 5), of which measuring the ways {rms:.1} ms");
+}
+
 /// M7 (T14, CW-11): what a sprint costs the core a frame. From the plains
 /// west of the village, 25 s of frames: one run with Shift held, one with a
 /// tap of Shift that builds to three times the run speed after 9 s, the

@@ -937,7 +937,8 @@ pub fn use_stop(w: &mut World, k: usize) {
         }
         Kind::Villager => {
             let lines: Vec<&str> = s.spec().says.iter().map(|l| l.as_str()).collect();
-            crate::ui::say(w, "villager", &lines);
+            // M7 rumours (T17): its own lines the first time, then a rumour
+            crate::rumours::talk_roadside(w, &s.id, &lines);
         }
         _ => {}
     }

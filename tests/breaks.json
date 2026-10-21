@@ -4102,6 +4102,132 @@
     "test": "every_pickup_can_be_reached_from_every_side"
   },
   {
+    "name": "T17 rumours: a rumour that names the wrong route is caught",
+    "file": "data/rumours.json",
+    "find": "\"of\": \"gloves\",\n      \"route\": \"lookout\",",
+    "replace": "\"of\": \"gloves\",\n      \"route\": \"hollow_tree\",",
+    "test": "every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found"
+  },
+  {
+    "name": "T17 rumours: a rumour that marks the wrong place is caught",
+    "file": "data/rumours.json",
+    "find": "\"reveals\": { \"place\": \"shrine\", \"label\": \"place_shrine\" },",
+    "replace": "\"reveals\": { \"place\": \"bridge\", \"label\": \"place_bridge\" },",
+    "test": "every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found"
+  },
+  {
+    "name": "T17 rumours: an item with no rumour is caught",
+    "file": "data/rumours.json",
+    "find": "\"of\": \"flute\",\n      \"route\": \"trainer_gift\",",
+    "replace": "\"of\": \"flute\",\n      \"route\": \"trainer\",",
+    "test": "every_item_with_a_route_of_its_own_has_a_rumour"
+  },
+  {
+    "name": "T17 rumours: a moot rumour is not offered",
+    "file": "crates/core/src/rumours.rs",
+    "find": "        .filter(|r| !w.rumours.heard(&r.id) && !moot(w, r))",
+    "replace": "        .filter(|r| !w.rumours.heard(&r.id))",
+    "test": "a_rumour_is_offered_only_while_its_condition_holds"
+  },
+  {
+    "name": "T17 rumours: a rumour is moot once its line is done",
+    "file": "crates/core/src/rumours.rs",
+    "find": "r.until.iter().any(|c| holds(w, c)) || w.rumours.line(&r.line).is_some_and(|l| l.done)",
+    "replace": "r.until.iter().any(|c| holds(w, c))",
+    "test": "a_rumour_is_offered_only_while_its_condition_holds"
+  },
+  {
+    "name": "T17 rumours: the opening tells no rumour",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    if w.story.opening() {\n        return Vec::new();\n    }",
+    "replace": "",
+    "test": "no_rumour_is_told_during_the_opening"
+  },
+  {
+    "name": "T17 rumours: hearing a rumour marks its place",
+    "file": "crates/core/src/rumours.rs",
+    "find": "        Some(m) if !st.marks.contains(&m.place) => {\n            st.marks.push(m.place.clone());\n            true\n        }",
+    "replace": "        Some(m) if !st.marks.contains(&m.place) => true,",
+    "test": "hearing_a_rumour_starts_its_line_and_marks_its_place"
+  },
+  {
+    "name": "T17 rumours: hearing a rumour opens its line",
+    "file": "crates/core/src/rumours.rs",
+    "find": "            st.lines.push(Line {\n                id: r.line.clone(),",
+    "replace": "            std::mem::drop(Line {\n                id: r.line.clone(),",
+    "test": "hearing_a_rumour_starts_its_line_and_marks_its_place"
+  },
+  {
+    "name": "T17 rumours: a line closes when its steps all hold",
+    "file": "crates/core/src/rumours.rs",
+    "find": "        if l.held.len() >= ls.steps.len() {",
+    "replace": "        if l.held.len() > ls.steps.len() {",
+    "test": "picking_up_the_item_advances_and_closes_the_line"
+  },
+  {
+    "name": "T17 rumours: a step once held stays held",
+    "file": "crates/core/src/rumours.rs",
+    "find": "            .filter(|c| !l.held.contains(c) && holds(w, c))\n            .collect();\n        let l = &mut w.rumours.lines[k];\n        l.held.extend(now.into_iter().cloned());",
+    "replace": "            .filter(|c| holds(w, c))\n            .collect();\n        let l = &mut w.rumours.lines[k];\n        l.held = now.into_iter().cloned().collect();",
+    "test": "picking_up_the_item_advances_and_closes_the_line"
+  },
+  {
+    "name": "T17 rumours: a person greets once",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    if !opening && !met {\n        w.rumours.met.push(id.to_string());\n    }",
+    "replace": "",
+    "test": "a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line"
+  },
+  {
+    "name": "T17 rumours: a person with nothing left says the closing line",
+    "file": "crates/core/src/rumours.rs",
+    "find": "                    out.push(c.clone());",
+    "replace": "",
+    "test": "a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line"
+  },
+  {
+    "name": "T17 rumours: a rumour heard is heard from everyone",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    if !st.heard(&r.id) {\n        st.heard.push(r.id.clone());\n    }",
+    "replace": "",
+    "test": "a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line"
+  },
+  {
+    "name": "T17 rumours: the people stand on flattened ground",
+    "file": "crates/core/src/rumours.rs",
+    "find": "                at: t.logs,\n                yaw_deg: t.logs_yaw_deg,\n                inside: false,",
+    "replace": "                at: t.logs,\n                yaw_deg: t.logs_yaw_deg,\n                inside: true,",
+    "test": "the_people_stand_clear_on_flattened_ground"
+  },
+  {
+    "name": "T17 rumours: a person kept out of a waystone's gap",
+    "file": "data/rumours.json",
+    "find": "\"at\": [482, 2060],",
+    "replace": "\"at\": [330, 1770],",
+    "test": "the_people_stand_clear_on_flattened_ground"
+  },
+  {
+    "name": "T17 rumours: the Quest screen lists open lines before those done",
+    "file": "crates/core/src/rumours.rs",
+    "find": "        .filter(|l| !l.done)\n        .chain(st.iter().filter(|l| l.done))",
+    "replace": "        .filter(|_| true)\n        .chain(st.iter().filter(|_| false))",
+    "test": "the_quest_screen_lists_the_open_lines_then_those_done"
+  },
+  {
+    "name": "T17 rumours: the map shows a question mark until walked",
+    "file": "crates/core/src/ui.rs",
+    "find": "                \"data/icons/place_rumour.svg\".into()",
+    "replace": "                \"data/icons/place.svg\".into()",
+    "test": "the_quest_screen_lists_the_open_lines_then_those_done"
+  },
+  {
+    "name": "T17 rumours: what was heard is in the world",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    let Some(t) = own().nth(k) else {\n        return;\n    };\n    let lines = talk_lines(w, &t.id, &[]);",
+    "replace": "    let Some(t) = own().nth(k + 99) else {\n        return;\n    };\n    let lines = talk_lines(w, &t.id, &[]);",
+    "test": "the_same_seed_and_talk_give_the_same_world"
+  },
+  {
     "name": "M7 save: a load gives back the coins",
     "file": "crates/core/src/save.rs",
     "find": "inv.coins = p.coins;",
@@ -4389,6 +4515,13 @@
     "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
   },
   {
+    "name": "T17 rumours: the quest lines come back from a save",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    w.rumours = st;\n",
+    "replace": "    w.rumours = State {\n        lines: Vec::new(),\n        ..st\n    };\n",
+    "test": "the_quest_lines_and_marks_come_back_from_a_save"
+  },
+  {
     "name": "M7 feel: a voice repeats inside its gap",
     "file": "crates/core/src/sound.rs",
     "find": "    if gap > 0 && last != u64::MAX && w.tick < last + gap {",
@@ -4674,5 +4807,152 @@
     "find": "            || h.wall.holds(full.x, full.z, EYE_NEAR)\n",
     "replace": "            || (full.x == i32::MIN && h.wall.holds(full.x, full.z, EYE_NEAR))\n",
     "test": "the_house_fades_out_and_in_a_tick_at_a_time"
+  },
+  {
+    "name": "wanderers: what an encounter leaves is a consumable (CW-6)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "let ok = matches!(d.kind, items::Kind::Throwable | items::Kind::Supply)\n                        && d.routes.iter().any(|r| r == \"wanderers\");",
+    "replace": "let ok = true;",
+    "test": "the_wanderers_file_reads_and_refuses_a_weapon_or_armour_as_what_is_left"
+  },
+  {
+    "name": "wanderers: placement comes from the world's seed (CW-4)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "let mut rng = Rng::new(seed ^ 0x3a4d_e7e5);",
+    "replace": "let mut rng = Rng::new(0x3a4d_e7e5);",
+    "test": "placement_is_the_same_for_a_seed_and_differs_between_seeds"
+  },
+  {
+    "name": "wanderers: nothing on the merchant's beat",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "far_from(flat(p), &z.beat, m(spec().keep.beat_m))",
+    "replace": "true",
+    "test": "nothing_is_placed_in_the_village_on_a_waystone_or_near_the_trainer_the_merchant_or_the_traveller"
+  },
+  {
+    "name": "wanderers: a run is cut into parts no longer than every_m",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "let mut parts = ((len + every - 1) / every).max(1);",
+    "replace": "let mut parts = 1 + 0 * every;",
+    "test": "along_each_way_something_is_met_every_five_hundred_metres_or_less"
+  },
+  {
+    "name": "wanderers: the cap on foes standing near the player",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "if near + need > w.wanderers.most {",
+    "replace": "if false {",
+    "test": "only_so_many_foes_stand_near_the_player"
+  },
+  {
+    "name": "wanderers: a parked encounter's foes leave the world",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "        w.foes.pop();\n        w.wanderers.free.retain(|&f| f != k);",
+    "replace": "        break;",
+    "test": "a_parked_encounter_leaves_the_world_and_stands_again_when_the_player_comes_back"
+  },
+  {
+    "name": "wanderers: a freed place is used again",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "        if let Some(slot) = take_free(w) {",
+    "replace": "        if let Some(slot) = None::<usize> {",
+    "test": "a_parked_encounter_leaves_the_world_and_stands_again_when_the_player_comes_back"
+  },
+  {
+    "name": "wanderers: a beaten encounter does not stand again",
+    "file": "crates/core/src/wanderers.rs",
+    "find": ".filter(|&i| !w.wanderers.records[i].beaten && !w.wanderers.standing.iter().any(|s| s.enc == i))",
+    "replace": ".filter(|&i| !w.wanderers.standing.iter().any(|s| s.enc == i))",
+    "test": "a_beaten_encounter_stays_beaten_and_a_roaming_one_returns_after_a_long_while"
+  },
+  {
+    "name": "wanderers: a held site never returns",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            && after > 0\n",
+    "replace": "",
+    "test": "a_beaten_encounter_stays_beaten_and_a_roaming_one_returns_after_a_long_while"
+  },
+  {
+    "name": "wanderers: an ambush springs only when the player passes close",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "Moves::Ambush => m(sp.spring_m),",
+    "replace": "Moves::Ambush => m(sp.spring_m) * 4,",
+    "test": "an_ambush_stands_hidden_until_the_player_passes_then_springs"
+  },
+  {
+    "name": "wanderers: nothing stands during the opening",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "w.story.phase == Phase::Free && w.story.crossed.is_some() && !w.player_down()",
+    "replace": "!w.player_down()",
+    "test": "nothing_stands_before_the_opening_is_over"
+  },
+  {
+    "name": "wanderers: a foe moves only through its record (CW-3)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            if let Some(i) = inputs.get_mut(mb.foe) {\n                *i = input;\n            }",
+    "replace": "            w.foes[mb.foe].body.pos.x += 1;\n            if let Some(i) = inputs.get_mut(mb.foe) {\n                *i = input;\n            }",
+    "test": "a_wanderer_moves_only_through_its_input_record"
+  },
+  {
+    "name": "wanderers: a recorded walk meets them and replays",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "        near += need;\n        stand(w, i);",
+    "replace": "        near += need;\n        let _ = i;",
+    "test": "a_recorded_walk_past_the_wanderers_hashes_the_same_every_run"
+  },
+  {
+    "name": "wanderers: up, they draw, and the flute is refused",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            let fight = alarm\n",
+    "replace": "            let fight = false && alarm\n",
+    "test": "the_flute_is_refused_while_a_wanderer_s_blade_is_out_near"
+  },
+  {
+    "name": "wanderers: no fighting by the merchant's cart",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "let cart = w.merchant.active().then_some(w.merchant.at);",
+    "replace": "let cart: Option<V3> = None;",
+    "test": "a_foe_does_not_fight_by_the_merchant_s_cart_the_trainer_or_the_village"
+  },
+  {
+    "name": "wanderers: a held site's mark only once seen",
+    "file": "crates/core/src/wanderers.rs",
+    "find": ".filter(|(_, r)| r.seen)",
+    "replace": ".filter(|(_, r)| r.seen || r.id < u16::MAX)",
+    "test": "a_held_site_is_marked_on_the_map_once_seen"
+  },
+  {
+    "name": "wanderers: a held site's props in one plane are caught (CW-18)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            models::prop(*p, *at, *yaw, look, meshes, &mut g);",
+    "replace": "            let n0 = g.shapes.list.len();\n            models::prop(*p, *at, *yaw, look, meshes, &mut g);\n            let mut s = g.shapes.list[n0].clone();\n            s.rgb = [ONE / 2; 3];\n            g.shapes.list.push(s);",
+    "test": "the_held_sites_props_draw_no_two_surfaces_in_one_plane"
+  },
+  {
+    "name": "wanderers: nothing is placed within the keep distances",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "fn zone_ok(z: &Zones, p: V3) -> bool {\n",
+    "replace": "fn zone_ok(z: &Zones, p: V3) -> bool {\n    if p.x > i32::MIN {\n        return true;\n    }\n",
+    "test": "nothing_is_placed_in_the_village_on_a_waystone_or_near_the_trainer_the_merchant_or_the_traveller"
+  },
+  {
+    "name": "wanderers: a dream keeps the placing",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "    if old.placed && old.seed == new.seed {",
+    "replace": "    if false && old.placed && old.seed == new.seed {",
+    "test": "a_dream_keeps_the_placing_and_starts_the_records_again"
+  },
+  {
+    "name": "wanderers: a load reads the beaten back",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "    if w.wanderers.synced {\n        return;\n    }",
+    "replace": "    if w.wanderers.synced || true {\n        return;\n    }",
+    "test": "a_beaten_encounter_stays_beaten_across_a_save_and_a_load"
+  },
+  {
+    "name": "wanderers: a save names the wanderers beaten",
+    "file": "crates/core/src/save.rs",
+    "find": "    out.extend(crate::wanderers::beaten_keys(w));",
+    "replace": "",
+    "test": "a_beaten_encounter_stays_beaten_across_a_save_and_a_load"
   }
 ]
