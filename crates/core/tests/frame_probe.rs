@@ -230,3 +230,84 @@ fn probe_travel_tick_cost() {
         "travel's tick is not negligible"
     );
 }
+
+/// M7 P4 (CW-11): the raid of `probe_raid_tick_cost` with wounds: every
+/// foe cut on a part every 20 ticks, a part taken off every 60, so the drops
+/// stay near their cap of 160, the splats at their 64 and the pieces at
+/// their 12. The tick, and drawing what moves (`World::draw`), native release.
+#[test]
+#[ignore]
+fn probe_raid_wounds_cost() {
+    use tool_core::input::Input;
+    use tool_core::world::World;
+    let mut w = World::new(9);
+    for kind in ["orc", "orc", "orc", "bandit", "bandit", "bandit", "leader"] {
+        w.act("duel.spawn", kind).unwrap();
+    }
+    w.me.health = tool_core::health::Health::new(1_000_000);
+    w.step(&Input {
+        keys: tool_core::input::DRAW,
+        ..Input::default()
+    });
+    let parts = [
+        "forearm_l",
+        "shin_r",
+        "upper_arm_l",
+        "thigh_l",
+        "forearm_r",
+        "shin_l",
+    ];
+    let look = tool_core::look::Look::parse(include_str!("../../../data/look.json")).unwrap();
+    let (mut worst, mut total, mut draw_worst, mut draw_total) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    let (mut most_drops, mut most_splats, mut most_pieces, mut most_shapes) = (0, 0, 0, 0);
+    let ticks = 600;
+    for k in 0..ticks {
+        if k % 20 == 0 {
+            w.act("wounds.cut", "torso,14").unwrap();
+            for f in &mut w.foes {
+                f.fighter.health.hp = f.fighter.health.most;
+                f.fighter.health.down_ticks = 0;
+            }
+        }
+        if k % 60 == 0 {
+            // a fresh part each time: the foes made whole first
+            for f in &mut w.foes {
+                f.fighter.health.limbs = Default::default();
+            }
+            w.act("wounds.take_off", parts[(k / 60) % parts.len()]).unwrap();
+        }
+        let i = Input {
+            dx: if k % 40 < 20 { 2_000 } else { -2_000 },
+            buttons: if k % 40 > 30 { tool_core::input::SWING } else { 0 },
+            ..Input::default()
+        };
+        let f = Instant::now();
+        w.step(&i);
+        let ms = f.elapsed().as_secs_f64() * 1000.0;
+        worst = worst.max(ms);
+        total += ms;
+        if ms > 3.0 {
+            println!(
+                "  tick {k}: {ms:.3} ms, {} drops, {} splats",
+                w.wounds.drops.len(),
+                w.wounds.splats.len()
+            );
+        }
+        let d = Instant::now();
+        let mut out = tool_core::render::Shapes::default();
+        w.draw(0, &look, &mut out);
+        let dms = d.elapsed().as_secs_f64() * 1000.0;
+        draw_worst = draw_worst.max(dms);
+        draw_total += dms;
+        most_drops = most_drops.max(w.wounds.drops.len());
+        most_splats = most_splats.max(w.wounds.splats.len());
+        most_pieces = most_pieces.max(w.wounds.pieces.len());
+        most_shapes = most_shapes.max(out.len());
+    }
+    let mean = total / ticks as f64;
+    println!(
+        "raid with wounds, 8 fighters: tick {mean:.3} ms mean, {worst:.3} ms worst; draw {:.3} ms mean, {draw_worst:.3} ms worst; at most {most_drops} drops, {most_splats} splats, {most_pieces} pieces, {most_shapes} shapes drawn",
+        draw_total / ticks as f64
+    );
+    assert!(mean < 2.0, "the raid's tick with wounds is over the core's 2 ms");
+}
