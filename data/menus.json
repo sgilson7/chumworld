@@ -12,7 +12,19 @@
     "grain": 7,
     "edge_px": 9,
     "edge_pct": 42,
-    "hatch_every": 6
+    "hatch_every": 6,
+    "_m7": "M7 (R9.48): the land's own colours where walked, as Ocarina of Time's and Majora's Mask's maps draw them: land_pct of the ground's colour over the paper, the forest's green with a dot for its trees every forest_dot_every pixels, relief lit from the north-west in shade_steps flat steps of shade_pct, a contour every contour_m metres, water with a darker shore line, roads and buildings in their colours",
+    "land_pct": 72,
+    "forest": [70, 116, 72],
+    "forest_dot": [48, 86, 54],
+    "forest_dot_every": 4,
+    "shade_pct": 18,
+    "shade_steps": 3,
+    "contour_m": 10,
+    "contour_pct": 22,
+    "shore": [70, 112, 160],
+    "road": [190, 150, 102],
+    "roof": [170, 82, 64]
   },
   "figure": {
     "_note": "M7: the Equipment screen's figure (crates/core/src/stage.rs): its background, one turn's length, the turn it starts from (degrees from facing the camera), the camera's field of view and where it stands and looks, mm from the figure's feet",

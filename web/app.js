@@ -134,7 +134,7 @@ async function main() {
       const [w, h] = game.figure_resize(figureCanvas.clientWidth, figureCanvas.clientHeight, window.devicePixelRatio || 1);
       figure.resize(w, h);
     }
-    figure.frame(game.figure_view(), game.figure_instances(), game.figure_draws(), game.water_frame());
+    figure.frame(game.figure_view(), game.figure_instances(), game.figure_draws(), game.water_frame(), game.scene_frame());
   }
 
   function panel(p) {
@@ -177,6 +177,8 @@ async function main() {
     hints = u.hints;
     document.title = u.title;
     body.dataset.screen = u.screen;
+    // M7: the near-scatter probe a check asked for (?act=lod.probe)
+    if (u.probe) body.dataset.probe = u.probe.join(" ");
     el("overlay").replaceChildren(...u.panels.map(panel));
     el("overlay").hidden = u.panels.length === 0;
     for (const item of u.hud) {
@@ -252,12 +254,15 @@ async function main() {
     game.advance(now, bits, dx, dy, wheel);
     // the meshes the core built this frame, each uploaded once
     const ups = game.uploads();
-    for (let i = 0; i < ups.length; i += N.upload_values) renderer.setMesh(ups[i], game.mesh(ups[i]), ups[i + 1]);
+    for (let i = 0; i < ups.length; i += N.upload_values) {
+      const indices = game.mesh_indices(ups[i]);
+      renderer.setMesh(ups[i], game.mesh(ups[i]), ups[i + 1], indices, indices.length);
+    }
     if (game.static_version() !== staticVersion) {
       staticVersion = game.static_version();
       renderer.setStatic(game.static_values());
     }
-    renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame());
+    renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame(), game.scene_frame());
     sound.frame();
     if (sound.started() && body.dataset.sound !== "on") body.dataset.sound = "on";
     drawFigure();

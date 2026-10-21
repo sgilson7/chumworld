@@ -8,7 +8,7 @@
 //! close a third of it (`GRIP_BASE`): a walk starts and stops in a few
 //! ticks. Each speedster piece multiplies grip by 55/100 and the speed by
 //! 1 + 0.2 (journal, "The speedster's armour"; CW-8), so five pieces run at
-//! twice the speed on a twentieth of the grip and slide ten metres to a
+//! twice the speed on a twentieth of the grip and slide fourteen metres to a
 //! stop. The values for 0 to 5 pieces are pinned in the tests below, worked
 //! out by hand.
 //!
@@ -30,11 +30,18 @@ use crate::world::World;
 
 const TICKS: i32 = TICKS_PER_SECOND as i32;
 
-/// Walking and running speeds, metres a second (PLAN.md, the brief).
-pub const WALK: Fx = ONE * 22 / 10;
-pub const RUN: Fx = fx::int(5);
-/// Footwork with the sword drawn: the walking speed, whatever Shift does.
-pub const FOOTWORK: Fx = WALK;
+/// Walking and running speeds, metres a second: a brisk walk and a quick
+/// run (the person, 2026-10-20: "your overall movement speed should be
+/// faster"; PLAN.md's 2.2 and 5 m/s before, SECOND-ORDER.md R9.40).
+pub const WALK: Fx = fx::int(3);
+pub const RUN: Fx = fx::int(7);
+/// Footwork with the sword drawn, whatever Shift does: M1's duelling pace,
+/// 2.2 m/s, which the pilots' reach bands are tuned to (R9.40).
+pub const FOOTWORK: Fx = ONE * 22 / 10;
+/// On a road, lane or trail a sheathed body goes this much faster, eased
+/// in and out over `ROAD_EASE` ticks as it steps on or off (R9.41).
+pub const ROAD_PCT: i32 = 18;
+pub const ROAD_EASE: i32 = 30;
 /// Bare feet's grip: a third of the gap closed each tick.
 pub const GRIP_BASE: Fx = ONE / 3;
 /// The most pieces there are.
@@ -82,6 +89,9 @@ pub struct Gait {
     /// body leans back along it, the arms lose half their strength
     pub stagger: u8,
     pub stagger_way: V3,
+    /// how far onto a road the body is, 0 to ONE, eased over `ROAD_EASE`
+    /// ticks as it steps on or off (`road_share`)
+    pub road: Fx,
     /// M7 (R9.177): how far a thrust has the body lunging forward, `ONE`
     /// fully (`swing::LUNGE_LEAN`), set by the cut, eased in and out
     pub lunge: Fx,
@@ -93,6 +103,17 @@ pub struct Gait {
     pub lift: Fx,
     /// M7 (T14): the sprint, its build and its skid (`sprint.rs`)
     pub sprint: crate::sprint::Sprint,
+}
+
+/// The road's share moved one tick toward on (ONE) or off (0).
+pub fn road_share(share: Fx, on: bool) -> Fx {
+    let goal = if on { ONE } else { 0 };
+    fx::approach(share, goal, (ONE + ROAD_EASE - 1) / ROAD_EASE)
+}
+
+/// A speed asked for, with a road's share of the road's bonus.
+pub fn on_road(speed: Fx, share: Fx) -> Fx {
+    speed + fx::mul(fx::mul(speed, ONE * ROAD_PCT / 100), share)
 }
 
 /// Grip with `n` speedster pieces: bare feet's `GRIP_BASE` times M4's
@@ -155,11 +176,15 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
         let yaw = player::look_yaw(w, id);
         let n = if id == 0 { n_player } else { 0 };
         let toward = player::engaged_at(w, id);
-        let ground = {
+        let (ground, road) = {
             let b = player::body(w, id);
-            w.ground(b.pos.x, b.pos.z)
+            (
+                w.ground(b.pos.x, b.pos.z),
+                crate::places::on_road(w, b.pos.x, b.pos.z),
+            )
         };
         let (b, f) = player::parts_mut(w, id);
+        f.gait.road = road_share(f.gait.road, road);
         step_body(b, f, &inp, yaw, n, toward, ground);
     }
     separate(w);
@@ -186,6 +211,11 @@ pub fn step_body(
     } else {
         wanted(input, yaw, drawn, n)
     };
+    // sheathed, a road's share of the road's bonus (drawn, footwork holds)
+    if !drawn && f.gait.road > 0 {
+        let s = on_road(want.len(), f.gait.road);
+        want = want.norm().scale(s);
+    }
     // staggered, the feet answer the keys a quarter
     if f.gait.stagger > 0 {
         want = v3(want.x / 4, want.y / 4, want.z / 4);
@@ -275,7 +305,9 @@ pub fn stride(g: &mut Gait, vel: V3, moving: V3) {
     let speed = vel.len_xz() as i64 * TICKS as i64;
     let len = STRIDE + fx::mul(speed as Fx, STRIDE_PER_MPS);
     g.phase = fx::wrap(g.phase + (vel.len_xz() as i64 * fx::HALF_TURN as i64 / len as i64) as i32);
-    let goal = (speed * ONE as i64 / WALK as i64).min(ONE as i64 * 3 / 2) as Fx;
+    // the swing is ONE at 2.2 m/s, M1's walk, which the duel's poses were
+    // tuned to (R9.40)
+    let goal = (speed * ONE as i64 / FOOTWORK as i64).min(ONE as i64 * 3 / 2) as Fx;
     g.swing = fx::approach(g.swing, goal, ONE / 8);
 }
 
@@ -283,8 +315,9 @@ pub fn stride(g: &mut Gait, vel: V3, moving: V3) {
 /// legs reach about 1.4 m between them).
 pub const APART: Fx = fx::int(3);
 /// The separation is solved this many times a tick, so three bodies in a
-/// knot all come apart.
-pub const SEPARATE_PASSES: usize = 3;
+/// knot all come apart (M7: 4, was 3; at the 3 m/s walk three let a walker
+/// slide round a held guard, R9.42).
+pub const SEPARATE_PASSES: usize = 4;
 
 /// A body's weight, kilograms: who gives way to whom when two press
 /// together (`separate`).
@@ -374,9 +407,10 @@ pub fn held_rails(f: &Fighter) -> Vec<(V3, V3, Fx)> {
 }
 
 /// A weapon pressing on a body shoves the two apart by at most this a tick
-/// (5 cm: more than a walk's 3.7 cm, so a guard stops a body walking into
-/// it, but a swing into a body only shoves it, as the stagger does).
-pub const BLADE_SHOVE: Fx = ONE * 5 / 100;
+/// (6 cm: more than a walk's 5 cm at 3 m/s, so a guard stops a body walking
+/// into it, but a swing into a body only shoves it, as the stagger does;
+/// M1's 5 cm against its 2.2 m/s walk's 3.7, R9.40).
+pub const BLADE_SHOVE: Fx = ONE * 6 / 100;
 
 /// The push that parts two bodies: across the ground, from the first toward
 /// the second, far enough that the pair that needs it most no longer
@@ -547,24 +581,25 @@ mod tests {
             [21_845, 12_014, 6_608, 3_634, 1_998, 1_099]
         );
         // as shares of a tick's gap: 33%, 18%, 10%, 5.5%, 3.0%, 1.7%
-        // Speed: 5 m/s is 327 680; × M4's 1 + 0.2 n (78 643, 91 750,
-        // 104 858, 117 965, 131 072 of 65 536 for 1 to 5), then / 60 a tick:
-        // 5 461 (5 461.3), 6 553 (393 215 / 60), 7 645 (458 750 / 60), 8 738
-        // (524 290 / 60), 9 830 (589 825 / 60), 10 922 (655 360 / 60).
+        // Speed: 7 m/s is 458 752; × M4's 1 + 0.2 n (78 643, 91 750,
+        // 104 858, 117 965, 131 072 of 65 536 for 1 to 5) is 7 × each, then
+        // / 60 a tick: 7 645 (458 752 / 60), 9 175 (550 501 / 60), 10 704
+        // (642 250 / 60), 12 233 (734 006 / 60), 13 762 (825 755 / 60),
+        // 15 291 (917 504 / 60): 7, 8.4, 9.8, 11.2, 12.6 and 14 m/s.
         assert_eq!(
             [0, 1, 2, 3, 4, 5].map(|n| per_tick(RUN, n)),
-            [5_461, 6_553, 7_645, 8_738, 9_830, 10_922]
+            [7_645, 9_175, 10_704, 12_233, 13_762, 15_291]
         );
         assert_eq!(grip(9), grip(5), "there are five pieces");
     }
 
     /// From a full run, let go: each tick keeps (1 − g) of the speed, so the
-    /// slide is v (1 − g) / g. Bare feet: 5 461 × (1 − ⅓) / ⅓ = 10 922 units,
-    /// 0.17 m. Five pieces: 10 922 × (1 − 0.016 75) / 0.016 75 = 641 000
-    /// units, 9.78 m. Truncation shortens each a little.
+    /// slide is v (1 − g) / g. Bare feet: 7 645 × (1 − ⅓) / ⅓ = 15 290 units,
+    /// 0.23 m. Five pieces: 15 291 × (1 − 0.016 77) / 0.016 77 = 896 500
+    /// units, 13.7 m. Truncation shortens each a little.
     #[test]
-    fn five_speedster_pieces_slide_ten_metres_to_a_stop_and_bare_feet_a_hand() {
-        for (n, want, tol) in [(0u8, 10_922, 80), (5, 641_000, 641_000 / 50)] {
+    fn five_speedster_pieces_slide_fourteen_metres_to_a_stop_and_bare_feet_a_hand() {
+        for (n, want, tol) in [(0u8, 15_290, 110), (5, 896_500, 896_500 / 50)] {
             let mut b = Body::new(V3::ZERO, 0);
             let mut f = fighter();
             for _ in 0..1200 {
@@ -588,23 +623,61 @@ mod tests {
     fn a_walk_starts_in_a_few_ticks_and_holding_w_walks_north() {
         let mut b = Body::new(V3::ZERO, 0);
         let mut f = fighter();
-        // 2.2 m/s is 2 402 a tick (144 179 / 60); the gap shrinks to ⅔ a
-        // tick: after 10 ticks (⅔)¹⁰ = 1.7% is left, 41 units
+        // 3 m/s is 3 276 a tick (196 608 / 60); the gap shrinks to ⅔ a
+        // tick: after 10 ticks (⅔)¹⁰ = 1.7% is left, 57 units
         for _ in 0..10 {
             step_body(&mut b, &mut f, &hold(FORWARD), 0, 0, None, 0);
         }
-        assert!((b.vel.z + 2402).abs() <= 45, "{}", b.vel.z);
+        assert!((b.vel.z + 3276).abs() <= 60, "{}", b.vel.z);
         assert_eq!(b.vel.x, 0);
         for _ in 0..30 {
             step_body(&mut b, &mut f, &hold(FORWARD), 0, 0, None, 0);
         }
-        assert_eq!(b.vel.z, -2402);
+        assert_eq!(b.vel.z, -3276);
+    }
+
+    /// R9.41: on a road a run is 18% faster, eased in over half a second.
+    /// 7 m/s is 7 645 a tick; 18% of ONE is 11 796 (11 796.48), so the
+    /// bonus is 7 645 × 11 796 / 65 536 = 1 376.04 → 1 376: 9 021 a tick,
+    /// 8.26 m/s. The share steps by ⌈65 536 / 30⌉ = 2 185 a tick: 15 ticks
+    /// on a road, 32 775; 30 ticks, all of it (65 550 held to 65 536).
+    #[test]
+    fn a_body_runs_faster_on_a_road_eased_in_over_half_a_second() {
+        let mut w = World::new(1);
+        w.act("story.skip", "").unwrap();
+        // on the lane north of the village, (1992, 2450) to (1996, 2640)
+        let on = |w: &mut World, x: i32, z: i32| {
+            let p = v3(fx::int(x), 0, fx::int(z));
+            w.player = Body::new(v3(p.x, w.ground(p.x, p.z), p.z), 0);
+            w.aim.yaw = 0;
+            w.me.gait.road = 0;
+        };
+        on(&mut w, 1994, 2600);
+        assert!(crate::places::on_road(&w, w.player.pos.x, w.player.pos.z));
+        for _ in 0..15 {
+            w.step(&hold(FORWARD | RUN_KEY));
+        }
+        assert_eq!(w.me.gait.road, 32_775);
+        for _ in 0..75 {
+            w.step(&hold(FORWARD | RUN_KEY));
+        }
+        assert_eq!(w.me.gait.road, ONE);
+        assert_eq!(w.player.vel, v3(0, 0, -9_021));
+        // on the meadow 100 m east of the lane: the plain run
+        on(&mut w, 2100, 2600);
+        assert!(!crate::places::on_road(&w, w.player.pos.x, w.player.pos.z));
+        for _ in 0..90 {
+            w.step(&hold(FORWARD | RUN_KEY));
+        }
+        assert_eq!(w.me.gait.road, 0);
+        assert_eq!(w.player.vel, v3(0, 0, -7_645));
+        assert_eq!(on_road(fx::int(7), 0), fx::int(7));
     }
 
     #[test]
     fn shift_runs_only_while_the_sword_is_sheathed() {
         let n = 0;
-        assert_eq!(wanted(&hold(FORWARD | RUN_KEY), 0, false, n).z, -5461);
+        assert_eq!(wanted(&hold(FORWARD | RUN_KEY), 0, false, n).z, -7645);
         assert_eq!(
             wanted(&hold(FORWARD | RUN_KEY), 0, true, n).z,
             -2402,

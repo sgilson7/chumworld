@@ -116,6 +116,10 @@ pub struct World {
     // boom, kept out of walls, houses and trunks
     pub sound: crate::sound::State,
     pub boom: crate::boom::State,
+    // M7: what things in flight meet (props, trees, rocks), worked out once
+    pub obstacles: std::rc::Rc<crate::obstacles::Map>,
+    // M7: the wind over the meadow (`wind.rs`)
+    pub wind: crate::wind::State,
     // M7 travel (T11): the waystones, the flute's song screen, a journey
     pub travel: crate::travel::State,
     // M7 (P4): blood in flight and on the ground, parts taken off, the cues
@@ -172,6 +176,8 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
+            obstacles: std::rc::Rc::default(),
+            wind: crate::wind::State::default(),
             save: crate::save::State::default(),   // M7 save
             sound: crate::sound::State::default(), // M7
             boom: crate::boom::State::default(),
@@ -182,6 +188,7 @@ impl World {
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w.boom.blocks = std::rc::Rc::new(crate::boom::blocks(&w)); // M7
+        w.obstacles = std::rc::Rc::new(crate::obstacles::Map::build(&w));
         w
     }
 
@@ -251,7 +258,8 @@ impl World {
         }
         crate::health::step(self);
         crate::feel::step(self); // M1:
-                                 // 5. M1/M5: throwables, the boomerang
+        crate::blade::settle(self); // M7: after the blow's stagger (R9.42)
+                                    // 5. M1/M5: throwables, the boomerang
         crate::throwables::step(self, input, &inputs);
         crate::boomerang::step(self, input);
         // M7 (P4): blood flies and lands, parts taken off fall and rest
@@ -273,7 +281,8 @@ impl World {
         crate::save::step(self);
         // 8. M2: the water
         crate::water::step(self);
-        // M4: the map fills in round the player; the toast counts down
+        crate::wind::step(self); // M7: and the wind
+                                 // M4: the map fills in round the player; the toast counts down
         crate::ui::step(self);
         // 9. M7: what was heard this tick; the camera's boom
         crate::sound::step(self);

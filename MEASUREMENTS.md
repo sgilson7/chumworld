@@ -264,3 +264,22 @@ Sound, the camera's boom, the burning houses, the staged practice, the spark, 20
 | Flicker: the village green's slow pan | `tests/browser/interactions.py` | 23 of 230 400 pixels in Chromium (as at M5, R7.9), after the smoke was made opaque and round (dithered or faceted smoke made it 25, R9.9) |
 
 Not measured: the voices' making in WebAssembly (only natively), and the page's own audio cost (Web Audio runs off the page's thread).
+
+## M7 land (task P2, T8, T12, T13)
+
+Measured on this Mac while other agents loaded it (load average 35 to 45 during these runs, up to 270 earlier), so the timings are high side and noisy.
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Resident meshes round the village after the detail levels settle | `M2_STILL=1 cargo test --release -p tool_core --test m2_probe probe_frame_parts -- --ignored --nocapture` | 2.37 M triangles (M2: 1.55 M): terrain 1.08 M, river 0.38 M (finer rows round its boulders), far crowns 0.26 M, grass 0.20 M, tufts 0.19 M, the meadow's clumps 0.14 M, road surfaces 9 k. As the page holds them, indexed (R9.52): 2.58 M vertices and 7.12 M indices, 121 MB; unindexed they would be 256 MB (M2: 168 MB for 1.55 M) | 2026-10-20, P2 |
+| Shapes drawn a frame, standing in the village | same probe | about 925 (M2: 547): the new grass, tuft, meadow and road parts | 2026-10-20, P2 |
+| The detail levels' share of a frame, standing | same probe | terrain 0.13 ms, scatter 0.23 ms, faded 0.002 ms (M2: 0.17, 0.28, 0.01) | 2026-10-20, P2 |
+| One frame of the core, the M0 probe running and turning round the village | `cargo test --release -p tool_core --test frame_probe -- --ignored --nocapture --test-threads=1` | 2.03 ms mean, 5.6 ms worst (M2: 0.74 / 1.60): the new parts built as the probe runs, on a loaded machine; start 1.16 s (M2: 0.52 s), the first frame building the near grass at once | 2026-10-20, P2 |
+| The ticks | same | raid, 8 fighters: 0.73 ms mean, 1.12 worst; opening 0.50 / 1.0; camp, 13 fighters: 1.18 / 3.6 (the blades' settle at 5 passes, R9.42) | 2026-10-20, P2 |
+| Load to the title, Chromium on Metal | scratch timing (navigation to `body[data-ready]`) | 1.8 s (M2: 0.89 s) | 2026-10-20, P2 |
+| The map menu's land, worked out once | scratch probe over `terrain::Land::map` | 49 ms natively | 2026-10-20, P2 |
+| Frame rate and the page's callback, Chromium on Metal, 1920 × 1080 | scratch script over `tools/shoot.py`'s helpers (`frame_times`, `callback_stats`) | running on the plains: 60 fps, callback 2.0 ms median, 4.1 ms 95th, 7 ms worst; village standing: 60 fps, 2.0 / 2.1 / 2.7 ms | 2026-10-20, P2 |
+| A weaker machine: Chromium, 4× CPU throttle (`Emulation.setCPUThrottlingRate`), 1280 × 720 | same | running on the plains: 59.8 fps, callback 7.8 ms median, 16.5 ms 95th, 28 ms worst (one frame of 33 ms in 6 s); village: 60 fps, 8.0 / 8.9 / 10.9 ms; camp (the bandits up): 60 fps, 12 / 16.5 / 18.6 ms. Against the 16.7 ms frame the median holds with room; the 95th percentile at the camp is at the edge | 2026-10-20, P2 |
+| Flicker: slow pans, Chromium (640 × 360, software) | scratch script over `tests/browser/interactions.py`'s `GRAB` | village 17 of 230 400 (bound 23; with no grass at all 19 to 20: the player 11, far fences and houses 8, R9.56); hill 12; a house 35 m off 6 | 2026-10-20, P2 |
+| Nothing near pops (R9.44) | scratch run of the browser check's probe in three engines | running and turning on the meadow: 0 chunks within 25 m undrawn in any frame; Chromium 2 162 looked at, Firefox 2 880, WebKit 10 309 | 2026-10-20, P2 |
+| WebAssembly size | printed by `./scripts/build.sh` | 2 053 KB | 2026-10-20, P2 |

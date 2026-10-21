@@ -2030,7 +2030,8 @@ mod tests {
             });
         }
         let gap = w.foes[k].body.pos.sub(w.player.pos).len_xz();
-        // 10 s at 5 m/s against about 4.4: some 6 m gained on the 8
+        // 10 s at 7 m/s against an orc's 4 ticks in 5 at 7 and one at 3,
+        // 6.2 m/s: some 8 m gained on the 8
         assert!(gap > fx::int(12), "{gap}");
         assert!(!w.me.health.down());
     }
@@ -2177,6 +2178,31 @@ mod tests {
         let b = run(&other);
         assert_eq!(b[..7], a[..7]);
         assert_ne!(b[14], a[14]);
+    }
+
+    /// M7 (QA): every pickup outside the house can be taken from every
+    /// side: north, east, south and west of it there is a place a body can
+    /// stand, within E's reach less 0.2 m (from 0.6 m out to 2.0 m), clear of
+    /// every wall (`solid::Wall::holds`, grown by a body's radius) and dry.
+    /// The trousers lay 1.7 m from the hollow tree's middle, inside its
+    /// 3 × 3 m footprint's corner, and the boots 0.9 m past the shrine's.
+    #[test]
+    fn every_pickup_can_be_reached_from_every_side() {
+        let w = crate::world::World::new(1);
+        for p in spec()
+            .pickups
+            .iter()
+            .filter(|p| p.place != "bed" && p.place != "village")
+        {
+            let at = pickup_at(&w, p);
+            for (dx, dz) in [(0, -1), (1, 0), (0, 1), (-1, 0)] {
+                let free = (6..=20).any(|t| {
+                    let (x, z) = (at.x + dx * ONE * t / 10, at.z + dz * ONE * t / 10);
+                    !w.solid.walls.iter().any(|wl| wl.holds(x, z, solid::RADIUS)) && !w.land.is_water(x, z)
+                });
+                assert!(free, "the {:?} at {}: no room {dx},{dz} of it", p.item, p.place);
+            }
+        }
     }
 
     #[test]

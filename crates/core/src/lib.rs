@@ -64,6 +64,9 @@ pub mod orbs;
 // M7 Polish (task P1, feel): sound, the camera's boom
 pub mod boom;
 pub mod sound;
+// M7 Polish
+pub mod obstacles;
+pub mod wind;
 // M7 polish
 pub mod stage;
 // M7 (T10): how the mouse's path becomes a cut

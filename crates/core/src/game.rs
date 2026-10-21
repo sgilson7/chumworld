@@ -90,6 +90,8 @@ pub struct Game {
     pub detail: crate::lod::Detail,
     /// M2: the water program's values this frame (`water::FRAME`)
     pub water_frame: Vec<i32>,
+    /// M7: the scene program's values this frame (`wind::FRAME`)
+    pub scene_frame: Vec<i32>,
     pub scene: Scene,
     pub frame: Frame,
     /// share of a tick the drawing is past the last tick
@@ -103,6 +105,10 @@ pub struct Game {
     pub ui_version: u32,
     /// M4: the menu ring's turn and cursors, and where settings return to
     pub menu: crate::ui::Menu,
+    /// M7: the near-scatter probe, when the test act `lod.probe` asked for
+    /// it: the most chunks within 25 m left undrawn in a frame, and the
+    /// chunks looked at in all (`lod::Detail::near_missing`)
+    pub probe: Option<[u32; 2]>,
     /// M7 save: the browser's save read at the start, the save's line, the
     /// new game's confirm step, and the downloads and forgets asked for
     pub saves: crate::save::Shelf,
@@ -152,6 +158,7 @@ impl Game {
             meshes,
             detail,
             water_frame: Vec::new(),
+            scene_frame: Vec::new(),
             scene: Scene::default(),
             frame: Frame::default(),
             alpha: 0,
@@ -160,6 +167,7 @@ impl Game {
             zoom_ticks: ZOOM_TICKS,
             ui_version: 1,
             menu: crate::ui::Menu::default(),
+            probe: None,
             saves: crate::save::Shelf::default(),
             cues: Vec::new(),
             acted: Vec::new(),
@@ -397,7 +405,19 @@ impl Game {
         render::keep_visible(&mut moving.list, cam.eye);
         // M2: the terrain and scatter round the eye, by detail level
         self.detail.frame(&self.world, &self.look, cam.eye, &mut moving);
+        // M7: the near-scatter probe (`lod.probe`)
+        if let Some([worst, seen]) = self.probe {
+            let feet = self.world.player.feet(self.alpha);
+            let (missing, looked) = self.detail.near_missing(&self.world.land, feet, crate::lod::NEAR);
+            let now = [worst.max(missing), seen + looked];
+            if now[0] != worst || (seen == 0 && looked > 0) {
+                self.ui_version += 1;
+            }
+            self.probe = Some(now);
+        }
         self.water_frame = crate::water::frame_values(&self.world.land, &self.world.water, self.scene.origin);
+        self.scene_frame =
+            crate::wind::frame_values(crate::wind::spec(), &self.world.wind, self.scene.origin);
         self.frame = Frame::build(&self.scene, &moving, &cam, self.aspect);
         self.figure = crate::stage::frame(self, self.figure_aspect);
     }
@@ -455,6 +475,8 @@ impl Game {
             }
             // M4: the menus, settings, dialogue, the shop, and test acts
             n if crate::ui::owns(n) => crate::ui::act(self, name, value)?,
+            // M7: a test act, the near-scatter probe (R9.44)
+            "lod.probe" => self.probe = Some([0, 0]),
             // M7 travel: the song screen, the waystones, the traveller
             n if n.starts_with("travel.") => crate::travel::act(self, name, value)?,
             // M7 save: continue, a new game, a file loaded, a download

@@ -72,10 +72,15 @@ pub fn uniform_values(s: &SkySpec) -> Vec<i32> {
     out
 }
 
-/// Every uniform the scene's programs take, the look's then the sky's.
+/// Every uniform the scene's programs take, the look's, the sky's, then
+/// the scatter's bands (M7, `scatter::uniform_values`).
 pub fn all_uniforms(look: &crate::look::Look) -> Vec<i32> {
     let mut u = look.uniforms();
     u.extend(uniform_values(&SkySpec::shipped()));
+    let land =
+        crate::terrain::LandSpec::parse(include_str!("../../../data/land.json")).expect("data/land.json");
+    u.extend(crate::scatter::uniform_values(&land.scatter));
+    u.extend(crate::wind::uniform_values(&crate::wind::Spec::shipped()));
     u
 }
 

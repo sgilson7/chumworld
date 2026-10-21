@@ -186,6 +186,17 @@ fn probe_frame_parts() {
         "built after 3000 still frames: {}, resident triangles {}",
         g.detail.stats.total_builds, g.detail.stats.resident_triangles
     );
+    // M7 (R9.52): what the page holds for them: 36 bytes a vertex, 4 an
+    // index; unindexed, three vertices a triangle
+    let st = g.detail.stats;
+    println!(
+        "M7: resident vertices {}, indices {}: {:.1} MB of buffers (unindexed {:.1} MB); drawn {} shapes",
+        st.resident_vertices,
+        st.resident_indices,
+        (st.resident_vertices * 36 + st.resident_indices * 4) as f64 / 1e6,
+        (st.resident_triangles * 3 * 36) as f64 / 1e6,
+        st.drawn
+    );
     for _ in 0..600 {
         if !still {
             eye.z -= ONE / 10;
