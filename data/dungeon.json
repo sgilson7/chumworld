@@ -1,0 +1,48 @@
+{
+  "_note": "T21 (phase A): the first dungeon's rooms. crates/core/src/dungeon.rs reads this file, compiled in. Each room is a space of its own, built high over the land far north of the region (`origin_m`: x east, y up, z south), so nothing in the overworld is near it and it is drawn only from inside it (the places' 3 km fade). A room is a box: its floor at the origin's height, walls round it, a ceiling. Positions inside a room are centimetres from its centre, x east, z south, as on the journal's mockups. `ledges` and `pillars` are raised floors you stand on (their tops in centimetres over the room's floor); a `ramp` climbs from one height to another along x. A door stands in a wall (`wall`: n, s, e or w) `along_cm` from the wall's middle, on a sill `top_cm` up; it leads to another room's door, out to the world, or is closed with a line. Colours are the room's own (journal: rooms.svg), 0 to 255.",
+  "origin_m": [2000, 1900, -9000],
+  "_origin_m": "11 km north of the village, beyond the far ring of mountains, 1.9 km up: dungeon.rs's tests hold every room's floor at least 100 m over the land under it",
+  "outside": { "at_m": [2550, 850], "yaw_deg": 180, "out_cm": 450 },
+  "_outside": "the great tree's door in the forest (journal: map.svg), facing south; out of the dungeon the player stands out_cm in front of it",
+  "rooms": [
+    {
+      "id": "hub",
+      "centre_m": [0, 0],
+      "size_cm": [3200, 2100],
+      "height_cm": 1200,
+      "colours": { "floor": [205, 183, 143], "wall": [154, 118, 80], "ceiling": [110, 82, 54], "top": [134, 96, 61], "side": [154, 118, 80], "door": [58, 39, 22], "frame": [107, 74, 47] },
+      "pillars": [
+        [-450, 400, 120, 300], [-850, 150, 120, 300],
+        [0, 250, 140, 300], [0, -250, 120, 300],
+        [450, 400, 120, 300], [850, 150, 120, 300]
+      ],
+      "_pillars": "x, z, radius, top (cm): six-sided root pillars; the one at (0, 250) holds the healing spring",
+      "ledges": [
+        [-200, 600, 200, 1050, 300],
+        [-1600, -400, -1200, 0, 300],
+        [1200, -400, 1600, 0, 300],
+        [-200, -1050, 200, -620, 300]
+      ],
+      "_ledges": "x0, z0, x1, z1, top (cm): the entrance's ledge (south), the left door's (west), the right door's (east), the centre door's (north)",
+      "ramps": [[200, 850, 1000, 1050, 300, 0]],
+      "_ramps": "x0, z0, x1, z1, height at x0, height at x1 (cm): the slope back up from the floor to the entrance's ledge, along the south wall",
+      "doors": [
+        { "id": "entrance", "wall": "s", "along_cm": 0, "top_cm": 300, "to": { "world": "outside" } },
+        { "id": "left", "wall": "w", "along_cm": -200, "top_cm": 300, "to": { "closed": "dungeon_door_later" } },
+        { "id": "right", "wall": "e", "along_cm": -200, "top_cm": 300, "to": { "closed": "dungeon_door_later" } },
+        { "id": "centre", "wall": "n", "along_cm": 0, "top_cm": 300, "to": { "closed": "dungeon_door_locked" } }
+      ],
+      "fountains": [{ "id": "great_tree", "at_cm": [-110, 820], "top_cm": 300 }],
+      "springs": [{ "at_cm": [0, 250], "top_cm": 300, "radius_cm": 90 }]
+    }
+  ],
+  "door_reach_cm": 170,
+  "_door_reach_cm": "E opens a door from this close to its middle",
+  "door_inside_cm": 220,
+  "_door_inside_cm": "through a door, the player stands this far in from it, facing into the room",
+  "dark_ticks": 24,
+  "hold_ticks": 18,
+  "_dark_ticks": "a door fades the view out over these ticks, moves the player, then holds the dark and fades back in",
+  "heal_per_tick": 1,
+  "_heal_per_tick": "standing in a healing spring restores this much health a tick (60 a second) up to full"
+}

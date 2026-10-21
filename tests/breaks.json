@@ -5234,5 +5234,47 @@
     "find": "    g.vy = (g.vy - GRAVITY).max(-TERMINAL);",
     "replace": "    g.vy = g.vy - GRAVITY;",
     "test": "a_fall_never_passes_thirty_metres_a_second"
+  },
+  {
+    "name": "dungeon (T21): no floor in a room",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "        out.push(flat(-hx, -hz, hx, hz, 0));\n",
+    "replace": "",
+    "test": "in_the_hub_a_body_stands_on_the_floor_a_ledge_a_pillar_and_the_ramp"
+  },
+  {
+    "name": "dungeon (T21): the ramp runs the wrong way",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "                    yaw: fx::deg(90),\n                },\n                low: c.y + cm(m[4]),",
+    "replace": "                    yaw: fx::deg(-90),\n                },\n                low: c.y + cm(m[4]),",
+    "test": "in_the_hub_a_body_stands_on_the_floor_a_ledge_a_pillar_and_the_ramp"
+  },
+  {
+    "name": "dungeon (T21): a door forgets your health",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "    w.me.health = health;\n",
+    "replace": "    let _ = health;\n",
+    "test": "a_door_fades_out_moves_the_player_through_and_fades_back_and_keeps_their_health"
+  },
+  {
+    "name": "dungeon (T21): a closed door opens",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "        To::Closed(line) => {\n            crate::story::banner(w, line);\n            return;\n        }",
+    "replace": "        To::Closed(line) => {\n            crate::story::banner(w, line);\n            0\n        }",
+    "test": "a_door_fades_out_moves_the_player_through_and_fades_back_and_keeps_their_health"
+  },
+  {
+    "name": "dungeon (T21): a spring heals past full",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "    (hp + per).min(most)\n",
+    "replace": "    let _ = most;\n    hp + per\n",
+    "test": "standing_in_the_healing_spring_heals_a_point_a_tick_up_to_full"
+  },
+  {
+    "name": "dungeon (T21): a spring heals anywhere",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "            if c.sub(p).len_xz() <= cm(s.radius_cm) && (p.y - c.y).abs() <= ONE / 4 {",
+    "replace": "            if true {",
+    "test": "standing_in_the_healing_spring_heals_a_point_a_tick_up_to_full"
   }
 ]

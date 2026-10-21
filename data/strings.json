@@ -380,5 +380,9 @@
   "save_refuse_busy": "Not saved: wait until you are on your feet.",
   "save_refuse_staged": "Not saved: this game was set up from the address for a test.",
   "place_save_crossroads": "Save point at the crossroads",
-  "place_save_trail": "Save point on the camp trail"
+  "place_save_trail": "Save point on the camp trail",
+  "_dungeon": "T21 (phase A): the first dungeon's doors and rooms",
+  "does_open_door": "Open the door",
+  "dungeon_door_later": "The roots beyond have not grown a way through yet.",
+  "dungeon_door_locked": "Two padlocks hold this door shut."
 }

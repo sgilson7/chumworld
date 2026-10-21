@@ -38,6 +38,8 @@ pub mod motion;
 pub mod pilot;
 pub mod throwables;
 // stubs: M2 World
+// T21 (phase A): the first dungeon's rooms, doors, springs and fountains
+pub mod dungeon;
 // T21 (phase A): off a ledge, through the air, down again
 pub mod jump;
 pub mod lod;

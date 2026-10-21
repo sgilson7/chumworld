@@ -163,6 +163,8 @@ pub fn blocks(w: &World) -> Vec<Solid> {
     let layout = &w.land.layout;
     let home = w.solid.home;
     let mut out = Vec::new();
+    // T21: the dungeon's walls, ceilings, ledges and pillars
+    out.extend(crate::dungeon::blocks());
     for (pk, place) in layout.places.iter().enumerate() {
         let c = places::metres(place.centre);
         for (k, q) in place.props.iter().enumerate() {

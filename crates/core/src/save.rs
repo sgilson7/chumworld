@@ -140,10 +140,15 @@ fn waystones() -> usize {
     crate::travel::spec().points.len()
 }
 
-/// How many save points there are: the waystones, then the posts.
+/// How many save points there are: the waystones, then the posts, then the
+/// dungeon's fountains (T21).
 pub fn points() -> usize {
-    waystones() + spec().posts.len()
+    waystones() + spec().posts.len() + crate::dungeon::fountains().len()
 }
+
+/// T21: in front of a fountain a load stands the player this far, on the
+/// fountain's ledge.
+pub const FOUNTAIN_ARRIVE_CM: i32 = 120;
 
 /// A save point's id in a save: `waystone.<id>` or `post.<id>`.
 pub fn point_id(k: usize) -> String {
@@ -151,10 +156,17 @@ pub fn point_id(k: usize) -> String {
     if k < n {
         format!("waystone.{}", crate::travel::spec().points[k].id)
     } else {
-        format!(
-            "post.{}",
-            spec().posts.get(k - n).map(|p| p.id.as_str()).unwrap_or("")
-        )
+        let j = k - n;
+        match spec().posts.get(j) {
+            Some(p) => format!("post.{}", p.id),
+            None => format!(
+                "fountain.{}",
+                crate::dungeon::fountains()
+                    .get(j - spec().posts.len())
+                    .map(|f| f.0.as_str())
+                    .unwrap_or("")
+            ),
+        }
     }
 }
 
@@ -177,9 +189,16 @@ pub fn foot(w: &World, k: usize) -> Option<(V3, i32)> {
     let n = waystones();
     if k < n {
         crate::travel::stone(w, k)
-    } else {
+    } else if k - n < spec().posts.len() {
         post(w, k - n)
+    } else {
+        fountain(k - n - spec().posts.len())
     }
+}
+
+/// T21: a fountain's foot and the way it faces.
+fn fountain(j: usize) -> Option<(V3, i32)> {
+    crate::dungeon::fountains().get(j).map(|f| (f.1, f.2))
 }
 
 /// Where the player stands at save point `k` after a load or a fall: in
@@ -189,8 +208,14 @@ pub fn arrival(w: &World, k: usize) -> Option<(V3, i32)> {
     if k < n {
         return crate::travel::arrival(w, k);
     }
-    let (at, yaw) = post(w, k - n)?;
-    let mut p = at.add(facing(yaw, 0).scale(spec().arrive_cm * ONE / 100));
+    let (at, yaw, out) = if k - n < spec().posts.len() {
+        let (at, yaw) = post(w, k - n)?;
+        (at, yaw, spec().arrive_cm)
+    } else {
+        let (at, yaw) = fountain(k - n - spec().posts.len())?;
+        (at, yaw, FOUNTAIN_ARRIVE_CM)
+    };
+    let mut p = at.add(facing(yaw, 0).scale(out * ONE / 100));
     p.y = crate::solid::surface(w, p.x, p.z);
     Some((p, yaw))
 }
@@ -2214,7 +2239,8 @@ mod tests {
     #[test]
     fn e_at_a_post_saves_there_with_a_line() {
         let mut w = saved();
-        let k = points() - spec().posts.len();
+        // the first post: after the waystones (the fountains come after the posts, T21)
+        let k = waystones();
         let (foot, yaw) = foot(&w, k).unwrap();
         w.player = crate::player::Body::new(foot.add(facing(yaw, 0).scale(ONE * 15 / 10)), 0);
         assert_eq!(
@@ -2340,7 +2366,8 @@ mod tests {
         let seq = w.save.seq;
         idle(&mut w, spec().autosave_ticks + 1);
         assert_eq!(w.save.seq, seq, "no autosave");
-        let k = points() - spec().posts.len();
+        // the first post: after the waystones (the fountains come after the posts, T21)
+        let k = waystones();
         let (foot, yaw) = foot(&w, k).unwrap();
         w.player = crate::player::Body::new(foot.add(facing(yaw, 0).scale(ONE * 15 / 10)), 0);
         use_point(&mut w, k);

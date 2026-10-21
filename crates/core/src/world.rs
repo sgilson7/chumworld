@@ -122,6 +122,8 @@ pub struct World {
     pub wind: crate::wind::State,
     // M7 travel (T11): the waystones, the flute's song screen, a journey
     pub travel: crate::travel::State,
+    // T21 (phase A): a door's fade under way (`dungeon.rs`)
+    pub dungeon: crate::dungeon::State,
     // M7 (P4): blood in flight and on the ground, parts taken off, the cues
     pub wounds: crate::wounds::State,
     // M7 save (T16): the last save, the save point, the autosave's watch
@@ -183,6 +185,7 @@ impl World {
             save: crate::save::State::default(),   // M7 save
             sound: crate::sound::State::default(), // M7
             boom: crate::boom::State::default(),
+            dungeon: crate::dungeon::State::default(),
             travel: crate::travel::State::default(),       // M7 travel
             roadside: crate::roadside::State::default(),   // M7 roadside
             wanderers: crate::wanderers::State::new(seed), // M7 (P9)
@@ -214,6 +217,8 @@ impl World {
         let input = &crate::story::filter(self, input);
         // M7 travel: on a journey, the keys and the mouse do nothing
         let input = &crate::travel::filter(self, input);
+        // T21: through a door, the keys and the mouse do nothing
+        let input = &crate::dungeon::filter(self, input);
         // M7: frozen for a picture of a spark (test-only), only the view turns
         if self.feel.frozen {
             crate::feel::frozen(self, input);
@@ -276,6 +281,8 @@ impl World {
         crate::story::step(self, input);
         // M7 travel: the waystones come near, the flute given, a journey
         crate::travel::step(self);
+        // T21: a door's fade and move; the healing springs
+        crate::dungeon::step(self);
         // M7 rumours: the quest lines move on as their items come to hand
         crate::rumours::step(self);
         // M7 (P9): the wanderers stand near the player, are parked away, are beaten
@@ -326,6 +333,8 @@ impl World {
         crate::places::scene(self, look, meshes, &mut out);
         // M7 (P9): the held sites' props, faded as the places'
         crate::wanderers::scene(self, look, meshes, &mut out);
+        // T21: the dungeon's rooms, faded as the places' (drawn only from inside)
+        crate::dungeon::scene(self, look, meshes, &mut out);
         // M5: …
         out
     }

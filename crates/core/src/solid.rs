@@ -141,6 +141,9 @@ impl Map {
             climbs: crate::roadside::climbs(w),
             home,
         };
+        // T21: the dungeon's walls, and its floors, ledges, pillars and ramps
+        m.walls.extend(crate::dungeon::walls());
+        m.climbs.extend(crate::dungeon::climbs());
         for s in places::prop_spots(w, Prop::Bridge) {
             let span = Wall {
                 x: s.at.x,

@@ -340,6 +340,8 @@ pub enum Use {
     Roadside(usize),
     /// M7 rumours: a person who tells rumours, by their woodpile
     Teller(usize),
+    /// T21: a door in the dungeon, or the great tree's (`dungeon::doors`)
+    Door(usize),
 }
 
 /// A line over the game, by string key, and how long it has left.
@@ -1164,6 +1166,10 @@ pub fn nearest_use(w: &World) -> Option<(Use, Fx)> {
     if let Some((k, d)) = crate::rumours::reach(w) {
         offer(Use::Teller(k), d);
     }
+    // T21: the dungeon's doors
+    if let Some((k, d)) = crate::dungeon::reach(w) {
+        offer(Use::Door(k), d);
+    }
     best
 }
 
@@ -1212,6 +1218,7 @@ fn act_on(w: &mut World, u: Use) {
         Use::SavePoint(k) => crate::save::use_point(w, k), // M7 save
         Use::Roadside(k) => crate::roadside::use_stop(w, k),
         Use::Teller(k) => crate::rumours::talk(w, k), // M7 rumours
+        Use::Door(k) => crate::dungeon::use_door(w, k), // T21
     }
 }
 
@@ -1300,6 +1307,7 @@ pub fn prompt(w: &World, s: &Strings) -> Option<String> {
         Use::SavePoint(_) => s.get("does_save"), // M7 save
         Use::Roadside(k) => s.get(crate::roadside::prompt_key(w, k)),
         Use::Teller(k) => s.get(&crate::rumours::prompt_key(k)), // M7 rumours
+        Use::Door(_) => s.get("does_open_door"),                 // T21
     };
     Some(crate::api::fill(
         &s.get("prompt"),
