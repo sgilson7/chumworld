@@ -192,6 +192,10 @@ pub fn unit_for(radius: i64) -> Fx {
     k.min(1 << 30) as Fx
 }
 
+/// A scatter part this near being drawn is built at once (Q16 metres, i64):
+/// more than a fast run's frame (14 m/s, 0.23 m) and some.
+pub const NEAR_SLACK: i64 = 2 * ONE as i64;
+
 /// How near the player every grass tuft, tree and rock is drawn whole, Q16
 /// metres (the person's "immediate viewable area", R9.44).
 pub const NEAR: Fx = 25 * ONE;
@@ -336,12 +340,14 @@ impl Detail {
         }
         ahead.sort();
         let mut budget = self.spec.builds_per_frame;
-        for (_, key) in ahead {
-            if budget == 0 {
+        for (slack, key) in ahead {
+            // a part a few metres from being drawn is built whatever the
+            // budget (after a jump, when there are many), so it never waits
+            if budget == 0 && slack > NEAR_SLACK {
                 break;
             }
             self.build_scatter(land, key, ink);
-            budget -= 1;
+            budget = budget.saturating_sub(1);
         }
         // forget what is well out of reach, every sixteenth frame (a scan of
         // every chunk kept, the empty ones too, thousands far off)
@@ -577,10 +583,10 @@ impl Detail {
 
     fn put(&mut self, key: Key, b: Built) {
         let triangles = b.vertices.len() / crate::prim::VERTEX_VALUES / 3;
-        // M7 (R9.52): every faceted mesh is handed over indexed (the water,
-        // whose vertices each carry their own flow, is not)
+        // M7 (R9.52): every mesh is handed over indexed
         let (vertices, indices) = if key.kind == WATER {
-            (b.vertices.clone(), Vec::new())
+            // the water's vertices are shared whole: each carries its own flow
+            index_shared(&b.vertices)
         } else {
             // the ground's normals four times as long, the rest twice: the
             // shader shades grass on the ground (R9.54)
@@ -622,7 +628,7 @@ impl Detail {
             if let Some(s) = self.slots[index].take() {
                 self.stats.resident_triangles -= s.triangles;
                 self.stats.resident_vertices -= s.vertices;
-                self.stats.resident_indices -= if s.key.kind == WATER { 0 } else { s.triangles * 3 };
+                self.stats.resident_indices -= s.triangles * 3;
             }
             self.free.push(index);
             self.stats.evictions += 1;
@@ -909,6 +915,23 @@ pub fn index_flat(soup: &[i32], stretch: i32) -> (Vec<i32>, Vec<u32>) {
         let v = &tri[2 * vv..3 * vv];
         let k = push(&mut out, v);
         at.entry((v[0], v[1], v[2])).or_insert(k);
+        indices.push(k);
+    }
+    (out, indices)
+}
+
+/// A mesh whose triangles share whole vertices (the water's grid), handed
+/// over indexed: each distinct vertex once (R9.52).
+pub fn index_shared(soup: &[i32]) -> (Vec<i32>, Vec<u32>) {
+    let vv = crate::prim::VERTEX_VALUES;
+    let mut out: Vec<i32> = Vec::new();
+    let mut indices = Vec::with_capacity(soup.len() / vv);
+    let mut at: BTreeMap<Vec<i32>, u32> = BTreeMap::new();
+    for v in soup.chunks(vv) {
+        let k = *at.entry(v.to_vec()).or_insert_with(|| {
+            out.extend_from_slice(v);
+            (out.len() / vv - 1) as u32
+        });
         indices.push(k);
     }
     (out, indices)

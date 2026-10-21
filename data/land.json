@@ -195,7 +195,7 @@
   "scatter": {
     "_note": "Trees, rocks, grass and flowers (scatter.rs), placed from the land's seed in chunks. A tree is whole (trunk and three cones, inked) near, one cone further, and in the forest one big cone a cluster further still, then the forest floor's colour (terrain.rs). Each change is a dithered hand-over between distances measured to the chunk's middle (m). Densities are percent of the cells of a jittered grid that hold one.",
     "chunk_m": 128,
-    "grass_chunk_m": 12,
+    "grass_chunk_m": 18,
     "full_m": [
       128,
       150
@@ -222,8 +222,8 @@
       62,
       78
     ],
-    "tuft_chunk_m": 24,
-    "tuft_cell_cm": 130,
+    "tuft_chunk_m": 36,
+    "tuft_cell_cm": 120,
     "tuft_pct": 65,
     "road_m": [
       80,
@@ -236,7 +236,7 @@
       200,
       260
     ],
-    "meadow_chunk_m": 48,
+    "meadow_chunk_m": 96,
     "meadow_cell_cm": 300,
     "meadow_pct": 55,
     "extent_m": [
