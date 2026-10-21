@@ -263,11 +263,11 @@ Built (`crates/core/src/rumours.rs`, `data/rumours.json`):
 - **Quest lines.** Speedster's armour, The leader's sword, The bandits' chest, The trainer, The waystones (R9.348), on the Quest screen with their latest rumour and progress, done ones last. A rumour that names a place marks it on the map with a question mark until walked (R9.351).
 - **Saved.** `rumours::State` holds it all by stable ids (R9.344); it is the part "rumours" in `save::PARTS` and comes back from a save (R9.358).
 
-Rows: R9.340 to R9.358; strings under "### M7 rumours (P11)" in `SECOND-ORDER.md`. Tests: 11 in `rumours/tests.rs`; 18 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "T17 rumours"`).
+Rows: R9.340 to R9.359; strings under "### M7 rumours (P11)" in `SECOND-ORDER.md`. Tests: 12 in `rumours/tests.rs`; 19 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "T17 rumours"`).
 
 Waiting on the person: R9.343 (the three new people, where they stand, the woodpile), R9.353 (no rumours for rocks, knives and bandages), R9.355 (the strings).
 
-For the coordinator: R9.344 (P10 saves `rumours::State`), R9.349 (the Quest glossary entry is out of date), R9.350 (files touched, three other parts' tests updated), R9.354 (not measured), R9.357 (browser check not run here; the Quest card and the map's question marks need the batched run).
+For the coordinator: R9.344 (P10 saves `rumours::State`), R9.349 (the Quest glossary entry is out of date), R9.350 (files touched, three other parts' tests updated), R9.354 (not measured), R9.357 and R9.359 (browser check not run here; a page error in the new Quest card was found by screenshot and fixed, so the batch should open Quest with a line open).
 ## 2026-10-20: M7 sprint (part P8, branch `m7-sprint`, T14)
 
 The person: "you should be able to set yourself to sprinting, and if you've been sprinting for 5seconds you start to go faster and faster until you are running at triple speed".

@@ -534,17 +534,17 @@ export function makeMenus(root, { act, pixels, keys }) {
         () => {
           const li = make("li");
           li.head = make("div", "line-head");
-          li.title = make("span", "line-title");
+          li.lineName = make("span", "line-title");
           li.progress = make("span", "line-progress");
-          li.head.append(li.title, li.progress);
-          li.text = make("p", "line-text");
-          li.append(li.head, li.text);
+          li.head.append(li.lineName, li.progress);
+          li.lineText = make("p", "line-text");
+          li.append(li.head, li.lineText);
           return li;
         },
         (li, l) => {
-          text(li.title, l.title);
+          text(li.lineName, l.title);
           text(li.progress, l.done ? l.done_label : l.progress);
-          text(li.text, l.text);
+          text(li.lineText, l.text);
           flag(li, "done", l.done);
         },
       );
