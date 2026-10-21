@@ -4499,5 +4499,152 @@
     "find": "pub const PRESS_MOST: usize = 2;",
     "replace": "pub const PRESS_MOST: usize = 5;",
     "test": "the_camp_comes_in_a_beat_apart_and_no_more_than_two_press_at_once"
+  },
+  {
+    "name": "wanderers: what an encounter leaves is a consumable (CW-6)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "let ok = matches!(d.kind, items::Kind::Throwable | items::Kind::Supply)\n                        && d.routes.iter().any(|r| r == \"wanderers\");",
+    "replace": "let ok = true;",
+    "test": "the_wanderers_file_reads_and_refuses_a_weapon_or_armour_as_what_is_left"
+  },
+  {
+    "name": "wanderers: placement comes from the world's seed (CW-4)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "let mut rng = Rng::new(seed ^ 0x3a4d_e7e5);",
+    "replace": "let mut rng = Rng::new(0x3a4d_e7e5);",
+    "test": "placement_is_the_same_for_a_seed_and_differs_between_seeds"
+  },
+  {
+    "name": "wanderers: nothing on the merchant's beat",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "far_from(flat(p), &z.beat, m(spec().keep.beat_m))",
+    "replace": "true",
+    "test": "nothing_is_placed_in_the_village_on_a_waystone_or_near_the_trainer_the_merchant_or_the_traveller"
+  },
+  {
+    "name": "wanderers: a run is cut into parts no longer than every_m",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "let mut parts = ((len + every - 1) / every).max(1);",
+    "replace": "let mut parts = 1 + 0 * every;",
+    "test": "along_each_way_something_is_met_every_five_hundred_metres_or_less"
+  },
+  {
+    "name": "wanderers: the cap on foes standing near the player",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "if near + need > w.wanderers.most {",
+    "replace": "if false {",
+    "test": "only_so_many_foes_stand_near_the_player"
+  },
+  {
+    "name": "wanderers: a parked encounter's foes leave the world",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "        w.foes.pop();\n        w.wanderers.free.retain(|&f| f != k);",
+    "replace": "        break;",
+    "test": "a_parked_encounter_leaves_the_world_and_stands_again_when_the_player_comes_back"
+  },
+  {
+    "name": "wanderers: a freed place is used again",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "        if let Some(slot) = take_free(w) {",
+    "replace": "        if let Some(slot) = None::<usize> {",
+    "test": "a_parked_encounter_leaves_the_world_and_stands_again_when_the_player_comes_back"
+  },
+  {
+    "name": "wanderers: a beaten encounter does not stand again",
+    "file": "crates/core/src/wanderers.rs",
+    "find": ".filter(|&i| !w.wanderers.records[i].beaten && !w.wanderers.standing.iter().any(|s| s.enc == i))",
+    "replace": ".filter(|&i| !w.wanderers.standing.iter().any(|s| s.enc == i))",
+    "test": "a_beaten_encounter_stays_beaten_and_a_roaming_one_returns_after_a_long_while"
+  },
+  {
+    "name": "wanderers: a held site never returns",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            && after > 0\n",
+    "replace": "",
+    "test": "a_beaten_encounter_stays_beaten_and_a_roaming_one_returns_after_a_long_while"
+  },
+  {
+    "name": "wanderers: an ambush springs only when the player passes close",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "Moves::Ambush => m(sp.spring_m),",
+    "replace": "Moves::Ambush => m(sp.spring_m) * 4,",
+    "test": "an_ambush_stands_hidden_until_the_player_passes_then_springs"
+  },
+  {
+    "name": "wanderers: nothing stands during the opening",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "w.story.phase == Phase::Free && w.story.crossed.is_some() && !w.player_down()",
+    "replace": "!w.player_down()",
+    "test": "nothing_stands_before_the_opening_is_over"
+  },
+  {
+    "name": "wanderers: a foe moves only through its record (CW-3)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            if let Some(i) = inputs.get_mut(mb.foe) {\n                *i = input;\n            }",
+    "replace": "            w.foes[mb.foe].body.pos.x += 1;\n            if let Some(i) = inputs.get_mut(mb.foe) {\n                *i = input;\n            }",
+    "test": "a_wanderer_moves_only_through_its_input_record"
+  },
+  {
+    "name": "wanderers: a recorded walk meets them and replays",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "        near += need;\n        stand(w, i);",
+    "replace": "        near += need;\n        let _ = i;",
+    "test": "a_recorded_walk_past_the_wanderers_hashes_the_same_every_run"
+  },
+  {
+    "name": "wanderers: up, they draw, and the flute is refused",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            let fight = alarm\n",
+    "replace": "            let fight = false && alarm\n",
+    "test": "the_flute_is_refused_while_a_wanderer_s_blade_is_out_near"
+  },
+  {
+    "name": "wanderers: no fighting by the merchant's cart",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "let cart = w.merchant.active().then_some(w.merchant.at);",
+    "replace": "let cart: Option<V3> = None;",
+    "test": "a_foe_does_not_fight_by_the_merchant_s_cart_the_trainer_or_the_village"
+  },
+  {
+    "name": "wanderers: a held site's mark only once seen",
+    "file": "crates/core/src/wanderers.rs",
+    "find": ".filter(|(_, r)| r.seen)",
+    "replace": ".filter(|(_, r)| r.seen || r.id < u16::MAX)",
+    "test": "a_held_site_is_marked_on_the_map_once_seen"
+  },
+  {
+    "name": "wanderers: a held site's props in one plane are caught (CW-18)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            models::prop(*p, *at, *yaw, look, meshes, &mut g);",
+    "replace": "            let n0 = g.shapes.list.len();\n            models::prop(*p, *at, *yaw, look, meshes, &mut g);\n            let mut s = g.shapes.list[n0].clone();\n            s.rgb = [ONE / 2; 3];\n            g.shapes.list.push(s);",
+    "test": "the_held_sites_props_draw_no_two_surfaces_in_one_plane"
+  },
+  {
+    "name": "wanderers: nothing is placed within the keep distances",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "fn zone_ok(z: &Zones, p: V3) -> bool {\n",
+    "replace": "fn zone_ok(z: &Zones, p: V3) -> bool {\n    if p.x > i32::MIN {\n        return true;\n    }\n",
+    "test": "nothing_is_placed_in_the_village_on_a_waystone_or_near_the_trainer_the_merchant_or_the_traveller"
+  },
+  {
+    "name": "wanderers: a dream keeps the placing",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "    if old.placed && old.seed == new.seed {",
+    "replace": "    if false && old.placed && old.seed == new.seed {",
+    "test": "a_dream_keeps_the_placing_and_starts_the_records_again"
+  },
+  {
+    "name": "wanderers: a load reads the beaten back",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "    if w.wanderers.synced {\n        return;\n    }",
+    "replace": "    if w.wanderers.synced || true {\n        return;\n    }",
+    "test": "a_beaten_encounter_stays_beaten_across_a_save_and_a_load"
+  },
+  {
+    "name": "wanderers: a save names the wanderers beaten",
+    "file": "crates/core/src/save.rs",
+    "find": "    out.extend(crate::wanderers::beaten_keys(w));",
+    "replace": "",
+    "test": "a_beaten_encounter_stays_beaten_across_a_save_and_a_load"
   }
 ]

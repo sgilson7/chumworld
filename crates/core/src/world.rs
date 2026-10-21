@@ -127,6 +127,8 @@ pub struct World {
     // M7 rumours (T17): what has been heard, who has been met, the quest
     // lines and the places marked (stable ids, for P10's save)
     pub rumours: crate::rumours::State,
+    // M7 (P9, T15): the encounters between the major areas, what is kept of each
+    pub wanderers: crate::wanderers::State,
 }
 
 impl World {
@@ -173,9 +175,10 @@ impl World {
             save: crate::save::State::default(),   // M7 save
             sound: crate::sound::State::default(), // M7
             boom: crate::boom::State::default(),
-            travel: crate::travel::State::default(),     // M7 travel
-            roadside: crate::roadside::State::default(), // M7 roadside
-            rumours: crate::rumours::State::default(),   // M7 rumours
+            travel: crate::travel::State::default(),       // M7 travel
+            roadside: crate::roadside::State::default(),   // M7 roadside
+            wanderers: crate::wanderers::State::new(seed), // M7 (P9)
+            rumours: crate::rumours::State::default(),     // M7 rumours
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w.boom.blocks = std::rc::Rc::new(crate::boom::blocks(&w)); // M7
@@ -230,6 +233,8 @@ impl World {
         let inputs = crate::pilot::step(self);
         // M5: the story's foes walking, running, drawing and sheathing
         let mut inputs = crate::story::steer(self, inputs);
+        // M7 (P9): the wanderers walking their rounds, standing, running at the player
+        crate::wanderers::steer(self, &mut inputs);
         // M6: a caster raises its hands as each volley leaves, through its input
         crate::orbs::pose(self, &mut inputs);
         // 3. bodies (M1: motion; M5: walls, the bridge's deck, the house's floor)
@@ -262,6 +267,8 @@ impl World {
         crate::travel::step(self);
         // M7 rumours: the quest lines move on as their items come to hand
         crate::rumours::step(self);
+        // M7 (P9): the wanderers stand near the player, are parked away, are beaten
+        crate::wanderers::step(self);
         // M7 save: the autosave, and a save that is due
         crate::save::step(self);
         // 8. M2: the water
@@ -301,6 +308,8 @@ impl World {
         // 3 km and the terrain, water and scatter round the camera (`lod.rs`)
         let mut out = Vec::new();
         crate::places::scene(self, look, meshes, &mut out);
+        // M7 (P9): the held sites' props, faded as the places'
+        crate::wanderers::scene(self, look, meshes, &mut out);
         // M5: …
         out
     }
@@ -343,6 +352,7 @@ impl World {
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
             Some(("rumours", rest)) => crate::rumours::act(self, rest, value), // M7 rumours
+            Some(("wanderers", rest)) => crate::wanderers::act(self, rest, value), // M7 (P9)
             Some(("sprint", rest)) => crate::sprint::act(self, rest, value), // M7 (T14)
             _ => Err(format!("Unknown action \"{name}\".")),
         }

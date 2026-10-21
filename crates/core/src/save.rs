@@ -290,6 +290,8 @@ pub fn known_foe(key: &str) -> bool {
         || roadside_stops(crate::roadside::Kind::Straggler)
             .iter()
             .any(|s| roadside_key(&s.id) == key)
+        // M7 (P9): each wanderer by its encounter and place in it
+        || crate::wanderers::known_key(key)
 }
 
 /// The story's pickup `k` (by its order in `data/story.json`).
@@ -312,6 +314,8 @@ pub fn known_taken(key: &str) -> bool {
         || roadside_stops(R::Straggler)
             .iter()
             .any(|s| drop_key(&roadside_key(&s.id), 0) == key)
+        // M7 (P9): what the wanderers leave
+        || crate::wanderers::known_drop(key)
 }
 
 // ---- a part's own progress ----------------------------------------------------
@@ -343,6 +347,13 @@ pub const PARTS: &[Part] = &[
         known: crate::rumours::save_known,
         ids: crate::rumours::save_ids,
         apply: crate::rumours::save_apply,
+    },
+    // M7 (P9): the held sites seen (their map marks)
+    Part {
+        name: "wanderers",
+        known: crate::wanderers::seen_known,
+        ids: crate::wanderers::seen_ids,
+        apply: crate::wanderers::seen_apply,
     },
 ];
 
@@ -492,6 +503,8 @@ fn beaten_in(w: &World) -> BTreeSet<String> {
             }
         }
     }
+    // M7 (P9): each wanderer down
+    out.extend(crate::wanderers::beaten_keys(w));
     if !w.story.opening() {
         for r in 0..story::spec().raid.orcs.len() {
             let mut on = w.story.raid.iter().filter(|x| x.route == r).peekable();

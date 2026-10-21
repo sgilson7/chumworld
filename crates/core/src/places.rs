@@ -407,6 +407,8 @@ pub fn markers(w: &World) -> Vec<(&'static str, V3)> {
         .chain(crate::save::marks(w))
         // M7 roadside: the stops with models
         .chain(crate::roadside::marks(w))
+        // M7 (P9): the held sites seen
+        .chain(crate::wanderers::marks(w))
         .collect()
 }
 

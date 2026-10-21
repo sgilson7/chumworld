@@ -14,6 +14,12 @@ Where slush comes out. Each line has up to {line.spouts} spouts.
 Not: tap, dispenser, nozzle
 -->
 
+### Ambush
+
+Bandits hidden behind a tree or a rock beside a trail. They break from cover when you pass close.
+
+Not: trap
+
 ### Autosave
 
 The game saving itself in the browser: when you leave the village, when a waystone is first woken, when a quest step is done, when you walk into or out of a place, and after {autosave.minutes} minutes of play. Never mid-duel or while someone is talking. A small Saved mark shows it.
@@ -21,6 +27,10 @@ The game saving itself in the browser: when you leave the village, when a waysto
 ### Bandage
 
 Wraps a wound and gives back {bandage.heals} health. The merchant sells them.
+
+### Bandit lean-to
+
+A small bandit site off a way, a tent and a fire with a lookout. Once seen, the map marks it.
 
 ### Blood
 
@@ -157,6 +167,10 @@ Not: inventory
 ### Mouse sensitivity
 
 A setting: how far the sword hand moves for a movement of the mouse, as a percentage.
+
+### Orc fire
+
+A small fire off a way where two orcs sit. Once seen, the map marks it.
 
 ### Orb
 
