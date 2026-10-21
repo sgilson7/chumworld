@@ -28,6 +28,12 @@ pub const REQUIRED: &[&str] = &[
     "control_look",
     "control_pause",
     "hint_pause",
+    // M7 (T14): the sprint
+    "key_sprint",
+    "control_sprint",
+    "sprint",
+    "sprint_builds",
+    "sprint_times",
     // M1: the duel's controls
     "key_draw",
     "control_draw",

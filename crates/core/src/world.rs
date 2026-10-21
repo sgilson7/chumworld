@@ -116,6 +116,8 @@ pub struct World {
     pub travel: crate::travel::State,
     // M7 (P4): blood in flight and on the ground, parts taken off, the cues
     pub wounds: crate::wounds::State,
+    // M7 save (T16): the last save, the save point, the autosave's watch
+    pub save: crate::save::State,
     // M7 roadside (T12): the stops beside the ways out, the straggler
     pub roadside: crate::roadside::State,
     // M7 rumours (T17): what has been heard, who has been met, the quest
@@ -164,6 +166,7 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
+            save: crate::save::State::default(),         // M7 save
             travel: crate::travel::State::default(),     // M7 travel
             roadside: crate::roadside::State::default(), // M7 roadside
             rumours: crate::rumours::State::default(),   // M7 rumours
@@ -241,6 +244,8 @@ impl World {
         crate::travel::step(self);
         // M7 rumours: the quest lines move on as their items come to hand
         crate::rumours::step(self);
+        // M7 save: the autosave, and a save that is due
+        crate::save::step(self);
         // 8. M2: the water
         crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
@@ -290,6 +295,8 @@ impl World {
         crate::swing::hud(self, strings, out);
         // M7 (P4): taking up a dropped weapon in the other hand
         crate::wounds::hud(self, strings, out);
+        // M7 save: the small Saved mark
+        crate::save::hud(self, strings, out);
     }
 
     /// A setting or flag named `module.name`.
@@ -314,6 +321,7 @@ impl World {
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
             Some(("rumours", rest)) => crate::rumours::act(self, rest, value), // M7 rumours
+            Some(("sprint", rest)) => crate::sprint::act(self, rest, value), // M7 (T14)
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }
@@ -335,7 +343,12 @@ impl World {
         } else {
             self.aim
         };
-        let mut cam = camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z));
+        // M7 (T14): the sprint's build pulls the camera back and widens the view
+        let (pull, widen) = crate::sprint::view(self, alpha);
+        let mut cam = camera::view_from(self.player.feet(alpha), aim, back + pull, |x, z| {
+            self.ground(x, z)
+        });
+        cam.fov += widen;
         // M1: a hard blow knocks the view a little; held on a foe, the view
         // frames the duel from a little higher and further right
         cam.eye = cam

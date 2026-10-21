@@ -99,6 +99,8 @@ pub enum Prop {
     HollowTree,
     // M7 travel (P6, T11): the carved waystone at each travel point
     Waystone,
+    // M7 save (P10, T16): the lantern post at a save point
+    SavePost,
     // M7 roadside (P7, T12): what stands beside the ways out of the village
     Wreck,
     WreckBurnt,
@@ -110,7 +112,7 @@ pub enum Prop {
 }
 
 impl Prop {
-    pub const ALL: [Prop; 22] = [
+    pub const ALL: [Prop; 23] = [
         Prop::House,
         Prop::Barn,
         Prop::Well,
@@ -127,6 +129,7 @@ impl Prop {
         Prop::Signpost,
         Prop::HollowTree,
         Prop::Waystone,
+        Prop::SavePost,
         Prop::Wreck,
         Prop::WreckBurnt,
         Prop::Watchtower,

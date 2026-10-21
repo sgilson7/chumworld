@@ -555,3 +555,46 @@ fn the_rumours_file_refuses_what_it_cannot_mean() {
     );
     assert!(with(&|v| v["rumours"][0]["told_by"][0] = "king".into()).contains("\"king\""));
 }
+
+#[test]
+fn the_quest_lines_and_marks_come_back_from_a_save() {
+    let mut w = crate::story::opening(5);
+    w.story.phase = Phase::Free;
+    hear(&mut w, rumour("hood"));
+    hear(&mut w, rumour("gloves"));
+    hear(&mut w, rumour("sword"));
+    w.rumours.met.push("woodcutter".into());
+    // the steps as items would have set them (the save refuses items whose
+    // route it has not seen taken; the lines keep their own record)
+    w.rumours.lines[0].held.push("has:hood".into());
+    w.rumours.lines[1].held.push("has:sword".into());
+    w.rumours.lines[1].done = true;
+    let text = crate::save::text(&crate::save::progress(&w));
+    let back = crate::save::world(&crate::save::read(&text).expect("the save reads back"));
+    // by hand: heard in the file's order, the woodcutter met, the camp
+    // marked; the armour with its latest rumour and the hood counted though
+    // sold, the sword's line done
+    assert_eq!(back.rumours.heard, ["hood", "gloves", "sword"]);
+    assert_eq!(back.rumours.met, ["woodcutter"]);
+    assert_eq!(back.rumours.marks, ["camp"]);
+    assert_eq!(
+        back.rumours.lines,
+        [
+            Line {
+                id: "speedster".into(),
+                latest: "gloves".into(),
+                held: vec!["has:hood".into()],
+                done: false,
+            },
+            Line {
+                id: "sword".into(),
+                latest: "sword".into(),
+                held: vec!["has:sword".into()],
+                done: true,
+            },
+        ]
+    );
+    // an id the rumours file does not have is refused
+    assert!(save_known("heard.gloves") && save_known("held.chest.has:chest_key|has:boomerang"));
+    assert!(!save_known("heard.crown") && !save_known("done.castle"));
+}

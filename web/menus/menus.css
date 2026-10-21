@@ -97,6 +97,17 @@ kbd { font-variant-numeric: tabular-nums; }
     repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.75) 0 3px, transparent 3px 7px),
     linear-gradient(180deg, #f2fbff 0%, #a8dcef 100%);
 }
+/* M7 (T14): the sprint's build, a bar of chevrons that runs forward (a
+   pattern and its words, not colour alone) */
+.bar-sprint .bar-track { height: 8px; }
+.bar-sprint .bar-label { font-size: 11px; }
+.bar-sprint .bar-text { font-size: 12px; }
+.bar-sprint .bar-fill {
+  background:
+    repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.6) 0 3px, transparent 3px 9px),
+    linear-gradient(180deg, #ffe9a8 0%, #f2b84a 100%);
+  transition: width 0.15s linear;
+}
 .footing { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
 .footing .bar-track { height: 8px; }
 .footing .bar-label { font-size: 11px; }

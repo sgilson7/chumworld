@@ -106,9 +106,11 @@ def run(page, check, engine):
     rows = page.locator("#title table.controls tr")
     # M0's four controls and M1's eight (the sword, its hand, the buttons,
     # the wheel, F and Space)
-    # M6 added Q (the imbue) to M1's twelve
-    check(rows.count() == 13, "the title screen lists the thirteen controls")
+    # M6 added Q (the imbue) to M1's twelve; M7 (T14) the tap of Shift
+    check(rows.count() == 14, "the title screen lists the fourteen controls")
     check(rows.nth(1).inner_text().split() == [STRINGS["key_run"], STRINGS["control_run"]], "Shift runs, as the controls table says")
+    sprint_row = [c.inner_text() for c in rows.nth(2).locator("td").all()]
+    check(sprint_row == [STRINGS["key_sprint"], STRINGS["control_sprint"]], f"a tap of Shift sprints, as the controls table says: {sprint_row}")
     term = page.get_attribute("#title td span[data-term='Run']", "title") or ""
     check("5 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
     check(page.locator("#view").is_visible(), "the canvas is shown")
@@ -198,6 +200,7 @@ def run(page, check, engine):
     check(cut["frames"][0]["hash"] == cut["frames"][1]["hash"], f"a frozen view after a part is taken off draws the same pixels on consecutive frames ({cut['w']}x{cut['h']})")
     menus(page, check, engine, base)
     travel(page, check, engine, base)
+    save(page, check, engine, base)
 
 
 ITEMS = json.loads((ROOT / "data" / "items.json").read_text())
@@ -556,3 +559,69 @@ def travel(page, check, engine, base):
     page.wait_for_selector("body[data-screen='play']", state="attached")
     check(page.locator("#song.shown").count() == 0, "Esc puts the flute away")
     check(page.inner_text("#message") == "", "no error message is shown after the flute")
+
+
+def save(page, check, engine, base):
+    """M7 save (T16): a save writes one key in the browser's storage, a
+    reload offers Continue and plays it, the pause's Download save gives the
+    same text as a file and Load save file reads it back, a changed file is
+    refused with its line, and a corrupt stored value starts a new game with
+    a line. The storage is read and cleared here, in the check; the page's
+    own storage code is web/save.js alone."""
+    import tempfile
+    page.goto(base + "?pointer=free&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    if page.get_attribute("body", "data-webgl") == "none":
+        return
+    page.evaluate("() => localStorage.clear()")
+    # a world past the opening, saved at once (the test act save.now)
+    page.goto(base + "?pointer=free&act=story.skip&act=story.still:on&act=save.now")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    check(page.inner_text("#message") == "", "the save acts on the address are taken without an error")
+    keys = page.evaluate("() => Object.keys(localStorage)")
+    check(len(keys) == 1, f"saving writes one key in the browser's storage: {keys}")
+    if len(keys) != 1:
+        return
+    stored = json.loads(page.evaluate("(k) => localStorage.getItem(k)", keys[0]))
+    check(stored.get("format") == "chumworld-save" and stored.get("version") == 1, "the stored text is the core's save")
+
+    page.goto(base + "?pointer=free")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    check(page.inner_text("#title button") == STRINGS["continue"], "a reload offers Continue")
+    check(page.locator("#title-save button").all_text_contents() == [STRINGS["new_game"], STRINGS["load_file"]], "and New game and Load save file")
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    check(page.inner_text("#message") == "", "Continue plays the save without an error")
+
+    page.keyboard.press("Escape")
+    page.wait_for_selector("body[data-screen='paused']", state="attached")
+    with page.expect_download() as dl:
+        page.click("#paused-save button[data-action='save.export']")
+    path = dl.value.path()
+    text = pathlib.Path(path).read_text()
+    check(json.loads(text) == stored, "Download save gives the browser's save as a file")
+    check(dl.value.suggested_filename == STRINGS["save_file_name"], f"named {dl.value.suggested_filename!r}")
+    with page.expect_file_chooser() as fc:
+        page.click("#paused-save button[data-action='save.load']")
+    fc.value.set_files(path)
+    page.wait_for_selector("#paused-save p", state="attached")
+    check(page.inner_text("#paused-save p") == STRINGS["save_loaded"], "Load save file reads the downloaded file back")
+    with tempfile.TemporaryDirectory() as d:
+        bad = pathlib.Path(d) / "changed.json"
+        bad.write_text(text.replace('"coins": 0', '"coins": 500', 1))
+        with page.expect_file_chooser() as fc:
+            page.click("#paused-save button[data-action='save.load']")
+        fc.value.set_files(str(bad))
+        page.wait_for_function("() => (document.querySelector('#paused-save p') || {}).textContent !== " + json.dumps(STRINGS["save_loaded"]))
+    line = page.inner_text("#paused-save p")
+    check(line.startswith("That file was refused") and STRINGS["save_why_checksum"] in line, f"a changed file is refused with its line: {line!r}")
+
+    # a corrupt stored value: a new game, and the line
+    page.evaluate("(k) => localStorage.setItem(k, '{broken')", keys[0])
+    page.goto(base + "?pointer=free")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    check(page.inner_text("#title button") == STRINGS["play"], "a corrupt stored save offers Play, a new game")
+    line = page.inner_text("#title-save p")
+    check(line.startswith("The saved game was refused") and line.endswith("A new game starts."), f"and says so: {line!r}")
+    page.evaluate("() => localStorage.clear()")
+    check(page.inner_text("#message") == "", "no error message is shown after the saves")
