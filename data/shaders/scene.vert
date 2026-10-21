@@ -38,6 +38,9 @@ uniform vec4 uBandKey;
 // M7 (lod::index_flat): a vertex whose normal is longer than this is from an
 // indexed facet mesh, whose triangles take their last vertex's values flat
 uniform vec3 uFlatKey;
+// near grass darker, so it reads against the ground it is lit like: this
+// share of its colour at the first distance, its own by the second (m)
+uniform vec3 uGrassNear;
 // M7: the wind's waves (direction x, z; radians a metre; share), a column each field,
 // its bend, sheen, shadow and trough strength, and its phases this frame
 uniform mat4 uWindA;
@@ -90,19 +93,21 @@ void main() {
   float k = iD.a - uBandKey.x;
   float f = k >= 0.0 ? band(length((w - uEye).xz), k) : iD.a;
   float len = length(n);
+  float near = 1.0;
   if (k >= uBandKey.y && (k < uBandKey.z || k >= uBandKey.w)) {
     w.y -= (1.0 - (f >= 0.0 ? f : -f)) * uSink;
     f = 1.0;
     // grass bends in the wind: its tip by its share, written in its normal's
     // length (scatter::Bake::bend_from), its foot not at all
     float bend = clamp(len - uFlatKey.z, 0.0, 1.0);
+    near = mix(uGrassNear.x, 1.0, smoothstep(uGrassNear.y, uGrassNear.z, length((w - uEye).xz)));
     w.xz += vec2(uWindA[0].x, uWindA[1].x) * (wind(w.xz) * bend * uWindK.x);
   }
   // the columns carry a scale that differs by axis, so normals take the
   // inverse scale: each axis divided by its column's squared length
   vNormal = a * (n.x / dot(a, a)) + b * (n.y / dot(b, b)) + c * (n.z / dot(c, c));
   vWorld = w;
-  vColor = vec4(iD.rgb * aColor, iD.a);
+  vColor = vec4(iD.rgb * aColor * near, iD.a);
   vLocal = p;
   vFade = f;
   vNormalF = vNormal;

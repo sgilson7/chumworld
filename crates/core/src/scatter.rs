@@ -196,6 +196,10 @@ pub fn uniform_values(sp: &ScatterSpec) -> Vec<i32> {
     // a unit normal is 1 long, an indexed facet's 2 (to 3 where grass
     // bends, `Bake::bend_from`), the ground's 4 (`lod::index_flat`)
     out.extend([ONE * 3 / 2, ONE * 7 / 2, 2 * ONE]);
+    // grass 78% as bright 6 m off, its own colour by 18 m: dark enough near
+    // to read against the ground, matched to it by the time a blade is thin
+    // enough to crawl as the view pans (R9.44)
+    out.extend([ONE * 78 / 100, 6 * ONE, 18 * ONE]);
     out
 }
 
@@ -206,6 +210,7 @@ pub const UNIFORMS: &[(&str, &str, usize)] = &[
     ("uSink", "uniform1fv", 1),
     ("uBandKey", "uniform4fv", 4),
     ("uFlatKey", "uniform3fv", 3),
+    ("uGrassNear", "uniform3fv", 3),
 ];
 
 /// How deep grass and tufts sink as they fade (the second matrix's bands):
@@ -1147,7 +1152,7 @@ mod tests {
     fn the_shader_fades_each_triangle_through_the_core_s_band() {
         let sp = &land().spec.scatter;
         let u = uniform_values(sp);
-        assert_eq!(u.len(), BANDS * 4 + 8);
+        assert_eq!(u.len(), BANDS * 4 + 11);
         // grass's band in slot 4: from −1 m (whole from the eye), 28 to 38 m
         assert_eq!(&u[16..20], &[-ONE, -ONE, int(28), int(38)]);
         assert_eq!(band_value(GRASS), 6 * ONE);
@@ -1160,7 +1165,10 @@ mod tests {
             &[2 * ONE, 4 * ONE, 6 * ONE, 7 * ONE]
         );
         // an indexed facet's normal is twice a unit's: 1.5 tells them apart
-        assert_eq!(&u[BANDS * 4 + 5..], &[ONE * 3 / 2, ONE * 7 / 2, 2 * ONE]);
+        assert_eq!(
+            &u[BANDS * 4 + 5..BANDS * 4 + 8],
+            &[ONE * 3 / 2, ONE * 7 / 2, 2 * ONE]
+        );
         assert!(vert.contains("w.y -= (1.0 - (f >= 0.0 ? f : -f)) * uSink;"));
         // grass and tufts take the second matrix's slots, which sink
         assert!(band_slot(GRASS) >= 4 && band_slot(TUFT) >= 4 && band_slot(ROCK) < 4);
