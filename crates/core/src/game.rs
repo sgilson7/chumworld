@@ -112,7 +112,9 @@ impl Game {
         let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;
         let look = Look::parse(look_json)?;
         // M5: the game opens in bed, during the raid
-        let world = crate::story::opening(seed as u64);
+        let mut world = crate::story::opening(seed as u64);
+        // M7 (P9): the wanderers placed now, at load, not on the first step past the boundary
+        crate::wanderers::ensure(&mut world);
         let mut meshes = MeshTable::default();
         let groups = world.scene(&look, &mut meshes);
         // M2: the places' groups are drawn by distance, faded, from the detail levels

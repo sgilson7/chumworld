@@ -43,7 +43,7 @@
     {
       "id": "rock",
       "kind": "throwable",
-      "routes": ["ground", "merchant", "roadside"],
+      "routes": ["ground", "merchant", "roadside", "wanderers"],
       "mechanic": "thrown",
       "grid": 1,
       "quick": true,
@@ -54,7 +54,7 @@
     {
       "id": "knife",
       "kind": "throwable",
-      "routes": ["bandits", "merchant", "roadside"],
+      "routes": ["bandits", "merchant", "roadside", "wanderers"],
       "mechanic": "thrown_blade",
       "grid": 2,
       "quick": true,
@@ -65,7 +65,7 @@
     {
       "id": "bandage",
       "kind": "supply",
-      "routes": ["village", "merchant", "roadside"],
+      "routes": ["village", "merchant", "roadside", "wanderers"],
       "mechanic": "heal",
       "heals": 40,
       "grid": 3,

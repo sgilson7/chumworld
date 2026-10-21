@@ -118,6 +118,8 @@ pub struct World {
     pub wounds: crate::wounds::State,
     // M7 roadside (T12): the stops beside the ways out, the straggler
     pub roadside: crate::roadside::State,
+    // M7 (P9, T15): the encounters between the major areas, what is kept of each
+    pub wanderers: crate::wanderers::State,
 }
 
 impl World {
@@ -161,8 +163,9 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
-            travel: crate::travel::State::default(),     // M7 travel
-            roadside: crate::roadside::State::default(), // M7 roadside
+            travel: crate::travel::State::default(),       // M7 travel
+            roadside: crate::roadside::State::default(),   // M7 roadside
+            wanderers: crate::wanderers::State::new(seed), // M7 (P9)
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w
@@ -209,6 +212,8 @@ impl World {
         let inputs = crate::pilot::step(self);
         // M5: the story's foes walking, running, drawing and sheathing
         let mut inputs = crate::story::steer(self, inputs);
+        // M7 (P9): the wanderers walking their rounds, standing, running at the player
+        crate::wanderers::steer(self, &mut inputs);
         // M6: a caster raises its hands as each volley leaves, through its input
         crate::orbs::pose(self, &mut inputs);
         // 3. bodies (M1: motion; M5: walls, the bridge's deck, the house's floor)
@@ -235,6 +240,8 @@ impl World {
         crate::story::step(self, input);
         // M7 travel: the waystones come near, the flute given, a journey
         crate::travel::step(self);
+        // M7 (P9): the wanderers stand near the player, are parked away, are beaten
+        crate::wanderers::step(self);
         // 8. M2: the water
         crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
@@ -267,6 +274,8 @@ impl World {
         // 3 km and the terrain, water and scatter round the camera (`lod.rs`)
         let mut out = Vec::new();
         crate::places::scene(self, look, meshes, &mut out);
+        // M7 (P9): the held sites' props, faded as the places'
+        crate::wanderers::scene(self, look, meshes, &mut out);
         // M5: …
         out
     }
@@ -305,6 +314,7 @@ impl World {
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
+            Some(("wanderers", rest)) => crate::wanderers::act(self, rest, value), // M7 (P9)
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

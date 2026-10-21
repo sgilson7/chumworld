@@ -67,5 +67,7 @@ pub mod swing;
 pub mod travel;
 // M7 polish (P4): hits read on the body
 pub mod wounds;
+// M7 polish (P9, T15): foes met between the major areas
+pub mod wanderers;
 // M7 roadside (T12)
 pub mod roadside;

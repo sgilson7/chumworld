@@ -630,6 +630,8 @@ pub fn wake(w: &mut World) {
     let mut fresh = opening(w.story.seed);
     fresh.ui.settings = settings;
     fresh.aim.pct = pct;
+    // M7 (P9): the same seed places the same wanderers; kept, not worked out again
+    crate::wanderers::carry(&w.wanderers, &mut fresh.wanderers);
     fresh.story.dreams = dreams;
     fresh.story.dreamt = true;
     fresh.story.veil = true;
