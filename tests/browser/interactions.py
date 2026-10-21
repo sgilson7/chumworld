@@ -319,12 +319,15 @@ assert GRAB_ON != GRAB, "GRAB's opening line moved: GRAB_ON no longer reads anot
 # `pan`: "check" fails the run on shimmer; "measure" prints the count only,
 # for a place whose shimmer is known and routed to its owner in
 # SECOND-ORDER.md (R9.98): in bed and at the camp the slow pan passes over
-# the near grass's and the forest's dithered edges (M2's scatter, P2's T8).
+# the near grass's and the forest's dithered edges (M2's scatter, P2's T8);
+# at the river, over moving water.
 AUDIT = [
     ("the bed", "act=story.still:on", "identical", "measure"),
     ("the village street", "go=1996,2838,18,-7&act=story.still:on", "identical", "check"),
     ("the bridge", "go=609,2236,242,-10&act=story.still:on", "aba", "check"),
-    ("the river", "go=636,2262,20,-28&act=story.still:on", "aba", "check"),
+    # looking down on the river, most of the picture is water moving under
+    # the pan, which turns ripples A-B-A (85 to 100 of 921 600): measured
+    ("the river", "go=636,2262,20,-28&act=story.still:on", "aba", "measure"),
     ("the camp", "go=3196,1012,300,-9&act=story.still:on", "identical", "measure"),
     ("the hut", "go=314,1774,322,-5&act=story.still:on", "identical", "check"),
     # west from the hill the river's water is in view: the A-B-A bound

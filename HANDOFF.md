@@ -174,4 +174,12 @@ Built:
   - `tools/m7qa_shots.py` takes the screenshots.
   - `tools/playthrough.py` plays the published flow by keyboard and mouse (R9.102).
 
+Check, 2026-10-20, after merging main at f86779b (swings, travel, triage T12 and T13):
+- `./scripts/check.sh` steps 1 to 7 pass: format, lint, 411 core tests by `./scripts/count-tests.sh` (14 probes ignored), the release build, the import audit, art, and the notebook's form.
+- Step 8 (the journal) fails only on this task's person rows R9.100, R9.101 and R9.104, which the journal does not yet name.
+- Step 9, the browser check run on its own in Chromium, Firefox and WebKit, failed once: the river's slow pan in Firefox, 100 of 921 600 pixels, with the water moving under the pan. That pan is now measured, not asserted (R9.98). The flicker audit was then rerun in Firefox and passed. The rest of that run passed in all three engines.
+- Breaks: `python3 scripts/break_tests.py` over this task's rows, 45 of 45 caught.
+- Under the other agents' load, a full three-engine browser check took about 45 minutes, most of it in Chromium's software renderer.
+- Screenshots are in `shots/m7qa/` (not committed).
+
 Waiting on the person: R9.104 (the hood cannot be bought the first time the cart is met), R9.100 (item names capitalised inside a line: a lower-case form, or keep them) and R9.101 (the strings this task wrote, under "### M7 (P3, qa)" at the foot of `SECOND-ORDER.md`).
