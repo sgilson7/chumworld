@@ -128,9 +128,15 @@ def run(page, check, engine):
     check("7 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
     check(page.locator("#view").is_visible(), "the canvas is shown")
 
+    check(page.get_attribute("body", "data-sound") is None, "no sound is set up before the reader presses anything")
     button.click()
     page.wait_for_selector("body[data-screen='play']", state="attached")
     check(page.locator("#overlay").is_hidden(), "nothing covers the game in play")
+    # M7: the click on Play sets the sound up (web/sound.js), where the
+    # browser has Web Audio; it changes nothing the checks below compare
+    if page.evaluate("() => Boolean(window.AudioContext || window.webkitAudioContext)"):
+        page.wait_for_selector("body[data-sound='on']", state="attached", timeout=10000)
+        check(True, "Play sets the sound up, after the reader's click")
     hint = page.locator("#hud-hint")
     check(hint.inner_text() == STRINGS["hint_pause"], "the line over the game tells the reader how to pause")
 
@@ -543,6 +549,35 @@ def menus_m7(page, check, engine, base):
                 check(not bad, f"{name} at {w}x{h}: the keyboard's focus shows on every control {bad[:4]}")
     page.set_viewport_size({"width": 1280, "height": 720})
 
+    # M7: a burning house in the raid, its flames and smoke held by the
+    # story's still (`story.still`): flames are unlit solids and smoke is
+    # dithered, nothing blended to sort, so a still view of them draws the
+    # same pixels on consecutive frames (CW-18)
+    page.goto(base + "?pointer=free&go=1972,2800,60,-2&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.evaluate(WAIT_FRAMES, [90, 1500])
+    fire = page.evaluate(GRAB, [2, 0, False])
+    a, b = fire["frames"]
+    check(a["colours"] > 20, f"the burning house is a picture ({a['colours']} colours sampled)")
+    check(a["hash"] == b["hash"], f"a burning house held still, flames and smoke, draws the same pixels on consecutive frames ({fire['w']}x{fire['h']})")
+    page.keyboard.press("Escape")
+    page.wait_for_selector("body[data-screen='paused']", state="attached")
+    paused = page.evaluate(GRAB, [2, 0, False])
+    check(paused["frames"][0]["hash"] == paused["frames"][1]["hash"], "paused by the fire, the frame holds still")
+
+    # M7: a spark staged between the blades and the world frozen on it (the
+    # core's feel.stage_spark): its glow and core draw the same pixels on
+    # consecutive frames
+    page.goto(base + "?pointer=free&duel=orc&foe=still&gap=150&act=feel.stage_spark:3&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.evaluate(WAIT_FRAMES, [90, 1500])
+    spark = page.evaluate(GRAB, [2, 0, False])
+    check(spark["frames"][0]["hash"] == spark["frames"][1]["hash"], "a frozen spark draws the same pixels on consecutive frames")
+    check(page.inner_text("#message") == "", "the feel acts on the address are taken without an error")
 
 def travel(page, check, engine, base):
     """M7 travel (T11): a woken waystone in view holds still frame to frame

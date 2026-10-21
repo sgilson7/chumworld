@@ -1,0 +1,187 @@
+{
+  "_note": "Every sound in the game (M7 feel, crates/core/src/sound.rs). The core synthesises each voice from its layers once, when the page first asks (after the reader's first click), and says each frame which voices to play, how loud, how fast and where; the page only plays them (web/sound.js). A new sound is one row here and one sound::cue(w, \"name\", …) in the core. Layer fields: wave (sine, tri, square, saw, noise, crackle), hz [from, to] swept straight over the layer, at_ms and ms (when the layer starts and how long it lasts; ms 0 is to the voice's end), attack_ms, decay_ms (the time for the level to fall to about a third; 0 holds it), gain_pct, lp_hz and hp_hz [from, to] one-pole filters (0 is none), bp_hz [from, to] with bp_q_pct (a resonant band), am_mhz and am_pct (a swell, millihertz), vib_mhz and vib_pct (a wobble in pitch), density (clicks a second, for crackle). A voice: ms long, peak_pct (its loudest sample after it is made, percent of full scale), level_pct (how loud it plays), bus, gap_ticks (the same voice is not started again sooner), near_m and reach_m (full level within near_m, falling as near_m / distance, gone at reach_m; reach_m 0 is heard everywhere, not placed), loop (played round and round; its level comes from the core every frame).",
+  "rate": 22050,
+  "smooth_ms": 60,
+  "loop_fade_ms": 250,
+  "pan_pct": 70,
+  "buses": { "world": 100, "duel": 100, "ui": 55, "ambience": 100, "story": 90 },
+  "limiter": { "threshold_db": -6, "knee_db": 6, "ratio": 8, "attack_ms": 3, "release_ms": 180 },
+  "voices": {
+    "step_grass": { "ms": 150, "peak_pct": 80, "level_pct": 34, "bus": "world", "gap_ticks": 3, "near_m": 2, "reach_m": 30,
+      "layers": [
+        { "wave": "noise", "attack_ms": 6, "decay_ms": 38, "gain_pct": 60, "hp_hz": [1200, 1200], "lp_hz": [5200, 2600] },
+        { "wave": "crackle", "density": 700, "attack_ms": 4, "decay_ms": 45, "gain_pct": 55, "lp_hz": [6000, 6000], "hp_hz": [900, 900] },
+        { "wave": "sine", "hz": [140, 90], "attack_ms": 2, "decay_ms": 18, "gain_pct": 20 }
+      ] },
+    "step_road": { "ms": 160, "peak_pct": 80, "level_pct": 38, "bus": "world", "gap_ticks": 3, "near_m": 2, "reach_m": 32,
+      "layers": [
+        { "wave": "crackle", "density": 2200, "attack_ms": 3, "decay_ms": 50, "gain_pct": 75, "hp_hz": [700, 700], "lp_hz": [7000, 4000] },
+        { "wave": "noise", "attack_ms": 2, "decay_ms": 24, "gain_pct": 35, "lp_hz": [1600, 1600] },
+        { "wave": "sine", "hz": [120, 80], "attack_ms": 1, "decay_ms": 22, "gain_pct": 25 }
+      ] },
+    "step_wood": { "ms": 200, "peak_pct": 80, "level_pct": 42, "bus": "world", "gap_ticks": 3, "near_m": 2, "reach_m": 34,
+      "layers": [
+        { "wave": "sine", "hz": [175, 130], "attack_ms": 1, "decay_ms": 55, "gain_pct": 70 },
+        { "wave": "noise", "attack_ms": 1, "decay_ms": 30, "gain_pct": 45, "bp_hz": [720, 650], "bp_q_pct": 450 },
+        { "wave": "sine", "hz": [430, 410], "attack_ms": 1, "decay_ms": 26, "gain_pct": 22 },
+        { "wave": "noise", "attack_ms": 0, "decay_ms": 6, "gain_pct": 25, "hp_hz": [2500, 2500] }
+      ] },
+    "step_floor": { "ms": 140, "peak_pct": 80, "level_pct": 36, "bus": "world", "gap_ticks": 3, "near_m": 2, "reach_m": 26,
+      "layers": [
+        { "wave": "noise", "attack_ms": 0, "decay_ms": 10, "gain_pct": 55, "hp_hz": [1800, 1800], "lp_hz": [6500, 6500] },
+        { "wave": "sine", "hz": [250, 210], "attack_ms": 1, "decay_ms": 30, "gain_pct": 50 },
+        { "wave": "noise", "attack_ms": 1, "decay_ms": 22, "gain_pct": 30, "bp_hz": [1100, 1000], "bp_q_pct": 300 }
+      ] },
+    "draw": { "ms": 520, "peak_pct": 85, "level_pct": 60, "bus": "duel", "gap_ticks": 10, "near_m": 3, "reach_m": 40,
+      "layers": [
+        { "wave": "noise", "ms": 300, "attack_ms": 70, "decay_ms": 160, "gain_pct": 60, "bp_hz": [2300, 5200], "bp_q_pct": 280, "hp_hz": [900, 900] },
+        { "wave": "sine", "at_ms": 230, "hz": [3150, 3120], "attack_ms": 2, "decay_ms": 140, "gain_pct": 30 },
+        { "wave": "sine", "at_ms": 230, "hz": [4740, 4700], "attack_ms": 2, "decay_ms": 80, "gain_pct": 16 },
+        { "wave": "noise", "at_ms": 228, "ms": 60, "attack_ms": 0, "decay_ms": 9, "gain_pct": 40, "hp_hz": [3000, 3000] }
+      ] },
+    "sheathe": { "ms": 420, "peak_pct": 85, "level_pct": 55, "bus": "duel", "gap_ticks": 10, "near_m": 3, "reach_m": 36,
+      "layers": [
+        { "wave": "noise", "ms": 230, "attack_ms": 30, "decay_ms": 110, "gain_pct": 55, "bp_hz": [4600, 1900], "bp_q_pct": 260, "hp_hz": [800, 800] },
+        { "wave": "noise", "at_ms": 205, "ms": 80, "attack_ms": 0, "decay_ms": 7, "gain_pct": 60, "hp_hz": [1600, 1600] },
+        { "wave": "sine", "at_ms": 205, "hz": [880, 760], "attack_ms": 1, "decay_ms": 26, "gain_pct": 45 }
+      ] },
+    "swish": { "ms": 300, "peak_pct": 85, "level_pct": 48, "bus": "duel", "gap_ticks": 9, "near_m": 3, "reach_m": 30,
+      "layers": [
+        { "wave": "noise", "attack_ms": 45, "decay_ms": 85, "gain_pct": 80, "bp_hz": [700, 2600], "bp_q_pct": 160 },
+        { "wave": "noise", "attack_ms": 60, "decay_ms": 60, "gain_pct": 30, "hp_hz": [3000, 3000] }
+      ] },
+    "clash": { "ms": 760, "peak_pct": 92, "level_pct": 88, "bus": "duel", "gap_ticks": 4, "near_m": 4, "reach_m": 70,
+      "layers": [
+        { "wave": "noise", "ms": 80, "attack_ms": 0, "decay_ms": 18, "gain_pct": 70, "hp_hz": [1800, 1800] },
+        { "wave": "sine", "hz": [2120, 2100], "attack_ms": 1, "decay_ms": 260, "gain_pct": 40 },
+        { "wave": "sine", "hz": [3190, 3170], "attack_ms": 1, "decay_ms": 190, "gain_pct": 30 },
+        { "wave": "sine", "hz": [4470, 4440], "attack_ms": 1, "decay_ms": 120, "gain_pct": 22 },
+        { "wave": "sine", "hz": [5930, 5900], "attack_ms": 1, "decay_ms": 70, "gain_pct": 12 },
+        { "wave": "sine", "hz": [830, 800], "attack_ms": 1, "decay_ms": 90, "gain_pct": 28 }
+      ] },
+    "hit": { "ms": 380, "peak_pct": 92, "level_pct": 85, "bus": "duel", "gap_ticks": 4, "near_m": 4, "reach_m": 50,
+      "layers": [
+        { "wave": "sine", "hz": [120, 52], "attack_ms": 1, "decay_ms": 80, "gain_pct": 80 },
+        { "wave": "noise", "attack_ms": 1, "decay_ms": 55, "gain_pct": 55, "lp_hz": [1200, 500] },
+        { "wave": "noise", "ms": 60, "attack_ms": 0, "decay_ms": 14, "gain_pct": 35, "bp_hz": [420, 380], "bp_q_pct": 200 }
+      ] },
+    "fall": { "ms": 520, "peak_pct": 88, "level_pct": 70, "bus": "world", "gap_ticks": 20, "near_m": 4, "reach_m": 40,
+      "layers": [
+        { "wave": "sine", "hz": [80, 44], "attack_ms": 2, "decay_ms": 130, "gain_pct": 80 },
+        { "wave": "noise", "attack_ms": 3, "decay_ms": 110, "gain_pct": 50, "lp_hz": [520, 300] },
+        { "wave": "crackle", "density": 400, "at_ms": 60, "ms": 200, "attack_ms": 5, "decay_ms": 60, "gain_pct": 30, "lp_hz": [3000, 3000] }
+      ] },
+    "imbue_on": { "ms": 1100, "peak_pct": 85, "level_pct": 62, "bus": "duel", "gap_ticks": 30, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "sine", "hz": [520, 1040], "attack_ms": 120, "decay_ms": 420, "gain_pct": 45, "vib_mhz": 6000, "vib_pct": 1 },
+        { "wave": "sine", "hz": [780, 1560], "at_ms": 60, "attack_ms": 120, "decay_ms": 380, "gain_pct": 30 },
+        { "wave": "tri", "hz": [262, 523], "attack_ms": 60, "decay_ms": 300, "gain_pct": 25 },
+        { "wave": "noise", "attack_ms": 200, "decay_ms": 300, "gain_pct": 25, "bp_hz": [2500, 3400], "bp_q_pct": 500, "am_mhz": 18000, "am_pct": 70 }
+      ] },
+    "imbue_pulse": { "ms": 360, "peak_pct": 80, "level_pct": 40, "bus": "duel", "gap_ticks": 8, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "sine", "hz": [1320, 1318], "attack_ms": 3, "decay_ms": 110, "gain_pct": 60 },
+        { "wave": "sine", "hz": [1980, 1976], "attack_ms": 3, "decay_ms": 70, "gain_pct": 30 }
+      ] },
+    "imbue_off": { "ms": 800, "peak_pct": 82, "level_pct": 52, "bus": "duel", "gap_ticks": 30, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "sine", "hz": [1040, 390], "attack_ms": 10, "decay_ms": 280, "gain_pct": 50 },
+        { "wave": "tri", "hz": [520, 196], "attack_ms": 10, "decay_ms": 240, "gain_pct": 30 },
+        { "wave": "noise", "attack_ms": 5, "decay_ms": 160, "gain_pct": 18, "bp_hz": [3000, 900], "bp_q_pct": 400 }
+      ] },
+    "whoosh": { "ms": 700, "peak_pct": 85, "level_pct": 55, "bus": "duel", "gap_ticks": 12, "near_m": 4, "reach_m": 60,
+      "layers": [
+        { "wave": "noise", "attack_ms": 140, "decay_ms": 190, "gain_pct": 70, "bp_hz": [380, 1700], "bp_q_pct": 220 },
+        { "wave": "tri", "hz": [220, 470], "attack_ms": 120, "decay_ms": 160, "gain_pct": 25, "vib_mhz": 9000, "vib_pct": 3 }
+      ] },
+    "ping": { "ms": 700, "peak_pct": 88, "level_pct": 66, "bus": "duel", "gap_ticks": 3, "near_m": 4, "reach_m": 50,
+      "layers": [
+        { "wave": "sine", "hz": [1760, 1760], "attack_ms": 1, "decay_ms": 210, "gain_pct": 55 },
+        { "wave": "sine", "hz": [4860, 4860], "attack_ms": 1, "decay_ms": 80, "gain_pct": 22 },
+        { "wave": "sine", "hz": [3520, 3520], "attack_ms": 1, "decay_ms": 130, "gain_pct": 25 },
+        { "wave": "noise", "ms": 40, "attack_ms": 0, "decay_ms": 6, "gain_pct": 25, "hp_hz": [4000, 4000] }
+      ] },
+    "throw": { "ms": 280, "peak_pct": 82, "level_pct": 45, "bus": "world", "gap_ticks": 6, "near_m": 3, "reach_m": 30,
+      "layers": [
+        { "wave": "noise", "attack_ms": 35, "decay_ms": 70, "gain_pct": 80, "bp_hz": [600, 1500], "bp_q_pct": 180 }
+      ] },
+    "thunk": { "ms": 300, "peak_pct": 85, "level_pct": 60, "bus": "world", "gap_ticks": 6, "near_m": 3, "reach_m": 50,
+      "layers": [
+        { "wave": "sine", "hz": [190, 95], "attack_ms": 1, "decay_ms": 50, "gain_pct": 70 },
+        { "wave": "noise", "attack_ms": 0, "decay_ms": 26, "gain_pct": 50, "lp_hz": [1400, 900] },
+        { "wave": "sine", "hz": [610, 590], "attack_ms": 1, "decay_ms": 30, "gain_pct": 20 }
+      ] },
+    "bray": { "ms": 1100, "peak_pct": 85, "level_pct": 55, "bus": "world", "gap_ticks": 240, "near_m": 5, "reach_m": 90,
+      "layers": [
+        { "wave": "saw", "hz": [500, 610], "ms": 380, "attack_ms": 40, "decay_ms": 0, "gain_pct": 55, "bp_hz": [1150, 1250], "bp_q_pct": 260, "vib_mhz": 7000, "vib_pct": 3 },
+        { "wave": "saw", "hz": [270, 215], "at_ms": 430, "ms": 520, "attack_ms": 50, "decay_ms": 0, "gain_pct": 60, "bp_hz": [760, 640], "bp_q_pct": 240, "vib_mhz": 6000, "vib_pct": 3 },
+        { "wave": "noise", "at_ms": 400, "ms": 60, "attack_ms": 10, "decay_ms": 20, "gain_pct": 25, "bp_hz": [2000, 2000], "bp_q_pct": 150 }
+      ] },
+    "shout": { "ms": 700, "peak_pct": 85, "level_pct": 58, "bus": "story", "gap_ticks": 40, "near_m": 6, "reach_m": 120,
+      "layers": [
+        { "wave": "saw", "hz": [150, 205], "ms": 160, "attack_ms": 30, "decay_ms": 0, "gain_pct": 55, "bp_hz": [600, 800], "bp_q_pct": 220, "vib_mhz": 8000, "vib_pct": 5 },
+        { "wave": "saw", "hz": [205, 130], "at_ms": 150, "ms": 520, "attack_ms": 10, "decay_ms": 230, "gain_pct": 60, "bp_hz": [800, 520], "bp_q_pct": 220, "vib_mhz": 7000, "vib_pct": 5 },
+        { "wave": "noise", "attack_ms": 40, "decay_ms": 220, "gain_pct": 25, "bp_hz": [1400, 900], "bp_q_pct": 160 }
+      ] },
+    "tick": { "ms": 60, "peak_pct": 70, "level_pct": 45, "bus": "ui", "gap_ticks": 0, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "sine", "hz": [2200, 2150], "attack_ms": 0, "decay_ms": 10, "gain_pct": 70 },
+        { "wave": "square", "hz": [1100, 1100], "attack_ms": 0, "decay_ms": 5, "gain_pct": 15, "lp_hz": [4000, 4000] }
+      ] },
+    "blip": { "ms": 70, "peak_pct": 70, "level_pct": 30, "bus": "ui", "gap_ticks": 0, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "square", "hz": [640, 620], "attack_ms": 2, "decay_ms": 22, "gain_pct": 70, "lp_hz": [2400, 2000] }
+      ] },
+    "chime": { "ms": 1000, "peak_pct": 82, "level_pct": 55, "bus": "ui", "gap_ticks": 6, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "sine", "hz": [1047, 1047], "attack_ms": 2, "decay_ms": 240, "gain_pct": 50 },
+        { "wave": "sine", "hz": [1568, 1568], "at_ms": 90, "attack_ms": 2, "decay_ms": 280, "gain_pct": 45 },
+        { "wave": "sine", "hz": [2093, 2093], "at_ms": 180, "attack_ms": 2, "decay_ms": 380, "gain_pct": 40 },
+        { "wave": "sine", "hz": [3136, 3136], "at_ms": 180, "attack_ms": 2, "decay_ms": 150, "gain_pct": 12 }
+      ] },
+    "dream": { "ms": 2800, "peak_pct": 80, "level_pct": 58, "bus": "story", "gap_ticks": 120, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "sine", "hz": [220, 196], "attack_ms": 700, "decay_ms": 1100, "gain_pct": 40, "vib_mhz": 4000, "vib_pct": 1 },
+        { "wave": "sine", "hz": [277, 247], "at_ms": 120, "attack_ms": 700, "decay_ms": 1100, "gain_pct": 32, "vib_mhz": 4500, "vib_pct": 1 },
+        { "wave": "sine", "hz": [330, 294], "at_ms": 240, "attack_ms": 700, "decay_ms": 1000, "gain_pct": 28 },
+        { "wave": "tri", "hz": [110, 98], "attack_ms": 900, "decay_ms": 1200, "gain_pct": 25 },
+        { "wave": "noise", "attack_ms": 900, "decay_ms": 900, "gain_pct": 12, "lp_hz": [700, 300] }
+      ] },
+    "free": { "ms": 1700, "peak_pct": 82, "level_pct": 55, "bus": "story", "gap_ticks": 120, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "sine", "hz": [392, 392], "attack_ms": 15, "decay_ms": 520, "gain_pct": 40 },
+        { "wave": "sine", "hz": [494, 494], "at_ms": 130, "attack_ms": 15, "decay_ms": 520, "gain_pct": 38 },
+        { "wave": "sine", "hz": [587, 587], "at_ms": 260, "attack_ms": 15, "decay_ms": 560, "gain_pct": 36 },
+        { "wave": "sine", "hz": [784, 784], "at_ms": 390, "attack_ms": 15, "decay_ms": 700, "gain_pct": 34 },
+        { "wave": "tri", "hz": [196, 196], "attack_ms": 200, "decay_ms": 700, "gain_pct": 20 }
+      ] },
+    "river": { "loop": true, "ms": 4000, "peak_pct": 80, "level_pct": 60, "bus": "ambience", "gap_ticks": 0, "near_m": 8, "reach_m": 140,
+      "layers": [
+        { "wave": "noise", "gain_pct": 60, "lp_hz": [650, 650] },
+        { "wave": "noise", "gain_pct": 28, "bp_hz": [2100, 2100], "bp_q_pct": 120, "am_mhz": 500, "am_pct": 45 },
+        { "wave": "crackle", "density": 140, "gain_pct": 22, "bp_hz": [2800, 2800], "bp_q_pct": 300 }
+      ] },
+    "wind": { "loop": true, "ms": 6000, "peak_pct": 80, "level_pct": 46, "bus": "ambience", "gap_ticks": 0, "near_m": 0, "reach_m": 0,
+      "layers": [
+        { "wave": "noise", "gain_pct": 60, "bp_hz": [480, 480], "bp_q_pct": 70, "am_mhz": 333, "am_pct": 60 },
+        { "wave": "noise", "gain_pct": 45, "lp_hz": [280, 280], "am_mhz": 167, "am_pct": 40 },
+        { "wave": "noise", "gain_pct": 14, "bp_hz": [1300, 1300], "bp_q_pct": 400, "am_mhz": 500, "am_pct": 80 }
+      ] },
+    "fire": { "loop": true, "ms": 3000, "peak_pct": 85, "level_pct": 72, "bus": "ambience", "gap_ticks": 0, "near_m": 6, "reach_m": 90,
+      "layers": [
+        { "wave": "noise", "gain_pct": 55, "lp_hz": [420, 420], "am_mhz": 2000, "am_pct": 30 },
+        { "wave": "crackle", "density": 30, "gain_pct": 80, "hp_hz": [1300, 1300] },
+        { "wave": "crackle", "density": 9, "gain_pct": 60, "lp_hz": [900, 900] }
+      ] },
+    "cart": { "loop": true, "ms": 2000, "peak_pct": 82, "level_pct": 55, "bus": "world", "gap_ticks": 0, "near_m": 4, "reach_m": 70,
+      "layers": [
+        { "wave": "noise", "gain_pct": 60, "lp_hz": [230, 230], "am_mhz": 2000, "am_pct": 50 },
+        { "wave": "saw", "hz": [180, 180], "gain_pct": 18, "bp_hz": [900, 900], "bp_q_pct": 400, "am_mhz": 1000, "am_pct": 95 },
+        { "wave": "crackle", "density": 60, "gain_pct": 35, "lp_hz": [1600, 1600] }
+      ] },
+    "whirr": { "loop": true, "ms": 1000, "peak_pct": 82, "level_pct": 52, "bus": "world", "gap_ticks": 0, "near_m": 3, "reach_m": 50,
+      "layers": [
+        { "wave": "noise", "gain_pct": 80, "bp_hz": [950, 950], "bp_q_pct": 200, "am_mhz": 12000, "am_pct": 85 }
+      ] }
+  }
+}

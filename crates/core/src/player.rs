@@ -46,8 +46,11 @@ pub const FOE_RANGE: Fx = fx::int(40);
 /// brought to the scabbard's mouth over `ALIGN_TICKS`, then slides home
 /// over `SLIDE_TICKS`. The scabbard swings back to hang on the hip by
 /// `TILT_STEP` a tick.
-pub const REACH_TICKS: u8 = 18;
-pub const PULL_TICKS: u8 = 10;
+/// M7: 12 and 8, a draw of 20 ticks (0.33 s), from M1's 18 and 10 (0.47 s);
+/// M1's recorded duel holds its fence for some draw timings and not their
+/// neighbours (SECOND-ORDER.md R9.6).
+pub const REACH_TICKS: u8 = 12;
+pub const PULL_TICKS: u8 = 8;
 pub const DRAW_TICKS: u8 = REACH_TICKS + PULL_TICKS;
 pub const ALIGN_TICKS: u8 = 18;
 pub const SLIDE_TICKS: u8 = 12;

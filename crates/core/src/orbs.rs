@@ -53,6 +53,9 @@ pub enum Pattern {
     Leader,
     /// the trainer's practice round (T2): slower, fewer orbs, harmless
     Practice,
+    /// M7: the practice's first steps, one orb, then a few (`trainer.rs`)
+    PracticeOne,
+    PracticeFew,
 }
 
 // ---- the data: data/orbs.json ---------------------------------------------
@@ -203,6 +206,9 @@ pub struct Colours {
 pub struct Patterns {
     pub leader: Vec<Volley>,
     pub practice: Vec<Volley>,
+    // M7: the practice's first steps
+    pub practice_one: Vec<Volley>,
+    pub practice_few: Vec<Volley>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -234,7 +240,14 @@ impl Spec {
                 }
             }
         }
-        for v in s.patterns.leader.iter().chain(&s.patterns.practice) {
+        let p = &s.patterns;
+        for v in p
+            .leader
+            .iter()
+            .chain(&p.practice)
+            .chain(&p.practice_one)
+            .chain(&p.practice_few)
+        {
             if s.kind(&v.kind).is_none() {
                 return Err(format!(
                     "The orbs file's pattern throws a kind \"{}\" it does not list.",
@@ -259,6 +272,8 @@ impl Spec {
         match p {
             Pattern::Leader => &self.patterns.leader,
             Pattern::Practice => &self.patterns.practice,
+            Pattern::PracticeOne => &self.patterns.practice_one,
+            Pattern::PracticeFew => &self.patterns.practice_few,
         }
     }
 }
@@ -623,6 +638,10 @@ fn spark(w: &mut World, at: V3, size: Fx) {
 /// Orb `o` lands on fighter `id`: health by its kind (`TURNED_DAMAGE_PCT`
 /// of that turned), a stun weakening both arms.
 fn land_on(w: &mut World, o: &Orb, id: usize) {
+    // M7 (R9.24): a world held still hurts no one
+    if crate::story::holding(w) {
+        return;
+    }
     let k = o.kind();
     let dmg = if o.turned.is_some() {
         k.damage * TURNED_DAMAGE_PCT / 100
