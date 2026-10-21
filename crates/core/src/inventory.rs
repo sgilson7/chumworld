@@ -218,8 +218,10 @@ pub fn take(w: &mut World, i: Item, n: u32) -> u32 {
     w.inventory.remove(i, n)
 }
 
-/// One tick: a quick key pressed readies its item, or puts it away.
+/// One tick: a quick key pressed readies its item, or puts it away. M7
+/// travel: the flute is not held ready; its key plays it (`travel::request`).
 pub fn step(w: &mut World, input: &Input) {
+    let mut play = false;
     for (k, bit) in QUICK_KEYS.iter().enumerate() {
         let inv = &mut w.inventory;
         let pressed = input.keys & bit != 0 && inv.last_keys & bit == 0;
@@ -227,6 +229,8 @@ pub fn step(w: &mut World, input: &Input) {
         // Time's bottles are, not held ready to throw
         if pressed && inv.quick[k] == Some(Item::Bandage) {
             bandage(w);
+        } else if pressed && inv.quick[k] == Some(Item::Flute) {
+            play = true;
         } else if pressed && inv.quick[k].is_some() {
             inv.ready = if inv.ready == Some(k) { None } else { Some(k) };
         }
@@ -236,6 +240,9 @@ pub fn step(w: &mut World, input: &Input) {
         inv.ready = None;
     }
     inv.last_keys = input.keys & (ITEM_1 | ITEM_2 | ITEM_3);
+    if play {
+        crate::travel::request(w);
+    }
 }
 
 /// M7: one bandage gives back its health (`items.json` `heals`), held to

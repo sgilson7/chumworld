@@ -25,3 +25,11 @@ The agent decided: triage row T10, built by a fifth M7 part, "swings" (`m7-swing
 > you should definitly be able to get an instrument you can play to return to fast travel points like ocarina of time / majoras mask, or certain npcs can fast travel you to far off places for the first time for a price
 
 The agent decided: triage row T11, built by a sixth M7 part, "travel" (`m7-travel`). It owns the instrument, the travel points, the song screen and the paid traveller. Journal entry `2026-10-20-t11`.
+
+> make sure there is stuff to do see roads on the sides of the village you are most likely to run out of at theb eginning of the game
+
+The agent decided: triage row T12, built by a seventh M7 part, "roadside" (`m7-roadside`). The likely exits come from the opening's own data (`data/story.json`): the raid enters from the south, and the four villagers flee north-west, north-east, north and west. The roadside part places its stops along the roads the land part (P2) lays for T6 on those sides; the land part is told which sides, and the travel part (P6) puts the village-edge stone on the north road. Journal entry `2026-10-20-t12`.
+
+> the grass should be rendered way farther into the distance, like it should appear in some way everywhere when its there, it still dissappears wayy to close to you; onstead of the ground in the distance being flat, it should have some grass rippling / moving texture maybe using some tech from extremely lifelike fishing
+
+The agent decided: triage row T13, added to the land part (`m7-land`), which already owns grass reach and pop-in (T8). The fishing game has no grass; the technique taken from it is its water's wind-like motion: a few summed travelling waves and a periodic noise whose drift is sent wrapped (R4.9). Here it becomes one wind field shared by the near blades and a grass shading on the far terrain, so gusts roll across the whole field. Journal entry `2026-10-20-t13`.

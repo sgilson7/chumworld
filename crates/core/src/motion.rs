@@ -82,6 +82,9 @@ pub struct Gait {
     /// body leans back along it, the arms lose half their strength
     pub stagger: u8,
     pub stagger_way: V3,
+    /// M7 (R9.177): how far a thrust has the body lunging forward, `ONE`
+    /// fully (`swing::LUNGE_LEAN`), set by the cut, eased in and out
+    pub lunge: Fx,
 }
 
 /// Grip with `n` speedster pieces: bare feet's `GRIP_BASE` times M4's

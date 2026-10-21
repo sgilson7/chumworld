@@ -23,5 +23,5 @@
     "eye_mm": [0, 1250, 5700],
     "look_mm": [0, 960, 0]
   },
-  "place_icons": ["village", "camp", "hut", "shrine", "bridge", "tree", "scarecrow", "chest"]
+  "place_icons": ["village", "camp", "hut", "shrine", "bridge", "tree", "scarecrow", "chest", "waystone_village", "waystone_bridge", "waystone_hill", "waystone_shrine", "waystone_camp"]
 }

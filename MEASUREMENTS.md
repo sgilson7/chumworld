@@ -126,6 +126,89 @@ What the leader's whole pattern takes from a player at full health, by how it is
 
 Thrown: 66 orbs before, 62 after (41 turnable). The tick through the pattern, the player imbued and swinging: 0.11 ms mean, 0.24 ms worst, native release. WebAssembly 1 531 KB.
 
+## M7 swings (task P5, T10)
+
+What swings come out of scripted input: the player drawn and settled at the guard, then the left button held and the mouse moved one way, 600 px in 30, 15 or 6 ticks (1 200, 2 400 or 6 000 px a second; after T10 any of these is one gesture, since 40 px picks the cut), then held still. "Plane from horizontal" is the angle between the plane the blade turned in (the mean of its tick-to-tick rotation axes) and the ground: 0° level, 90° upright. "Arc" is how far the blade turned in that plane; after T10 it is measured over the strike and the follow-through, the wind-up left out. "Ticks" is from the first tick the tip passes 1.5 m/s to the last (before), or from the button to the cut's end (after). `cargo test --release -p tool_core --test swing_probe -- --ignored --nocapture` (`probe_swings_from_scripted_mouse`), 2026-10-20.
+
+Before (main at 7be283c):
+
+| Weapon | Mouse | Speed | Plane from horizontal | Arc | Peak tip | Ticks |
+| --- | --- | --- | --- | --- | --- | --- |
+| Short sword | sideways (left) | slow | 12° | 100° | 4.7 m/s | 29 |
+| Short sword | sideways (left) | medium | 11° | 107° | 9.4 m/s | 17 |
+| Short sword | sideways (left) | fast | 11° | 108° | 11.0 m/s | 16 |
+| Short sword | up | slow | 90° | 86° | 4.7 m/s | 31 |
+| Short sword | up | medium | 90° | 88° | 9.1 m/s | 19 |
+| Short sword | up | fast | 90° | 87° | 10.9 m/s | 16 |
+| Short sword | down | slow | 90° | 21° | 3.1 m/s | 12 |
+| Short sword | down | medium | 90° | 22° | 5.6 m/s | 9 |
+| Short sword | down | fast | 90° | 22° | 7.5 m/s | 8 |
+| Short sword | diagonal (down-left) | slow | 32° | 84° | 4.0 m/s | 31 |
+| Short sword | diagonal (down-left) | medium | 36° | 85° | 8.4 m/s | 18 |
+| Short sword | diagonal (down-left) | fast | 38° | 86° | 11.4 m/s | 13 |
+| Short sword | 20° off sideways | slow | 24° | 106° | 4.5 m/s | 31 |
+| Short sword | 20° off sideways | medium | 27° | 106° | 9.4 m/s | 18 |
+| Short sword | 20° off sideways | fast | 30° | 106° | 10.9 m/s | 16 |
+| Short sword | wheel away (thrust) | medium | 90° | 19° | 5.7 m/s | 6 |
+| Sword | sideways (left) | medium | 18° | 117° | 12.9 m/s | 25 |
+| Sword | up | medium | 90° | 95° | 11.8 m/s | 20 |
+| Sword | down | medium | 90° | 23° | 7.1 m/s | 9 |
+| Sword | diagonal (down-left) | medium | 38° | 86° | 11.8 m/s | 18 |
+| Sword | 20° off sideways | medium | 31° | 108° | 13.0 m/s | 19 |
+| Cleaver | sideways (left) | medium | 26° | 121° | 9.1 m/s | 28 |
+| Cleaver | up | medium | 89° | 95° | 7.9 m/s | 27 |
+| Cleaver | down | medium | 89° | 25° | 6.0 m/s | 9 |
+| Cleaver | diagonal (down-left) | medium | 41° | 88° | 8.4 m/s | 17 |
+| Cleaver | 20° off sideways | medium | 33° | 112° | 8.6 m/s | 20 |
+
+The diagnosis is R9.160: a cut was as long and fast as the mouse's stroke, a downward stroke from the guard had 36° of shell left, the blade's line kept a stroke's slant, and the arm's drag stopped it with the mouse.
+
+After (this branch):
+
+| Weapon | Mouse | Mouse speed | Plane from horizontal | Arc | Peak tip | Ticks to the end |
+| --- | --- | --- | --- | --- | --- | --- |
+| Short sword | sideways (left) | medium | 1° | 189° | 16.4 m/s | 37 |
+| Short sword | up | medium | 89° | 176° | 15.9 m/s | 34 |
+| Short sword | down | medium | 90° | 184° | 16.8 m/s | 40 |
+| Short sword | diagonal (down-left) | medium | 45° | 190° | 15.6 m/s | 39 |
+| Short sword | 20° off sideways | medium | 1° | 189° | 16.4 m/s | 38 |
+| Short sword | wheel away (thrust) | one notch | (line) | 25 cm ahead | 5.6 m/s | 17 |
+| Sword | sideways (left) | medium | 1° | 192° | 18.4 m/s | 42 |
+| Sword | up | medium | 90° | 169° | 17.5 m/s | 47 |
+| Sword | down | medium | 89° | 154° | 18.4 m/s | 51 |
+| Sword | diagonal (down-left) | medium | 45° | 192° | 17.6 m/s | 44 |
+| Sword | 20° off sideways | medium | 1° | 192° | 18.4 m/s | 43 |
+| Sword | wheel away (thrust) | one notch | (line) | 23 cm ahead | 6.3 m/s | 17 |
+| Cleaver | sideways (left) | medium | 2° | 194° | 11.6 m/s | 49 |
+| Cleaver | up | medium | 90° | 181° | 11.3 m/s | 45 |
+| Cleaver | down | medium | 88° | 158° | 11.6 m/s | 60 |
+| Cleaver | diagonal (down-left) | medium | 45° | 192° | 11.3 m/s | 52 |
+| Cleaver | 20° off sideways | medium | 2° | 194° | 11.6 m/s | 50 |
+| Cleaver | wheel away (thrust) | one notch | (line) | 25 cm ahead | 4.3 m/s | 20 |
+
+The slow and fast strokes give the same rows as the medium within a tick (any stroke past 40 px is one gesture). A thrust is a line, not an arc: its row gives how far the tip went ahead over the strike. The sword's level cut is with the free hand off the hilt (R9.166). M1's staged blow (a level cut stepping in at a still orc 1.35 m off) lands on its torso at 11.1 m/s, inside the 8 to 16 m/s band; the tip itself tops 16 m/s.
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Which cuts the foes make, a still player, 30 s of an orc's tree | `a_pilot_s_level_cuts_and_chops_come_through_its_input_record` (a scratch count) | level cuts and chops both made, by the weights in `data/pilots.json` (R9.170) | 2026-10-20, P5 |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 669 KB | 2026-10-20, P5 |
+
+## M7 travel (P6, T11)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Travel's own tick (five waystones' nearness, the gift's check, a journey), native release | `cargo test --release -p tool_core --test frame_probe -- --ignored --nocapture probe_travel_tick_cost` | 0.32 µs a tick with nothing reached (the worst case: five distances), 0.013 µs with every waystone woken; against the core's 2 ms (CW-11): negligible. A first version read the ground under each waystone every tick: 6.7 µs, so the nearness now reads the layout's centres | 2026-10-20, P6 |
+| Drawing the woken waystones' light and the traveller | same probe | 11.4 µs a frame, 30 shapes (two waystones in reach of the glow and the traveller from where the probe ends) | 2026-10-20, P6 |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 740 KB | 2026-10-20, P6 |
+
+### M7 swings, second pass (R9.175 to R9.178)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| The thrust, after R9.177 | `swing_probe` (`probe_swings_from_scripted_mouse`) | short sword: tip 12.7 m/s, 50 cm ahead over the strike, 16 ticks (was 5.6 m/s, 25 cm); sword 11.4 m/s, 55 cm; cleaver 10.1 m/s, 65 cm | 2026-10-20, P5 |
+| The level cut, middle plane at −5% (R9.178) | same | short sword 1° off level, 188°, 16.5 m/s; sword 1°, 190°, 18.5 m/s; cleaver 2°, 192°, 11.8 m/s | 2026-10-20, P5 |
+| The trail | `a_cut_leaves_a_trail_that_fades_to_nothing` | 7 places kept, 3 to 6 quads drawn in a strike; 5, 3, 1, 0 the ticks after the cut ends | 2026-10-20, P5 |
+
 ## M7 polish, menus, shop, models and the flicker audit (task P3, qa)
 
 | What | Command | Result | When |
