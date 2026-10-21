@@ -810,8 +810,12 @@ impl Detail {
             (2 * i + 1, 2 * j + 1),
         ];
         if d < ring(level - 1) * self.spec.prefetch_pct as i64 / 100 {
+            // T18 (R9.423): soonest needed first, by how far the tile is
+            // from splitting, as the top tiles are; by `d` alone a coarse
+            // tile's children, far off but about to split, waited behind
+            // every near fine one, and at 70 m/s one was needed first
             for &(ci, cj) in &children {
-                ahead.push((d, Detail::tile_key(level - 1, ci, cj)));
+                ahead.push((d - ring(level - 1), Detail::tile_key(level - 1, ci, cj)));
             }
         }
         // a tile coming in is never itself splitting (see the module doc);
@@ -1187,8 +1191,10 @@ mod tests {
         let l = &w.land;
         let sp = &l.spec.scatter;
         let r = int(25) as i64;
-        // (x, z, heading, metres a second): and once at a sprint's top
-        // speed, 21 m/s (sprint.rs, three times the run)
+        // (x, z, heading, metres a second): and at a sprint's speeds, 21
+        // m/s (three times the run, half way up the build), 35 (its top,
+        // five times) and 70 (ten times, the top with five speedster
+        // pieces: T18, R9.423)
         let places = [
             (2000, 2790, 0, 7),
             (1500, 2650, 80, 7),
@@ -1196,6 +1202,8 @@ mod tests {
             (640, 2300, 270, 7),
             (3213, 1010, 200, 7),
             (1500, 2600, 100, 21),
+            (1500, 2600, 100, 35),
+            (1500, 2600, 100, 70),
         ];
         let mut tufts_seen = 0;
         let mut things_seen = 0;
@@ -1218,7 +1226,7 @@ mod tests {
                 if t > 0 {
                     assert_eq!(
                         d.stats.sync_builds, 0,
-                        "{:?} waited at ({x}, {z}) frame {t}",
+                        "{:?} waited at ({x}, {z}) at {mps} m/s, frame {t}",
                         d.stats.last_sync
                     );
                 }

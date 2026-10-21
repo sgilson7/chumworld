@@ -26,6 +26,13 @@ use crate::world::World;
 
 /// A body's radius against a wall.
 pub const RADIUS: Fx = ONE * 35 / 100;
+/// T18: a body's move in a tick meets the walls in steps of at most this
+/// (R9.422). A body is pushed out of a wall by its nearer face, so a step
+/// must never carry its middle past a wall's middle line: the thinnest
+/// wall, the watchtower's 6 cm rail, holds a middle off to 0.06 + 0.35 =
+/// 0.41 m, and a quarter metre is inside that. A sprint at ten times the
+/// run, 1.17 m a tick, takes 5 steps; a walk or a run takes 1, as before.
+pub const SWEEP_STEP: Fx = ONE / 4;
 /// How thick a fence is, and the walls of the player's house.
 pub const FENCE_THICK: Fx = ONE * 16 / 100;
 pub const WALL_THICK: Fx = ONE * 22 / 100;
@@ -358,6 +365,15 @@ fn raised(r: &Wall, top: Fx, ground: Fx, x: Fx, z: Fx, ramp: Fx, front: bool) ->
 /// Pushes the circle at `pos` out of every wall; the share of `vel` into a
 /// wall is taken away. Returns whether it was pushed.
 pub fn keep_out(walls: &[Wall], pos: &mut V3, vel: &mut V3, r: Fx) -> bool {
+    let mut one = [*vel];
+    let pushed = keep_out_all(walls, pos, &mut one, r);
+    *vel = one[0];
+    pushed
+}
+
+/// `keep_out` taking the share into a wall away from each of `vels` (T18:
+/// the velocity and the rest of a swept move, `step`).
+pub fn keep_out_all(walls: &[Wall], pos: &mut V3, vels: &mut [V3], r: Fx) -> bool {
     let mut pushed = false;
     // twice, so a body in a corner between two walls leaves both
     for _ in 0..2 {
@@ -365,9 +381,11 @@ pub fn keep_out(walls: &[Wall], pos: &mut V3, vel: &mut V3, r: Fx) -> bool {
             if let Some((depth, n)) = wall.push(pos.x, pos.z, r) {
                 pos.x += fx::mul(n.x, depth);
                 pos.z += fx::mul(n.z, depth);
-                let into = vel.dot(n);
-                if into < 0 {
-                    *vel = vel.sub(n.scale(into));
+                for vel in vels.iter_mut() {
+                    let into = vel.dot(n);
+                    if into < 0 {
+                        *vel = vel.sub(n.scale(into));
+                    }
                 }
                 pushed = true;
             }
@@ -391,10 +409,34 @@ pub fn step(w: &mut World) {
         // the player in bed lies on it (`story::lift`), and the bed is no wall to them
         let in_bed = id == 0 && crate::story::in_bed(w);
         if !in_bed {
-            let close = near(&map.walls, pos.x, pos.z, ONE * 2);
-            keep_out(&close, &mut pos, &mut vel, RADIUS);
-            // M7 roadside: no one walks under a platform or into a rock
-            crate::roadside::guard(&map.climbs, b.prev_pos.y, &mut pos, &mut vel);
+            let from = b.prev_pos;
+            let (dx, dz) = (pos.x - from.x, pos.z - from.z);
+            let gone = fx::length(dx, dz);
+            let close = near(&map.walls, pos.x, pos.z, ONE * 2 + gone);
+            // T18: in steps of at most `SWEEP_STEP` from where the body
+            // stood, so a body at a sprint's top meets a wall's near face
+            let steps = (gone / SWEEP_STEP + 1).max(1);
+            let mut at = if steps == 1 {
+                pos
+            } else {
+                v3(from.x, pos.y, from.z)
+            };
+            let mut step = v3(dx / steps, 0, dz / steps);
+            for i in 0..steps {
+                if steps > 1 {
+                    at = at.add(step);
+                    if i == steps - 1 {
+                        // the rounding left over, on the last step
+                        at = at.add(v3(dx % steps, 0, dz % steps));
+                    }
+                }
+                let mut moved = [step, vel];
+                keep_out_all(&close, &mut at, &mut moved, RADIUS);
+                // M7 roadside: no one walks under a platform or into a rock
+                crate::roadside::guard_all(&map.climbs, b.prev_pos.y, &mut at, &mut moved);
+                [step, vel] = moved;
+            }
+            pos = v3(at.x, pos.y, at.z);
         }
         pos.y = surface(w, pos.x, pos.z) + if in_bed { w.story.lift } else { 0 };
         let b = player::parts_mut(w, id).0;
@@ -467,6 +509,109 @@ mod tests {
             all.iter().any(|k| k.holds(mid.x + bx, mid.z + bz, 0)),
             "the back wall"
         );
+    }
+
+    /// T18 (R9.422): a body sprinting at ten times the run, 76 450 units a
+    /// tick (10 × 7 645, 1.17 m), into each kind of solid the map holds
+    /// stops at its near face, its middle 0.35 m off it: a fence span (16
+    /// cm), a wall of the player's house (22 cm), the second house in the
+    /// village, a lone tree's trunk, the crossroads' rubble (0.6 m across),
+    /// and the watchtower's 6 cm rail, the thinnest wall there is. Each is
+    /// set alone in the meadow and run at from eight starts 15 cm apart, so
+    /// some tick lands past the middle of every thin one; the whole world
+    /// steps, the sprint set at its top with five speedster pieces.
+    #[test]
+    fn a_body_sprinting_at_ten_times_the_run_stops_at_the_face_of_every_solid() {
+        use crate::geom::{facing, yaw_of};
+        use crate::input::{Input, FORWARD};
+        let base = World::new(3);
+        let all = &base.solid.walls;
+        let find = |what: &str, f: &dyn Fn(&Wall) -> bool| -> Wall {
+            *all.iter().find(|k| f(k)).unwrap_or_else(|| panic!("no {what}"))
+        };
+        let tree = places::prop_spots(&base, Prop::LoneTree)[0].at;
+        let mm = |v: i32| ONE * v / 1000;
+        let kinds = [
+            ("a fence", find("fence", &|k| k.hz == FENCE_THICK / 2)),
+            ("a house wall", house_walls(&base.solid.home.unwrap().wall)[0]),
+            (
+                "a house",
+                find("house", &|k| k.holds(fx::int(1954), fx::int(2790), 0)),
+            ),
+            (
+                "a lone tree",
+                find("tree", &|k| k.holds(tree.x, tree.z, 0) && k.hx < ONE),
+            ),
+            ("rubble", find("rubble", &|k| k.hx == mm(300) && k.hz == mm(500))),
+            ("a rail", find("rail", &|k| k.hz == mm(60) && k.hx == mm(1550))),
+        ];
+        let mid = (fx::int(1500), fx::int(2650));
+        for (what, k) in kinds {
+            let k = Wall {
+                x: mid.0,
+                z: mid.1,
+                ..k
+            };
+            // run along the wall's thinner axis, from its +side
+            let (half, (ox, oz)) = if k.hz <= k.hx {
+                (k.hz, k.world_dir(0, ONE))
+            } else {
+                (k.hx, k.world_dir(ONE, 0))
+            };
+            let face = half + RADIUS;
+            for phase in 0..8 {
+                let mut w = base.clone();
+                let mut map = (*w.solid).clone();
+                map.walls = vec![k];
+                map.climbs = vec![];
+                w.solid = std::rc::Rc::new(map);
+                w.motion.forced_pieces = Some(5);
+                let back = face + fx::int(6) + phase * ONE * 15 / 100;
+                let at = v3(mid.0 + fx::mul(ox, back), 0, mid.1 + fx::mul(oz, back));
+                let yaw = yaw_of(v3(-ox, 0, -oz));
+                w.aim.yaw = yaw;
+                w.player = player::Body::new(v3(at.x, w.ground(at.x, at.z), at.z), yaw);
+                w.player.vel = facing(yaw, 0).scale(76_450);
+                w.player.prev_vel = w.player.vel;
+                crate::sprint::act(&mut w, "set", "480").unwrap();
+                let mut fastest = 0;
+                for t in 0..20 {
+                    let before = w.player.vel.len_xz();
+                    w.step(&Input {
+                        keys: FORWARD,
+                        ..Input::default()
+                    });
+                    let p = w.player.pos;
+                    let off = if k.hz <= k.hx {
+                        k.local(p.x, p.z).1
+                    } else {
+                        k.local(p.x, p.z).0
+                    };
+                    if off > face {
+                        fastest = fastest.max(before);
+                    }
+                    assert!(
+                        off >= face - 4,
+                        "{what}, start {phase}, tick {t}: {off} from the middle, the face at {face}"
+                    );
+                }
+                let p = w.player.pos;
+                let off = if k.hz <= k.hx {
+                    k.local(p.x, p.z).1
+                } else {
+                    k.local(p.x, p.z).0
+                };
+                assert!(
+                    off - face <= ONE / 50,
+                    "{what}, start {phase}: stopped {} short",
+                    off - face
+                );
+                assert!(
+                    fastest >= 76_450 - 100,
+                    "{what}, start {phase}: met it at {fastest}"
+                );
+            }
+        }
     }
 
     #[test]

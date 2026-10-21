@@ -1,8 +1,7 @@
-//! The sprint's tests (T14). Expected values are worked by hand from the
-//! constants: the bare run is 5 m/s, 5 461 units a tick (`motion::RUN`,
-//! pinned in `motion`'s tests); after the land part's 7 m/s it is 7 645,
-//! so the tests that name a run speed write it as `per_tick(RUN, 0)` and
-//! give both by hand.
+//! The sprint's tests (T14, T18). Expected values are worked by hand from
+//! the constants: the bare run is 7 m/s, 7 × 65 536 / 60 = 7 645 units a
+//! tick (`motion::RUN`, pinned in `motion`'s tests), so the tests that name
+//! a run speed write it as `per_tick(RUN, 0)` and give the number by hand.
 
 use super::*;
 use crate::geom::V3;
@@ -138,49 +137,47 @@ fn the_orcs_running_never_sprints() {
     }
 }
 
-/// share: 0 to 300 ticks; at 420, half the ramp, t = ½: 3/4 − 2/8 = ½
-/// exactly (32 768 × 32 768 / 65 536 = 16 384; × (196 608 − 65 536) / 65
-/// 536 = 32 768); at 540 and after, ONE.
+/// share (T18): 0 to 240 ticks; at 360, half the ramp, t = ½: 3/4 − 2/8 =
+/// ½ exactly (32 768 × 32 768 / 65 536 = 16 384; × (196 608 − 65 536) / 65
+/// 536 = 32 768); at 480 and after, ONE.
 #[test]
-fn five_seconds_of_sprint_go_at_the_run_speed_then_it_builds() {
+fn four_seconds_of_sprint_go_at_the_run_speed_then_it_builds() {
+    assert_eq!(BUILD_AFTER, 240, "4 s at 60 ticks a second");
     assert_eq!(share(0), 0);
-    assert_eq!(share(BUILD_AFTER), 0);
-    assert_eq!(share(420), ONE / 2);
-    assert_eq!(share(540), ONE);
+    assert_eq!(share(240), 0);
+    assert_eq!(share(360), ONE / 2);
+    assert_eq!(share(480), ONE);
     assert_eq!(share(10_000), ONE);
     let mut r = Runner::new(0);
     r.start();
-    // the start's tick is 0; 300 more is the 300th
-    r.hold(FORWARD, 300);
-    assert_eq!(r.sprint().ticks, 300);
-    assert_eq!(mult(r.sprint()), ONE, "still the run speed at 5 s");
-    assert_eq!(r.b.vel.len_xz(), per_tick(RUN_SPEED, 0));
-    // halfway up the ramp: twice the run (10 922 a tick, 10 m/s), the feet a
-    // little behind (the want climbs at most 68 a tick; a third of the gap
-    // closed each tick leaves twice that behind)
+    // the start's tick is 0; 240 more is the 240th
+    r.hold(FORWARD, 240);
+    assert_eq!(r.sprint().ticks, 240);
+    assert_eq!(mult(r.sprint()), ONE, "still the run speed at 4 s");
+    assert_eq!(r.b.vel.len_xz(), 7_645);
+    // halfway up the ramp: 1 + 4 × ½, three times the run (22 935 a tick,
+    // 21 m/s), the feet a little behind (the want climbs at most 191 a
+    // tick; a third of the gap closed each tick leaves twice that, 382,
+    // behind)
     r.hold(FORWARD, 120);
-    assert_eq!(mult(r.sprint()), 2 * ONE);
+    assert_eq!(mult(r.sprint()), 3 * ONE);
     let v = r.b.vel.len_xz();
-    let want = 2 * per_tick(RUN_SPEED, 0);
-    // (twice 68 is 136 at 5 m/s; twice 96 is 192 at 7 m/s)
-    assert!(v < want && v > want - 300, "{v} against {want}");
+    let want = 22_935;
+    assert!(v < want && v > want - 450, "{v} against {want}");
 }
 
-/// mult at the top: ONE + 2 × share 1 × slope 1 = 3 ONE; the speed 3 ×
-/// 5 461 = 16 383 a tick, 15 m/s (3 × 7 645 = 22 935, 21 m/s, at 7 m/s).
+/// mult at the top (T18): ONE + 4 × share 1 × slope 1 = 5 ONE; the speed 5
+/// × 7 645 = 38 225 a tick, 35 m/s.
 #[test]
-fn at_the_top_a_sprint_runs_three_times_the_run_speed() {
+fn at_the_top_a_sprint_runs_five_times_the_run_speed() {
     let mut r = Runner::new(0);
     r.start();
     r.hold(FORWARD, 700);
-    assert_eq!(mult(r.sprint()), 3 * ONE);
-    assert_eq!(
-        speed(0, 3 * ONE, per_tick(WALK, 0), per_tick(WALK, 0)),
-        3 * per_tick(RUN_SPEED, 0)
-    );
+    assert_eq!(mult(r.sprint()), 5 * ONE);
+    assert_eq!(speed(0, 5 * ONE, per_tick(WALK, 0), per_tick(WALK, 0)), 38_225);
     let v = r.b.vel.len_xz();
-    // facing(0) × 16 383 is (0, 0, −16 383) to the unit
-    assert!((v - 3 * per_tick(RUN_SPEED, 0)).abs() <= 2, "{v}");
+    // facing(0) × 38 225 is (0, 0, −38 225) to the unit
+    assert!((v - 38_225).abs() <= 2, "{v}");
 }
 
 #[test]
@@ -234,15 +231,17 @@ fn a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint() {
     assert!(r.sprint().on, "a quarter turn steers");
 }
 
-/// The ramp's steepest tick: the smoothstep's slope is 3/2 at its middle,
-/// so the want climbs at most 2 × 5 461 × 3/2 / 240 = 68 units a tick (96 at
-/// 7 m/s); with a unit or two of rounding the feet never gain more.
+/// The ramp's steepest tick (T18): the smoothstep's slope is 3/2 at its
+/// middle, so the want climbs at most (5 − 1) × 7 645 × 3/2 / 240 = 191
+/// units a tick (0.175 m/s a tick, 10.5 m/s²; R9.421); with a unit or two
+/// of rounding the feet never gain more. The bound is that number, written
+/// out, not worked from the constants.
 #[test]
 fn the_build_never_jumps_from_one_tick_to_the_next() {
     let mut r = Runner::new(0);
     r.start();
     r.hold(FORWARD, 30);
-    let bound = 2 * per_tick(RUN_SPEED, 0) * 3 / 2 / RAMP as i32 + 3;
+    let bound = 191 + 3;
     let mut last = r.b.vel.len_xz();
     let mut most = 0;
     for _ in 0..700 {
@@ -255,47 +254,54 @@ fn the_build_never_jumps_from_one_tick_to_the_next() {
     assert!(most > bound / 2, "the ramp did climb: {most}");
 }
 
-/// The speedster's pieces add 20% of the run speed each, on top of the
-/// sprint, under the cap of four times the run (by hand at 5 m/s: the bare
-/// run 5 461; five pieces' run 10 922, so they add 5 461; one piece's 6 553,
-/// adding 1 092).
+/// T18: the speedster's pieces multiply the sprint, the bare run times the
+/// sprint times 1 + 0.2 a piece, under the cap of ten times the bare run.
+/// By hand: a piece count's share is (65 536 × (100 + 20 n) + 50) / 100
+/// (65 536, 78 643, 91 750, 104 858, 117 965, 131 072), its run 7 m/s times
+/// that over 60 ticks (7 645, 9 175, 10 704, 12 233, 13 762, 15 291 a tick),
+/// and five of those at the top: 38 225, 45 875, 53 520, 61 165, 68 810 and
+/// 76 455, which the cap, 10 × 7 645 = 76 450 (70 m/s), holds to 76 450.
 #[test]
-fn speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds() {
+fn speedster_pieces_multiply_the_sprint_and_the_cap_of_ten_holds() {
     let run = |n| per_tick(RUN_SPEED, n);
-    let bare = run(0);
-    // at the run speed a sprint is the run, pieces and all (CW-8's pins)
-    assert_eq!(speed(5, ONE, run(5), run(5)), run(5));
-    // no pieces at the top: 3 × 5 461 = 16 383
-    assert_eq!(speed(0, 3 * ONE, bare, bare), 3 * bare);
-    // one piece at the top: 16 383 + 1 092 = 17 475 (16 m/s)
-    assert_eq!(speed(1, 3 * ONE, run(1), run(1)), 3 * bare + (run(1) - bare));
-    // five at the top: 16 383 + 5 461 = 21 844, four times the run, the cap
-    assert_eq!(speed(5, 3 * ONE, run(5), run(5)), 4 * bare);
-    // and on a road 18% faster than that, still the cap
-    let road = run(5) + run(5) * 18 / 100;
-    assert_eq!(speed(5, 3 * ONE, road, run(5)), fx::mul(bare, CAP));
-    // a road with no pieces carries through: 18% more asked (5 461 + 982
-    // = 6 443) over 5 461, times three runs (3 × 5 461): exactly three times
-    // the road's run, 19 329 (17.7 m/s), under the cap of 21 844 (at 7 m/s:
-    // 7 645 + 1 376 = 9 021, three times 27 063, under 30 580)
-    let road = bare + bare * 18 / 100;
-    assert_eq!(speed(0, 3 * ONE, road, bare), 3 * road);
-    assert!(3 * road < fx::mul(bare, CAP));
+    let runs = [7_645, 9_175, 10_704, 12_233, 13_762, 15_291];
+    let tops = [38_225, 45_875, 53_520, 61_165, 68_810, 76_450];
+    for n in 0..=5u8 {
+        let r = runs[n as usize];
+        // at the run speed a sprint is the run, pieces and all (CW-8's pins)
+        assert_eq!(speed(n, ONE, r, r), r, "{n} pieces at a run");
+        assert_eq!(speed(n, 5 * ONE, r, r), tops[n as usize], "{n} pieces at the top");
+    }
+    // part way up the build the pieces multiply too: five pieces at twice
+    // the run, 2 × 15 291 = 30 582 (where adding them gave 2 × 7 645 + 7 646)
+    assert_eq!(speed(5, 2 * ONE, 15_291, 15_291), 30_582);
+    // and on a road 18% faster than five pieces' run, still the cap
+    let road = 15_291 + 15_291 * 18 / 100;
+    assert_eq!(speed(5, 5 * ONE, road, run(5)), 76_450);
+    // a road with no pieces carries through: 18% more asked (7 645 + 1 376
+    // = 9 021) over 7 645, times five runs: five times the road's run,
+    // 45 105 (41.3 m/s), under the cap
+    assert_eq!(speed(0, 5 * ONE, 9_021, 7_645), 45_105);
     // without Shift held a sprint still runs: a walk asked, a run given
-    assert_eq!(speed(0, ONE, per_tick(WALK, 0), per_tick(WALK, 0)), bare);
+    assert_eq!(speed(0, ONE, per_tick(WALK, 0), per_tick(WALK, 0)), 7_645);
 }
 
-/// 10° is 1 820 units, 6° 1 092 and 2° 364 (65 536 × d / 360, truncated);
-/// twice the run is exactly half way down, four times it past the top.
+/// 10° is 1 820 units, 6° 1 092 and 2° 364 (65 536 × d / 360, truncated).
+/// T18: the rate falls over the run to the top, five runs, so twice the
+/// run is a quarter of the way down (1 820 − 1 456 / 4 = 1 456), three
+/// times it half way (1 092), five times the top (364), and ten times it,
+/// the cap, no lower.
 #[test]
 fn the_turn_rate_falls_with_speed() {
     let bare = per_tick(RUN_SPEED, 0);
     assert_eq!(turn_rate(0), 1_820);
     assert_eq!(turn_rate(bare), 1_820);
-    assert_eq!(turn_rate(2 * bare), 1_092);
-    assert_eq!(turn_rate(4 * bare), 364);
+    assert_eq!(turn_rate(2 * bare), 1_456);
+    assert_eq!(turn_rate(3 * bare), 1_092);
+    assert_eq!(turn_rate(5 * bare), 364);
+    assert_eq!(turn_rate(10 * bare), 364);
     // a body: at the run, the keys a quarter turn left turn the sprint 10°
-    // in a tick; at the top, 2° (its speed a unit or two under three runs,
+    // in a tick; at the top, 2° (its speed a unit or two under five runs,
     // so a unit more than 364)
     let mut r = Runner::new(0);
     r.start();
@@ -320,12 +326,11 @@ fn the_turn_rate_falls_with_speed() {
     assert!((deg(59)..=deg(62)).contains(&gone), "{gone}");
 }
 
-/// From the top, 16 383 a tick, let go: the skid takes off 546 a tick (0.5
-/// m/s) until the run speed, (16 383 − 5 461) / 546 = 20.0, so 21 ticks to
-/// pass under it, covering 21 × 16 383 − 546 × (1 + … + 21) = 217 917
-/// units; the bare feet's grip then stops the last 4 917 in twice that, 9
-/// 834: 3.48 m in all. At 7 m/s: from 22 935, 29 ticks, 6.6 m. A run never
-/// sprinted stops as before.
+/// From the top (T18), 38 225 a tick, let go: the skid takes off 546 a
+/// tick (0.5 m/s) until the run speed, (38 225 − 7 645) / 546 = 56.0, so 57
+/// ticks to pass under it, covering 57 × 38 225 − 546 × (1 + … + 57) = 1 276
+/// 287 units; the bare feet's grip then stops the last 7 103 in twice that,
+/// 14 206: 19.7 m in all. A run never sprinted stops as before.
 #[test]
 fn a_stop_from_the_top_skids_and_a_plain_run_stops_as_before() {
     let mut r = Runner::new(0);
@@ -341,19 +346,17 @@ fn a_stop_from_the_top_skids_and_a_plain_run_stops_as_before() {
         last = v;
         ticks += 1;
     }
-    let (top, run) = (3 * per_tick(RUN_SPEED, 0), per_tick(RUN_SPEED, 0));
-    let n = (top - run) / SKID + 1;
+    let run = 7_645;
+    let n = 57;
     assert!((n..=n + 1).contains(&ticks), "{ticks} ticks of skid, {n} by hand");
     assert!(!r.sprint().skid, "the skid ends at the run speed");
     r.hold(0, 120);
     let slid = from - r.b.pos.z;
-    let skid = n * top - SKID * n * (n + 1) / 2;
-    let rest = 2 * (top - n * SKID);
-    let want = skid + rest;
+    let want = 1_276_287 + 14_206;
     assert!((slid - want).abs() < want / 50, "slid {slid}, by hand {want}");
     assert_eq!(r.b.vel, V3::ZERO);
-    // a run with Shift held, let go: twice the run, 10 922 units, as M1
-    // pinned (15 290 at 7 m/s)
+    // a run with Shift held, let go: twice the run, 15 290 units, as M1
+    // pinned
     let mut plain = Runner::new(0);
     plain.hold(FORWARD | RUN, 120);
     let from = plain.b.pos.z;
@@ -556,8 +559,8 @@ fn the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged
     assert_eq!((s.on, s.view), (false, 0));
 }
 
-/// The HUD bar: the seconds to the build (300 − 120 = 180 ticks, 3 s), then
-/// how many times the run, the bar filled by the build's share.
+/// The HUD bar (T18): the seconds to the build (240 − 120 = 120 ticks, 2
+/// s), then how many times the run, the bar filled by the build's share.
 #[test]
 fn the_hud_shows_the_build_as_a_bar_with_words() {
     let mut g = crate::game::tests::game();
@@ -566,16 +569,16 @@ fn the_hud_shows_the_build_as_a_bar_with_words() {
     let b = crate::ui::hud(&g).sprint.unwrap();
     assert_eq!(
         (b.label.as_str(), b.text.as_str(), b.pct),
-        ("Sprint", "Builds in 3 s", 0)
+        ("Sprint", "Builds in 2 s", 0)
     );
-    g.world.act("sprint.set", "299").unwrap();
+    g.world.act("sprint.set", "239").unwrap();
     assert_eq!(crate::ui::hud(&g).sprint.unwrap().text, "Builds in 1 s");
-    g.world.act("sprint.set", "420").unwrap();
+    g.world.act("sprint.set", "360").unwrap();
     let b = crate::ui::hud(&g).sprint.unwrap();
-    assert_eq!((b.text.as_str(), b.pct), ("2 × run speed", 50));
-    g.world.act("sprint.set", "540").unwrap();
+    assert_eq!((b.text.as_str(), b.pct), ("3 × run speed", 50));
+    g.world.act("sprint.set", "480").unwrap();
     let b = crate::ui::hud(&g).sprint.unwrap();
-    assert_eq!((b.text.as_str(), b.pct), ("3 × run speed", 100));
+    assert_eq!((b.text.as_str(), b.pct), ("5 × run speed", 100));
     g.world.act("sprint.off", "").unwrap();
     assert_eq!(crate::ui::hud(&g).sprint, None);
     assert_eq!(
@@ -585,7 +588,7 @@ fn the_hud_shows_the_build_as_a_bar_with_words() {
 }
 
 /// The controls panel names the key, and the glossary's Sprint entry is
-/// filled by the core: 300 ticks are 5 s, 240 are 4 s, the top 3.
+/// filled by the core (T18): 240 ticks are 4 s, the build 4 s, the top 5.
 #[test]
 fn the_controls_name_the_tap_and_the_glossary_gives_the_numbers() {
     let g = crate::game::tests::game();
@@ -602,8 +605,34 @@ fn the_controls_name_the_tap_and_the_glossary_gives_the_numbers() {
         .expect("Sprint is in the glossary");
     assert!(
         h.definition
-            .contains("After 5 s it builds over 4 s to 3 times the run speed."),
+            .contains("After 4 s it builds over 4 s to 5 times the run speed."),
         "{}",
         h.definition
     );
+}
+
+/// T18: at ten times the run, 1.17 m a tick, over the meadow's rolling
+/// ground for 4 s (280 m east), a body neither leaves the ground at a crest
+/// nor sinks into it at a hollow: every tick its feet are at the land's
+/// height under them, and it has no speed up or down.
+#[test]
+fn at_ten_times_the_run_a_body_keeps_to_the_ground() {
+    let mut w = World::new(3);
+    crate::places::act(&mut w, "go", "1500,2650,80,0").unwrap();
+    w.motion.forced_pieces = Some(5);
+    w.player.vel = crate::geom::facing(w.aim.yaw, 0).scale(76_450);
+    act(&mut w, "set", "480").unwrap();
+    let from = w.player.pos;
+    let (mut lowest, mut highest) = (i32::MAX, i32::MIN);
+    for t in 0..240 {
+        w.step(&keys_of(FORWARD));
+        let p = w.player.pos;
+        assert_eq!(p.y, w.ground(p.x, p.z), "tick {t}");
+        assert_eq!(w.player.vel.y, 0, "tick {t}");
+        lowest = lowest.min(p.y);
+        highest = highest.max(p.y);
+    }
+    let gone = w.player.pos.sub(from).len_xz();
+    assert!(gone > fx::int(270), "it ran {gone}");
+    assert!(highest - lowest > ONE, "the ground rolled: {lowest} to {highest}");
 }

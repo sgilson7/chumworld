@@ -4333,18 +4333,18 @@
     "test": "the_orcs_running_never_sprints"
   },
   {
-    "name": "M7 sprint: the build starts before 5 s",
+    "name": "M7 sprint: the build starts before 4 s",
     "file": "crates/core/src/sprint.rs",
-    "find": "pub const BUILD_AFTER: u32 = 300;",
-    "replace": "pub const BUILD_AFTER: u32 = 240;",
-    "test": "five_seconds_of_sprint_go_at_the_run_speed_then_it_builds"
+    "find": "pub const BUILD_AFTER: u32 = 240;",
+    "replace": "pub const BUILD_AFTER: u32 = 180;",
+    "test": "four_seconds_of_sprint_go_at_the_run_speed_then_it_builds"
   },
   {
-    "name": "M7 sprint: the top is twice the run",
+    "name": "M7 sprint: the top is four times the run",
     "file": "crates/core/src/sprint.rs",
-    "find": "pub const TOP: Fx = fx::int(3);",
-    "replace": "pub const TOP: Fx = fx::int(2);",
-    "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
+    "find": "pub const TOP: Fx = fx::int(5);",
+    "replace": "pub const TOP: Fx = fx::int(4);",
+    "test": "at_the_top_a_sprint_runs_five_times_the_run_speed"
   },
   {
     "name": "M7 sprint: a stop does not end it",
@@ -4396,18 +4396,18 @@
     "test": "a_stop_from_the_top_skids_and_a_plain_run_stops_as_before"
   },
   {
-    "name": "M7 sprint: the speedster's share multiplies the sprint",
+    "name": "M7 sprint2: the speedster's pieces add to the sprint (R9.252), not multiply it",
     "file": "crates/core/src/sprint.rs",
-    "find": "    let sprint = fx::mul(bare, mult) + pieces;",
-    "replace": "    let sprint = fx::mul(bare + pieces, mult);",
-    "test": "speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds"
+    "find": "    let sprint = fx::mul(motion::per_tick(motion::RUN, n), mult);",
+    "replace": "    let sprint = fx::mul(bare, mult) + motion::per_tick(motion::RUN, n) - bare;",
+    "test": "speedster_pieces_multiply_the_sprint_and_the_cap_of_ten_holds"
   },
   {
     "name": "M7 sprint: no cap on a sprint",
     "file": "crates/core/src/sprint.rs",
     "find": "    road.min(fx::mul(bare, CAP))",
     "replace": "    road",
-    "test": "speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds"
+    "test": "speedster_pieces_multiply_the_sprint_and_the_cap_of_ten_holds"
   },
   {
     "name": "M7 sprint: the turn rate stays as at a run",
@@ -4484,7 +4484,7 @@
     "file": "crates/core/src/motion.rs",
     "find": "    want = crate::sprint::want(f, input, want, n);\n",
     "replace": "",
-    "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
+    "test": "at_the_top_a_sprint_runs_five_times_the_run_speed"
   },
   {
     "name": "T17 rumours: the quest lines come back from a save",
@@ -4961,5 +4961,40 @@
     "find": "        marks[i].quiet = meets;",
     "replace": "        marks[i].quiet = false;",
     "test": "a_minor_mark_s_label_gives_way_to_a_higher_one_and_far_labels_all_show"
+  },
+  {
+    "name": "M7 sprint2: the cap stays at four times the run",
+    "file": "crates/core/src/sprint.rs",
+    "find": "pub const CAP: Fx = fx::int(10);",
+    "replace": "pub const CAP: Fx = fx::int(4);",
+    "test": "speedster_pieces_multiply_the_sprint_and_the_cap_of_ten_holds"
+  },
+  {
+    "name": "M7 sprint2: the turn rate's top stays at a literal three runs",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let past = fx::div((q - ONE).max(0), TOP - ONE).clamp(0, ONE);",
+    "replace": "    let past = ((q - ONE) / 2).clamp(0, ONE);",
+    "test": "the_turn_rate_falls_with_speed"
+  },
+  {
+    "name": "M7 sprint2: a body's move meets the walls in one step (tunnels at speed)",
+    "file": "crates/core/src/solid.rs",
+    "find": "            let steps = (gone / SWEEP_STEP + 1).max(1);",
+    "replace": "            let steps = 1 + 0 * gone / SWEEP_STEP;",
+    "test": "a_body_sprinting_at_ten_times_the_run_stops_at_the_face_of_every_solid"
+  },
+  {
+    "name": "M7 sprint2: a body at speed flies off a crest",
+    "file": "crates/core/src/solid.rs",
+    "find": "        pos.y = surface(w, pos.x, pos.z) + if in_bed { w.story.lift } else { 0 };",
+    "replace": "        pos.y = surface(w, pos.x, pos.z).max(b.prev_pos.y - ONE / 100) + if in_bed { w.story.lift } else { 0 };",
+    "test": "at_ten_times_the_run_a_body_keeps_to_the_ground"
+  },
+  {
+    "name": "M7 sprint2: terrain tiles are built ahead by distance, not by how soon they split",
+    "file": "crates/core/src/lod.rs",
+    "find": "                ahead.push((d - ring(level - 1), Detail::tile_key(level - 1, ci, cj)));",
+    "replace": "                ahead.push((d, Detail::tile_key(level - 1, ci, cj)));",
+    "test": "every_tuft_tree_and_rock_within_25_m_is_drawn_whole_every_frame"
   }
 ]
