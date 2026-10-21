@@ -1456,32 +1456,11 @@
     "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
   },
   {
-    "name": "M1b player: a cut passes through the front",
-    "file": "crates/core/src/player.rs",
-    "find": "    if now.dot(want) >= 0 {",
-    "replace": "    if true {",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
-  },
-  {
     "name": "M1b arm: a sweep lays the blade flat",
     "file": "crates/core/src/arm.rs",
     "find": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT).max(ramp(shell.swing.0.abs(), 0, SWING_FLAT));",
     "replace": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT);",
     "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
-  },
-  {
-    "name": "M1b arm: raised high, the blade stands up and back",
-    "file": "crates/core/src/arm.rs",
-    "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
-    "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
-  },
-  {
-    "name": "M1b arm: a moving reach holds the thrust's line",
-    "file": "crates/core/src/arm.rs",
-    "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
-    "replace": "        .max(0);",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: the high guard is high and to the left",
@@ -1657,13 +1636,6 @@
     "find": "        g.hold = [false, false];\n    }",
     "replace": "    }",
     "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
-  },
-  {
-    "name": "M1b arm: a point on the ground drags to rest",
-    "file": "crates/core/src/arm.rs",
-    "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
-    "replace": "                v.x -= v.x * 0 / 100;",
-    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   },
   {
     "name": "M1b player: a staggered body leans back along the blow",
@@ -2602,6 +2574,349 @@
     "find": "        crate::imbue::lend(w, LEND_TICKS);\n",
     "replace": "",
     "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
+  },
+  {
+    "name": "M7 shop: the sword in hand is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.weapon == Some(i) {\n        Some(NoSale::InHand)",
+    "replace": "    } else if false {\n        Some(NoSale::InHand)",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a worn piece is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.worn.contains(&Some(i)) {\n        Some(NoSale::Worn)",
+    "replace": "    } else if false {\n        Some(NoSale::Worn)",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a quest item is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if !d.start && !d.routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "    } else if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: the chest key is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if d.keep || d.kind == items::Kind::Key {",
+    "replace": "    } else if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a sold short sword goes on the cart",
+    "file": "crates/core/src/ui.rs",
+    "find": "if i.def().stack == 1 && i.def().routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "if i.def().stack == 1 {",
+    "test": "the_shop_sells_at_value_and_buys_at_half"
+  },
+  {
+    "name": "M7 shop: a sold hood stays off the cart",
+    "file": "crates/core/src/ui.rs",
+    "find": "if i.def().stack == 1 && i.def().routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a sale passes the purse",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.coins + sale_price(i) > inventory::PURSE {",
+    "replace": "    } else if false {",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: coins added past the purse",
+    "file": "crates/core/src/inventory.rs",
+    "find": "let got = n.min(PURSE.saturating_sub(self.coins));",
+    "replace": "let got = n;",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: spending more than is carried",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if self.coins < n {\n            return false;\n        }\n        self.coins -= n;",
+    "replace": "        self.coins = self.coins.wrapping_sub(n);",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: a kept row is not marked",
+    "file": "crates/core/src/ui.rs",
+    "find": "                kept: why.is_some(),",
+    "replace": "                kept: false,",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a kept row shows a price",
+    "file": "crates/core/src/ui.rs",
+    "find": "                    Some(n) => no_sale_word(s, n),",
+    "replace": "                    Some(_) => price(sale_price(i)),",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 figure: the figure does not turn",
+    "file": "crates/core/src/stage.rs",
+    "find": "    let spun = (ticks as i64 % per_turn) * fx::TURN as i64 / per_turn;",
+    "replace": "    let spun = 0i64;",
+    "test": "the_figure_turns_once_every_sixteen_seconds_from_a_quarter_view"
+  },
+  {
+    "name": "M7 figure: the figure shows on every screen of the ring",
+    "file": "crates/core/src/stage.rs",
+    "find": "    g.screen == Screen::Menu && g.menu.face() == crate::ui::EQUIPMENT",
+    "replace": "    g.screen == Screen::Menu",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: no sword in hand",
+    "file": "crates/core/src/stage.rs",
+    "find": "    if held != Held::Nothing {",
+    "replace": "    if false {",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: undressed",
+    "file": "crates/core/src/stage.rs",
+    "find": "        worn: crate::items::speedster_mask(w),",
+    "replace": "        worn: 0,",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: the ring's open time stands still",
+    "file": "crates/core/src/game.rs",
+    "find": "                self.menu.open_ticks = self.menu.open_ticks.wrapping_add(ticks.len() as u32);",
+    "replace": "",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: the camera too close",
+    "file": "data/menus.json",
+    "find": "\"eye_mm\": [0, 1250, 5700]",
+    "replace": "\"eye_mm\": [0, 1250, 2500]",
+    "test": "the_stage_s_camera_frames_the_whole_figure"
+  },
+  {
+    "name": "M7 quick: a key described before it is pointed at",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let k = g.menu.quick_hover?;",
+    "replace": "    let k = g.menu.quick_hover.or(Some(0))?;",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 quick: the bandage described as readied",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let how = if i == Item::Bandage {\n        \"quick_use\"",
+    "replace": "    let how = if false {\n        \"quick_use\"",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 quick: the pointed key kept when the ring reopens",
+    "file": "crates/core/src/ui.rs",
+    "find": "    g.menu.quick_hover = None;\n    g.menu.open_ticks = 0;",
+    "replace": "    g.menu.open_ticks = 0;",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 bandage: health past the most",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    h.hp = (h.hp + Item::Bandage.def().heals).min(h.most);",
+    "replace": "    h.hp += Item::Bandage.def().heals;",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 bandage: its key readies it",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if pressed && inv.quick[k] == Some(Item::Bandage) {",
+    "replace": "        if false {",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 bandage: used unhurt",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if h.hp >= h.most {",
+    "replace": "    if false {",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 hash: field names hashed",
+    "file": "crates/core/src/world.rs",
+    "find": "            let named = j + 1 < b.len() && b[j] == b':' && b[j + 1] == b' ';",
+    "replace": "            let named = false;",
+    "test": "the_world_s_hash_reads_its_values_not_its_field_names"
+  },
+  {
+    "name": "M7 hash: names hashed by their first letter only",
+    "file": "crates/core/src/world.rs",
+    "find": "            for &c in &b[i..j] {\n                put(c);\n            }",
+    "replace": "            put(b[i]);",
+    "test": "the_world_s_hash_reads_its_values_not_its_field_names"
+  },
+  {
+    "name": "M7 glossary: a duplicate stops the game loading",
+    "file": "crates/core/src/game.rs",
+    "find": "        let glossary = crate::glossary::load(glossary_md);",
+    "replace": "        let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;",
+    "test": "a_glossary_with_a_term_defined_twice_still_starts_the_game"
+  },
+  {
+    "name": "M7 glossary: the load keeps the last of a duplicate",
+    "file": "crates/core/src/glossary.rs",
+    "find": "                text = drop_entry(&text, term, dup);",
+    "replace": "                text = drop_entry(&text, term, !dup);",
+    "test": "a_term_defined_twice_still_loads_and_the_check_names_both_lines"
+  },
+  {
+    "name": "M7 glossary: the check misses a duplicate in GLOSSARY.md",
+    "file": "GLOSSARY.md",
+    "find": "### Walk\n",
+    "replace": "### Walk\n\nTwice.\n\n### walk\n",
+    "test": "the_glossary_defines_each_term_once"
+  },
+  {
+    "name": "M7 glossary: duplicates found ignoring case",
+    "file": "crates/core/src/glossary.rs",
+    "find": "            match seen.iter().find(|(t, _)| t.eq_ignore_ascii_case(&term)) {",
+    "replace": "            match seen.iter().find(|(t, _)| *t == term) {",
+    "test": "a_term_defined_twice_still_loads_and_the_check_names_both_lines"
+  },
+  {
+    "name": "M7 blade (R3.50): one blow a contact",
+    "file": "crates/core/src/blade.rs",
+    "find": "    if w.blades.touching.contains(&key) {",
+    "replace": "    if false {",
+    "test": "a_blade_pressed_along_a_body_takes_no_second_blow"
+  },
+  {
+    "name": "M7 blade (R3.50): a blade never comes away",
+    "file": "crates/core/src/blade.rs",
+    "find": "                pa.dist(pb) <= *re + *r + COME_AWAY",
+    "replace": "                pa.dist(pb) <= *re + *r + COME_AWAY * 100",
+    "test": "a_blade_pressed_along_a_body_takes_no_second_blow"
+  },
+  {
+    "name": "M7 models: the scan's window is the far plane's step (R5.2)",
+    "file": "crates/core/src/flicker.rs",
+    "find": "        PLANE_TOL.max(Seen::window(seen.far as i64))",
+    "replace": "        PLANE_TOL.max(Seen::apart(seen.far as i64))",
+    "test": "the_scan_looks_as_wide_as_the_worst_depth_step_short_of_its_far_plane"
+  },
+  {
+    "name": "M7 models: the trainer keeps the bandit's short sword",
+    "file": "crates/core/src/trainer.rs",
+    "find": "    foe.fighter = crate::player::Fighter::new(Kind::Trainer, crate::pose::Held::Sword, 0, at, yaw, false);",
+    "replace": "    foe.fighter.held = crate::pose::Held::Sword;\n    foe.fighter.kind = Kind::Trainer;",
+    "test": "the_trainer_carries_the_sword_at_the_sword_s_length"
+  },
+  {
+    "name": "M7 models: no foe wears the gloves",
+    "file": "crates/core/src/player.rs",
+    "find": "            _ => crate::camp::worn(w, id),",
+    "replace": "            _ => 0,",
+    "test": "the_lookout_wears_the_gloves_until_it_drops_them"
+  },
+  {
+    "name": "M7 models: the lookout keeps the gloves on after dropping them",
+    "file": "crates/core/src/camp.rs",
+    "find": "        .any(|m| m.role == Role::Lookout && m.foe + 1 == id && !m.dropped);",
+    "replace": "        .any(|m| m.role == Role::Lookout && m.foe + 1 == id);",
+    "test": "the_lookout_wears_the_gloves_until_it_drops_them"
+  },
+  {
+    "name": "M7 models: the cart's wheels do not roll",
+    "file": "crates/core/src/merchant.rs",
+    "find": "            .wrapping_add((SPEED as i64 * fx::TURN as i64 / WHEEL_ROUND as i64) as i32);",
+    "replace": "            .wrapping_add(0);",
+    "test": "the_cart_s_wheels_roll_as_far_as_the_cart_goes"
+  },
+  {
+    "name": "M7 models: the cart's spokes roll backwards",
+    "file": "crates/core/src/models/props.rs",
+    "find": "            let turn = Affine::rot_x(fx::TURN * s / 12 - roll);",
+    "replace": "            let turn = Affine::rot_x(fx::TURN * s / 12 + roll);",
+    "test": "the_cart_s_wheels_roll_as_far_as_the_cart_goes"
+  },
+  {
+    "name": "M7 models: thin things are not kept visible",
+    "file": "crates/core/src/render.rs",
+    "find": "        if thin >= least {",
+    "replace": "        if true {",
+    "test": "a_thin_blade_far_off_keeps_a_width_and_its_outline_stays_wider"
+  },
+  {
+    "name": "M7 models: a widened outline no wider than its solid",
+    "file": "crates/core/src/render.rs",
+    "find": "        let least = if ink { least * 3 / 2 } else { least };",
+    "replace": "        let least = if ink { least } else { least };",
+    "test": "a_thin_blade_far_off_keeps_a_width_and_its_outline_stays_wider"
+  },
+  {
+    "name": "M7 models: a pickup does not bob",
+    "file": "crates/core/src/models/held.rs",
+    "find": "    let up = mm(FLOAT_MM) + fx::mul(mm(BOB_MM), (ONE - fx::cos(bob_turn)) / 2);",
+    "replace": "    let up = mm(FLOAT_MM) + 0 * bob_turn;",
+    "test": "a_pickup_floats_bobs_and_turns_over_a_ring_of_light"
+  },
+  {
+    "name": "M7 models: a pickup has no ring of light",
+    "file": "crates/core/src/models/held.rs",
+    "find": "    ring(at, item == Pickup::ChestKey, out);",
+    "replace": "",
+    "test": "a_pickup_floats_bobs_and_turns_over_a_ring_of_light"
+  },
+  {
+    "name": "M7 models: pickups move while the story is held still",
+    "file": "crates/core/src/story.rs",
+    "find": "    let phase = if w.story.still {\n        0\n    } else {",
+    "replace": "    let phase = if false {\n        0\n    } else {",
+    "test": "pickups_turn_with_the_clock_and_hold_still_for_a_picture"
+  },
+  {
+    "name": "M7 models: bodies drawn at their old girth",
+    "file": "crates/core/src/models/figure.rs",
+    "find": "crate::pose::BODY_GIRTH_PCT as i64 / 10_000) as Fx",
+    "replace": "100 / 10_000) as Fx",
+    "test": "bodies_are_drawn_eight_percent_broader_and_no_taller"
+  },
+  {
+    "name": "M7 quick: a rock taken goes on no key",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if got > 0 && i.def().quick && inv.key_of(i).is_none() {",
+    "replace": "    if false {",
+    "test": "a_quick_item_taken_goes_on_the_first_free_key"
+  },
+  {
+    "name": "M7 quick: an item taken twice goes on two keys",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if got > 0 && i.def().quick && inv.key_of(i).is_none() {",
+    "replace": "    if got > 0 && i.def().quick {",
+    "test": "a_quick_item_taken_goes_on_the_first_free_key"
+  },
+  {
+    "name": "M1b player: a cut passes through the front",
+    "file": "crates/core/src/player.rs",
+    "find": "    if now.dot(want) >= 0 {",
+    "replace": "    if true {",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: raised high, the blade stands up and back",
+    "file": "crates/core/src/arm.rs",
+    "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
+    "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a moving reach holds the thrust's line",
+    "file": "crates/core/src/arm.rs",
+    "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
+    "replace": "        .max(0);",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a point on the ground drags to rest",
+    "file": "crates/core/src/arm.rs",
+    "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
+    "replace": "                v.x -= v.x * 0 / 100;",
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   },
   {
     "name": "M7 swing: a level cut's plane is level",

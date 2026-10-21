@@ -175,7 +175,7 @@ pub fn model(kind: Prop) -> Model {
         Prop::Shrine => shrine(&mut k),
         Prop::Hut => hut(&mut k),
         Prop::Bridge => bridge(&mut k),
-        Prop::Cart => cart(&mut k),
+        Prop::Cart => cart(&mut k, 0),
         Prop::Bed => bed(&mut k),
         Prop::Signpost => signpost(&mut k),
         Prop::HollowTree => hollow_tree(&mut k),
@@ -684,7 +684,16 @@ fn bridge(k: &mut Kit) {
     }
 }
 
-fn cart(k: &mut Kit) {
+/// M7 (R5.14): the cart with its wheels rolled `roll` round (an angle;
+/// forward, toward −z, is positive), for the moving cart. `model(Cart)` is
+/// this at 0.
+pub fn cart_model(roll: i32) -> Model {
+    let mut k = Kit::new();
+    cart(&mut k, roll);
+    k.m
+}
+
+fn cart(k: &mut Kit, roll: i32) {
     let (wood, dark, iron, cloth, stripe) = (
         k.c("cart_wood"),
         k.c("wood_dark"),
@@ -700,13 +709,15 @@ fn cart(k: &mut Kit) {
         k.bx((0, 925, z * 1180), (1420, 450, 80), wood);
     }
     // the wheels: rim, spokes and hub, on an axle
-    let axle = Affine::rot_z(fx::QUARTER_TURN);
+    // rolling forward the top of a wheel goes toward −z: a turn about −x
+    let rolled = Affine::rot_x(-roll);
+    let axle = rolled.then(&Affine::rot_z(fx::QUARTER_TURN));
     k.shape(Mesh::Cyl, (0, 575, 300), (100, 1860, 100), axle, iron);
     for x in [-830, 830] {
         k.shape(Mesh::Tube, (x, 575, 300), (1150, 100, 1150), axle, dark);
         k.shape(Mesh::Cyl, (x, 575, 300), (240, 170, 240), axle, iron);
         for s in 0..6 {
-            let turn = Affine::rot_x(fx::TURN * s / 12);
+            let turn = Affine::rot_x(fx::TURN * s / 12 - roll);
             k.shape(Mesh::Cube, (x, 575, 300), (60, 1000, 50), turn, wood);
         }
     }
