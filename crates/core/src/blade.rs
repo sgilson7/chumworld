@@ -444,9 +444,16 @@ fn set(list: &mut Vec<(u8, u8)>, k: (u8, u8), on: bool) {
     }
 }
 
-/// Two weapons' every point put back `k / s` of the way through the tick.
+/// Two weapons' every point put back `k / s` of the way through the tick,
+/// and each hand pinned to one with it (M7, T10: a cut's motor drives the
+/// hand as fast as the blade, and a hand left where the tick took it pulled
+/// a stopped blade on through its pin).
 fn rewind(a: &mut Arm, k: i64, s: i64) {
-    for i in [arm::POMMEL, arm::TIP] {
+    for i in [arm::POMMEL, arm::TIP, arm::HAND[0], arm::HAND[1]] {
+        let hand = i == arm::HAND[0] || i == arm::HAND[1];
+        if hand && !(a.in_hand && a.hold[if i == arm::HAND[0] { 0 } else { 1 }]) {
+            continue;
+        }
         let pt = &mut a.pts[i];
         pt.p = part_way(pt.q, pt.p, k, s);
     }
@@ -725,6 +732,22 @@ mod tests {
         w
     }
 
+    /// The same duel at 160 cm, the orc's guard held out to its left (60°
+    /// left, 30° down): its blade lies across the way a level cut comes in
+    /// from the player's right. (M7, T10: the orc's own guard, 12° left,
+    /// points its blade at the player, and a level cut now comes round it
+    /// to the body; R9.168.)
+    fn guarded() -> World {
+        let mut w = duel(160, 0, false);
+        let s = &mut w.foes[0].fighter.arm.shell;
+        s.side = crate::fx::deg(-60);
+        s.pitch = crate::fx::deg(-30);
+        for _ in 0..60 {
+            w.step(&Default::default());
+        }
+        w
+    }
+
     /// A committed sweep to the left: 150 px a tick with the left button.
     fn sweep_left() -> crate::input::Input {
         crate::input::Input {
@@ -911,7 +934,7 @@ mod tests {
                 .filter(|s| s.pass == crate::render::Pass::Glow)
                 .count()
         };
-        let mut w = duel(160, 0, false);
+        let mut w = guarded();
         let before = glows(&w);
         let mut lit = None;
         for t in 0..30 {
@@ -1000,7 +1023,7 @@ mod tests {
 
     #[test]
     fn a_block_stops_a_swing_and_the_blades_do_not_pass_through() {
-        let mut w = duel(160, 0, false);
+        let mut w = guarded();
         let (mut met, mut before, mut normal) = (None, 0, None);
         let mut ran = 0;
         for t in 0..30 {

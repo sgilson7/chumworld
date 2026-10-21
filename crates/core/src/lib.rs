@@ -61,5 +61,9 @@ pub mod trainer;
 // stubs: M6 Magic
 pub mod imbue;
 pub mod orbs;
+// M7 (T10): how the mouse's path becomes a cut
+pub mod swing;
+// M7 travel (P6, T11)
+pub mod travel;
 // M7 roadside (T12)
 pub mod roadside;

@@ -163,6 +163,8 @@ pub struct Settings {
     /// the sword hand's speed under the mouse, percent (M1 reads it)
     pub hand_pct: i32,
     pub volume_pct: i32,
+    /// M7 (T10): the swing cue, the cut the mouse would pick (`swing::cue`)
+    pub cue: bool,
 }
 
 /// Test-only HUD values (`test.hud`), so a screenshot can show the bars
@@ -206,6 +208,7 @@ impl Default for State {
                 invert_y: false,
                 hand_pct: 100,
                 volume_pct: 80,
+                cue: true,
             },
             demo: None,
         }
@@ -394,6 +397,9 @@ pub fn wanted(w: &World) -> Option<Screen> {
         Some(Screen::Dialogue)
     } else if w.ui.shop_open {
         Some(Screen::Shop)
+    } else if crate::travel::wanted(w) {
+        // M7 travel: the flute's song screen, or the traveller's list
+        Some(Screen::Song)
     } else {
         None
     }
@@ -411,6 +417,8 @@ pub fn escape(g: &mut Game) {
             let back = g.menu.settings_from;
             g.show(back);
         }
+        // M7 travel: Esc puts the flute away, or leaves the traveller
+        Screen::Song => crate::travel::cancel(g),
         _ => {}
     }
 }
@@ -585,7 +593,7 @@ fn quick_view(s: &Strings, inv: &inventory::State) -> Vec<Quick> {
         .collect()
 }
 
-fn coins_view(s: &Strings, w: &World) -> Count {
+pub(crate) fn coins_view(s: &Strings, w: &World) -> Count {
     Count {
         label: s.get("coins"),
         text: w.inventory.coins.to_string(),
@@ -761,6 +769,10 @@ pub struct QuestView {
     pub coins: Count,
     pub task_heading: String,
     pub task: String,
+    /// M7 travel: the songs learned, with their notes
+    pub song: Option<crate::travel::SongCard>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub songs_heading: String,
 }
 
 /// One screen of the ring.
@@ -812,6 +824,8 @@ pub struct DialogueView {
     pub done: bool,
     pub key: String,
     pub next: Action,
+    /// M7 travel: the line that teaches the travel song shows its notes
+    pub song: Option<crate::travel::SongCard>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -877,6 +891,9 @@ pub struct Views {
     pub dialogue: Option<DialogueView>,
     pub shop: Option<ShopView>,
     pub settings: Option<SettingsView>,
+    /// M7 travel: the song screen, and the last sound travel asked for
+    pub song: Option<crate::travel::SongView>,
+    pub travel_sound: crate::travel::SoundView,
 }
 
 fn action(s: &Strings, name: &str, value: &str, label: &str, engage: bool) -> Action {
@@ -897,6 +914,7 @@ pub fn views(g: &Game) -> Views {
     let keymap = match g.screen {
         Screen::Menu => "menu",
         Screen::Dialogue => "dialogue",
+        Screen::Song => "travel", // M7 travel: `travel.key`
         _ => "",
     };
     Views {
@@ -911,6 +929,8 @@ pub fn views(g: &Game) -> Views {
         },
         shop: (g.screen == Screen::Shop).then(|| shop_view(g)),
         settings: (g.screen == Screen::Settings).then(|| settings_view(g)),
+        song: crate::travel::view(g),
+        travel_sound: crate::travel::sound_view(&g.world),
     }
 }
 
@@ -1153,7 +1173,7 @@ fn equipment_face(g: &Game, front: bool) -> Face {
 }
 
 /// A world position as a share of the map, "50.00%".
-fn map_pct(v: Fx) -> String {
+pub(crate) fn map_pct(v: Fx) -> String {
     let h = (v as i64 * 10_000 / (REGION_M as i64 * ONE as i64)).clamp(0, 10_000);
     format!("{}.{:02}%", h / 100, h % 100)
 }
@@ -1242,6 +1262,8 @@ fn quest_face(g: &Game, front: bool) -> Face {
             coins: coins_view(s, w),
             task_heading: s.get("task_heading"),
             task: s.get(task(w)),
+            song: crate::travel::known(w, s),
+            songs_heading: s.get("songs_heading"),
         }),
     }
 }
@@ -1306,6 +1328,11 @@ fn point(g: &mut Game, k: usize) {
 /// Enter on the slot under the cursor: Equipment wears or holds it.
 fn choose(g: &mut Game) {
     let face = g.menu.face();
+    // M7 travel: Enter on the flute plays it
+    if face == SELECT && select_item(&g.world.inventory, g.menu.cursor[SELECT]) == Some(Item::Flute) {
+        crate::travel::play(g);
+        return;
+    }
     if face != EQUIPMENT {
         return;
     }
@@ -1392,6 +1419,7 @@ fn dialogue_view(g: &Game) -> Option<DialogueView> {
             if done && last { "close" } else { "next" },
             done && last,
         ),
+        song: (d.lines[d.line] == crate::travel::TEACH_LINE).then(|| crate::travel::song_card(s)),
     })
 }
 
@@ -1401,7 +1429,7 @@ pub fn sale_price(i: Item) -> u32 {
 }
 
 /// A string about `n` coins: `<key>_one` when there is one coin.
-fn coins_text(s: &Strings, key: &str, n: u32, more: &[(&str, String)]) -> String {
+pub(crate) fn coins_text(s: &Strings, key: &str, n: u32, more: &[(&str, String)]) -> String {
     let key = if n == 1 {
         format!("{key}_one")
     } else {
@@ -1559,6 +1587,20 @@ fn settings_view(g: &Game) -> SettingsView {
                 on: set.invert_y,
             },
             range("volume", "settings.volume", set.volume_pct, VOLUME_RANGE),
+            // M7 (T10): the swing cue
+            Control {
+                id: "swing_cue".into(),
+                label: s.get("swing_cue"),
+                kind: "switch".into(),
+                value: set.cue as i32,
+                min: 0,
+                max: 1,
+                step: 1,
+                text: s.get(if set.cue { "on" } else { "off" }),
+                name: "settings.cue".into(),
+                next: (!set.cue).to_string(),
+                on: set.cue,
+            },
         ],
         note: s.get("settings_note"),
         back: action(s, "settings.back", "", "back", false),
@@ -1626,6 +1668,14 @@ pub fn act(g: &mut Game, name: &str, value: &str) -> Result<(), String> {
         "settings.volume" => {
             let v = percent_value(value, "volume")?;
             g.world.ui.settings.volume_pct = v.clamp(VOLUME_RANGE.0, VOLUME_RANGE.1);
+        }
+        // M7 (T10): the swing cue on or off
+        "settings.cue" => {
+            g.world.ui.settings.cue = match value.trim() {
+                "true" => true,
+                "false" => false,
+                other => return Err(format!("The swing cue is true or false, not \"{other}\".")),
+            }
         }
         "settings.invert" => {
             g.world.ui.settings.invert_y = match value.trim() {
@@ -2253,7 +2303,16 @@ mod tests {
             .iter()
             .map(|c| c["label"].as_str().unwrap())
             .collect();
-        assert_eq!(labels, ["Look speed", "Mouse sensitivity", "Invert Y", "Volume"]);
+        assert_eq!(
+            labels,
+            [
+                "Look speed",
+                "Mouse sensitivity",
+                "Invert Y",
+                "Volume",
+                "Swing cue"
+            ]
+        );
         g.act("settings.volume", "35").unwrap();
         g.act("settings.hand", "1000").unwrap();
         assert_eq!(

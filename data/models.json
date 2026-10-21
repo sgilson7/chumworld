@@ -191,6 +191,16 @@
     "donkey_mane": [78, 64, 60],
     "donkey_hoof": [64, 54, 54],
     "harness": [168, 64, 54],
-    "saddle_bag": [146, 104, 64]
+    "saddle_bag": [146, 104, 64],
+
+    "waystone": [204, 196, 212],
+    "waystone_dark": [152, 142, 162],
+    "waystone_rune": [74, 62, 96],
+    "waystone_glow": [196, 216, 255],
+    "traveller_cloak": [118, 132, 92],
+    "traveller_pack": [128, 92, 66],
+    "traveller_roll": [196, 160, 112],
+    "traveller_staff": [132, 96, 62],
+    "traveller_hat": [92, 74, 66]
   }
 }

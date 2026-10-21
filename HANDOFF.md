@@ -118,3 +118,38 @@ Waiting on the person: R7.8 (what death after the opening does), R7.14 (where th
 For the coordinator: R7.2 and R7.3 changed M2's `places.rs` (a `moving` flag) and `places.json` (the bed's place); R7.9 the browser check's first view and new test acts (with R6.7); R7.12 the practice depends on standing in front of the trainer (M6's guard rule, R8.3); R7.13 the lookout's gloves are not drawn on it; R7.11 the cart's box; R7.4 throwables and orbs still pass through buildings (R8.13).
 
 Check, 2026-10-20 after merging main at a205e91 (M1 polish and M6): `./scripts/check.sh` steps 1 to 7 pass (format, lint, 344 core tests by `./scripts/count-tests.sh` with 10 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R7.8, R7.14 and R7.22 have status *person* and the journal, which M5 does not edit, does not name them yet; step 9, the browser check run on its own, passes in Chromium, Firefox and WebKit (Chromium's slow pan on the green at 23 of 230 400 pixels, at the bound's edge: R7.9). Breaks: `python3 scripts/break_tests.py M5`, 41 of 41 caught. Screenshots in `shots/m5/` (not committed).
+
+## 2026-10-20: M7 polish, swings (task P5, branch `m7-swings`, T10)
+
+The person: "the combat should be made easier to decide between horizontal and vertical swings, right now all i do are these like limp diagonal slashes".
+
+Found (R9.160, before/after table in `MEASUREMENTS.md`): the left button only raised the servos' caps while the hand followed the mouse at 0.15° a pixel, so a cut was as long and fast as the mouse's own stroke (the short sword's tip 4.7 m/s at a slow stroke, 11 at a fast one, 100 to 108° swept); a stroke down from the guard had 36° of room and swept 21°; the blade's line kept a stroke's slant (24 to 30° off level for a stroke 20° off sideways); the arm's limb drag stopped it with the mouse; and the blade lagged the hand by over 100° in a fast sweep. The camera's pitch does not couple in.
+
+Built: `swing.rs`. Holding the left button gathers the mouse's travel; at 40 px its direction, snapped to an axis within 30°, picks a level cut (its height by where the hand was), a chop, a rising cut or a 45° diagonal; the wheel turned away picks a thrust. A cut is a plane and an arc: a wind-up back past the start, a strike driven by a motor that turns the weapon and hand round the arc's pivot (Vagrancy's joint motor; heft slows it), a follow-through. Contact ends it. Level cuts 1° off level and about 190° swept, chops 90°, the short sword's tip 16 m/s, the cleaver's 11.6. Pilots cut the same way through their records, weighed in `data/pilots.json`. A swing cue (beads where the tip will run, the cut's name below the middle of the view; setting Swing cue, on by default). The title and pause panels say how to cut. Rows R9.160 to R9.174.
+
+Changed numbers and others' code, each with a row: `SWING_ACCEL`, `SWING_TIP_ACCEL`, limb drag during `Goals::swing` (R9.163, shared with the sheathing, P1); `blade::rewind` moves pinned hands (R9.167); M1's block and spark tests restaged (R9.168); M1's cut test renamed (R9.169); M6's recorded-volley test perturbs a key (R9.170); the browser check lists five settings (R9.173); the fallen-orc test no longer covered ground drag along x, so a hand-worked test does (`a_point_on_the_ground_loses_a_third_of_its_slide_a_tick`).
+
+Check (2026-10-20, after merging main at fa69349): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, notebook form); step 8 (the journal) fails only because R9.174 has status *person* and the journal, which P5 does not edit, does not name it yet; step 9, the browser check run on its own on the same build, passes in Chromium, Firefox and WebKit. Tests: 359 by `./scripts/count-tests.sh` (12 ignored). Breaks: `python3 scripts/break_tests.py M7` 18 of 18 caught; `M1 M6` 143 of 144 before the ground-drag repair, which is now caught. Screenshots in `shots/m7swings/` (not committed).
+
+Waiting on the person: R9.174 (the strings under "### M7 swings (P5)" at the foot of `SECOND-ORDER.md`). Open for play: R9.163, R9.164 (blows land harder; P4's damage unchanged), R9.170 (the pilots' cut weights), R9.171 (the thrust is slow), R9.172.
+
+## 2026-10-20: M7 travel (part P6, branch `m7-travel`, T11)
+
+Built (`crates/core/src/travel.rs`, `data/travel.json`, `web/menus/song.js`):
+- **The flute.** The trainer gives it the tick after the practice is passed, in a three-line talk whose second line teaches the travel song with its notes on the dialogue box (its one route, `trainer_gift`; CW-6's test now covers it). It sits in Select Item's fifth cell and goes on a quick key; its key plays it, it is never held ready.
+- **The song screen** (`Screen::Song`, the world held still): five notes on the arrows (or W A S D) and Space, shown on a five-line staff as they sound; at six notes the phrase is judged: the travel song (↑ → ← ↑ → Space) holds, then the map lists the woken waystones; anything else fades and clears. Esc puts the flute away.
+- **Five waystones** (`Prop::Waystone`, places `waystone_<id>` in `data/places.json`): by the village outside the boundary, by the bridge, on the trainer's hill, on the shrine's islet, down the trail from the camp outside the lookout's sight. E wakes one: its marks glow (no blending to sort, nothing pulses), the map marks it. A journey fades out, puts the player 4 m in front of the waystone facing out, and fades back.
+- **Refusals**, each with its line: during the opening, with a foe's blade out within 32 m or a foe holding on the player, and mid-dialogue.
+- **The traveller** at the crossroads with a pack mule: E, a greeting, then the waystones not yet been near, 10 coins and one more every 80 m (13 to 32); a ride takes exactly its price, refuses a short purse, says a line, fades, and wakes the waystone on arrival; a place been near is never offered.
+- **Quest**: `quest_flute` from the gift until a waystone is woken; the Quest screen's Songs card shows the song's notes.
+- Sound events for P1: `ui().travel_sound` (R9.202).
+
+Rows R9.190 to R9.208 in `SECOND-ORDER.md`; the strings under "### M7 travel" at its foot.
+
+The village's waystone stands at (2000, 2540), beside the lane north, where P7 leaves its gap (T12, R9.194).
+
+Check (2026-10-20, after merging main at f289b59, which touched only `DECISIONS.md` and `TRIAGE.md`): `./scripts/check.sh` steps 1 to 7 pass (format, clippy, 376 tests passed and 11 ignored by `./scripts/count-tests.sh`, the release build, the import audit, art, the notebook's form). Step 8 (the journal) fails only because R9.190, R9.193, R9.194, R9.195 and R9.207 have status *person* and the journal, which P6 does not edit, does not name them. Step 9, the browser check run on its own on the same build, passes in Chromium, Firefox and WebKit, the woken waystone's still frames and slow pan included (13, 15 and 15 A-B-A pixels). `python3 scripts/break_tests.py M7`: 35 of 35 caught (one missed on the first run, its test then split, R9.198). Screenshots in `shots/m7travel/` (not committed).
+
+Waiting on the person: R9.190 (the flute's route: the trainer's gift), R9.193 (the song's notes), R9.194 (where the waystones stand, and their look), R9.195 (the traveller: place, look, prices), R9.207 (the strings).
+
+For the coordinator: R9.200 (the files P6 added entries to: `places::markers` for P2, `web/menus/` for P3, `models` for M3's owner), R9.202 (sound events for P1), R9.205 (four stale `field.rs` rows in `tests/breaks.json`).
