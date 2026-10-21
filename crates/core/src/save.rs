@@ -1530,6 +1530,13 @@ mod tests {
     use super::*;
     use crate::input::Input;
 
+    /// A bad save: what is wrong, the edit that makes it, the refusal.
+    type Case = (
+        &'static str,
+        Box<dyn Fn(&mut Map<String, Value>)>,
+        Result<Progress, Refusal>,
+    );
+
     fn idle(w: &mut World, n: u32) {
         for _ in 0..n {
             w.step(&Input::default());
@@ -1675,11 +1682,7 @@ mod tests {
     fn each_bad_field_is_refused_by_name() {
         let p = some_progress();
         let field = |f: &str| Err(Refusal::Field(f.into()));
-        let cases: Vec<(
-            &str,
-            Box<dyn Fn(&mut Map<String, Value>)>,
-            Result<Progress, Refusal>,
-        )> = vec![
+        let cases: Vec<Case> = vec![
             (
                 "coins as text",
                 Box::new(|g| {
@@ -1969,11 +1972,7 @@ mod tests {
     fn nothing_is_held_without_the_route_that_gives_it() {
         let p = some_progress();
         let route = |i: Item| Err(Refusal::Route(i));
-        let cases: Vec<(
-            &str,
-            Box<dyn Fn(&mut Map<String, Value>)>,
-            Result<Progress, Refusal>,
-        )> = vec![
+        let cases: Vec<Case> = vec![
             (
                 "the sword with the leader standing",
                 Box::new(|g| {

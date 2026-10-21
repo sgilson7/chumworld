@@ -14,5 +14,5 @@
     "edge_pct": 42,
     "hatch_every": 6
   },
-  "place_icons": ["village", "camp", "hut", "shrine", "bridge", "tree", "scarecrow", "chest", "waystone_village", "waystone_bridge", "waystone_hill", "waystone_shrine", "waystone_camp"]
+  "place_icons": ["village", "camp", "hut", "shrine", "bridge", "tree", "scarecrow", "chest", "waystone_village", "waystone_bridge", "waystone_hill", "waystone_shrine", "waystone_camp", "save_crossroads", "save_trail"]
 }
