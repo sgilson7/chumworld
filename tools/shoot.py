@@ -74,6 +74,10 @@ seen from the player's shoulder, the camera pitched to frame it:
     models-speedster  the speedster pieces worn, and lying on the ground
     models-cart       the merchant's cart and its donkey
 
+M7 wanderers' views (T15), each a fresh page with `wanderers.near:<kind>`
+on the address: wd-orc_pair, wd-patrol, wd-ambush, wd-ambush-sprung (run
+at the cover until it springs), wd-orc_fire, wd-lean_to, wd-map.
+
 M7 roadside's views (T12), each a fresh page with the core's view acts
 on the address (`roadside.line`, `roadside.look`, `roadside.top`): rs-line-*
 the view out from the boundary's line on each side, rs-<stop> each stop
@@ -395,6 +399,62 @@ def callback_stats(page):
             return {callback_median_ms: at(0.5), callback_p95_ms: at(0.95), callback_worst_ms: d[d.length - 1], callbacks: d.length};
         }"""
     )
+
+
+# M7 wanderers (P9, T15): view: (acts on the address, keys, frames to wait).
+# A key "run:N" holds Shift and W for N frames; "map" opens the map menu.
+WANDERER_VIEWS = {
+    "wd-orc_pair": (["wanderers.near:orc_pair"], [], 240),
+    "wd-patrol": (["wanderers.near:patrol"], [], 240),
+    "wd-ambush": (["wanderers.near:ambush"], [], 200),
+    "wd-ambush-sprung": (["wanderers.near:ambush"], ["run:110"], 60),
+    "wd-orc_fire": (["wanderers.near:orc_fire"], ["run:40"], 120),
+    "wd-lean_to": (["wanderers.near:lean_to"], ["run:40"], 120),
+    "wd-map": (["wanderers.near:lean_to", "wanderers.seen"], ["map"], 60),
+}
+
+
+def wanderer_views(browser, base, out, views, logs):
+    """M7 wanderers' views (WANDERER_VIEWS): each kind of encounter from
+    its way, an ambush springing, and the map with the held sites marked."""
+    from urllib.parse import quote
+
+    for name, (acts, keys, wait) in WANDERER_VIEWS.items():
+        if name not in views:
+            continue
+        page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+        page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+        page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+        flags = "".join("&act=" + quote(a) for a in acts)
+        if "map" in keys:
+            flags += TEST_ACTS
+        page.goto(base + "/index.html?pointer=free" + flags, wait_until="commit")
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+        wait_frames(page, 20)
+        page.click("#title button")
+        page.wait_for_selector("body[data-screen='play']", state="attached")
+        wait_frames(page, wait)
+        for k in keys:
+            if k == "map":
+                page.keyboard.press("Tab")
+                page.wait_for_selector("#menu.shown")
+                page.wait_for_timeout(700)
+                page.keyboard.press("ArrowRight")
+                page.wait_for_timeout(300)
+                page.keyboard.press("KeyE")
+                page.wait_for_timeout(900)
+            elif k.startswith("run:"):
+                page.keyboard.down("ShiftLeft")
+                page.keyboard.down("KeyW")
+                wait_frames(page, int(k[4:]))
+                page.keyboard.up("KeyW")
+                page.keyboard.up("ShiftLeft")
+                wait_frames(page, 30)
+            else:
+                page.keyboard.press(k)
+                wait_frames(page, 40)
+        page.screenshot(path=str(out / f"{name}.png"))
+        page.close()
 
 
 def roadside_views(browser, base, out, views, logs):
@@ -1244,7 +1304,7 @@ def main(argv):
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
     views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + D2_VIEWS + M4_VIEWS + list(M2_VIEWS) + M5_VIEWS
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in W_VIEWS and v not in ROADSIDE_VIEWS and v not in S_VIEWS and v not in M7_VIEWS]
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in W_VIEWS and v not in ROADSIDE_VIEWS and v not in S_VIEWS and v not in M7_VIEWS and v not in WANDERER_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -1344,6 +1404,8 @@ def main(argv):
             w_views(browser, base, out, views, logs)
         if any(v in ROADSIDE_VIEWS for v in views):
             roadside_views(browser, base, out, views, logs)
+        if any(v in WANDERER_VIEWS for v in views):
+            wanderer_views(browser, base, out, views, logs)
         if any(v in S_VIEWS for v in views):
             s_views(browser, base, out, views, logs, numbers)
         browser.close()

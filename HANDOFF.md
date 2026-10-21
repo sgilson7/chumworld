@@ -253,6 +253,29 @@ Check, 2026-10-20, after merging main at f86779b (swings, travel, triage T12 and
 
 Waiting on the person: R9.104 (the hood cannot be bought the first time the cart is met), R9.100 (item names capitalised inside a line: a lower-case form, or keep them) and R9.101 (the strings this task wrote, under "### M7 (P3, qa)" at the foot of `SECOND-ORDER.md`).
 
+## 2026-10-20: M7 wanderers (part P9, branch `m7-wanderers`, T15)
+
+The person: "there needs to be a bit more in the overworld in between these major areas ... plus, add more random enemies in the overworld".
+
+Built (`crates/core/src/wanderers.rs`, `data/wanderers.json`):
+- **Where.** Eight ways between the major areas (R9.280), measured where clear of the village's 700 m band (P7's), the camp's 400 m, every other place, the waystones, the trainer and the traveller (R9.283). Slots every 400 m or less, placed from the world's seed; something to meet every 500 m or less along each way (R9.281).
+- **What.** 1 or 2 ambushes behind a tree or big rock beside a trail, springing at 14 m with a line; 1 or 2 bandit patrols on the east road and the trails (the merchant has the west road, R9.282); 2 to 4 held sites: orc fires (two orcs, a fire) and bandit lean-tos (a tent, a fire, a lookout and a bandit), each marked on the map once seen; orc pairs roaming a loop across or beside the way in the rest. Only orcs, bandits and the lookout's look; the trees in `pilots.json` unchanged; no captain (R9.291).
+- **When.** Only after the opening. An encounter stands within 250 m if the hostile foes near the player stay at 6 or under, and is parked past 300 m: its foes leave the world (R9.284). Every foe moves through its input record (CW-3).
+- **Kept.** One `Record` per encounter (`State::records`, by `id`): beaten, when, which foes are down, seen, rewarded. In the save by key (R9.287). Roaming groups come back 20 minutes after being beaten; held sites and ambushes never (R9.286).
+- **Cost.** 0.55 ms a tick with the cap's six fighting, 0.07 ms with everything parked; placing (30 ms) happens at load (R9.285, `MEASUREMENTS.md`).
+- **Views.** `tools/shoot.py` `WANDERER_VIEWS` (`wd-*`), driven by `wanderers.near:<kind>` and `wanderers.seen`. Screenshots in `shots/wanderers/` (not committed).
+
+Rows: R9.280 to R9.293 in `SECOND-ORDER.md`, strings under "### M7 wanderers". Tests: 18 in `wanderers/tests.rs`, one probe (`probe_wanderers_tick_cost`). Break rows: 21, all caught.
+
+Merged main at 88e45bd (roadside), 60a1d64 (save) and 4763a93 (feel, sprint): `lib.rs`, `world.rs`, `GLOSSARY.md` and `tests/breaks.json` kept both sides.
+
+Waiting on the person: R9.286 (whether beaten groups come back, and after how long), R9.290 (the kinds, counts, rewards and the lean-to's look), R9.291 (a captain would need its own kind and name), R9.293 (the strings).
+
+For the coordinator:
+- `./scripts/check.sh` steps 1 to 7 pass; step 8 (journal) fails only on R9.286, R9.290, R9.291 and R9.293, the journal entry being yours; step 9 (the browser check) was not run, per the new rule. Please include in the batch: the `wd-*` views load, and a still view by a held site renders the same pixels on consecutive frames (the core's coplanar scan passes at each site).
+- R9.288: wanderers appear at 250 m with no dither. R9.289: an ambush on the open hill trail is easy to see.
+- R9.292: the one-line hooks outside `wanderers.rs`.
+
 ## 2026-10-20: M7 sprint (part P8, branch `m7-sprint`, T14)
 
 The person: "you should be able to set yourself to sprinting, and if you've been sprinting for 5seconds you start to go faster and faster until you are running at triple speed".
