@@ -73,3 +73,5 @@ pub mod wounds;
 pub mod save;
 // M7 roadside (T12)
 pub mod roadside;
+// M7 polish (P8, T14): the sprint that builds to triple speed
+pub mod sprint;

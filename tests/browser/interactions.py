@@ -106,9 +106,11 @@ def run(page, check, engine):
     rows = page.locator("#title table.controls tr")
     # M0's four controls and M1's eight (the sword, its hand, the buttons,
     # the wheel, F and Space)
-    # M6 added Q (the imbue) to M1's twelve
-    check(rows.count() == 13, "the title screen lists the thirteen controls")
+    # M6 added Q (the imbue) to M1's twelve; M7 (T14) the tap of Shift
+    check(rows.count() == 14, "the title screen lists the fourteen controls")
     check(rows.nth(1).inner_text().split() == [STRINGS["key_run"], STRINGS["control_run"]], "Shift runs, as the controls table says")
+    sprint_row = [c.inner_text() for c in rows.nth(2).locator("td").all()]
+    check(sprint_row == [STRINGS["key_sprint"], STRINGS["control_sprint"]], f"a tap of Shift sprints, as the controls table says: {sprint_row}")
     term = page.get_attribute("#title td span[data-term='Run']", "title") or ""
     check("5 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
     check(page.locator("#view").is_visible(), "the canvas is shown")

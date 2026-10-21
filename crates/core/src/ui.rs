@@ -612,6 +612,8 @@ pub struct HudView {
     pub imbue: Option<Ring>,
     /// speed and footing, while speedster pieces are worn
     pub footing: Vec<Bar>,
+    /// M7 (T14): the sprint's build, while sprinting
+    pub sprint: Option<Bar>,
     pub quick: Vec<Quick>,
     pub coins: Count,
     pub toast: ToastView,
@@ -720,6 +722,7 @@ pub fn hud(g: &Game) -> HudView {
         foe: foe(w).map(|(who, v)| gauge("foe", s.get(&format!("who_{who}")), v)),
         imbue,
         footing: if n > 0 { set_bars(s, n) } else { Vec::new() },
+        sprint: crate::sprint::bar(s, w),
         quick: quick_view(s, inv),
         coins: coins_view(s, w),
         toast,

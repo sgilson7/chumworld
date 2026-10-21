@@ -426,6 +426,7 @@ impl Game {
         v.extend(crate::ui::values());
         v.extend(crate::travel::values()); // M7 travel
         v.extend(crate::save::values()); // M7 save
+        v.extend(crate::sprint::values()); // M7 (T14)
         v
     }
 }

@@ -91,6 +91,8 @@ pub struct Gait {
     pub stoop: Fx,
     pub hop: u16,
     pub lift: Fx,
+    /// M7 (T14): the sprint, its build and its skid (`sprint.rs`)
+    pub sprint: crate::sprint::Sprint,
 }
 
 /// Grip with `n` speedster pieces: bare feet's `GRIP_BASE` times M4's
@@ -145,6 +147,8 @@ pub fn wanted(input: &Input, yaw: i32, drawn: bool, n: u8) -> V3 {
 
 /// One tick of every body's feet.
 pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
+    crate::sprint::step(w, input, foes); // M7 (T14): taps, the build, the end
+
     let n_player = pieces(w);
     for id in 0..player::count(w) {
         let inp = if id == 0 { *input } else { foes[id - 1] };
@@ -200,9 +204,12 @@ pub fn step_body(
         g.dodge -= 1;
         want = g.dodge_way.scale(per_tick(DODGE_SPEED, n));
     }
+    // M7 (T14): sprinting, along the sprint's heading at its speed
+    want = crate::sprint::want(f, input, want, n);
     // M7 (P4): toppled, hopping on one leg or crawling with none
     want = crate::wounds::gait_want(f, want, n);
     b.vel = approach(b.vel, want, grip(n));
+    b.vel = crate::sprint::skid(f, b.prev_vel, b.vel, n); // M7 (T14): no sudden stop
     if b.vel.len() <= 1 {
         b.vel = V3::ZERO;
     }

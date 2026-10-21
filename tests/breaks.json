@@ -3932,5 +3932,173 @@
     "find": "s.removeItem(KEY);",
     "replace": "s.removeItem(\"chumworld.other\");",
     "test": "the_save_module_keeps_exactly_one_key"
+  },
+  {
+    "name": "M7 sprint: a held run counts as a tap",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            s.tapping = s.quiet && s.down <= TAP_MOST;",
+    "replace": "            s.tapping = s.quiet;",
+    "test": "a_tap_of_shift_while_moving_sets_a_sprint_and_another_ends_it"
+  },
+  {
+    "name": "M7 sprint: the orcs' running taps a sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        if s.tapping && s.up >= SETTLE {",
+    "replace": "        if s.tapping {",
+    "test": "the_orcs_running_never_sprints"
+  },
+  {
+    "name": "M7 sprint: the build starts before 5 s",
+    "file": "crates/core/src/sprint.rs",
+    "find": "pub const BUILD_AFTER: u32 = 300;",
+    "replace": "pub const BUILD_AFTER: u32 = 240;",
+    "test": "five_seconds_of_sprint_go_at_the_run_speed_then_it_builds"
+  },
+  {
+    "name": "M7 sprint: the top is twice the run",
+    "file": "crates/core/src/sprint.rs",
+    "find": "pub const TOP: Fx = fx::int(3);",
+    "replace": "pub const TOP: Fx = fx::int(2);",
+    "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
+  },
+  {
+    "name": "M7 sprint: a stop does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        } else if !k.moving {\n            End::Stop",
+    "replace": "        } else if false {\n            End::Stop",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: pressing X does not end it in the world",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            drawn: f.drawn() || f.pressed(&inp, input::DRAW),",
+    "replace": "            drawn: f.drawn(),",
+    "test": "in_the_world_a_sprint_ends_at_the_draw_and_at_a_stop"
+  },
+  {
+    "name": "M7 sprint: health lost does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let hit = k.stagger || k.hp < s.hp;",
+    "replace": "    let hit = k.stagger;",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: a dodge-step does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        } else if k.dodge {",
+    "replace": "        } else if false {",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: a hard turn does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": ".abs() > HARD_TURN {",
+    "replace": ".abs() > HARD_TURN * 2 {",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: the build jumps to the top",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    fx::mul(fx::mul(t, t), 3 * ONE - 2 * t)",
+    "replace": "    if t > 0 { ONE } else { 0 }",
+    "test": "the_build_never_jumps_from_one_tick_to_the_next"
+  },
+  {
+    "name": "M7 sprint: a stop at speed does not skid",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let out = if was - now > SKID {",
+    "replace": "    let out = if false {",
+    "test": "a_stop_from_the_top_skids_and_a_plain_run_stops_as_before"
+  },
+  {
+    "name": "M7 sprint: the speedster's share multiplies the sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let sprint = fx::mul(bare, mult) + pieces;",
+    "replace": "    let sprint = fx::mul(bare + pieces, mult);",
+    "test": "speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds"
+  },
+  {
+    "name": "M7 sprint: no cap on a sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    road.min(fx::mul(bare, CAP))",
+    "replace": "    road",
+    "test": "speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds"
+  },
+  {
+    "name": "M7 sprint: the turn rate stays as at a run",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    TURN_AT_RUN - fx::mul(TURN_AT_RUN - TURN_AT_TOP, past)",
+    "replace": "    TURN_AT_RUN",
+    "test": "the_turn_rate_falls_with_speed"
+  },
+  {
+    "name": "M7 sprint: the heading turns at once",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            s.heading = fx::wrap(s.heading + fx::wrap(k.goal - s.heading).clamp(-rate, rate));",
+    "replace": "            s.heading = k.goal;",
+    "test": "the_turn_rate_falls_with_speed"
+  },
+  {
+    "name": "M7 sprint: a climb does not slow the build",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    (ONE - fx::div(grade, STEEP)).clamp(0, ONE)",
+    "replace": "    ONE",
+    "test": "uphill_the_build_gives_way"
+  },
+  {
+    "name": "M7 sprint: the build counts in the opening",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            if !k.opening {",
+    "replace": "            if true {",
+    "test": "the_opening_holds_a_sprint_at_the_run_speed"
+  },
+  {
+    "name": "M7 sprint: the view does not widen",
+    "file": "crates/core/src/world.rs",
+    "find": "        cam.fov += widen;\n",
+    "replace": "",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the camera does not pull back",
+    "file": "crates/core/src/world.rs",
+    "find": "aim, back + pull, |x, z|",
+    "replace": "aim, back + pull * 0, |x, z|",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the view snaps rather than eases",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    s.view = fx::approach(s.view, goal, VIEW_EASE);",
+    "replace": "    s.view = goal;",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the HUD shows no sprint",
+    "file": "crates/core/src/ui.rs",
+    "find": "        sprint: crate::sprint::bar(s, w),",
+    "replace": "        sprint: None,",
+    "test": "the_hud_shows_the_build_as_a_bar_with_words"
+  },
+  {
+    "name": "M7 sprint: a tap never sets a sprint (the replay sees none)",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            tap = true;",
+    "replace": "            tap = false;",
+    "test": "the_same_seed_and_inputs_give_the_same_world_with_a_sprint"
+  },
+  {
+    "name": "M7 sprint: the controls panel leaves out the tap",
+    "file": "crates/core/src/api.rs",
+    "find": "            row(\"key_sprint\", \"control_sprint\"), // M7 (T14)\n",
+    "replace": "",
+    "test": "the_controls_name_the_tap_and_the_glossary_gives_the_numbers"
+  },
+  {
+    "name": "M7 sprint: the sprint's want is not used",
+    "file": "crates/core/src/motion.rs",
+    "find": "    want = crate::sprint::want(f, input, want, n);\n",
+    "replace": "",
+    "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
   }
 ]

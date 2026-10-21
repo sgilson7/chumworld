@@ -252,3 +252,25 @@ Check, 2026-10-20, after merging main at f86779b (swings, travel, triage T12 and
 - Screenshots are in `shots/m7qa/` (not committed).
 
 Waiting on the person: R9.104 (the hood cannot be bought the first time the cart is met), R9.100 (item names capitalised inside a line: a lower-case form, or keep them) and R9.101 (the strings this task wrote, under "### M7 (P3, qa)" at the foot of `SECOND-ORDER.md`).
+
+## 2026-10-20: M7 sprint (part P8, branch `m7-sprint`, T14)
+
+The person: "you should be able to set yourself to sprinting, and if you've been sprinting for 5seconds you start to go faster and faster until you are running at triple speed".
+
+Built (`crates/core/src/sprint.rs`, its tests in `sprint/tests.rs`):
+- **The key**: a tap of Shift while moving sets a sprint on; another tap ends it. Holding Shift still runs. A tap is a short press (at most 0.2 s) after a quiet spell, counted once Shift stays up 0.1 s, so the orcs' and villagers' running never sprints (R9.250). The controls panel says "Shift, tapped · Sprint on or off, while moving".
+- **The build**: 5 s at the run speed, then a smoothstep over 4 s to 3 times it, as a multiplier on `motion::RUN` and the road (15 m/s now, 21 m/s once P2's 7 m/s run lands; R9.251). The speedster's pieces add 20% of the run each on top, capped at 4 times the bare run (R9.252).
+- **What ends it**: a tap, a stop, the sword drawn or a foe held on, a blow, a dodge-step, a hard turn (over 100°), falling or a leg off.
+- **Feel**: steering falls from 10° a tick at the run to 2° at the top; a stop at speed skids at 30 m/s² (3.5 m from 15 m/s); uphill the build gives way; ice unchanged (R9.253). The camera pulls back up to 0.8 m and the view widens up to 6°, eased; a still view is unchanged (R9.254). No speed streaks.
+- **The opening**: the build does not count until the boundary is crossed, so the escape takes as long as running (R9.255).
+- **HUD**: a Sprint bar with words ("Builds in 3 s", "2.4 × run speed") under health, a chevron fill; glossary entry Sprint.
+- Test acts `sprint.set` (ticks) and `sprint.off` (R9.259); five views `s-*` in `tools/shoot.py`; a cost probe `probe_sprint_frame_cost`.
+
+Touched outside P8's own files, each a hook or an added entry: `motion.rs` (`Gait::sprint`; three hook lines, R9.260), `world.rs` (the act route; the camera's pull and widening), `ui.rs` (`HudView::sprint`), `api.rs` (a controls row), `game.rs` (glossary values), `page.rs`, `data/strings.json`, `GLOSSARY.md`, `web/menus/menus.js` and `.css` (the bar), `tests/breaks.json`, `tools/shoot.py`, `crates/core/tests/frame_probe.rs`.
+
+Waiting on the person: R9.261 (the key, the numbers, the opening's hold, and the strings under "### M7 sprint (P8)" at the foot of `SECOND-ORDER.md`).
+
+Open: R9.257 (pop-in and grass reach at speed, for P2), R9.258 (the gait at speed reads stiff), R9.260 (the merge with P2).
+
+Check, 2026-10-20, after merging main at 88e45bd (roadside T12, triage T17; conflicts in `lib.rs`, `world.rs`, `tools/shoot.py`, `tests/breaks.json` and the notes, both sides kept): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests: 427 core tests, the release build, the import audit, art, the notebook's form). Step 8 (the journal) fails on this part's person row R9.261 and on R9.97 to R9.105, which the journal cites from a branch not yet on main. Step 9 was not run here, by the person's rule (the coordinator's batched check): a first run before that rule failed one real check, the title's controls count (13, now 14 with the tap of Shift), which `tests/browser/interactions.py` now expects, with a check of the new row; that change is unverified in a browser. Breaks: `python3 scripts/break_tests.py "M7 sprint"`, 24 of 24 caught (one missed on the first run, its test then held Shift up long enough to count). Screenshots in `shots/sprint/` (not committed).
+

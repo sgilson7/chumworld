@@ -312,6 +312,7 @@ impl World {
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
+            Some(("sprint", rest)) => crate::sprint::act(self, rest, value), // M7 (T14)
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }
@@ -333,7 +334,12 @@ impl World {
         } else {
             self.aim
         };
-        let mut cam = camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z));
+        // M7 (T14): the sprint's build pulls the camera back and widens the view
+        let (pull, widen) = crate::sprint::view(self, alpha);
+        let mut cam = camera::view_from(self.player.feet(alpha), aim, back + pull, |x, z| {
+            self.ground(x, z)
+        });
+        cam.fov += widen;
         // M1: a hard blow knocks the view a little; held on a foe, the view
         // frames the duel from a little higher and further right
         cam.eye = cam
