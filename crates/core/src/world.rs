@@ -158,7 +158,7 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
-            travel: crate::travel::State::default(), // M7 travel
+            travel: crate::travel::State::default(),     // M7 travel
             roadside: crate::roadside::State::default(), // M7 roadside
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));

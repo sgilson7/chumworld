@@ -153,3 +153,33 @@ Check (2026-10-20, after merging main at f289b59, which touched only `DECISIONS.
 Waiting on the person: R9.190 (the flute's route: the trainer's gift), R9.193 (the song's notes), R9.194 (where the waystones stand, and their look), R9.195 (the traveller: place, look, prices), R9.207 (the strings).
 
 For the coordinator: R9.200 (the files P6 added entries to: `places::markers` for P2, `web/menus/` for P3, `models` for M3's owner), R9.202 (sound events for P1), R9.205 (four stale `field.rs` rows in `tests/breaks.json`).
+
+## 2026-10-20: M7 roadside (part P7, branch `m7-roadside`, T12)
+
+The person: "make sure there is stuff to do see roads on the sides of the village you are most likely to run out of at theb eginning of the game".
+
+Found (R9.220): the opening's data says which sides. The raid enters from the south; the four villagers flee north, north-west, north-east and west, so those are the ways a player runs out.
+
+Built (`crates/core/src/roadside.rs`, `data/roadside.json`):
+- **Placement.** Each side's stops are anchored by distance from the village centre and an offset from the side's path (R9.221). The path is the road crossing the 250 m line that way, else the villager's flee line. Each stop becomes a place `roadside_<id>` in the layout: its ground is flattened, trees keep off, its model is baked and dithered with the places' props, and its footprint is a wall.
+- **North (the lane).** An overturned cart at 336 m (6 coins, a bandage), a lone tree 15 m tall at 439 m, and the villager who fled north under it.
+- **North-west.** A watchtower at 300 m, 10 m tall, with a stair up to a railed platform. The villager who fled that way at 469 m. An overturned cart at 640 m (3 rocks, 8 coins).
+- **North-east.** A well at 311 m (E: health whole again). A burning cart at 446 m with a 23 m column of smoke (2 knives). An orc straggler beside the cart, the first real duel outside the dream; it stands only once the opening is over. The villager who fled that way at 622 m.
+- **West (no road).** A tor to climb at 316 m, with rocks at its foot. An overturned cart at 455 m (6 coins, 3 rocks). The villager who fled west at 601 m.
+- **Doing.** E searches a cart once; what the player cannot carry is left beside it. E at the well drinks. E at a villager gives two lines pointing the way: the crossroads and the merchant, the bridge and the trainer, the camp. The watchtower and the tor are climbed through a height-aware guard (R9.226).
+- **Map.** The landmarks and the well are marked on the map (R9.233).
+- **Views.** `tools/shoot.py` has `ROADSIDE_VIEWS` (22 views), driven by the test acts `roadside.line`, `roadside.look` and `roadside.top` (R9.234).
+
+Rows: R9.220 to R9.237 in `SECOND-ORDER.md`, and the strings under "### M7 roadside (P7)" at its foot. Tests: 23 in `roadside/tests.rs`, one probe in `crates/core/tests/roadside_probe.rs`. 37 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "T12 roadside"`: 37 of 37 caught).
+
+Merged main at c9819a7 (travel and swings). Kept both sides: `Prop::ALL` holds the waystone and the five roadside props, and `Use` has both parts' arms. P6's waystone at (2000, 2540) sits in the gap left for it. P6's marker-count test now adds the roadside's marks.
+
+Waiting on the person: R9.222 (what stands where, and its look: `shots/roadside/`), R9.223 (the loot amounts, and the well healing to whole), R9.237 (the strings).
+
+For the coordinator:
+- R9.221: after P2 merges, the north-west and north-east stops move onto its roads. This was checked locally with `m7-land`'s `places.json`.
+- R9.225: the files P7 added entries to.
+- R9.227: the flicker scan seems to miss two flush faces that face the same way when each lies on the other box's surface.
+- R9.236: T12 is not measured against the frame budget.
+- R9.230: the west side has nothing past 601 m.
+
