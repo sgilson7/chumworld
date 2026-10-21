@@ -2,8 +2,12 @@
   "_note": "T21 (phase A): the first dungeon's rooms. crates/core/src/dungeon.rs reads this file, compiled in. Each room is a space of its own, built high over the land far north of the region (`origin_m`: x east, y up, z south), so nothing in the overworld is near it and it is drawn only from inside it (the places' 3 km fade). A room is a box: its floor at the origin's height, walls round it, a ceiling. Positions inside a room are centimetres from its centre, x east, z south, as on the journal's mockups. `ledges` and `pillars` are raised floors you stand on (their tops in centimetres over the room's floor); a `ramp` climbs from one height to another along x. A door stands in a wall (`wall`: n, s, e or w) `along_cm` from the wall's middle, on a sill `top_cm` up; it leads to another room's door, out to the world, or is closed with a line. Colours are the room's own (journal: rooms.svg), 0 to 255.",
   "origin_m": [2000, 1900, -9000],
   "_origin_m": "11 km north of the village, beyond the far ring of mountains, 1.9 km up: dungeon.rs's tests hold every room's floor at least 100 m over the land under it",
-  "outside": { "at_m": [2550, 850], "yaw_deg": 180, "out_cm": 450 },
-  "_outside": "the great tree's door in the forest (journal: map.svg), facing south; out of the dungeon the player stands out_cm in front of it",
+  "outside": {
+    "at_m": [2550, 850], "yaw_deg": 180, "out_cm": 450, "trunk_cm": 600, "tree_cm": 4200,
+    "sockets": { "side_cm": 190, "up_cm": 260, "catch_cm": 110, "aim_deg": 60 },
+    "bulb": { "at_cm": [-800, 120, 350], "range_cm": 2200, "every": 150 }
+  },
+  "_outside": "the great tree in the forest (journal: map.svg, entrance.svg): its trunk's middle, its door facing south on the trunk's face (trunk_cm out), the tree tree_cm tall. Out of the dungeon the player stands out_cm in front of the door. Two sockets stand either side of the door (side_cm along the trunk's face, up_cm up); an orb from the roots' bulb, turned by the player's blade within aim_deg of a dark socket, flies straight to it, and lights it when it passes within catch_cm. Both lit, the door opens. The bulb sits at_cm from the trunk's middle (x east, y up, z south) and throws the trainer's single slow orb at the player every `every` ticks while they are within range_cm and the door is shut.",
   "rooms": [
     {
       "id": "hub",

@@ -12,6 +12,7 @@
       "steps": ["has:chest_key|has:boomerang", "has:boomerang"]
     },
     { "id": "trainer", "steps": ["knows:imbue", "has:flute"] },
+    { "id": "great_tree", "_steps": "T21: the great tree's door opened; the dungeon's keys join later", "steps": ["open:great_tree"] },
     {
       "id": "waystones",
       "steps": ["woke:village", "woke:bridge", "woke:hill", "woke:shrine", "woke:camp"]
@@ -126,7 +127,8 @@
       "reveals": { "place": "waystone_village", "label": "place_waystone_village" },
       "told_by": ["west_villager", "traveller", "trainer", "herder"],
       "until": ["woke:any"]
-    }
+    },
+    { "id": "great_tree", "of": "great_tree", "route": "dungeon", "_route": "dungeon.json's outside: the great tree in the forest, its door sealed until two orbs are turned into its sockets", "line": "great_tree", "reveals": { "place": "great_tree", "label": "place_great_tree" }, "told_by": ["woodcutter", "trainer", "north_east_villager"], "until": ["open:great_tree"] }
   ],
   "_tellers": "Who tells: the four roadside villagers (data/roadside.json's stops, after their own lines), the merchant (after the greeting, before the shop), the traveller (after the greeting, before the rides) and the trainer (once the practice is passed), and three people of their own, each standing beside a woodpile (the 'logs' prop) so its ground is flattened (places.rs). 'at' is metres east and south in the world, 'logs' metres from where the person stands, 'look' a villager's look (0 to 3). 'hello' is said the first time only; 'closing' once everything they know is heard or moot.",
   "tellers": [

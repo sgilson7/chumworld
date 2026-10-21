@@ -5276,5 +5276,47 @@
     "find": "            if c.sub(p).len_xz() <= cm(s.radius_cm) && (p.y - c.y).abs() <= ONE / 4 {",
     "replace": "            if true {",
     "test": "standing_in_the_healing_spring_heals_a_point_a_tick_up_to_full"
+  },
+  {
+    "name": "dungeon (T21): the tree's door is never sealed",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "    if d.room.is_none() && !w.dungeon.open {",
+    "replace": "    if false {",
+    "test": "a_door_fades_out_moves_the_player_through_and_fades_back_and_keeps_their_health"
+  },
+  {
+    "name": "dungeon (T21): a turned orb is not aimed at a socket",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "            if let Some((_, d, _)) = best {\n                orb.dir = d;\n            }",
+    "replace": "            let _ = best;",
+    "test": "an_orb_turned_toward_a_dark_socket_lights_it_and_both_lit_open_the_tree_s_door"
+  },
+  {
+    "name": "dungeon (T21): an orb not turned lights a socket",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "        .filter(|b| b.caster == ROOTS && b.turned.is_some())\n",
+    "replace": "        .filter(|b| b.caster == ROOTS)\n",
+    "test": "an_orb_turned_toward_a_dark_socket_lights_it_and_both_lit_open_the_tree_s_door"
+  },
+  {
+    "name": "dungeon (T21): the bulb throws from anywhere",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "    let near = bulb(w).sub(w.player.pos).len_xz() <= cm(o.bulb.range_cm) && !w.story.opening();",
+    "replace": "    let near = !w.story.opening();",
+    "test": "the_bulb_throws_only_while_the_player_is_near_and_the_door_is_shut"
+  },
+  {
+    "name": "dungeon (T21): the trunk is not solid",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "    (c.sub(p).len_xz() <= reach + r).then_some((c, r))",
+    "replace": "    let _ = (c, r, p, reach);\n    None",
+    "test": "a_body_cannot_run_through_the_great_tree_s_trunk"
+  },
+  {
+    "name": "dungeon (T21): the save forgets the open door",
+    "file": "crates/core/src/dungeon.rs",
+    "find": "    w.dungeon.open = ids.contains(\"open\");",
+    "replace": "    let _ = ids;",
+    "test": "the_tree_s_door_opened_stays_open_through_a_save_and_a_load"
   }
 ]

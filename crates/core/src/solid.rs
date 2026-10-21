@@ -469,7 +469,9 @@ pub fn step(w: &mut World) {
             let gone = fx::length(dx, dz);
             let close = near(&map.walls, pos.x, pos.z, ONE * 2 + gone);
             // M7 forest (T19): and the trees' trunks, stumps and logs near
-            let trunks = w.obstacles.trunks_near(w, pos, ONE * 2 + gone);
+            let mut trunks = w.obstacles.trunks_near(w, pos, ONE * 2 + gone);
+            // T21: and the great tree's
+            trunks.extend(crate::dungeon::trunk_near(w, pos, ONE * 2 + gone));
             // T18: in steps of at most `SWEEP_STEP` from where the body
             // stood, so a body at a sprint's top meets a wall's near face
             let steps = (gone / SWEEP_STEP + 1).max(1);

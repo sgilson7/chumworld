@@ -201,6 +201,7 @@ fn check_condition(c: &str) -> Result<(), String> {
             Some(("knows", "imbue")) => true,
             Some(("woke", id)) => id == "any" || crate::travel::spec().points.iter().any(|p| p.id == id),
             Some(("reached", "all")) => true,
+            Some(("open", "great_tree")) => true, // T21
             _ => false,
         };
         if !ok {
@@ -223,6 +224,8 @@ pub fn holds(w: &World, c: &str) -> bool {
             .and_then(|k| w.travel.points.get(k))
             .is_some_and(|p| p.woken),
         Some(("reached", "all")) => w.travel.points.iter().all(|p| p.reached),
+        // T21: the great tree's door opened
+        Some(("open", "great_tree")) => w.dungeon.open,
         _ => false,
     })
 }

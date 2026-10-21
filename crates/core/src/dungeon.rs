@@ -42,10 +42,29 @@ use crate::world::World;
 // ---- the file -------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Sockets {
+    pub side_cm: i32,
+    pub up_cm: i32,
+    pub catch_cm: i32,
+    pub aim_deg: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Bulb {
+    pub at_cm: [i32; 3],
+    pub range_cm: i32,
+    pub every: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Outside {
     pub at_m: [i32; 2],
     pub yaw_deg: i32,
     pub out_cm: i32,
+    pub trunk_cm: i32,
+    pub tree_cm: i32,
+    pub sockets: Sockets,
+    pub bulb: Bulb,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -222,11 +241,12 @@ pub struct Door {
 pub fn doors(w: &World) -> Vec<Door> {
     let s = spec();
     let o = &s.outside;
-    let tree = v3(fx::int(o.at_m[0]), 0, fx::int(o.at_m[1]));
+    // on the trunk's face, the way the door faces
+    let face = tree(w).add(facing(fx::deg(o.yaw_deg), 0).scale(cm(o.trunk_cm)));
     let mut out = vec![Door {
         room: None,
         id: "outside".into(),
-        at: v3(tree.x, w.ground(tree.x, tree.z), tree.z),
+        at: v3(face.x, w.ground(face.x, face.z), face.z),
         yaw: fx::deg(o.yaw_deg),
         to: To::Room {
             room: s.rooms[0].id.clone(),
@@ -360,9 +380,13 @@ pub fn climbs() -> Vec<Climb> {
 }
 
 /// What the camera's boom keeps clear of in the rooms: the walls, the
-/// ceiling, and each ledge and pillar.
-pub fn blocks() -> Vec<Solid> {
-    let mut out = Vec::new();
+/// ceiling, and each ledge and pillar; and the great tree's trunk.
+pub fn blocks(w: &World) -> Vec<Solid> {
+    let mut out = vec![Solid::Post {
+        at: tree(w),
+        r: cm(spec().outside.trunk_cm),
+        y1: tree(w).y + cm(spec().outside.tree_cm) / 2,
+    }];
     for r in &spec().rooms {
         let c = centre(r);
         let top = c.y + cm(r.height_cm);
@@ -426,7 +450,17 @@ pub struct Transit {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct State {
     pub transit: Option<Transit>,
+    /// the great tree's two sockets, lit by orbs turned into them
+    pub sockets: [bool; 2],
+    /// both lit: the great tree's door is open
+    pub open: bool,
+    /// ticks the roots' bulb has had the player in range
+    pub bulb: u32,
 }
+
+/// The orbs the great tree's roots throw are this caster's: no fighter's
+/// (`orbs::cast` takes a fighter; the roots throw with `orbs::fire`).
+pub const ROOTS: u8 = u8::MAX;
 
 /// The door E would open, and how far beyond `story::REACH`'s edge, as
 /// story counts it.
@@ -448,6 +482,11 @@ pub fn use_door(w: &mut World, k: usize) {
     let Some(d) = all.get(k) else {
         return;
     };
+    // the great tree's door is sealed until both its sockets are lit
+    if d.room.is_none() && !w.dungeon.open {
+        crate::story::banner(w, "dungeon_tree_sealed");
+        return;
+    }
     let to = match &d.to {
         To::Closed(line) => {
             crate::story::banner(w, line);
@@ -495,6 +534,7 @@ pub fn step(w: &mut World) {
             w.dungeon.transit = Some(t);
         }
     }
+    roots(w);
     if let Some(k) = spring_at(w.player.pos) {
         let _ = k;
         let h = &mut w.me.health;
@@ -538,6 +578,149 @@ fn put_at(w: &mut World, d: &Door) {
     w.aim.yaw = yaw;
     w.aim.pitch = 0;
     w.aim.rest = (0, 0);
+}
+
+// ---- the great tree outside ---------------------------------------------------------
+
+/// The great tree's trunk's middle, on the ground.
+pub fn tree(w: &World) -> V3 {
+    let o = &spec().outside;
+    let (x, z) = (fx::int(o.at_m[0]), fx::int(o.at_m[1]));
+    v3(x, w.ground(x, z), z)
+}
+
+/// The trunk as bodies keep out of it: its middle and radius, when `p` is
+/// within `reach` of it.
+pub fn trunk_near(w: &World, p: V3, reach: Fx) -> Option<(V3, Fx)> {
+    let c = tree(w);
+    let r = cm(spec().outside.trunk_cm);
+    (c.sub(p).len_xz() <= reach + r).then_some((c, r))
+}
+
+/// The two sockets' middles: either side of the door on the trunk's face.
+pub fn sockets(w: &World) -> [V3; 2] {
+    let o = &spec().outside;
+    let yaw = fx::deg(o.yaw_deg);
+    let face = tree(w).add(facing(yaw, 0).scale(cm(o.trunk_cm)));
+    let side = crate::geom::right_of(yaw).scale(cm(o.sockets.side_cm));
+    let up = v3(0, cm(o.sockets.up_cm), 0);
+    [face.sub(side).add(up), face.add(side).add(up)]
+}
+
+/// The roots' bulb, where its orbs set off.
+pub fn bulb(w: &World) -> V3 {
+    let b = &spec().outside.bulb;
+    tree(w).add(v3(cm(b.at_cm[0]), cm(b.at_cm[1]), cm(b.at_cm[2])))
+}
+
+/// After the orbs (step 7): the bulb throws while the player is near and
+/// the door shut; an orb of the roots' turned toward a dark socket flies
+/// straight to it, and lights it as it passes.
+fn roots(w: &mut World) {
+    let o = &spec().outside;
+    if w.dungeon.open {
+        return;
+    }
+    let near = bulb(w).sub(w.player.pos).len_xz() <= cm(o.bulb.range_cm) && !w.story.opening();
+    if near {
+        w.dungeon.bulb += 1;
+        if w.dungeon.bulb % o.bulb.every == 1 {
+            let v = &crate::orbs::spec().pattern(crate::orbs::Pattern::PracticeOne)[0];
+            let mut next = w.orbs.next;
+            let thrown = crate::orbs::fire(v, bulb(w), crate::orbs::target(w), 0, ROOTS, &mut next);
+            w.orbs.next = next;
+            w.orbs.flying.extend(thrown);
+        }
+    } else {
+        w.dungeon.bulb = 0;
+    }
+    let socks = sockets(w);
+    // within `aim_deg`: the turned way's dot with the way to the socket at
+    // least the angle's cosine (both unit)
+    let aim = fx::cos(fx::deg(o.sockets.aim_deg));
+    let catch = cm(o.sockets.catch_cm);
+    let mut lit = Vec::new();
+    for orb in w
+        .orbs
+        .flying
+        .iter_mut()
+        .filter(|b| b.caster == ROOTS && b.turned.is_some())
+    {
+        // turned this tick: toward the dark socket it was knocked nearest
+        if orb.turned == Some(orb.age) {
+            let best = (0..2)
+                .filter(|&k| !w.dungeon.sockets[k])
+                .map(|k| (k, socks[k].sub(orb.pos).norm()))
+                .map(|(k, d)| (k, d, orb.dir.norm().dot(d)))
+                .filter(|&(_, _, c)| c >= aim)
+                .max_by_key(|&(_, _, c)| c);
+            if let Some((_, d, _)) = best {
+                orb.dir = d;
+            }
+        }
+        for (k, sock) in socks.iter().enumerate() {
+            if !w.dungeon.sockets[k] && to_segment(orb.prev, orb.pos, *sock) <= catch {
+                lit.push((orb.id, k));
+            }
+        }
+    }
+    for (id, k) in lit {
+        w.orbs.flying.retain(|b| b.id != id);
+        if !w.dungeon.sockets[k] {
+            w.dungeon.sockets[k] = true;
+            crate::story::banner(w, "dungeon_socket_lit");
+        }
+    }
+    if w.dungeon.sockets.iter().all(|&b| b) {
+        w.dungeon.open = true;
+        crate::story::banner(w, "dungeon_tree_open");
+    }
+}
+
+/// How far `p` is from the segment `a`–`b` (in i64, so long segments and
+/// far points do not overflow).
+fn to_segment(a: V3, b: V3, p: V3) -> Fx {
+    let d = [(b.x - a.x) as i64, (b.y - a.y) as i64, (b.z - a.z) as i64];
+    let q = [(p.x - a.x) as i64, (p.y - a.y) as i64, (p.z - a.z) as i64];
+    let dd = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+    let t = if dd == 0 {
+        0
+    } else {
+        ((q[0] * d[0] + q[1] * d[1] + q[2] * d[2]).clamp(0, dd) * ONE as i64) / dd
+    };
+    let c = v3(
+        a.x + (d[0] * t / ONE as i64) as Fx,
+        a.y + (d[1] * t / ONE as i64) as Fx,
+        a.z + (d[2] * t / ONE as i64) as Fx,
+    );
+    p.dist(c)
+}
+
+// ---- the save (`save::PARTS`) ---------------------------------------------------------
+
+/// A dungeon id the save may hold: a socket lit, the tree's door open.
+pub fn save_known(id: &str) -> bool {
+    matches!(id, "socket.0" | "socket.1" | "open")
+}
+
+pub fn save_ids(w: &World) -> std::collections::BTreeSet<String> {
+    let mut out = std::collections::BTreeSet::new();
+    for (k, &b) in w.dungeon.sockets.iter().enumerate() {
+        if b {
+            out.insert(format!("socket.{k}"));
+        }
+    }
+    if w.dungeon.open {
+        out.insert("open".into());
+    }
+    out
+}
+
+pub fn save_apply(w: &mut World, ids: &std::collections::BTreeSet<String>) {
+    for k in 0..2 {
+        w.dungeon.sockets[k] = ids.contains(&format!("socket.{k}"));
+    }
+    w.dungeon.open = ids.contains("open");
 }
 
 // ---- the save fountains (`save::points`) -----------------------------------------
@@ -633,7 +816,7 @@ fn pillar(o: &mut Vec<i32>, p: [i32; 4], top: [i32; 3], side: [i32; 3]) {
 
 /// Every room as a group of its own (`place:dungeon_<id>`, faded to 3 km
 /// with the places), and the room's furniture.
-pub fn scene(_w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group>) {
+pub fn scene(w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group>) {
     for r in &spec().rooms {
         let col = &r.colours;
         let (floor, wall, ceil, top, side) = (
@@ -746,6 +929,136 @@ pub fn scene(_w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Grou
             );
         }
         out.push(g);
+    }
+    out.push(tree_group(w, look));
+}
+
+/// The great tree in the forest, a place's group of its own
+/// (`place:great_tree`): its trunk, its crown, its roots and its doorway.
+/// The sockets, the bulb and the door's leaf change, so `draw` draws them.
+fn tree_group(w: &World, look: &Look) -> Group {
+    let o = &spec().outside;
+    let c = tree(w);
+    let (r, h) = (cm(o.trunk_cm), cm(o.tree_cm));
+    let mut g = Group::new(
+        &format!("{}great_tree", crate::places::FADED),
+        c.add(v3(0, h / 2, 0)),
+        h,
+    );
+    let bark = [ONE * 42 / 100, ONE * 29 / 100, ONE * 18 / 100];
+    let leaf = [ONE * 31 / 100, ONE * 48 / 100, ONE * 22 / 100];
+    let leaf2 = [ONE * 40 / 100, ONE * 58 / 100, ONE * 26 / 100];
+    let ink = look.ink();
+    // the trunk: an eight-sided column narrowing upward, a little into the ground
+    let trunk = Affine::translate(c.add(v3(0, h * 3 / 10 - ONE, 0))).then(&Affine::scale(v3(
+        r * 2,
+        h * 6 / 10,
+        r * 2,
+    )));
+    g.shapes.inked(Mesh::Taper, trunk, bark, ink);
+    // the crown: faceted balls round the top
+    let crown = c.add(v3(0, h * 7 / 10, 0));
+    for (k, (dx, dy, dz, s)) in [
+        (0, 6, 0, 26),
+        (-11, 0, 4, 18),
+        (10, 2, -5, 19),
+        (3, -2, 11, 17),
+        (-4, 3, -11, 17),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let at = crown.add(v3(fx::int(*dx), fx::int(*dy), fx::int(*dz)));
+        let col = if k % 2 == 0 { leaf } else { leaf2 };
+        g.shapes.inked(
+            Mesh::Facet,
+            Affine::translate(at).then(&Affine::scale(v3(fx::int(*s), fx::int(*s) * 7 / 10, fx::int(*s)))),
+            col,
+            ink,
+        );
+    }
+    // the roots: low wedges splaying out from the foot, between the door's
+    for k in 0..7 {
+        let a = fx::deg(25 + 50 * k);
+        let d = facing(a, 0);
+        let at = c.add(d.scale(r + ONE * 2)).add(v3(0, ONE * 4 / 10, 0));
+        let roo = Affine::translate(at)
+            .then(&Affine::rot_y(a))
+            .then(&Affine::scale(v3(ONE * 18 / 10, ONE, ONE * 6)));
+        g.shapes.inked(Mesh::Wedge, roo, bark, ink);
+    }
+    // the doorway: a dark arch on the trunk's face, the way the door faces
+    let yaw = fx::deg(o.yaw_deg);
+    let face = c
+        .add(facing(yaw, 0).scale(r - ONE / 4))
+        .add(v3(0, ONE * 16 / 10, 0));
+    let arch = Affine::translate(face)
+        .then(&Affine::rot_y(yaw))
+        .then(&Affine::scale(v3(ONE * 22 / 10, ONE * 32 / 10, ONE * 8 / 10)));
+    g.shapes.solid(
+        Mesh::Cube,
+        arch,
+        [ONE * 12 / 100, ONE * 8 / 100, ONE * 5 / 100],
+        0,
+    );
+    g
+}
+
+/// What changes at the great tree: the door's leaf while it is shut, each
+/// socket (dark, or lit and glowing), and the roots' bulb.
+pub fn draw(w: &World, _alpha: Fx, look: &Look, out: &mut crate::render::Shapes) {
+    if w.dungeon.open && w.player.pos.sub(tree(w)).len_xz() > ONE * 300 {
+        return;
+    }
+    if tree(w).sub(w.player.pos).len_xz() > ONE * 400 {
+        return;
+    }
+    let o = &spec().outside;
+    let yaw = fx::deg(o.yaw_deg);
+    let c = tree(w);
+    let ink = look.ink();
+    if !w.dungeon.open {
+        let face = c
+            .add(facing(yaw, 0).scale(cm(o.trunk_cm) + ONE / 5))
+            .add(v3(0, ONE * 16 / 10, 0));
+        let leaf = Affine::translate(face)
+            .then(&Affine::rot_y(yaw))
+            .then(&Affine::scale(v3(ONE * 2, ONE * 3, ONE / 5)));
+        out.inked(
+            Mesh::Cube,
+            leaf,
+            [ONE * 47 / 100, ONE * 33 / 100, ONE * 21 / 100],
+            ink,
+        );
+    }
+    for (k, at) in sockets(w).iter().enumerate() {
+        let ring = Affine::translate(*at)
+            .then(&Affine::rot_y(yaw))
+            .then(&Affine::rot_x(fx::deg(90)))
+            .then(&Affine::scale(v3(ONE * 7 / 10, ONE / 4, ONE * 7 / 10)));
+        out.inked(
+            Mesh::Tube,
+            ring,
+            [ONE * 62 / 100, ONE * 60 / 100, ONE * 55 / 100],
+            ink,
+        );
+        if w.dungeon.sockets[k] {
+            out.glow(
+                Mesh::Sphere,
+                Affine::translate(*at).then(&Affine::scale(v3(ONE / 2, ONE / 2, ONE / 2))),
+                [ONE / 2, ONE * 82 / 100, ONE],
+                ONE * 9 / 10,
+            );
+        }
+    }
+    if !w.dungeon.open {
+        let b = bulb(w);
+        out.inked(
+            Mesh::Facet,
+            Affine::translate(b).then(&Affine::scale(v3(ONE * 9 / 10, ONE * 8 / 10, ONE * 9 / 10))),
+            [ONE * 72 / 100, ONE * 42 / 100, ONE * 66 / 100],
+            ink,
+        );
     }
 }
 
@@ -871,7 +1184,16 @@ mod tests {
         let mut w = crate::story::opening(9);
         crate::story::step_aside(&mut w);
         let all = doors(&w);
-        // the great tree's door outside leads to the hub's entrance
+        // sealed, the great tree's door says so and stays shut
+        w.player = crate::player::Body::new(all[0].at.add(facing(all[0].yaw, 0).scale(ONE)), all[0].yaw);
+        use_door(&mut w, 0);
+        assert!(w.dungeon.transit.is_none());
+        assert_eq!(
+            w.story.banner.as_ref().map(|b| b.key.as_str()),
+            Some("dungeon_tree_sealed")
+        );
+        w.dungeon.open = true;
+        // open, the great tree's door outside leads to the hub's entrance
         let (p, yaw) = arrival(&w, &all[0]);
         w.player = crate::player::Body::new(p, yaw);
         w.me.health.hp = 40;
@@ -905,6 +1227,163 @@ mod tests {
             w.story.banner.as_ref().map(|b| b.key.as_str()),
             Some("dungeon_door_later")
         );
+    }
+
+    /// A world past the opening, the player before the great tree's door.
+    fn at_the_tree() -> World {
+        let mut w = crate::story::opening(9);
+        crate::story::step_aside(&mut w);
+        let d = doors(&w)[0].clone();
+        let p = d.at.add(facing(d.yaw, 0).scale(ONE * 6));
+        w.player = crate::player::Body::new(v3(p.x, w.ground(p.x, p.z), p.z), d.yaw + fx::deg(180));
+        w
+    }
+
+    /// An orb of the roots' at `at`, going `dir`, turned on the tick just run
+    /// (as `orbs::turn` leaves it).
+    fn turned_orb(w: &mut World, at: V3, dir: V3) {
+        let v = &crate::orbs::spec().pattern(crate::orbs::Pattern::PracticeOne)[0];
+        let mut next = w.orbs.next;
+        let mut o = crate::orbs::fire(v, at, at.add(dir), 0, ROOTS, &mut next).remove(0);
+        w.orbs.next = next;
+        o.dir = dir.norm();
+        o.hold = 0;
+        o.age = 5;
+        o.turned = Some(5);
+        w.orbs.flying.push(o);
+    }
+
+    #[test]
+    fn an_orb_turned_toward_a_dark_socket_lights_it_and_both_lit_open_the_tree_s_door() {
+        let mut w = at_the_tree();
+        let socks = sockets(&w);
+        // knocked 30° off the line to the left socket: within 60° of both
+        // dark sockets, so it flies straight to whichever its line is nearer
+        let from = socks[0].add(v3(ONE * 4, -ONE, ONE * 3));
+        let off = crate::orbs::turn_y(socks[0].sub(from).norm(), fx::deg(30));
+        let ways = [socks[0].sub(from).norm(), socks[1].sub(from).norm()];
+        let first = if off.dot(ways[0]) >= off.dot(ways[1]) {
+            0
+        } else {
+            1
+        };
+        turned_orb(&mut w, from, off);
+        roots(&mut w);
+        let mine = w.orbs.flying.iter().find(|o| o.turned.is_some()).map(|o| o.dir);
+        assert_eq!(mine, Some(ways[first]), "aimed at the socket nearer its line");
+        // 5.1 m at the practice orb's 3 m/s: about 102 ticks
+        for _ in 0..200 {
+            w.step(&crate::input::Input::default());
+            if w.dungeon.sockets[first] {
+                break;
+            }
+        }
+        assert!(
+            w.dungeon.sockets[first] && !w.dungeon.sockets[1 - first],
+            "one lit, one dark"
+        );
+        assert!(!w.dungeon.open);
+        // an orb not turned passes by the other socket and lights nothing
+        let other = 1 - first;
+        let mut w2 = at_the_tree();
+        let v = &crate::orbs::spec().pattern(crate::orbs::Pattern::PracticeOne)[0];
+        let mut next = 0;
+        let mut o = crate::orbs::fire(
+            v,
+            socks[other].add(v3(-ONE, 0, 0)),
+            socks[other].add(v3(ONE, 0, 0)),
+            0,
+            ROOTS,
+            &mut next,
+        )
+        .remove(0);
+        o.hold = 0;
+        w2.orbs.flying.push(o);
+        for _ in 0..30 {
+            w2.step(&crate::input::Input::default());
+        }
+        assert!(
+            !w2.dungeon.sockets[other],
+            "an orb that was never turned lights nothing"
+        );
+        // the other turned into it too: the door opens
+        let from = socks[other].add(v3(0, 0, ONE * 3));
+        turned_orb(&mut w, from, socks[other].sub(from));
+        for _ in 0..200 {
+            w.step(&crate::input::Input::default());
+            if w.dungeon.open {
+                break;
+            }
+        }
+        assert!(w.dungeon.open, "both lit, open");
+        assert_eq!(
+            w.story.banner.as_ref().map(|b| b.key.as_str()),
+            Some("dungeon_tree_open")
+        );
+    }
+
+    #[test]
+    fn the_bulb_throws_only_while_the_player_is_near_and_the_door_is_shut() {
+        let mut w = at_the_tree();
+        let count = |w: &World| w.orbs.flying.iter().filter(|o| o.caster == ROOTS).count();
+        w.step(&crate::input::Input::default());
+        assert_eq!(count(&w), 1, "the first tick in range throws one");
+        // far off, nothing more
+        let mut far = at_the_tree();
+        let p = tree(&far).add(v3(ONE * 60, 0, ONE * 60));
+        far.player = crate::player::Body::new(v3(p.x, far.ground(p.x, p.z), p.z), 0);
+        for _ in 0..200 {
+            far.step(&crate::input::Input::default());
+        }
+        assert_eq!(count(&far), 0);
+        // open, the bulb is quiet
+        let mut open = at_the_tree();
+        open.dungeon.open = true;
+        for _ in 0..200 {
+            open.step(&crate::input::Input::default());
+        }
+        assert_eq!(count(&open), 0);
+    }
+
+    #[test]
+    fn a_body_cannot_run_through_the_great_tree_s_trunk() {
+        use crate::input::{Input, FORWARD, RUN};
+        let mut w = at_the_tree();
+        // run north at the trunk from 12 m south of its middle
+        let c = tree(&w);
+        let p = c.add(v3(ONE, 0, ONE * 12));
+        w.player = crate::player::Body::new(v3(p.x, w.ground(p.x, p.z), p.z), 0);
+        w.aim.yaw = 0;
+        let r = cm(spec().outside.trunk_cm);
+        let mut nearest = i32::MAX;
+        for _ in 0..240 {
+            w.step(&Input {
+                keys: FORWARD | RUN,
+                ..Input::default()
+            });
+            nearest = nearest.min(w.player.pos.sub(c).len_xz());
+        }
+        // it slides round the trunk and runs on north, its middle never
+        // nearer the trunk's than the trunk's radius (and a hair for the
+        // push-out's rounding)
+        assert!(nearest >= r - ONE / 50, "{} cm in", (r - nearest) * 100 / ONE);
+        assert!(nearest < r + ONE, "it did meet the trunk");
+    }
+
+    #[test]
+    fn the_tree_s_door_opened_stays_open_through_a_save_and_a_load() {
+        let mut w = at_the_tree();
+        w.dungeon.sockets = [true, true];
+        w.dungeon.open = true;
+        let p = crate::save::progress(&w);
+        let back = crate::save::read(&crate::save::text(&p)).expect("reads");
+        let a = crate::save::world(&back);
+        assert!(a.dungeon.open && a.dungeon.sockets == [true, true]);
+        // and a save from before stays shut
+        let shut = crate::save::world(
+            &crate::save::read(&crate::save::text(&crate::save::progress(&at_the_tree()))).unwrap(),
+        );
+        assert!(!shut.dungeon.open);
     }
 
     #[test]

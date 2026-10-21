@@ -59,7 +59,7 @@ fn every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found() {
     // sword and key, the chest's boomerang), story.json's trainer at the
     // hut, and travel.json (the traveller at the crossroads; the nearest
     // waystone, the village's, on the north lane)
-    let want: [(&str, &str, Option<&str>); 12] = [
+    let want: [(&str, &str, Option<&str>); 13] = [
         ("hood", "merchant", None),
         ("jacket", "scarecrow", Some("scarecrow")),
         ("gloves", "lookout", Some("camp")),
@@ -72,6 +72,8 @@ fn every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found() {
         ("flute", "trainer_gift", Some("hut")),
         ("traveller", "ride", Some("crossroads")),
         ("waystone", "wake", Some("waystone_village")),
+        // T21: the great tree, the first dungeon, at its place in the forest
+        ("great_tree", "dungeon", Some("great_tree")),
     ];
     assert_eq!(
         spec().rumours.len(),
@@ -105,6 +107,9 @@ fn every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found() {
             }
             None if of == "traveller" => {
                 assert_eq!(Some(crate::travel::spec().traveller.place.as_str()), place);
+            }
+            None if of == "great_tree" => {
+                assert!(r.until.contains(&"open:great_tree".to_string()));
             }
             None => {
                 assert_eq!(of, "waystone");
@@ -336,10 +341,10 @@ fn picking_up_the_item_advances_and_closes_the_line() {
 fn a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line() {
     let mut w = world();
     // by data/rumours.json's order: the woodcutter knows the hood, the
-    // gloves, the trousers and the sword
+    // gloves, the trousers, the sword and (T21) the great tree
     before(&mut w, "woodcutter", 1);
     let mut heard = Vec::new();
-    for _ in 0..6 {
+    for _ in 0..7 {
         press_e(&mut w);
         heard.push(said(&mut w));
     }
@@ -350,6 +355,7 @@ fn a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line() {
             vec!["rumour_gloves"],
             vec!["rumour_trousers"],
             vec!["rumour_sword"],
+            vec!["rumour_great_tree"],
             vec!["rumour_woodcutter_done"],
             vec!["rumour_woodcutter_done"],
         ]

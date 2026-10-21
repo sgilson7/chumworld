@@ -87,6 +87,14 @@
       "props": [{ "prop": "hollow_tree", "at": [0, 0], "yaw_deg": 200 }]
     },
     {
+      "kind": "great_tree",
+      "_kind": "T21: the first dungeon, the great tree in the forest's west half (data/dungeon.json's outside; journal: map.svg); its trunk, crown, roots and door are dungeon.rs's",
+      "centre": [2550, 850],
+      "flat_m": [14, 26],
+      "clearing_m": 24,
+      "props": []
+    },
+    {
       "kind": "scarecrow",
       "centre": [1400, 3300],
       "props": [{ "prop": "scarecrow", "at": [0, 0], "yaw_deg": 20 }]

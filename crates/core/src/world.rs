@@ -322,6 +322,8 @@ impl World {
         crate::rumours::draw(self, alpha, look, out);
         // M7 forest (P13): the forest's animals
         crate::animals::draw(self, alpha, look, out);
+        // T21: the great tree's door, sockets and bulb
+        crate::dungeon::draw(self, alpha, look, out);
     }
 
     /// What never moves: the static groups, and the meshes they draw.

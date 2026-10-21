@@ -384,5 +384,11 @@
   "_dungeon": "T21 (phase A): the first dungeon's doors and rooms",
   "does_open_door": "Open the door",
   "dungeon_door_later": "The roots beyond have not grown a way through yet.",
-  "dungeon_door_locked": "Two padlocks hold this door shut."
+  "dungeon_door_locked": "Two padlocks hold this door shut.",
+  "place_great_tree": "The great tree",
+  "rumour_great_tree": "Have you heard? The great tree in the middle of the forest has gone bad. Its roots spit light at anyone who comes near, and its door is sealed.",
+  "line_great_tree": "The great tree",
+  "dungeon_tree_sealed": "The door is sealed. The two sockets beside it are dark.",
+  "dungeon_socket_lit": "The socket lights.",
+  "dungeon_tree_open": "Both sockets are lit. The great tree's door opens."
 }

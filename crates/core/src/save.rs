@@ -359,6 +359,13 @@ pub struct Part {
 }
 
 pub const PARTS: &[Part] = &[
+    // T21: the great tree's sockets lit, its door open
+    Part {
+        name: "dungeon",
+        known: crate::dungeon::save_known,
+        ids: crate::dungeon::save_ids,
+        apply: crate::dungeon::save_apply,
+    },
     Part {
         name: "roadside",
         known: roadside_known,
