@@ -371,5 +371,5 @@ Built:
 
 Waiting on the person: R9.445 and R9.456 (the cart's and the raid's smoke), R9.446 (a boar to fight), R9.452 (the forest's looks), R9.454 (the strings under "### M7 forest (P13)"), R9.457 (the flag's size). Ideas only from Long Time Comin' (`LICENSES.md`, R9.450).
 
-Check (2026-10-21, after merging main at 08a01f6): `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test` pass; `python3 scripts/break_tests.py "forest:"` 30 of 30 caught (two missed on the first run, their tests strengthened). The browser check was not run (the coordinator batches it, R9.455). Screenshots in `shots/forest/` (not committed).
+Check (2026-10-21, after merging main at 08a01f6): `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test` pass; `python3 scripts/break_tests.py "forest:"` 29 of 29 caught (two missed on the first run, their tests strengthened). The browser check was not run (the coordinator batches it, R9.455). Screenshots in `shots/forest/` (not committed).
 
