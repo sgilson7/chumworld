@@ -35,5 +35,12 @@
     "eye_mm": [0, 1250, 5700],
     "look_mm": [0, 960, 0]
   },
+  "map_label": {
+    "_note": "M7 (R9.410): the room a map label takes, in hundredths of a percent of the map's side at its smallest (419 px across, a 1280 x 720 window): its height with a margin, each letter's width and the padding (12 px bold type); and each kind of mark's rank, the higher keeping its label when two would meet (a kind not named is 0, and its label shows while its pin is pointed at)",
+    "height": 450,
+    "char": 180,
+    "pad": 320,
+    "rank": {"village": 3, "camp": 3, "shrine": 3, "hut": 2, "bridge": 2, "tree": 2, "scarecrow": 2, "waystone_village": 1, "waystone_bridge": 1, "waystone_hill": 1, "waystone_shrine": 1, "waystone_camp": 1}
+  },
   "place_icons": ["village", "camp", "hut", "shrine", "bridge", "tree", "scarecrow", "chest", "waystone_village", "waystone_bridge", "waystone_hill", "waystone_shrine", "waystone_camp", "save_crossroads", "save_trail"]
 }

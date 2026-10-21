@@ -4975,5 +4975,19 @@
     "find": "                    self.world.save.staged = self.saves.staged;\n",
     "replace": "",
     "test": "a_game_set_up_from_the_address_never_saves_itself_and_leaves_the_browser_s_save_alone"
+  },
+  {
+    "name": "M7 (R9.410): a quiet label ignores rank",
+    "file": "crates/core/src/ui.rs",
+    "find": "    order.sort_by_key(|&i| std::cmp::Reverse(rank(&marks[i])));\n",
+    "replace": "",
+    "test": "a_minor_mark_s_label_gives_way_to_a_higher_one_and_far_labels_all_show"
+  },
+  {
+    "name": "M7 (R9.410): no label is ever quiet",
+    "file": "crates/core/src/ui.rs",
+    "find": "        marks[i].quiet = meets;",
+    "replace": "        marks[i].quiet = false;",
+    "test": "a_minor_mark_s_label_gives_way_to_a_higher_one_and_far_labels_all_show"
   }
 ]

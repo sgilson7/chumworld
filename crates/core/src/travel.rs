@@ -1033,6 +1033,7 @@ fn pick_view(g: &Game, song: &Song, ride: bool) -> PickView {
             icon: String::new(),
             left: crate::ui::map_pct(p.x),
             top: crate::ui::map_pct(p.z),
+            quiet: false,
         },
         rows,
         empty: if list.is_empty() {

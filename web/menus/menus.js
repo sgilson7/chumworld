@@ -478,6 +478,7 @@ export function makeMenus(root, { act, pixels, keys }) {
         (node, k) => {
           icon(node.img, k.icon, "");
           text(node.label, k.label);
+          node.classList.toggle("quiet", k.quiet);
           prop(node, "left", k.left);
           prop(node, "top", k.top);
         },
