@@ -895,7 +895,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                     let size = r.between(80, 125);
                     // M7 (R9.49): a skyline, not a strip. The crowns stand
                     // taller deep in the forest and where a slow noise
-                    // lifts them (70% to 190% of 11 m), and about a third
+                    // lifts them (70% to 190% of 15 m), and about a third
                     // carry a narrower crown above, a spruce's top seen
                     // from kilometres off, still blunt
                     let deep = land.forest(x, z, &sc);
@@ -903,8 +903,8 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                     let tall_pct =
                         70 + (lift * 60 / ONE as i64) as i32 + (deep * 60 / ONE as i64) as i32 - 30;
                     let (w, h) = (
-                        ONE * 12 * size / 100,
-                        ONE * 11 * size / 100 * tall_pct.clamp(70, 190) / 100,
+                        ONE * 14 * size / 100,
+                        ONE * 15 * size / 100 * tall_pct.clamp(70, 190) / 100,
                     );
                     let foot = land.height(x, z) + 2 * ONE;
                     let turn = Affine::rot_y(r.below(fx::TURN as u32) as i32);
