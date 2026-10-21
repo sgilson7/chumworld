@@ -52,7 +52,7 @@ From the journal's opening entry (`../chumworld-journal/index.html#opening`) and
 - CW-17 Heads are about 25% of a character's height (CW-Q6).
 - CW-18 Nothing flickers (T3): no coplanar overlapping faces, depth precision checked at every ring distance, detail changes only through the dithered hand-over, instance order stable between frames, and a browser test that a still view renders identical pixels on consecutive frames.
 - CW-19 Water uses a solver ported from Extremely Lifelike Fishing (T4).
-- CW-20 Names of places and people stay out of strings until the person gives them (CW-Q1); use descriptive names ("the village", "the trainer").
+- CW-20 Names of places and people stay out of strings until the person gives them (CW-Q1); use descriptive names ("the village", "the trainer"). Names the person has given (CW-Q15, 2026-10-21): the Ant King, the chump stick, the Chasm of No Return, Chumbles; the first dungeon stays "the great tree".
 
 ## Working with subagents
 
