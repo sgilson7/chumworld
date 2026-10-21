@@ -124,8 +124,14 @@ fn spawn(w: &mut World) {
     let yaw = yaw_of(at.sub(hut));
     let k = story::sheathed_foe(w, Kind::Bandit, Kind::Trainer, at, yaw);
     let foe = &mut w.foes[k];
+    // M7 (R9.89): the trainer's own sword, arm and scabbard made for it, not
+    // the bandit's short sword relabelled (which drew a short sword's length)
+    let bandit = foe.fighter.clone();
+    foe.fighter = crate::player::Fighter::new(Kind::Trainer, crate::pose::Held::Sword, 0, at, yaw, false);
+    foe.fighter.servo_pct = bandit.servo_pct;
+    foe.fighter.pouch = bandit.pouch;
+    foe.fighter.mouse_looks = false;
     foe.fighter.team = 0;
-    foe.fighter.held = crate::pose::Held::Sword;
     foe.fighter.health = crate::health::Health::new(100_000);
     foe.brain.control = Control::Still;
     w.trainer.foe = Some(k);
@@ -300,6 +306,23 @@ mod tests {
         });
         w.ui.dialogue = None;
         w.step(&Input::default());
+    }
+
+    /// M7 (R9.89): the trainer holds the sword, as long as the sword is
+    /// drawn (`models::grip_to_tip`: 110 + 28 + 1000 mm = 1.138 m from the
+    /// grip), and its scabbard is the sword's.
+    #[test]
+    fn the_trainer_carries_the_sword_at_the_sword_s_length() {
+        let w = by_trainer();
+        let f = player::fighter(&w, id(&w).unwrap());
+        let sword = crate::pose::Held::Sword;
+        assert_eq!((f.kind, f.held, f.arm.weapon.item), (Kind::Trainer, sword, sword));
+        let drawn = f.pose.tip.sub(f.pose.grip).len();
+        assert!(
+            (drawn - fx::ratio(1138, 1000)).abs() <= ONE / 500,
+            "grip to tip {drawn}"
+        );
+        assert!(!f.mouse_looks && f.team == 0);
     }
 
     #[test]

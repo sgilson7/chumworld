@@ -210,3 +210,26 @@ For the coordinator:
 - R9.236: T12 is not measured against the frame budget.
 - R9.230: the west side has nothing past 601 m.
 
+## 2026-10-20: M7 polish, menus, shop, models, flicker audit and a playthrough (task P3, qa)
+
+Built:
+- **Menus.** The Equipment screen draws the player's own model, lit, dressed in what is worn and holding the sword in hand, turning once in 16 s on a canvas of its own (`stage.rs`, R9.82). The ring's side names change when the turn ends (R9.83). Map marks stand as pins clear of the arrow (R9.85). Quick keys in the ring are described on hover and focus (R9.99). The title and the pause are laid out to fit 1280 × 720, with the keys in two columns and the pause as one card; the ring leaves room for its turn buttons (R9.86).
+- **Shop and items.** The merchant does not buy key items, the sword in hand, worn pieces or quest items. Each is listed with the reason and a refusal line. Only what the merchant sold goes back on the cart (R9.80, CW-6). The purse holds 999 coins, and coins never go below none (R9.81). A bandage's key now heals (R9.84; it did nothing before).
+- **Models.** The trainer carries its own sword (R9.89). The lookout wears the gloves until it drops them (R9.90, R7.13). The cart's wheels roll (R9.96, R5.14). Thin things keep a width edge-on (R9.91). Pickups float, bob and turn over a ring of light; the jacket and the trousers stand up, and the wings are thicker (R9.87). Bodies are drawn 8% broader (R9.88; the capsules are unchanged, open). The flicker scan's window is the worst step short of its far plane (R9.95, R5.2).
+- **Earlier milestones' open rows.** R2.19 (value hash, R9.92), R6.13 (a glossary slip no longer stops the game, and the check names it; R9.93), R3.50 (tested, R9.94).
+- **Checks and tools.**
+  - `tests/browser/layout.py` checks every screen at three sizes for words and focus. Chromium, on its software renderer, checks 1280 × 720 only.
+  - The browser check's flicker audit stages a still view and a slow pan at the bed, the village street, the bridge, the river, the camp, the hut, the horizon and the merchant's cart. It also covers the menus open (the figure's canvas included) and dialogue open (R9.98).
+  - `crates/core/tests/popin_probe.rs` counts near pop-in (R9.97).
+  - `tools/m7qa_shots.py` takes the screenshots.
+  - `tools/playthrough.py` plays the published flow by keyboard and mouse (R9.102).
+
+Check, 2026-10-20, after merging main at f86779b (swings, travel, triage T12 and T13):
+- `./scripts/check.sh` steps 1 to 7 pass: format, lint, 411 core tests by `./scripts/count-tests.sh` (14 probes ignored), the release build, the import audit, art, and the notebook's form.
+- Step 8 (the journal) fails only on this task's person rows R9.100, R9.101 and R9.104, which the journal does not yet name.
+- Step 9, the browser check run on its own in Chromium, Firefox and WebKit, failed once: the river's slow pan in Firefox, 100 of 921 600 pixels, with the water moving under the pan. That pan is now measured, not asserted (R9.98). The flicker audit was then rerun in Firefox and passed. The rest of that run passed in all three engines.
+- Breaks: `python3 scripts/break_tests.py` over this task's rows, 45 of 45 caught.
+- Under the other agents' load, a full three-engine browser check took about 45 minutes, most of it in Chromium's software renderer.
+- Screenshots are in `shots/m7qa/` (not committed).
+
+Waiting on the person: R9.104 (the hood cannot be bought the first time the cart is met), R9.100 (item names capitalised inside a line: a lower-case form, or keep them) and R9.101 (the strings this task wrote, under "### M7 (P3, qa)" at the foot of `SECOND-ORDER.md`).

@@ -325,6 +325,22 @@ pub fn open_chest(w: &mut World) {
 }
 
 /// The chest, its lid shut or swinging open about its back edge.
+/// M7 (R7.13, R9.90): the speedster pieces fighter `id` (a foe's number
+/// plus one, as `player::fighter`) is drawn wearing: the lookout wears the
+/// gloves until it drops them.
+pub fn worn(w: &World, id: usize) -> u8 {
+    let wears = w
+        .camp
+        .members
+        .iter()
+        .any(|m| m.role == Role::Lookout && m.foe + 1 == id && !m.dropped);
+    if wears {
+        models::GLOVES
+    } else {
+        0
+    }
+}
+
 pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     let Some(c) = chest(w) else {
         return;
@@ -462,6 +478,29 @@ mod tests {
             .filter(|p| p.gift == Gift::Item(Item::ChestKey, 1))
             .count();
         assert_eq!(keys, 1);
+    }
+
+    /// M7 (R7.13): the lookout is drawn in the speedster's gloves (the
+    /// piece's colour on its hands) until it falls and they lie on the
+    /// ground; no other foe wears them.
+    #[test]
+    fn the_lookout_wears_the_gloves_until_it_drops_them() {
+        let mut w = at_camp();
+        let look_id = w.camp.members[0].foe + 1;
+        let bandit_id = w.camp.members[1].foe + 1;
+        assert_eq!((worn(&w, look_id), worn(&w, bandit_id)), (models::GLOVES, 0));
+        let gloved = |w: &World| {
+            let mut out = Shapes::default();
+            crate::player::draw(w, 0, &crate::look::tests::look(), &mut out);
+            let speed = models::table().c("speed_base");
+            out.list.iter().filter(|s| s.rgb == speed).count()
+        };
+        // two hands in the piece's colour (the player wears nothing)
+        assert_eq!(gloved(&w), 2);
+        w.foes[look_id - 1].fighter.health.hp = 0;
+        w.step(&Input::default());
+        assert_eq!(worn(&w, look_id), 0);
+        assert_eq!(gloved(&w), 0, "dropped, not worn");
     }
 
     #[test]

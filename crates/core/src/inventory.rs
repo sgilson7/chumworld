@@ -154,11 +154,32 @@ impl State {
         Ok(())
     }
 
+    /// Adds coins up to the purse's most (`PURSE`); returns how many fitted.
+    pub fn add_coins(&mut self, n: u32) -> u32 {
+        let got = n.min(PURSE.saturating_sub(self.coins));
+        self.coins += got;
+        got
+    }
+
+    /// Takes `n` coins if there are that many; whether it did. Coins never
+    /// go below none.
+    pub fn spend(&mut self, n: u32) -> bool {
+        if self.coins < n {
+            return false;
+        }
+        self.coins -= n;
+        true
+    }
+
     /// The item the free hand holds ready.
     pub fn ready_item(&self) -> Option<Item> {
         self.ready.and_then(|k| self.quick[k])
     }
 }
+
+/// The most coins the purse holds (M7, R9.81): a coin picked up or a sale
+/// that would pass it is refused, so the HUD's three digits never overflow.
+pub const PURSE: u32 = 999;
 
 /// Why the inventory refused; `ui` turns it into the message the reader sees.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -177,6 +198,14 @@ pub fn ready(w: &World) -> Option<Item> {
 /// Gives `n` of an item and shows "Received: …"; returns how many fitted.
 pub fn give(w: &mut World, i: Item, n: u32) -> u32 {
     let got = w.inventory.add(i, n);
+    // M7 (R9.102): a quick item taken goes on the first free key, so the HUD
+    // shows what F throws; the ring still moves it to another
+    let inv = &mut w.inventory;
+    if got > 0 && i.def().quick && inv.key_of(i).is_none() {
+        if let Some(k) = inv.quick.iter().position(|q| q.is_none()) {
+            inv.quick[k] = Some(i);
+        }
+    }
     if got > 0 {
         crate::ui::received(w, i, got);
     }
@@ -193,15 +222,20 @@ pub fn take(w: &mut World, i: Item, n: u32) -> u32 {
 /// travel: the flute is not held ready; its key plays it (`travel::request`).
 pub fn step(w: &mut World, input: &Input) {
     let mut play = false;
-    let inv = &mut w.inventory;
     for (k, bit) in QUICK_KEYS.iter().enumerate() {
+        let inv = &mut w.inventory;
         let pressed = input.keys & bit != 0 && inv.last_keys & bit == 0;
-        if pressed && inv.quick[k] == Some(Item::Flute) {
+        // M7 (R9.84): a bandage is used at its key's press, as Ocarina of
+        // Time's bottles are, not held ready to throw
+        if pressed && inv.quick[k] == Some(Item::Bandage) {
+            bandage(w);
+        } else if pressed && inv.quick[k] == Some(Item::Flute) {
             play = true;
         } else if pressed && inv.quick[k].is_some() {
             inv.ready = if inv.ready == Some(k) { None } else { Some(k) };
         }
     }
+    let inv = &mut w.inventory;
     if inv.ready_item().is_none() {
         inv.ready = None;
     }
@@ -209,6 +243,22 @@ pub fn step(w: &mut World, input: &Input) {
     if play {
         crate::travel::request(w);
     }
+}
+
+/// M7: one bandage gives back its health (`items.json` `heals`), held to
+/// the most; hurt and standing, or it keeps.
+pub fn bandage(w: &mut World) {
+    let h = &mut w.me.health;
+    if !w.inventory.has(Item::Bandage) || h.down() {
+        return;
+    }
+    if h.hp >= h.most {
+        crate::story::banner(w, "story_bandage_kept");
+        return;
+    }
+    h.hp = (h.hp + Item::Bandage.def().heals).min(h.most);
+    w.inventory.remove(Item::Bandage, 1);
+    crate::story::banner(w, "story_bandaged");
 }
 
 /// `<id>` or `<id>:<count>`.
@@ -238,7 +288,7 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
         }
         "coins" => {
             let n: u32 = value.trim().parse().map_err(|_| bad_count(value))?;
-            w.inventory.coins = w.inventory.coins.saturating_add(n);
+            w.inventory.add_coins(n);
         }
         _ => return Err(format!("Unknown action \"inventory.{name}\".")),
     }

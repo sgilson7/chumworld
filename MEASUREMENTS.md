@@ -219,3 +219,11 @@ The slow and fast strokes give the same rows as the medium within a tick (any st
 | How long a cut forearm takes to lie still | `a_part_taken_off_falls_and_comes_to_rest_exactly_within_its_bound` (a scratch print of the tick) | 46 ticks; bound 300 | 2026-10-20, P4 |
 | WebAssembly size | printed by `./scripts/build.sh` | 1 768 KB (M6: 1 531 KB) | 2026-10-20, P4 |
 | Flicker: a frozen view after a part is taken off (the stump, the piece, the dropped cleaver, blood on the ground) | `tests/browser/interactions.py` (`?duel=orc&foe=still&act=wounds.take_off:forearm_r&act=wounds.cut:torso,14&act=wounds.freeze:420`) | see the check's result in `HANDOFF.md` | 2026-10-20, P4 |
+
+## M7 polish, menus, shop, models and the flicker audit (task P3, qa)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Near pop-in (T8), before P2's fix: frames of 480 in which a lit shape within 25 m, in view in both frames, appears or disappears without a dither hand-over; the story held still | `cargo test --release -p tool_core --test popin_probe -- --ignored --nocapture` | the village: walking straight 2, running 4, a whole turn on the spot 0; the meadow: 2, 4, 0; the camp's edge: 2, 4, 0. Every pop is a whole grass chunk coming in 6 to 9 m ahead (one instance, a mesh the detail levels built); nothing near goes (R9.97) | 2026-10-20, P3 |
+| What the Equipment figure costs | the browser check's figure canvas; `stage::frame` | one more WebGL context, drawn only while the ring is open at Equipment (the world behind holds still); its canvas about 230 × 430 CSS pixels; the static meshes uploaded to it once | 2026-10-20, P3 |
+| The screens' layout at 1280 × 720, 1920 × 1080 and 2560 × 1440 (words off the window, cut, hidden or overlapping; key caps over words; the keyboard's focus ring) | `.venv/bin/python tools/m7qa_shots.py shots/m7qa/sizes` (Chromium on Metal); the browser check's `menus_m7` | before: 251 findings (title and pause off the window at 1280 × 720, "Mouse, sword drawn" over its label, the imbue ring's words touching, the turn button over the Equipment set panel); after: 0 in Chromium, Firefox and WebKit | 2026-10-20, P3 |
