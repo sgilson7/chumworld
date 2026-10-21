@@ -198,7 +198,7 @@ fn nearest_blades(w: &World, a: usize, b: usize) -> V3 {
     best.1
 }
 
-/// Every body drawn where it stands: each last tick set to this one.
+/// Everything drawn where it stands: each last tick set to this one.
 fn settle(w: &mut World) {
     for id in 0..player::count(w) {
         let (b, f) = player::parts_mut(w, id);
@@ -211,6 +211,11 @@ fn settle(w: &mut World) {
     for t in &mut w.throwables.flying {
         t.prev = t.p;
     }
+    // M7: the camera's boom, the house's hand-over and the fire's clock
+    // drawn where they stand too
+    w.boom.prev = w.boom.len;
+    w.boom.prev_cut = w.boom.cut;
+    w.story.fire_prev = w.story.fire;
 }
 
 /// M7: a tick of a world frozen for a picture (`feel.freeze_spark`): nothing
@@ -306,6 +311,8 @@ pub fn hold(w: &mut World, input: &Input) {
 pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     let hot = rgb(look.palette.lamp);
     let white = [ONE, ONE, ONE * 15 / 16];
+    // frozen for a picture, a spark ages no further between ticks either
+    let alpha = if w.feel.frozen { 0 } else { alpha };
     for sp in &w.feel.sparks {
         let age = sp.age as i32 * ONE + alpha;
         let left = (SPARK_TICKS as i32 * ONE - age).max(0) / SPARK_TICKS as i32;

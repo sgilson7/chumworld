@@ -2945,5 +2945,19 @@
     "find": "      { \"route\": [[-30, 84], [-52, 70], [-46, 92]] },\n      { \"route\": [[-58, -12]",
     "replace": "      { \"route\": [[-30, 84], [-52, 70], [-46, 92]] }\n    ], \"x\": [\n      { \"route\": [[-58, -12]",
     "test": "the_game_opens_in_bed_with_six_orcs_in_the_village_and_none_in_a_wall"
+  },
+  {
+    "name": "M7 feel: a held world's boom still eases between ticks",
+    "file": "crates/core/src/feel.rs",
+    "find": "    w.boom.prev = w.boom.len;\n    w.boom.prev_cut = w.boom.cut;\n",
+    "replace": "    w.boom.prev_cut = w.boom.cut;\n",
+    "test": "held_still_the_camera_does_not_move_between_ticks"
+  },
+  {
+    "name": "M7 feel: a frozen spark still shrinks between ticks",
+    "file": "crates/core/src/feel.rs",
+    "find": "    let alpha = if w.feel.frozen { 0 } else { alpha };\n",
+    "replace": "",
+    "test": "held_still_the_camera_does_not_move_between_ticks"
   }
 ]

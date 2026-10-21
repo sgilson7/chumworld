@@ -304,3 +304,27 @@ fn backed_against_a_wall_the_eye_rises_over_the_right_shoulder() {
     assert!(c.eye.sub(h).dot(right) > ONE / 2, "over the right shoulder");
     assert!(c.fwd.y < -ONE / 4, "looking down past the head: {}", c.fwd.y);
 }
+
+/// A world held still (a hit-stop, or frozen for a picture of a spark)
+/// draws its camera the same between ticks: the boom's easing is settled.
+#[test]
+fn held_still_the_camera_does_not_move_between_ticks() {
+    let mut w = crate::story::opening(1);
+    crate::story::step_aside(&mut w);
+    w.act("duel.spawn", "orc").unwrap();
+    for _ in 0..3 {
+        w.step(&crate::input::Input::default());
+    }
+    w.boom.prev = w.boom.len / 2; // an easing under way
+    w.act("feel.stage_spark", "3").unwrap();
+    let a = w.camera(0, Mouse::default(), BACK);
+    let b = w.camera(ONE * 3 / 4, Mouse::default(), BACK);
+    assert_eq!(a, b);
+    // and the spark is drawn the same between ticks
+    let look = crate::look::Look::parse(include_str!("../../../../data/look.json")).unwrap();
+    let (mut sa, mut sb) = (crate::render::Shapes::default(), crate::render::Shapes::default());
+    crate::feel::draw(&w, 0, &look, &mut sa);
+    crate::feel::draw(&w, ONE * 3 / 4, &look, &mut sb);
+    assert!(!sa.is_empty());
+    assert_eq!(sa, sb);
+}
