@@ -181,6 +181,59 @@ Open: R9.130 (a foe without an off-hand still throws), R9.131 (per-part physical
 
 Check, 2026-10-20, after merging main at 11b55e6 (P5 swings; conflicts in `lib.rs`, `world.rs`, `ui.rs`, `data/pilots.json`, the browser check and the notes, both sides kept: the settings list Swing cue, then Blood): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, notebook form); step 8 fails only on this task's person rows R9.120, R9.136 and R9.137, which the journal does not yet name. Step 9, the browser check: before the merge it passed in Chromium, Firefox and WebKit, the frozen view after a part is taken off included; after the merge it passed in Chromium alone (`BUILDER_ENGINES=chromium`), while two three-engine runs timed out waiting on the opening's line and on Play with the machine's load average at 35 to 58 (other tasks running): to rerun on a quiet machine. 380 tests by `./scripts/count-tests.sh` (13 ignored, the probes). Breaks: `python3 scripts/break_tests.py "M7 wounds"`, 30 of 30 caught; `"M7 swing"` 12 of 12 after the merge. Screenshots in `shots/m7wounds/` (not committed).
 
+## 2026-10-20: M7 roadside (part P7, branch `m7-roadside`, T12)
+
+The person: "make sure there is stuff to do see roads on the sides of the village you are most likely to run out of at theb eginning of the game".
+
+Found (R9.220): the opening's data says which sides. The raid enters from the south; the four villagers flee north, north-west, north-east and west, so those are the ways a player runs out.
+
+Built (`crates/core/src/roadside.rs`, `data/roadside.json`):
+- **Placement.** Each side's stops are anchored by distance from the village centre and an offset from the side's path (R9.221). The path is the road crossing the 250 m line that way, else the villager's flee line. Each stop becomes a place `roadside_<id>` in the layout: its ground is flattened, trees keep off, its model is baked and dithered with the places' props, and its footprint is a wall.
+- **North (the lane).** An overturned cart at 336 m (6 coins, a bandage), a lone tree 15 m tall at 439 m, and the villager who fled north under it.
+- **North-west.** A watchtower at 300 m, 10 m tall, with a stair up to a railed platform. The villager who fled that way at 469 m. An overturned cart at 640 m (3 rocks, 8 coins).
+- **North-east.** A well at 311 m (E: health whole again). A burning cart at 446 m with a 23 m column of smoke (2 knives). An orc straggler beside the cart, the first real duel outside the dream; it stands only once the opening is over. The villager who fled that way at 622 m.
+- **West (no road).** A tor to climb at 316 m, with rocks at its foot. An overturned cart at 455 m (6 coins, 3 rocks). The villager who fled west at 601 m.
+- **Doing.** E searches a cart once; what the player cannot carry is left beside it. E at the well drinks. E at a villager gives two lines pointing the way: the crossroads and the merchant, the bridge and the trainer, the camp. The watchtower and the tor are climbed through a height-aware guard (R9.226).
+- **Map.** The landmarks and the well are marked on the map (R9.233).
+- **Views.** `tools/shoot.py` has `ROADSIDE_VIEWS` (22 views), driven by the test acts `roadside.line`, `roadside.look` and `roadside.top` (R9.234).
+
+Rows: R9.220 to R9.237 in `SECOND-ORDER.md`, and the strings under "### M7 roadside (P7)" at its foot. Tests: 23 in `roadside/tests.rs`, one probe in `crates/core/tests/roadside_probe.rs`. 37 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "T12 roadside"`: 37 of 37 caught).
+
+Merged main at c9819a7 (travel and swings). Kept both sides: `Prop::ALL` holds the waystone and the five roadside props, and `Use` has both parts' arms. P6's waystone at (2000, 2540) sits in the gap left for it. P6's marker-count test now adds the roadside's marks.
+
+Waiting on the person: R9.222 (what stands where, and its look: `shots/roadside/`), R9.223 (the loot amounts, and the well healing to whole), R9.237 (the strings).
+
+For the coordinator:
+- R9.221: after P2 merges, the north-west and north-east stops move onto its roads. This was checked locally with `m7-land`'s `places.json`.
+- R9.225: the files P7 added entries to.
+- R9.227: the flicker scan seems to miss two flush faces that face the same way when each lies on the other box's surface.
+- R9.236: T12 is not measured against the frame budget.
+- R9.230: the west side has nothing past 601 m.
+
+## 2026-10-20: M7 polish, menus, shop, models, flicker audit and a playthrough (task P3, qa)
+
+Built:
+- **Menus.** The Equipment screen draws the player's own model, lit, dressed in what is worn and holding the sword in hand, turning once in 16 s on a canvas of its own (`stage.rs`, R9.82). The ring's side names change when the turn ends (R9.83). Map marks stand as pins clear of the arrow (R9.85). Quick keys in the ring are described on hover and focus (R9.99). The title and the pause are laid out to fit 1280 × 720, with the keys in two columns and the pause as one card; the ring leaves room for its turn buttons (R9.86).
+- **Shop and items.** The merchant does not buy key items, the sword in hand, worn pieces or quest items. Each is listed with the reason and a refusal line. Only what the merchant sold goes back on the cart (R9.80, CW-6). The purse holds 999 coins, and coins never go below none (R9.81). A bandage's key now heals (R9.84; it did nothing before).
+- **Models.** The trainer carries its own sword (R9.89). The lookout wears the gloves until it drops them (R9.90, R7.13). The cart's wheels roll (R9.96, R5.14). Thin things keep a width edge-on (R9.91). Pickups float, bob and turn over a ring of light; the jacket and the trousers stand up, and the wings are thicker (R9.87). Bodies are drawn 8% broader (R9.88; the capsules are unchanged, open). The flicker scan's window is the worst step short of its far plane (R9.95, R5.2).
+- **Earlier milestones' open rows.** R2.19 (value hash, R9.92), R6.13 (a glossary slip no longer stops the game, and the check names it; R9.93), R3.50 (tested, R9.94).
+- **Checks and tools.**
+  - `tests/browser/layout.py` checks every screen at three sizes for words and focus. Chromium, on its software renderer, checks 1280 × 720 only.
+  - The browser check's flicker audit stages a still view and a slow pan at the bed, the village street, the bridge, the river, the camp, the hut, the horizon and the merchant's cart. It also covers the menus open (the figure's canvas included) and dialogue open (R9.98).
+  - `crates/core/tests/popin_probe.rs` counts near pop-in (R9.97).
+  - `tools/m7qa_shots.py` takes the screenshots.
+  - `tools/playthrough.py` plays the published flow by keyboard and mouse (R9.102).
+
+Check, 2026-10-20, after merging main at f86779b (swings, travel, triage T12 and T13):
+- `./scripts/check.sh` steps 1 to 7 pass: format, lint, 411 core tests by `./scripts/count-tests.sh` (14 probes ignored), the release build, the import audit, art, and the notebook's form.
+- Step 8 (the journal) fails only on this task's person rows R9.100, R9.101 and R9.104, which the journal does not yet name.
+- Step 9, the browser check run on its own in Chromium, Firefox and WebKit, failed once: the river's slow pan in Firefox, 100 of 921 600 pixels, with the water moving under the pan. That pan is now measured, not asserted (R9.98). The flicker audit was then rerun in Firefox and passed. The rest of that run passed in all three engines.
+- Breaks: `python3 scripts/break_tests.py` over this task's rows, 45 of 45 caught.
+- Under the other agents' load, a full three-engine browser check took about 45 minutes, most of it in Chromium's software renderer.
+- Screenshots are in `shots/m7qa/` (not committed).
+
+Waiting on the person: R9.104 (the hood cannot be bought the first time the cart is met), R9.100 (item names capitalised inside a line: a lower-case form, or keep them) and R9.101 (the strings this task wrote, under "### M7 (P3, qa)" at the foot of `SECOND-ORDER.md`).
+
 ## 2026-10-20: M7 polish, feel (task P1, branch `m7-feel`)
 
 Built:

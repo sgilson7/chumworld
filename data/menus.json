@@ -14,5 +14,14 @@
     "edge_pct": 42,
     "hatch_every": 6
   },
+  "figure": {
+    "_note": "M7: the Equipment screen's figure (crates/core/src/stage.rs): its background, one turn's length, the turn it starts from (degrees from facing the camera), the camera's field of view and where it stands and looks, mm from the figure's feet",
+    "clear": [244, 234, 214],
+    "turn_seconds": 16,
+    "start_deg": -25,
+    "fov_deg": 24,
+    "eye_mm": [0, 1250, 5700],
+    "look_mm": [0, 960, 0]
+  },
   "place_icons": ["village", "camp", "hut", "shrine", "bridge", "tree", "scarecrow", "chest", "waystone_village", "waystone_bridge", "waystone_hill", "waystone_shrine", "waystone_camp"]
 }

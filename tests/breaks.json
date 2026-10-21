@@ -1456,32 +1456,11 @@
     "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
   },
   {
-    "name": "M1b player: a cut passes through the front",
-    "file": "crates/core/src/player.rs",
-    "find": "    if now.dot(want) >= 0 {",
-    "replace": "    if true {",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
-  },
-  {
     "name": "M1b arm: a sweep lays the blade flat",
     "file": "crates/core/src/arm.rs",
     "find": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT).max(ramp(shell.swing.0.abs(), 0, SWING_FLAT));",
     "replace": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT);",
     "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
-  },
-  {
-    "name": "M1b arm: raised high, the blade stands up and back",
-    "file": "crates/core/src/arm.rs",
-    "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
-    "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
-  },
-  {
-    "name": "M1b arm: a moving reach holds the thrust's line",
-    "file": "crates/core/src/arm.rs",
-    "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
-    "replace": "        .max(0);",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: the high guard is high and to the left",
@@ -1657,13 +1636,6 @@
     "find": "        g.hold = [false, false];\n    }",
     "replace": "    }",
     "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
-  },
-  {
-    "name": "M1b arm: a point on the ground drags to rest",
-    "file": "crates/core/src/arm.rs",
-    "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
-    "replace": "                v.x -= v.x * 0 / 100;",
-    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   },
   {
     "name": "M1b player: a staggered body leans back along the blow",
@@ -2604,6 +2576,349 @@
     "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
   },
   {
+    "name": "M7 shop: the sword in hand is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.weapon == Some(i) {\n        Some(NoSale::InHand)",
+    "replace": "    } else if false {\n        Some(NoSale::InHand)",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a worn piece is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.worn.contains(&Some(i)) {\n        Some(NoSale::Worn)",
+    "replace": "    } else if false {\n        Some(NoSale::Worn)",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a quest item is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if !d.start && !d.routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "    } else if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: the chest key is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if d.keep || d.kind == items::Kind::Key {",
+    "replace": "    } else if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a sold short sword goes on the cart",
+    "file": "crates/core/src/ui.rs",
+    "find": "if i.def().stack == 1 && i.def().routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "if i.def().stack == 1 {",
+    "test": "the_shop_sells_at_value_and_buys_at_half"
+  },
+  {
+    "name": "M7 shop: a sold hood stays off the cart",
+    "file": "crates/core/src/ui.rs",
+    "find": "if i.def().stack == 1 && i.def().routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a sale passes the purse",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.coins + sale_price(i) > inventory::PURSE {",
+    "replace": "    } else if false {",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: coins added past the purse",
+    "file": "crates/core/src/inventory.rs",
+    "find": "let got = n.min(PURSE.saturating_sub(self.coins));",
+    "replace": "let got = n;",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: spending more than is carried",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if self.coins < n {\n            return false;\n        }\n        self.coins -= n;",
+    "replace": "        self.coins = self.coins.wrapping_sub(n);",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: a kept row is not marked",
+    "file": "crates/core/src/ui.rs",
+    "find": "                kept: why.is_some(),",
+    "replace": "                kept: false,",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a kept row shows a price",
+    "file": "crates/core/src/ui.rs",
+    "find": "                    Some(n) => no_sale_word(s, n),",
+    "replace": "                    Some(_) => price(sale_price(i)),",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 figure: the figure does not turn",
+    "file": "crates/core/src/stage.rs",
+    "find": "    let spun = (ticks as i64 % per_turn) * fx::TURN as i64 / per_turn;",
+    "replace": "    let spun = 0i64;",
+    "test": "the_figure_turns_once_every_sixteen_seconds_from_a_quarter_view"
+  },
+  {
+    "name": "M7 figure: the figure shows on every screen of the ring",
+    "file": "crates/core/src/stage.rs",
+    "find": "    g.screen == Screen::Menu && g.menu.face() == crate::ui::EQUIPMENT",
+    "replace": "    g.screen == Screen::Menu",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: no sword in hand",
+    "file": "crates/core/src/stage.rs",
+    "find": "    if held != Held::Nothing {",
+    "replace": "    if false {",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: undressed",
+    "file": "crates/core/src/stage.rs",
+    "find": "        worn: crate::items::speedster_mask(w),",
+    "replace": "        worn: 0,",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: the ring's open time stands still",
+    "file": "crates/core/src/game.rs",
+    "find": "                self.menu.open_ticks = self.menu.open_ticks.wrapping_add(ticks.len() as u32);",
+    "replace": "",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: the camera too close",
+    "file": "data/menus.json",
+    "find": "\"eye_mm\": [0, 1250, 5700]",
+    "replace": "\"eye_mm\": [0, 1250, 2500]",
+    "test": "the_stage_s_camera_frames_the_whole_figure"
+  },
+  {
+    "name": "M7 quick: a key described before it is pointed at",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let k = g.menu.quick_hover?;",
+    "replace": "    let k = g.menu.quick_hover.or(Some(0))?;",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 quick: the bandage described as readied",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let how = if i == Item::Bandage {\n        \"quick_use\"",
+    "replace": "    let how = if false {\n        \"quick_use\"",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 quick: the pointed key kept when the ring reopens",
+    "file": "crates/core/src/ui.rs",
+    "find": "    g.menu.quick_hover = None;\n    g.menu.open_ticks = 0;",
+    "replace": "    g.menu.open_ticks = 0;",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 bandage: health past the most",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    h.hp = (h.hp + Item::Bandage.def().heals).min(h.most);",
+    "replace": "    h.hp += Item::Bandage.def().heals;",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 bandage: its key readies it",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if pressed && inv.quick[k] == Some(Item::Bandage) {",
+    "replace": "        if false {",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 bandage: used unhurt",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if h.hp >= h.most {",
+    "replace": "    if false {",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 hash: field names hashed",
+    "file": "crates/core/src/world.rs",
+    "find": "            let named = j + 1 < b.len() && b[j] == b':' && b[j + 1] == b' ';",
+    "replace": "            let named = false;",
+    "test": "the_world_s_hash_reads_its_values_not_its_field_names"
+  },
+  {
+    "name": "M7 hash: names hashed by their first letter only",
+    "file": "crates/core/src/world.rs",
+    "find": "            for &c in &b[i..j] {\n                put(c);\n            }",
+    "replace": "            put(b[i]);",
+    "test": "the_world_s_hash_reads_its_values_not_its_field_names"
+  },
+  {
+    "name": "M7 glossary: a duplicate stops the game loading",
+    "file": "crates/core/src/game.rs",
+    "find": "        let glossary = crate::glossary::load(glossary_md);",
+    "replace": "        let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;",
+    "test": "a_glossary_with_a_term_defined_twice_still_starts_the_game"
+  },
+  {
+    "name": "M7 glossary: the load keeps the last of a duplicate",
+    "file": "crates/core/src/glossary.rs",
+    "find": "                text = drop_entry(&text, term, dup);",
+    "replace": "                text = drop_entry(&text, term, !dup);",
+    "test": "a_term_defined_twice_still_loads_and_the_check_names_both_lines"
+  },
+  {
+    "name": "M7 glossary: the check misses a duplicate in GLOSSARY.md",
+    "file": "GLOSSARY.md",
+    "find": "### Walk\n",
+    "replace": "### Walk\n\nTwice.\n\n### walk\n",
+    "test": "the_glossary_defines_each_term_once"
+  },
+  {
+    "name": "M7 glossary: duplicates found ignoring case",
+    "file": "crates/core/src/glossary.rs",
+    "find": "            match seen.iter().find(|(t, _)| t.eq_ignore_ascii_case(&term)) {",
+    "replace": "            match seen.iter().find(|(t, _)| *t == term) {",
+    "test": "a_term_defined_twice_still_loads_and_the_check_names_both_lines"
+  },
+  {
+    "name": "M7 blade (R3.50): one blow a contact",
+    "file": "crates/core/src/blade.rs",
+    "find": "    if w.blades.touching.contains(&key) {",
+    "replace": "    if false {",
+    "test": "a_blade_pressed_along_a_body_takes_no_second_blow"
+  },
+  {
+    "name": "M7 blade (R3.50): a blade never comes away",
+    "file": "crates/core/src/blade.rs",
+    "find": "                pa.dist(pb) <= *re + *r + COME_AWAY",
+    "replace": "                pa.dist(pb) <= *re + *r + COME_AWAY * 100",
+    "test": "a_blade_pressed_along_a_body_takes_no_second_blow"
+  },
+  {
+    "name": "M7 models: the scan's window is the far plane's step (R5.2)",
+    "file": "crates/core/src/flicker.rs",
+    "find": "        PLANE_TOL.max(Seen::window(seen.far as i64))",
+    "replace": "        PLANE_TOL.max(Seen::apart(seen.far as i64))",
+    "test": "the_scan_looks_as_wide_as_the_worst_depth_step_short_of_its_far_plane"
+  },
+  {
+    "name": "M7 models: the trainer keeps the bandit's short sword",
+    "file": "crates/core/src/trainer.rs",
+    "find": "    foe.fighter = crate::player::Fighter::new(Kind::Trainer, crate::pose::Held::Sword, 0, at, yaw, false);",
+    "replace": "    foe.fighter.held = crate::pose::Held::Sword;\n    foe.fighter.kind = Kind::Trainer;",
+    "test": "the_trainer_carries_the_sword_at_the_sword_s_length"
+  },
+  {
+    "name": "M7 models: no foe wears the gloves",
+    "file": "crates/core/src/player.rs",
+    "find": "            _ => crate::camp::worn(w, id),",
+    "replace": "            _ => 0,",
+    "test": "the_lookout_wears_the_gloves_until_it_drops_them"
+  },
+  {
+    "name": "M7 models: the lookout keeps the gloves on after dropping them",
+    "file": "crates/core/src/camp.rs",
+    "find": "        .any(|m| m.role == Role::Lookout && m.foe + 1 == id && !m.dropped);",
+    "replace": "        .any(|m| m.role == Role::Lookout && m.foe + 1 == id);",
+    "test": "the_lookout_wears_the_gloves_until_it_drops_them"
+  },
+  {
+    "name": "M7 models: the cart's wheels do not roll",
+    "file": "crates/core/src/merchant.rs",
+    "find": "            .wrapping_add((SPEED as i64 * fx::TURN as i64 / WHEEL_ROUND as i64) as i32);",
+    "replace": "            .wrapping_add(0);",
+    "test": "the_cart_s_wheels_roll_as_far_as_the_cart_goes"
+  },
+  {
+    "name": "M7 models: the cart's spokes roll backwards",
+    "file": "crates/core/src/models/props.rs",
+    "find": "            let turn = Affine::rot_x(fx::TURN * s / 12 - roll);",
+    "replace": "            let turn = Affine::rot_x(fx::TURN * s / 12 + roll);",
+    "test": "the_cart_s_wheels_roll_as_far_as_the_cart_goes"
+  },
+  {
+    "name": "M7 models: thin things are not kept visible",
+    "file": "crates/core/src/render.rs",
+    "find": "        if thin >= least {",
+    "replace": "        if true {",
+    "test": "a_thin_blade_far_off_keeps_a_width_and_its_outline_stays_wider"
+  },
+  {
+    "name": "M7 models: a widened outline no wider than its solid",
+    "file": "crates/core/src/render.rs",
+    "find": "        let least = if ink { least * 3 / 2 } else { least };",
+    "replace": "        let least = if ink { least } else { least };",
+    "test": "a_thin_blade_far_off_keeps_a_width_and_its_outline_stays_wider"
+  },
+  {
+    "name": "M7 models: a pickup does not bob",
+    "file": "crates/core/src/models/held.rs",
+    "find": "    let up = mm(FLOAT_MM) + fx::mul(mm(BOB_MM), (ONE - fx::cos(bob_turn)) / 2);",
+    "replace": "    let up = mm(FLOAT_MM) + 0 * bob_turn;",
+    "test": "a_pickup_floats_bobs_and_turns_over_a_ring_of_light"
+  },
+  {
+    "name": "M7 models: a pickup has no ring of light",
+    "file": "crates/core/src/models/held.rs",
+    "find": "    ring(at, item == Pickup::ChestKey, out);",
+    "replace": "",
+    "test": "a_pickup_floats_bobs_and_turns_over_a_ring_of_light"
+  },
+  {
+    "name": "M7 models: pickups move while the story is held still",
+    "file": "crates/core/src/story.rs",
+    "find": "    let phase = if w.story.still {\n        0\n    } else {",
+    "replace": "    let phase = if false {\n        0\n    } else {",
+    "test": "pickups_turn_with_the_clock_and_hold_still_for_a_picture"
+  },
+  {
+    "name": "M7 models: bodies drawn at their old girth",
+    "file": "crates/core/src/models/figure.rs",
+    "find": "crate::pose::BODY_GIRTH_PCT as i64 / 10_000) as Fx",
+    "replace": "100 / 10_000) as Fx",
+    "test": "bodies_are_drawn_eight_percent_broader_and_no_taller"
+  },
+  {
+    "name": "M7 quick: a rock taken goes on no key",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if got > 0 && i.def().quick && inv.key_of(i).is_none() {",
+    "replace": "    if false {",
+    "test": "a_quick_item_taken_goes_on_the_first_free_key"
+  },
+  {
+    "name": "M7 quick: an item taken twice goes on two keys",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if got > 0 && i.def().quick && inv.key_of(i).is_none() {",
+    "replace": "    if got > 0 && i.def().quick {",
+    "test": "a_quick_item_taken_goes_on_the_first_free_key"
+  },
+  {
+    "name": "M1b player: a cut passes through the front",
+    "file": "crates/core/src/player.rs",
+    "find": "    if now.dot(want) >= 0 {",
+    "replace": "    if true {",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: raised high, the blade stands up and back",
+    "file": "crates/core/src/arm.rs",
+    "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
+    "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a moving reach holds the thrust's line",
+    "file": "crates/core/src/arm.rs",
+    "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
+    "replace": "        .max(0);",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a point on the ground drags to rest",
+    "file": "crates/core/src/arm.rs",
+    "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
+    "replace": "                v.x -= v.x * 0 / 100;",
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
+  },
+  {
     "name": "M7 swing: a level cut's plane is level",
     "file": "crates/core/src/swing.rs",
     "find": "    let start = r.scale(-fx::cos(travel)).add(u.scale(-fx::sin(travel)));",
@@ -3239,6 +3554,265 @@
     "find": "            cms * self.player_pct / 100\n",
     "replace": "            cms\n",
     "test": "one_very_fast_cut_takes_a_limb_off_at_once"
+  },
+  {
+    "name": "T12 roadside: a side's bearing is its villager's last flee point",
+    "file": "crates/core/src/roadside.rs",
+    "find": "let last = v.flee.last().copied().unwrap_or(v.at);",
+    "replace": "let last = v.flee.first().copied().unwrap_or(v.at);",
+    "test": "the_sides_are_the_ways_the_villagers_flee_and_none_faces_the_raid"
+  },
+  {
+    "name": "T12 roadside: the raid's bearing is its entry points' middle",
+    "file": "crates/core/src/roadside.rs",
+    "find": "yaw_of(v3(x / n * ONE, 0, z / n * ONE))",
+    "replace": "yaw_of(v3(x / n * ONE, 0, -z / n * ONE))",
+    "test": "the_sides_are_the_ways_the_villagers_flee_and_none_faces_the_raid"
+  },
+  {
+    "name": "T12 roadside: a road crossing the boundary near a side's bearing is its path",
+    "file": "crates/core/src/roadside.rs",
+    "find": "if off > deg(sp.match_deg) || best",
+    "replace": "if true || best",
+    "test": "a_stop_stands_beside_its_road_or_else_its_villager_s_flee_line"
+  },
+  {
+    "name": "T12 roadside: a road is followed outward from the boundary",
+    "file": "crates/core/src/roadside.rs",
+    "find": "let path: Vec<V3> = if a {",
+    "replace": "let path: Vec<V3> = if !a {",
+    "test": "a_stop_stands_beside_its_road_or_else_its_villager_s_flee_line"
+  },
+  {
+    "name": "T12 roadside: a positive offset is to the right walking out",
+    "file": "crates/core/src/roadside.rs",
+    "find": "let right = v3(-d.z, 0, d.x);",
+    "replace": "let right = v3(d.z, 0, -d.x);",
+    "test": "a_stop_stands_beside_its_road_or_else_its_villager_s_flee_line"
+  },
+  {
+    "name": "T12 roadside: the burning cart's smoke is the north-east's landmark",
+    "file": "crates/core/src/roadside.rs",
+    "find": "Kind::BurningCart => SMOKE_RISE + ONE,",
+    "replace": "Kind::BurningCart => ONE,",
+    "test": "every_side_has_a_stop_from_250_to_400_m_and_a_landmark_seen_from_the_boundary"
+  },
+  {
+    "name": "T12 roadside: the first north stop is within 400 m",
+    "file": "data/roadside.json",
+    "find": "\"at_m\": 335,",
+    "replace": "\"at_m\": 420,",
+    "test": "every_side_has_a_stop_from_250_to_400_m_and_a_landmark_seen_from_the_boundary"
+  },
+  {
+    "name": "T12 roadside: a landmark behind a rise is not seen",
+    "file": "crates/core/src/roadside.rs",
+    "find": "w.ground(p.x, p.z) < p.y",
+    "replace": "w.ground(p.x, p.z) < p.y + fx::int(1000)",
+    "test": "a_landmark_too_low_or_behind_a_rise_is_not_seen"
+  },
+  {
+    "name": "T12 roadside: a landmark must stand a degree over the ground",
+    "file": "crates/core/src/roadside.rs",
+    "find": "if d == 0 || height * SEEN_PARTS < d {",
+    "replace": "if d == 0 {",
+    "test": "a_landmark_too_low_or_behind_a_rise_is_not_seen"
+  },
+  {
+    "name": "T12 roadside: no stop is more than a minute's run from the last",
+    "file": "data/roadside.json",
+    "find": "\"at_m\": 640,",
+    "replace": "\"at_m\": 1100,",
+    "test": "no_stop_is_more_than_a_minute_s_run_from_the_last_along_its_side"
+  },
+  {
+    "name": "T12 roadside: the north cart stands off the lane",
+    "file": "data/roadside.json",
+    "find": "\"off_m\": -8,\n          \"gives\": [{ \"coins\": 6 }, { \"item\": \"bandage\" }]",
+    "replace": "\"off_m\": 0,\n          \"gives\": [{ \"coins\": 6 }, { \"item\": \"bandage\" }]",
+    "test": "no_stop_stands_on_a_building_a_road_the_river_the_edge_or_another_stop"
+  },
+  {
+    "name": "T12 roadside: the waystone's gap is kept",
+    "file": "data/roadside.json",
+    "find": "\"keep_clear\": [{ \"at\": [2000, 2540], \"m\": 20 }]",
+    "replace": "\"keep_clear\": [{ \"at\": [1984, 2464], \"m\": 20 }]",
+    "test": "no_stop_stands_on_a_building_a_road_the_river_the_edge_or_another_stop"
+  },
+  {
+    "name": "T12 roadside: each stop is a place of its own",
+    "file": "crates/core/src/roadside.rs",
+    "find": "kind: stop.place(),",
+    "replace": "kind: stop.id.clone(),",
+    "test": "every_stop_with_a_model_is_a_place_of_its_own_on_flattened_ground"
+  },
+  {
+    "name": "T12 roadside: the map marks the watchtower",
+    "file": "crates/core/src/roadside.rs",
+    "find": "Kind::Tower => \"watchtower\",\n                Kind::Rocks => \"tor\",",
+    "replace": "Kind::Tower => return None,\n                Kind::Rocks => \"tor\",",
+    "test": "every_stop_with_a_model_is_a_place_of_its_own_on_flattened_ground"
+  },
+  {
+    "name": "T12 roadside: the straggler waits for the opening's end",
+    "file": "crates/core/src/roadside.rs",
+    "find": "if w.roadside.straggler.is_none() && w.story.phase == story::Phase::Free {",
+    "replace": "if w.roadside.straggler.is_none() {",
+    "test": "the_straggler_stands_only_once_the_opening_is_over"
+  },
+  {
+    "name": "T12 roadside: the straggler waits for the player to come near",
+    "file": "crates/core/src/roadside.rs",
+    "find": "s.kind == Kind::Straggler && at.sub(me).len_xz() < SPAWN_AT",
+    "replace": "s.kind == Kind::Straggler",
+    "test": "the_straggler_stands_only_once_the_opening_is_over"
+  },
+  {
+    "name": "T12 roadside: the straggler chases a player it sees",
+    "file": "crates/core/src/roadside.rs",
+    "find": "s.chasing = !w.player_down() && !leashed",
+    "replace": "s.chasing = false && !leashed",
+    "test": "the_straggler_runs_at_a_player_it_sees_draws_and_fights"
+  },
+  {
+    "name": "T12 roadside: the straggler sees only so far",
+    "file": "crates/core/src/roadside.rs",
+    "find": "(gap < SIGHT || (s.chasing && gap < SIGHT * 2))",
+    "replace": "(gap < SIGHT * 3 || (s.chasing && gap < SIGHT * 2))",
+    "test": "the_straggler_runs_at_a_player_it_sees_draws_and_fights"
+  },
+  {
+    "name": "T12 roadside: the straggler draws near the player",
+    "file": "crates/core/src/roadside.rs",
+    "find": "keys: story::sheath_keys(f, true) | story::keys_toward(f.look_yaw, me.sub(at), &mut s.acc),",
+    "replace": "keys: story::keys_toward(f.look_yaw, me.sub(at), &mut s.acc),",
+    "test": "the_straggler_runs_at_a_player_it_sees_draws_and_fights"
+  },
+  {
+    "name": "T12 roadside: a fallen straggler drops its coins",
+    "file": "crates/core/src/roadside.rs",
+    "find": "if coins > 0 {",
+    "replace": "if coins > 1000 {",
+    "test": "a_fallen_straggler_drops_its_coins"
+  },
+  {
+    "name": "T12 roadside: a searched cart gives its coins",
+    "file": "crates/core/src/roadside.rs",
+    "find": "Some(Gift::Coins(c)) => w.inventory.coins += c,",
+    "replace": "Some(Gift::Coins(_c)) => {}",
+    "test": "e_searches_a_cart_once_and_takes_what_it_holds"
+  },
+  {
+    "name": "T12 roadside: a cart is searched once",
+    "file": "crates/core/src/roadside.rs",
+    "find": "Kind::Cart | Kind::BurningCart if !w.roadside.searched.get(k).copied().unwrap_or(true) => {",
+    "replace": "Kind::Cart | Kind::BurningCart => {",
+    "test": "e_searches_a_cart_once_and_takes_what_it_holds"
+  },
+  {
+    "name": "T12 roadside: what does not fit is left by the cart",
+    "file": "crates/core/src/roadside.rs",
+    "find": "if took < count {",
+    "replace": "if false {",
+    "test": "what_a_full_player_cannot_carry_is_left_beside_the_cart"
+  },
+  {
+    "name": "T12 roadside: the well makes health whole",
+    "file": "crates/core/src/roadside.rs",
+    "find": "h.hp = h.most;",
+    "replace": "h.hp += 1;",
+    "test": "the_well_makes_health_whole"
+  },
+  {
+    "name": "T12 roadside: a villager says all its lines",
+    "file": "crates/core/src/roadside.rs",
+    "find": "crate::ui::say(w, \"villager\", &lines);",
+    "replace": "crate::ui::say(w, \"villager\", &lines[..1]);",
+    "test": "a_villager_by_the_way_says_where_to_go"
+  },
+  {
+    "name": "T12 roadside: a body stands on a climbed surface",
+    "file": "crates/core/src/solid.rs",
+    "find": "if let Some(y) = crate::roadside::surface(&w.solid.climbs, x, z) {",
+    "replace": "if let Some(y) = crate::roadside::surface(&[], x, z) {",
+    "test": "a_body_climbs_the_watchtower_s_stair_and_cannot_walk_under_its_platform"
+  },
+  {
+    "name": "T12 roadside: no body on the ground walks into the tor's side",
+    "file": "crates/core/src/roadside.rs",
+    "find": "feet_y + STEP < c.along(lz)",
+    "replace": "feet_y + STEP < c.along(lz) && false",
+    "test": "a_body_on_the_ground_cannot_walk_into_the_tor_s_side"
+  },
+  {
+    "name": "T12 roadside: the guard keeps a body off a surface a step above",
+    "file": "crates/core/src/roadside.rs",
+    "find": ".filter(|c| c.rect.holds(pos.x, pos.z, solid::RADIUS + ONE))",
+    "replace": ".filter(|c| c.rect.holds(pos.x, pos.z, -ONE))",
+    "test": "a_climbed_surface_more_than_a_step_up_is_a_wall"
+  },
+  {
+    "name": "T12 roadside: a ramp rises evenly",
+    "file": "crates/core/src/roadside.rs",
+    "find": "self.low + fx::mul(self.high - self.low, t)",
+    "replace": "self.high + 0 * t",
+    "test": "the_tor_s_ramp_rises_evenly_to_its_top"
+  },
+  {
+    "name": "T12 roadside: smoke rises fast and then slows",
+    "file": "crates/core/src/roadside.rs",
+    "find": "let rise = fx::mul(SMOKE_RISE, fx::mul(s, 3 * ONE - s) / 2);",
+    "replace": "let rise = fx::mul(SMOKE_RISE, s);",
+    "test": "smoke_rises_from_the_burning_cart_in_a_fixed_order"
+  },
+  {
+    "name": "T12 roadside: the story held still holds the smoke still",
+    "file": "crates/core/src/roadside.rs",
+    "find": "let (tick, alpha) = if w.story.still { (0, 0) } else { (w.tick, alpha) };",
+    "replace": "let (tick, alpha) = (w.tick, alpha);",
+    "test": "smoke_rises_from_the_burning_cart_in_a_fixed_order"
+  },
+  {
+    "name": "T12 roadside: the straggler's state comes from the seed alone",
+    "file": "crates/core/src/roadside.rs",
+    "find": "                acc: 0,\n                chasing: false,",
+    "replace": "                acc: { static N: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0); N.fetch_add(1, std::sync::atomic::Ordering::Relaxed) },\n                chasing: false,",
+    "test": "the_same_seed_gives_the_same_roadside_tick_for_tick"
+  },
+  {
+    "name": "T12 roadside: the roadside file is checked against the story's villagers",
+    "file": "crates/core/src/roadside.rs",
+    "find": "if side.villager >= villagers {",
+    "replace": "if false {",
+    "test": "the_roadside_file_is_refused_when_it_names_what_is_not_there"
+  },
+  {
+    "name": "T12 roadside: the watchtower's platform does not share a plane with its posts",
+    "file": "crates/core/src/models/props.rs",
+    "find": "        (2 * WATCH_HALF, 160, 2 * WATCH_HALF),\n        k.c(\"plank_1\"),",
+    "replace": "        (3100, 160, 3100),\n        k.c(\"plank_1\"),",
+    "test": "no_two_parts_of_any_prop_share_a_plane"
+  },
+  {
+    "name": "T12 roadside: the spilled cloth's stripe stands proud of it",
+    "file": "crates/core/src/models/props.rs",
+    "find": "            (-180, 52, -1600),\n            (1660, 40, 220),",
+    "replace": "            (-180, 32, -1600),\n            (1660, 40, 220),",
+    "test": "no_two_parts_of_any_prop_share_a_plane"
+  },
+  {
+    "name": "T12 roadside: the spilled cloth lies off the flattened ground",
+    "file": "crates/core/src/models/props.rs",
+    "find": "k.shape(Mesh::Cube, (-180, 32, -1600), (1600, 40, 900), cloth_turn, cloth);",
+    "replace": "k.shape(Mesh::Cube, (-180, -20, -1600), (1600, 40, 900), cloth_turn, cloth);",
+    "test": "the_roadside_s_static_scene_draws_no_two_surfaces_in_one_plane"
+  },
+  {
+    "name": "T12 roadside: the view on a top stands the player on it",
+    "file": "crates/core/src/roadside.rs",
+    "find": "            at.y = solid::surface(w, at.x, at.z);\n            w.player = crate::player::Body::new(at, w.player.facing);",
+    "replace": "            at.y = w.ground(at.x, at.z);\n            w.player = crate::player::Body::new(at, w.player.facing);",
+    "test": "the_views_stand_the_player_where_they_say"
   },
   {
     "name": "M7 feel: a voice repeats inside its gap",

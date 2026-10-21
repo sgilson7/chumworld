@@ -109,13 +109,19 @@ pub struct Game {
     pub acted: Vec<crate::sound::Cue>,
     pub sounds: Vec<i32>,
     pub loops: Vec<i32>,
+    /// M7: the Equipment screen's figure, its frame and its canvas's aspect
+    /// (`stage.rs`)
+    pub figure: Frame,
+    pub figure_aspect: Fx,
 }
 
 impl Game {
     /// A game from the strings, the glossary, the look and the page's seed.
     pub fn new(strings_json: &str, glossary_md: &str, look_json: &str, seed: u32) -> Result<Game, String> {
         let strings = crate::page::parse_strings(strings_json).map_err(|e| e.message())?;
-        let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;
+        // M7 (R6.13): a slip in the glossary costs a hover hint, not the game;
+        // the check (`cargo test`) fails on it
+        let glossary = crate::glossary::load(glossary_md);
         let look = Look::parse(look_json)?;
         // M5: the game opens in bed, during the raid
         let world = crate::story::opening(seed as u64);
@@ -153,6 +159,8 @@ impl Game {
             acted: Vec::new(),
             sounds: Vec::new(),
             loops: Vec::new(),
+            figure: Frame::default(),
+            figure_aspect: ONE,
         };
         g.draw();
         Ok(g)
@@ -179,6 +187,21 @@ impl Game {
         self.aspect = fx::ratio(self.css.0, self.css.1);
         self.draw();
         [self.pixels.0, self.pixels.1]
+    }
+
+    /// M7: the figure canvas's CSS size and the pixel ratio (percent) in, its
+    /// drawing buffer's size out, at the main view's density.
+    pub fn figure_resize(&mut self, css_w: i32, css_h: i32, dpr_pct: i32) -> [i32; 2] {
+        let (w, h) = (css_w.max(1), css_h.max(1));
+        let dpr = dpr_pct.clamp(25, 400);
+        let scale = if self.software {
+            dpr * SOFTWARE_SCALE_PCT / 100
+        } else {
+            dpr
+        };
+        self.figure_aspect = fx::ratio(w, h);
+        self.draw();
+        [(w * scale / 100).max(1), (h * scale / 100).max(1)]
     }
 
     /// One display frame: the page's clock in microseconds, the held action
@@ -262,6 +285,12 @@ impl Game {
                     self.cue("blip", crate::sound::voice_rate(&who));
                 }
             }
+            // M7: the Equipment screen's figure turns while the world holds
+            Screen::Menu => {
+                self.menu.open_ticks = self.menu.open_ticks.wrapping_add(ticks.len() as u32);
+                self.pending.clear();
+                self.clock.rest();
+            }
             // M7 travel: the world holds still while the flute plays; a
             // judged phrase holds or fades by the frame's ticks
             Screen::Song => {
@@ -270,7 +299,7 @@ impl Game {
                     self.ui_version += 1;
                 }
             }
-            Screen::Title | Screen::Paused | Screen::Menu | Screen::Settings | Screen::Shop => {
+            Screen::Title | Screen::Paused | Screen::Settings | Screen::Shop => {
                 // the world holds still; time passing while paused is
                 // forgotten, so resuming runs no catch-up ticks
                 self.pending.clear();
@@ -355,10 +384,13 @@ impl Game {
         let mut moving = Shapes::default();
         moving.sky(cam.eye);
         self.world.draw(self.alpha, &self.look, &mut moving);
+        // M7 (R9.91): blades and other thin things edge-on keep a width
+        render::keep_visible(&mut moving.list, cam.eye);
         // M2: the terrain and scatter round the eye, by detail level
         self.detail.frame(&self.world, &self.look, cam.eye, &mut moving);
         self.water_frame = crate::water::frame_values(&self.world.land, &self.world.water, self.scene.origin);
         self.frame = Frame::build(&self.scene, &moving, &cam, self.aspect);
+        self.figure = crate::stage::frame(self, self.figure_aspect);
     }
 
     pub(crate) fn show(&mut self, s: Screen) {
@@ -460,6 +492,26 @@ pub(crate) mod tests {
         .expect("the game starts from the repository's data");
         g.resize(1920, 1080, 100);
         g
+    }
+
+    /// R6.13: a term defined twice in the glossary does not stop the game
+    /// loading; its first definition is the one shown on hover.
+    #[test]
+    fn a_glossary_with_a_term_defined_twice_still_starts_the_game() {
+        let twice = format!(
+            "{}\n### Walk\n\nA second entry.\n",
+            include_str!("../../../GLOSSARY.md")
+        );
+        let g = Game::new(
+            include_str!("../../../data/strings.json"),
+            &twice,
+            include_str!("../../../data/look.json"),
+            42,
+        )
+        .expect("the game starts with a glossary slip");
+        let walk: Vec<&Entry> = g.glossary.iter().filter(|e| e.term == "Walk").collect();
+        assert_eq!(walk.len(), 1);
+        assert_ne!(walk[0].definition, "A second entry.");
     }
 
     /// The time of the last frame.

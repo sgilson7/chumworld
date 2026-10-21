@@ -74,6 +74,11 @@ seen from the player's shoulder, the camera pitched to frame it:
     models-speedster  the speedster pieces worn, and lying on the ground
     models-cart       the merchant's cart and its donkey
 
+M7 roadside's views (T12), each a fresh page with the core's view acts
+on the address (`roadside.line`, `roadside.look`, `roadside.top`): rs-line-*
+the view out from the boundary's line on each side, rs-<stop> each stop
+(with E pressed where the name says), rs-map the map with the stops marked.
+
 M2's views (the world), each on a page of its own opened at a place with
 ?go=<x>,<z>,<yaw>,<pitch> (metres east and south, degrees; the core's
 `places.go`), Play pressed, the camera's ease and the detail levels' first
@@ -172,6 +177,32 @@ M2_VIEWS = {
     "horizon": ("352,1772,282,-1", ""),
     "dither": ("2905,1755,335,-6", ""),
     "map": ("2000,2800,20,-8", TEST_ACTS),
+}
+# M7 roadside (T12): view: (the acts on the address, keys pressed once in
+# play, frames to wait before the picture); each a fresh page
+ROADSIDE_VIEWS = {
+    "rs-line-north": ("roadside.line:north", [], 150),
+    "rs-line-north_west": ("roadside.line:north_west", [], 150),
+    "rs-line-north_east": ("roadside.line:north_east", [], 150),
+    "rs-line-west": ("roadside.line:west", [], 150),
+    "rs-north_cart": ("roadside.look:north_cart 7", [], 150),
+    "rs-north_cart-searched": ("roadside.look:north_cart 2", ["KeyE"], 150),
+    "rs-north_tree": ("roadside.look:north_tree 30", [], 150),
+    "rs-north_villager": ("roadside.look:north_villager 2", ["KeyE"], 150),
+    "rs-north_west_tower": ("roadside.look:north_west_tower 18", [], 150),
+    "rs-north_west_top": ("roadside.top:north_west_tower", [], 150),
+    "rs-north_west_villager": ("roadside.look:north_west_villager 4", [], 150),
+    "rs-north_west_cart": ("roadside.look:north_west_cart 7", [], 150),
+    "rs-north_east_well": ("roadside.look:north_east_well 6", [], 150),
+    "rs-north_east_drink": ("roadside.look:north_east_well 1", ["KeyE"], 150),
+    "rs-north_east_cart": ("roadside.look:north_east_cart 22", [], 150),
+    "rs-north_east_orc": ("roadside.look:north_east_orc 17", [], 200),
+    "rs-north_east_villager": ("roadside.look:north_east_villager 4", [], 150),
+    "rs-west_rocks": ("roadside.look:west_rocks 16", [], 150),
+    "rs-west_top": ("roadside.top:west_rocks", [], 150),
+    "rs-west_cart": ("roadside.look:west_cart 7", [], 150),
+    "rs-west_villager": ("roadside.look:west_villager 4", [], 150),
+    "rs-map": ("", ["map"], 150),
 }
 # M2: the time each frame callback of the page takes, and the frames
 CALLBACK_TIMES = """() => {
@@ -361,6 +392,42 @@ def callback_stats(page):
             return {callback_median_ms: at(0.5), callback_p95_ms: at(0.95), callback_worst_ms: d[d.length - 1], callbacks: d.length};
         }"""
     )
+
+
+def roadside_views(browser, base, out, views, logs):
+    """M7 roadside's views (ROADSIDE_VIEWS): each stop, the view out from
+    the boundary's line on each side, and the map with the stops marked."""
+    from urllib.parse import quote
+
+    for name, (acts, keys, wait) in ROADSIDE_VIEWS.items():
+        if name not in views:
+            continue
+        page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+        page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+        page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+        flags = ("&act=" + quote(acts)) if acts else ""
+        if "map" in keys:
+            flags = "&go=2000,2500,0,-8" + TEST_ACTS
+        page.goto(base + "/index.html?pointer=free" + flags, wait_until="commit")
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+        wait_frames(page, 20)
+        page.click("#title button")
+        page.wait_for_selector("body[data-screen='play']", state="attached")
+        wait_frames(page, wait)
+        for k in keys:
+            if k == "map":
+                page.keyboard.press("Tab")
+                page.wait_for_selector("#menu.shown")
+                page.wait_for_timeout(700)
+                page.keyboard.press("ArrowRight")
+                page.wait_for_timeout(300)
+                page.keyboard.press("KeyE")
+                page.wait_for_timeout(900)
+            else:
+                page.keyboard.press(k)
+                wait_frames(page, 40)
+        page.screenshot(path=str(out / f"{name}.png"))
+        page.close()
 
 
 def m2_views(browser, base, out, views, logs, numbers, measure):
@@ -1142,7 +1209,7 @@ def main(argv):
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
     views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + D2_VIEWS + M4_VIEWS + list(M2_VIEWS) + M5_VIEWS
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in M7_VIEWS and v not in W_VIEWS]
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in W_VIEWS and v not in ROADSIDE_VIEWS and v not in M7_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -1240,6 +1307,8 @@ def main(argv):
             m7_views(browser, base, out, views, logs)
         if any(v in W_VIEWS for v in views):
             w_views(browser, base, out, views, logs)
+        if any(v in ROADSIDE_VIEWS for v in views):
+            roadside_views(browser, base, out, views, logs)
         browser.close()
     server.shutdown()
     for name in views:
