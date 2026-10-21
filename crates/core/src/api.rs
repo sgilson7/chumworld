@@ -89,6 +89,8 @@ pub struct Ui {
     /// M4: the HUD, the menu ring, dialogue, the shop and settings (`ui.rs`)
     #[serde(flatten)]
     pub menus: crate::ui::Views,
+    /// M7 save: what the page stores, downloads or forgets (`save::View`)
+    pub save: crate::save::View,
 }
 
 fn controls(g: &Game) -> (String, Vec<Row>) {
@@ -150,7 +152,9 @@ pub fn ui(g: &Game) -> Ui {
             text: s.get("swing_how"),
             rows_heading,
             rows,
-            actions: vec![button(g, "screen.show", "play", "play", true)],
+            // M7 save: Continue when the browser holds a save
+            actions: vec![crate::save::title_button(g)
+                .unwrap_or_else(|| button(g, "screen.show", "play", "play", true))],
         }),
         Screen::Paused => panels.push(Panel {
             id: "paused".into(),
@@ -165,6 +169,8 @@ pub fn ui(g: &Game) -> Ui {
         Screen::Menu | Screen::Settings | Screen::Dialogue | Screen::Shop => {}
         Screen::Song => {} // M7 travel: drawn from `travel::view`
     }
+    // M7 save: New game, Load save file, Download save, and the save's line
+    crate::save::panels(g, &mut panels);
     // M4: the settings button and the menu's keys on the title and pause
     crate::ui::panels(g, &mut panels);
     let mut hud = vec![HudItem {
@@ -191,6 +197,7 @@ pub fn ui(g: &Game) -> Ui {
         capture: g.screen == Screen::Play,
         version: g.ui_version,
         menus: crate::ui::views(g),
+        save: crate::save::view(g),
     }
 }
 

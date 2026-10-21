@@ -132,6 +132,28 @@ impl Fog {
     pub fn count(&self) -> u32 {
         self.bits.iter().map(|b| b.count_ones()).sum()
     }
+
+    /// M7 save: the walked cells, one bit a cell, 64 a word; how many cells
+    /// and words; and a fog from saved words (`save.rs` checks them).
+    pub fn bits(&self) -> &[u64] {
+        &self.bits
+    }
+
+    pub fn cells() -> usize {
+        (CELLS * CELLS) as usize
+    }
+
+    pub fn words() -> usize {
+        Fog::cells().div_ceil(64)
+    }
+
+    pub fn from_bits(bits: Vec<u64>) -> Fog {
+        Fog {
+            bits,
+            version: 1,
+            last: None,
+        }
+    }
 }
 
 // ---------------------------------------------------------- world state

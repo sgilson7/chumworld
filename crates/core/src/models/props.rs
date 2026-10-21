@@ -180,6 +180,7 @@ pub fn model(kind: Prop) -> Model {
         Prop::Signpost => signpost(&mut k),
         Prop::HollowTree => hollow_tree(&mut k),
         Prop::Waystone => waystone(&mut k),
+        Prop::SavePost => save_post(&mut k),
     }
     k.m
 }
@@ -854,6 +855,23 @@ fn waystone(k: &mut Kit) {
     for (mesh, at, size, z, flat) in RUNES {
         k.shape(mesh, at, size, rune_turn(z, flat), rune);
     }
+}
+
+// ---- M7 save (P10, T16): the lantern post ------------------------------
+
+/// A save point's post: a timber post on a stone, an arm reaching forward
+/// (to −z), and a lit lantern hanging from it. No two parts share a plane:
+/// each part that meets another runs into it (CW-18).
+fn save_post(k: &mut Kit) {
+    let (wood, iron) = (k.c("wood"), k.c("iron"));
+    k.up(Mesh::Facet, (0, 60, 0), (520, 200, 520), k.c("stone"));
+    k.bx((0, 1150, 0), (150, 2300, 150), wood);
+    k.up(Mesh::Pyramid, (0, 2360, 0), (210, 160, 210), wood);
+    k.bx((0, 2050, -260), (100, 110, 520), wood);
+    k.bx((0, 1925, -440), (30, 160, 30), iron);
+    k.up(Mesh::Pyramid, (0, 1830, -440), (220, 110, 220), iron);
+    k.bx((0, 1500, -440), (200, 50, 200), iron);
+    k.glow(Mesh::Cyl, (0, 1650, -440), (150, 280, 150), k.c("flame"), ONE / 3);
 }
 
 /// How much wider a glowing mark is drawn than the carved one under it,

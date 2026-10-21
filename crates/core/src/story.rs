@@ -301,6 +301,8 @@ pub enum Use {
     Waystone(usize),
     /// M7 travel: the traveller at the crossroads
     Traveller,
+    /// M7 save: a save point (a woken waystone or a post), by its number
+    SavePoint(usize),
 }
 
 /// A line over the game, by string key, and how long it has left.
@@ -915,6 +917,8 @@ pub fn boundary(w: &mut World) {
     let before = w.player.prev_pos.sub(c).len_xz();
     w.story.phase = Phase::Free;
     w.story.crossed = Some(w.player.pos);
+    // M7 save: the game saves itself from here on
+    crate::save::crossed(w);
     for r in &mut w.story.raid {
         if r.mode == Mode::Chase {
             r.mode = Mode::Back;
@@ -928,6 +932,10 @@ pub fn boundary(w: &mut World) {
 /// After the opening, down: the player comes to where they left the
 /// village, whole, their things kept; the world goes on.
 fn come_to(w: &mut World) {
+    // M7 save (T16): to the last save point, if there was a save
+    if crate::save::fall(w) {
+        return;
+    }
     let at = w.story.crossed.unwrap_or_else(|| centre(w));
     let mut at = at;
     at.y = solid::surface(w, at.x, at.z);
@@ -1077,6 +1085,10 @@ pub fn nearest_use(w: &World) -> Option<(Use, Fx)> {
     if let Some(d) = crate::travel::talk_reach(w) {
         offer(Use::Traveller, d);
     }
+    // M7 save
+    if let Some((k, d)) = crate::save::reach(w) {
+        offer(Use::SavePoint(k), d);
+    }
     best
 }
 
@@ -1116,6 +1128,7 @@ fn act_on(w: &mut World, u: Use) {
         Use::Chest => crate::camp::open_chest(w),
         Use::Waystone(k) => crate::travel::use_waystone(w, k), // M7 travel
         Use::Traveller => crate::travel::talk(w),
+        Use::SavePoint(k) => crate::save::use_point(w, k), // M7 save
     }
 }
 
@@ -1201,6 +1214,7 @@ pub fn prompt(w: &World, s: &Strings) -> Option<String> {
         Use::Chest => s.get("does_open_chest"),
         Use::Waystone(_) => s.get("does_wake_waystone"), // M7 travel
         Use::Traveller => s.get("does_talk_traveller"),
+        Use::SavePoint(_) => s.get("does_save"), // M7 save
     };
     Some(crate::api::fill(
         &s.get("prompt"),

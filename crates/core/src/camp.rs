@@ -135,6 +135,14 @@ fn spawn(w: &mut World) {
             yaw_of(fire.sub(p))
         };
         let foe = story::sheathed_foe(w, kind, look, p, yaw);
+        // M7 save: one beaten in the save this world came from lies down
+        let key = crate::save::camp_keys()
+            .get(w.camp.members.len())
+            .cloned()
+            .unwrap_or_default();
+        if crate::save::beaten(w, &key) {
+            crate::save::lay_down(w, foe);
+        }
         w.camp.members.push(Member {
             foe,
             role,
@@ -264,22 +272,27 @@ fn drops(w: &mut World) {
         let at = foe.body.pos;
         let yaw = foe.body.facing;
         let beside = |d: Fx, turn: i32| at.add(crate::geom::facing(yaw + turn, 0).scale(d));
+        // M7 save: each drop by its stable key (`save::drop_key`), never
+        // laid again once taken
+        let key = crate::save::camp_keys().get(k).cloned().unwrap_or_default();
+        let slot = |s: usize| crate::save::drop_key(&key, s);
         match m.role {
             Role::Lookout => {
-                story::drop(w, Gift::Item(Item::Gloves, 1), beside(ONE * 8 / 10, deg(90)));
-                story::drop(w, Gift::Coins(sp.bandit_coins), beside(ONE * 8 / 10, -deg(90)));
+                save_drop(w, &slot(0), Gift::Item(Item::Gloves, 1), beside(ONE * 8 / 10, deg(90)));
+                save_drop(w, &slot(1), Gift::Coins(sp.bandit_coins), beside(ONE * 8 / 10, -deg(90)));
             }
             Role::Bandit => {
-                story::drop(w, Gift::Coins(sp.bandit_coins), beside(ONE * 8 / 10, deg(90)));
-                story::drop(
+                save_drop(w, &slot(0), Gift::Coins(sp.bandit_coins), beside(ONE * 8 / 10, deg(90)));
+                save_drop(
                     w,
+                    &slot(1),
                     Gift::Item(Item::Knife, sp.bandit_knives),
                     beside(ONE * 8 / 10, -deg(90)),
                 );
             }
             Role::Leader => {
-                story::drop(w, Gift::Item(Item::Sword, 1), beside(ONE, deg(90)));
-                story::drop(w, Gift::Coins(sp.leader_coins), beside(ONE * 8 / 10, -deg(90)));
+                save_drop(w, &slot(0), Gift::Item(Item::Sword, 1), beside(ONE, deg(90)));
+                save_drop(w, &slot(1), Gift::Coins(sp.leader_coins), beside(ONE * 8 / 10, -deg(90)));
             }
         }
         w.camp.members[k].dropped = true;
@@ -294,9 +307,21 @@ fn drops(w: &mut World) {
         let at = leader(w)
             .map(|id| player::body(w, id).pos)
             .unwrap_or_else(|| centre(w));
-        story::drop(w, Gift::Item(Item::ChestKey, 1), at.add(v3(0, 0, ONE * 7 / 10)));
-        story::banner(w, "story_camp_cleared");
+        save_drop(
+            w,
+            crate::save::KEY_DROP,
+            Gift::Item(Item::ChestKey, 1),
+            at.add(v3(0, 0, ONE * 7 / 10)),
+        );
+        // M7 save: cleared in the save this world came from, it is not said again
+        if !crate::save::was_cleared(w) {
+            story::banner(w, "story_camp_cleared");
+        }
     }
+}
+
+fn save_drop(w: &mut World, key: &str, gift: Gift, at: V3) {
+    crate::save::drop(w, key, gift, at);
 }
 
 /// How far the player is from opening the chest, near it.

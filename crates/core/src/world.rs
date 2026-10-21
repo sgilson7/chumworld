@@ -116,6 +116,8 @@ pub struct World {
     pub travel: crate::travel::State,
     // M7 (P4): blood in flight and on the ground, parts taken off, the cues
     pub wounds: crate::wounds::State,
+    // M7 save (T16): the last save, the save point, the autosave's watch
+    pub save: crate::save::State,
 }
 
 impl World {
@@ -160,6 +162,7 @@ impl World {
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
             travel: crate::travel::State::default(), // M7 travel
+            save: crate::save::State::default(),     // M7 save
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w
@@ -232,6 +235,8 @@ impl World {
         crate::story::step(self, input);
         // M7 travel: the waystones come near, the flute given, a journey
         crate::travel::step(self);
+        // M7 save: the autosave, and a save that is due
+        crate::save::step(self);
         // 8. M2: the water
         crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
@@ -279,6 +284,8 @@ impl World {
         crate::swing::hud(self, strings, out);
         // M7 (P4): taking up a dropped weapon in the other hand
         crate::wounds::hud(self, strings, out);
+        // M7 save: the small Saved mark
+        crate::save::hud(self, strings, out);
     }
 
     /// A setting or flag named `module.name`.

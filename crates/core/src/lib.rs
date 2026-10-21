@@ -67,3 +67,5 @@ pub mod swing;
 pub mod travel;
 // M7 polish (P4): hits read on the body
 pub mod wounds;
+// M7 save (P10, T16): saves, save points, the autosave
+pub mod save;

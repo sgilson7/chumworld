@@ -90,10 +90,12 @@ pub enum Prop {
     HollowTree,
     // M7 travel (P6, T11): the carved waystone at each travel point
     Waystone,
+    // M7 save (P10, T16): the lantern post at a save point
+    SavePost,
 }
 
 impl Prop {
-    pub const ALL: [Prop; 16] = [
+    pub const ALL: [Prop; 17] = [
         Prop::House,
         Prop::Barn,
         Prop::Well,
@@ -110,6 +112,7 @@ impl Prop {
         Prop::Signpost,
         Prop::HollowTree,
         Prop::Waystone,
+        Prop::SavePost,
     ];
 }
 
