@@ -210,6 +210,25 @@ For the coordinator:
 - R9.236: T12 is not measured against the frame budget.
 - R9.230: the west side has nothing past 601 m.
 
+
+## 2026-10-20: M7 save (part P10, branch `m7-save`, T16)
+
+The person: "add areas to save your game to browser / to a save file json so you stop reviving in the village, the game should auto save as well in the browser".
+
+Built (`crates/core/src/save.rs`, `data/save.json`, `web/save.js`, `web/save.css`):
+- **What a save holds** (R9.310, R9.317): progress, decided in the core. The seed, the inventory and equipment, coins, quick keys, the merchant's stock, the quest flags, woken and reached waystones, `taken` and `beaten` by stable key, `parts` (each part's own ids), the save point, the settings, the walked map and the ticks played, under format `chumworld-save`, version 1, with a checksum over the content. Nothing about the person.
+- **Reading** (R9.316): every field is checked (type, range, known id, stack, CW-6 route, the flags against each other, the checksum). A refused stored save means a new game and a line; a refused file leaves the game as it was, with a line. Never half-loaded.
+- **Where a part adds its state** (R9.314): a beaten foe or encounter adds its keys to `save::known_foe` and stands down with `save::beaten`/`save::lay_down`; a drop goes through `save::drop` with a key in `save::known_taken`; anything else (P11's rumours heard, quest steps, revealed marks) is one `save::Part` in `save::PARTS`. No version bump either way. Main's roadside (T12) is saved this way: carts searched (`parts.roadside`), the straggler beaten, the tor's rocks and the straggler's coins taken.
+- **Save points** (R9.312): each woken waystone and two lantern posts (the crossroads, the camp trail's foot), on the map. E saves with "Saved.".
+- **Autosave** (R9.315): when the opening ends, when a waystone is first woken, when the quest moves on, on entering or leaving a major area, and every two minutes outside a duel. Never mid-duel or mid-dialogue. A small Saved mark shows each one.
+- **A fall after the opening** (R9.311): you come to at your last save point, keeping everything; foes beaten since the save stand again. The dream loop is unchanged.
+- **The page**: `web/save.js` is the only file that names storage (one key, `chumworld.save`, every access in try/catch). Title: Continue (with a save), New game (asks first), Load save file. Pause: Download save, Load save file. `crates/core/tests/one_save.rs` replaces `no_storage.rs`.
+
+Rows: R9.310 to R9.321 in `SECOND-ORDER.md`, strings under "### M7 save (P10)" at its foot. Tests: 14 in `save.rs`, 3 in `one_save.rs`, and the browser check's `save` section. 17 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "M7 save"`).
+
+Waiting on the person: R9.311 (what a fall costs), R9.312 (the save points and the post's look, `shots/save/`), R9.321 (the strings).
+
+Checks (after merging main at ca463be): `./scripts/check.sh` steps 1 to 8 run by hand; 1 to 7 pass, 8 (journal) fails only on R9.311, R9.312 and R9.321, which the journal is to name. `python3 scripts/break_tests.py "M7 save"`: 17 of 17 caught. Step 9, the browser check with its new `save` section, is left to the coordinator's batched run (R9.323).
 ## 2026-10-20: M7 polish, menus, shop, models, flicker audit and a playthrough (task P3, qa)
 
 Built:

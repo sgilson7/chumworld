@@ -173,7 +173,8 @@ pub fn prop_kind(name: &str) -> Option<Prop> {
         "bed" => Prop::Bed,
         "signpost" => Prop::Signpost,
         "hollow_tree" => Prop::HollowTree,
-        "waystone" => Prop::Waystone, // M7 travel
+        "waystone" => Prop::Waystone,  // M7 travel
+        "save_post" => Prop::SavePost, // M7 save
         // M7 roadside (T12)
         "wreck" => Prop::Wreck,
         "wreck_burnt" => Prop::WreckBurnt,
@@ -398,6 +399,8 @@ pub fn markers(w: &World) -> Vec<(&'static str, V3)> {
         .filter_map(|&(kind, key)| at(w, kind).map(|p| (key, p)))
         // M7 travel: each waystone once it is woken, keyed by its place
         .chain(crate::travel::marks(w))
+        // M7 save: each save point's lantern post
+        .chain(crate::save::marks(w))
         // M7 roadside: the stops with models
         .chain(crate::roadside::marks(w))
         .collect()

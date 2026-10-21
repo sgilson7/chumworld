@@ -103,6 +103,9 @@ pub struct Game {
     pub ui_version: u32,
     /// M4: the menu ring's turn and cursors, and where settings return to
     pub menu: crate::ui::Menu,
+    /// M7 save: the browser's save read at the start, the save's line, the
+    /// new game's confirm step, and the downloads and forgets asked for
+    pub saves: crate::save::Shelf,
     /// M7: the Equipment screen's figure, its frame and its canvas's aspect
     /// (`stage.rs`)
     pub figure: Frame,
@@ -149,6 +152,7 @@ impl Game {
             zoom_ticks: ZOOM_TICKS,
             ui_version: 1,
             menu: crate::ui::Menu::default(),
+            saves: crate::save::Shelf::default(),
             figure: Frame::default(),
             figure_aspect: ONE,
         };
@@ -212,6 +216,8 @@ impl Game {
                 let travel = crate::travel::stamp(&self.world);
                 // M7 (P4): the line for taking up a dropped weapon
                 let wound = crate::wounds::stamp(&self.world);
+                // M7 save: a save written, the Saved mark
+                let saved = crate::save::stamp(&self.world);
                 for (k, b) in ticks.iter().enumerate() {
                     // M4: Tab and M open the menu ring before the tick runs
                     if let Some(face) = crate::ui::menu_pressed(&mut self.menu, *b) {
@@ -237,6 +243,7 @@ impl Game {
                     || story != crate::story::stamp(&self.world)
                     || travel != crate::travel::stamp(&self.world)
                     || wound != crate::wounds::stamp(&self.world)
+                    || saved != crate::save::stamp(&self.world)
                 {
                     self.ui_version += 1;
                 }
@@ -400,6 +407,8 @@ impl Game {
             n if crate::ui::owns(n) => crate::ui::act(self, name, value)?,
             // M7 travel: the song screen, the waystones, the traveller
             n if n.starts_with("travel.") => crate::travel::act(self, name, value)?,
+            // M7 save: continue, a new game, a file loaded, a download
+            n if n.starts_with("save.") => crate::save::act(self, name, value)?,
             "display.software" => {
                 self.software = value == "true";
                 let (w, h) = self.css;
@@ -416,6 +425,7 @@ impl Game {
         // M4: items, the speedster's armour, the imbue, the merchant
         v.extend(crate::ui::values());
         v.extend(crate::travel::values()); // M7 travel
+        v.extend(crate::save::values()); // M7 save
         v
     }
 }

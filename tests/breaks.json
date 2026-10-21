@@ -3813,5 +3813,124 @@
     "find": "            at.y = solid::surface(w, at.x, at.z);\n            w.player = crate::player::Body::new(at, w.player.facing);",
     "replace": "            at.y = w.ground(at.x, at.z);\n            w.player = crate::player::Body::new(at, w.player.facing);",
     "test": "the_views_stand_the_player_where_they_say"
+  },
+  {
+    "name": "M7 save: a load gives back the coins",
+    "file": "crates/core/src/save.rs",
+    "find": "inv.coins = p.coins;",
+    "replace": "inv.coins = 0;",
+    "test": "a_save_round_trips_to_the_same_progress_and_the_same_world"
+  },
+  {
+    "name": "M7 save: a load gives back the roadside's searched carts",
+    "file": "crates/core/src/save.rs",
+    "find": "*s = true;",
+    "replace": "*s = false;",
+    "test": "a_save_round_trips_to_the_same_progress_and_the_same_world"
+  },
+  {
+    "name": "M7 save: a checksum mismatch is refused",
+    "file": "crates/core/src/save.rs",
+    "find": "if sum != checksum(&game.to_string()) {",
+    "replace": "if false {",
+    "test": "a_save_changed_by_hand_fails_its_checksum"
+  },
+  {
+    "name": "M7 save: a number out of range is refused",
+    "file": "crates/core/src/save.rs",
+    "find": ".filter(|n| *n <= most)",
+    "replace": ".filter(|_| true)",
+    "test": "each_bad_field_is_refused_by_name"
+  },
+  {
+    "name": "M7 save: an item without its route is refused (CW-6)",
+    "file": "crates/core/src/save.rs",
+    "find": "if has(i) && !route_ok(i) {",
+    "replace": "if false {",
+    "test": "nothing_is_held_without_the_route_that_gives_it"
+  },
+  {
+    "name": "M7 save: no save during the opening",
+    "file": "crates/core/src/save.rs",
+    "find": "if w.story.phase != Phase::Free {",
+    "replace": "if false {",
+    "test": "no_save_is_written_during_the_opening"
+  },
+  {
+    "name": "M7 save: no autosave mid-duel",
+    "file": "crates/core/src/save.rs",
+    "find": "if crate::travel::danger(w) {",
+    "replace": "if false {",
+    "test": "the_autosave_never_fires_mid_duel_or_mid_dialogue"
+  },
+  {
+    "name": "M7 save: no autosave mid-dialogue",
+    "file": "crates/core/src/save.rs",
+    "find": "if w.ui.dialogue.is_some() || w.ui.shop_open {",
+    "replace": "if w.ui.shop_open {",
+    "test": "the_autosave_never_fires_mid_duel_or_mid_dialogue"
+  },
+  {
+    "name": "M7 save: two minutes of play save the game",
+    "file": "crates/core/src/save.rs",
+    "find": "if w.save.since >= spec().autosave_ticks {",
+    "replace": "if false {",
+    "test": "two_minutes_of_play_save_the_game_and_walking_into_an_area_does_too"
+  },
+  {
+    "name": "M7 save: a post is a save point",
+    "file": "crates/core/src/save.rs",
+    "find": "k >= n ||",
+    "replace": "k < n &&",
+    "test": "e_at_a_post_saves_there_with_a_line"
+  },
+  {
+    "name": "M7 save: a fall after the opening returns to the last save point",
+    "file": "crates/core/src/story.rs",
+    "find": "if crate::save::fall(w) {",
+    "replace": "if false {",
+    "test": "a_fall_after_the_opening_returns_to_the_last_save_point_with_everything_kept"
+  },
+  {
+    "name": "M7 save: a taken drop never lies again",
+    "file": "crates/core/src/save.rs",
+    "find": "if w.save.taken.contains(key) || w.save.keyed.iter().any(|(_, k)| k == key) {",
+    "replace": "if false {",
+    "test": "a_drop_taken_once_never_lies_again"
+  },
+  {
+    "name": "M7 save: the save holds only the documented fields",
+    "file": "crates/core/src/save.rs",
+    "find": "\"phase\": \"free\",",
+    "replace": "\"phase\": \"free\", \"device\": \"desktop\",",
+    "test": "the_save_holds_nothing_but_the_documented_fields"
+  },
+  {
+    "name": "M7 save: a stored save offers Continue",
+    "file": "crates/core/src/save.rs",
+    "find": "save.continue\", \"continue\"",
+    "replace": "save.continue\", \"play\"",
+    "test": "a_stored_save_continues_and_a_bad_one_starts_a_new_game_with_a_line"
+  },
+  {
+    "name": "M7 save: a new game over a save asks first",
+    "file": "crates/core/src/save.rs",
+    "find": "g.saves.confirm = true;",
+    "replace": "g.show(Screen::Play);",
+    "test": "a_new_game_over_a_save_asks_first_and_then_forgets_it"
+  },
+  {
+    "name": "M7 save: only web/save.js names browser storage",
+    "file": "web/app.js",
+    "find": "import { makeSave } from \"./save.js\";",
+    "replace": "import { makeSave } from \"./save.js\";\nconst kept = window.localStorage;",
+    "test": "only_the_save_module_names_browser_storage"
+  },
+  {
+    "name": "M7 save: web/save.js keeps one key",
+    "file": "web/save.js",
+    "find": "s.removeItem(KEY);",
+    "replace": "s.removeItem(\"chumworld.other\");",
+    "test": "the_save_module_keeps_exactly_one_key"
   }
 ]

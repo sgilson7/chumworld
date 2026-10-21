@@ -146,6 +146,12 @@ impl Game {
         api::ok(&api::ui(&self.inner))
     }
 
+    /// M7 save: the last save's text, for web/save.js to store or offer as
+    /// a download (empty before the first save).
+    pub fn save_text(&self) -> String {
+        tool_core::save::text_of(&self.inner.world)
+    }
+
     pub fn ui_version(&self) -> u32 {
         self.inner.ui_version
     }

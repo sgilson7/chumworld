@@ -14,6 +14,10 @@ Where slush comes out. Each line has up to {line.spouts} spouts.
 Not: tap, dispenser, nozzle
 -->
 
+### Autosave
+
+The game saving itself in the browser: when you leave the village, when a waystone is first woken, when a quest step is done, when you walk into or out of a place, and after {autosave.minutes} minutes of play. Never mid-duel or while someone is talking. A small Saved mark shows it.
+
 ### Bandage
 
 Wraps a wound and gives back {bandage.heals} health. The merchant sells them.
@@ -199,6 +203,16 @@ Not: stone
 ### Run
 
 Moving at {run.speed} metres a second while Shift is held with a movement key.
+
+### Save
+
+Your progress kept in this browser: what you carry and wear, your coins, the quest, the waystones woken, the foes beaten and your save point. Download save writes the same save as a file, and Load save file reads one back.
+
+### Save point
+
+Where a save stands you: each waystone once woken, and a lantern post at the crossroads and on the camp trail. Press E by one to save. After a fall you come to at your last save point.
+
+Not: checkpoint
 
 ### Select Item
 
