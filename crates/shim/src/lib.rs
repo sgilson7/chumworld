@@ -141,6 +141,26 @@ impl Game {
         api::map_pixels(&self.inner)
     }
 
+    /// M7: how the page sets its sound up (`sound::settings`).
+    pub fn sound_settings(&self) -> Vec<f32> {
+        floats(tool_core::sound::settings())
+    }
+
+    /// M7: one voice's samples, made by the core from `data/sound.json`.
+    pub fn sound_samples(&self, voice: u32) -> Vec<f32> {
+        floats(tool_core::sound::samples(voice as usize))
+    }
+
+    /// M7: the voices to start this frame: voice, gain, rate, pan each.
+    pub fn sounds(&self) -> Vec<f32> {
+        floats(self.inner.sounds.clone())
+    }
+
+    /// M7: every looping voice's level this frame: voice, gain, rate, pan each.
+    pub fn sound_loops(&self) -> Vec<f32> {
+        floats(self.inner.loops.clone())
+    }
+
     /// The view model, as JSON.
     pub fn ui(&self) -> String {
         api::ok(&api::ui(&self.inner))

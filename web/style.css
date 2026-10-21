@@ -168,7 +168,13 @@ body:not([data-screen="play"]) #hud { display: none; }
 #hud-swing { position: fixed; top: 61vh; left: 50%; transform: translateX(-50%); font-size: 13px; padding: 5px 13px; background: rgba(43, 33, 64, 0.35); transition: opacity 0.15s ease; }
 #hud-swing.shown { opacity: 0.85; }
 #hud-swing:empty { display: none; }
-#hud-veil { position: fixed; inset: 0; margin: 0; padding: 0; border-radius: 0; background: #1b1530; transition: opacity 1.3s ease; }
+/* M7: the dark comes on slowly then sinks (an ease-in over the core's 80
+   ticks, 1.33 s), and lifts quickly then settles (an ease-out), as waking
+   does; the story's line drifts down a little as it comes */
+#hud-veil { position: fixed; inset: 0; margin: 0; padding: 0; border-radius: 0; background: #1b1530; transition: opacity 1.4s cubic-bezier(0.2, 0.6, 0.35, 1); }
+#hud-veil.shown { transition: opacity 1.33s cubic-bezier(0.5, 0, 0.75, 0.3); }
+#hud-story { transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); transform: translate(-50%, -10px); }
+#hud-story.shown { transform: translate(-50%, 0); }
 
 #message:empty { display: none; }
 #message {
