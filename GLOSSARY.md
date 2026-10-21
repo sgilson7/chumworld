@@ -194,6 +194,12 @@ The menu screen for the imbue, your coins and what to do next.
 
 Not: journal
 
+### Quest line
+
+Something to go after that a rumour started: the speedster's armour, the leader's sword, the bandits' chest, the trainer, the waystones. The Quest screen lists each with what you last heard of it and how far you are; it moves on as its items come to hand and is done once they all have.
+
+Not: quest log, mission
+
 ### Quick item
 
 An item put on a number key from Select Item. Pressing the key readies it in the free hand.
@@ -213,6 +219,12 @@ A cut from low in front up over the shoulder: hold the left button and move the 
 A throwable from the ground. One that lands on the merchant's cart stops the cart.
 
 Not: stone
+
+### Rumour
+
+What a person tells you about where something is or how to get it. Talk to someone with E and they tell you one rumour; talk again for the next, until they have no more to tell. A rumour starts or moves on a quest line, and may mark a place on the map.
+
+Not: hint, gossip
 
 ### Run
 

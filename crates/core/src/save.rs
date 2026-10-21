@@ -340,6 +340,14 @@ pub const PARTS: &[Part] = &[
         ids: roadside_ids,
         apply: roadside_apply,
     },
+    // M7 rumours (T17): what was heard, who was met, the quest lines' steps
+    // and the places marked
+    Part {
+        name: "rumours",
+        known: crate::rumours::save_known,
+        ids: crate::rumours::save_ids,
+        apply: crate::rumours::save_apply,
+    },
     // M7 (P9): the held sites seen (their map marks)
     Part {
         name: "wanderers",

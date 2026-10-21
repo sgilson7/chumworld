@@ -3815,6 +3815,132 @@
     "test": "the_views_stand_the_player_where_they_say"
   },
   {
+    "name": "T17 rumours: a rumour that names the wrong route is caught",
+    "file": "data/rumours.json",
+    "find": "\"of\": \"gloves\",\n      \"route\": \"lookout\",",
+    "replace": "\"of\": \"gloves\",\n      \"route\": \"hollow_tree\",",
+    "test": "every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found"
+  },
+  {
+    "name": "T17 rumours: a rumour that marks the wrong place is caught",
+    "file": "data/rumours.json",
+    "find": "\"reveals\": { \"place\": \"shrine\", \"label\": \"place_shrine\" },",
+    "replace": "\"reveals\": { \"place\": \"bridge\", \"label\": \"place_bridge\" },",
+    "test": "every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found"
+  },
+  {
+    "name": "T17 rumours: an item with no rumour is caught",
+    "file": "data/rumours.json",
+    "find": "\"of\": \"flute\",\n      \"route\": \"trainer_gift\",",
+    "replace": "\"of\": \"flute\",\n      \"route\": \"trainer\",",
+    "test": "every_item_with_a_route_of_its_own_has_a_rumour"
+  },
+  {
+    "name": "T17 rumours: a moot rumour is not offered",
+    "file": "crates/core/src/rumours.rs",
+    "find": "        .filter(|r| !w.rumours.heard(&r.id) && !moot(w, r))",
+    "replace": "        .filter(|r| !w.rumours.heard(&r.id))",
+    "test": "a_rumour_is_offered_only_while_its_condition_holds"
+  },
+  {
+    "name": "T17 rumours: a rumour is moot once its line is done",
+    "file": "crates/core/src/rumours.rs",
+    "find": "r.until.iter().any(|c| holds(w, c)) || w.rumours.line(&r.line).is_some_and(|l| l.done)",
+    "replace": "r.until.iter().any(|c| holds(w, c))",
+    "test": "a_rumour_is_offered_only_while_its_condition_holds"
+  },
+  {
+    "name": "T17 rumours: the opening tells no rumour",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    if w.story.opening() {\n        return Vec::new();\n    }",
+    "replace": "",
+    "test": "no_rumour_is_told_during_the_opening"
+  },
+  {
+    "name": "T17 rumours: hearing a rumour marks its place",
+    "file": "crates/core/src/rumours.rs",
+    "find": "        Some(m) if !st.marks.contains(&m.place) => {\n            st.marks.push(m.place.clone());\n            true\n        }",
+    "replace": "        Some(m) if !st.marks.contains(&m.place) => true,",
+    "test": "hearing_a_rumour_starts_its_line_and_marks_its_place"
+  },
+  {
+    "name": "T17 rumours: hearing a rumour opens its line",
+    "file": "crates/core/src/rumours.rs",
+    "find": "            st.lines.push(Line {\n                id: r.line.clone(),",
+    "replace": "            std::mem::drop(Line {\n                id: r.line.clone(),",
+    "test": "hearing_a_rumour_starts_its_line_and_marks_its_place"
+  },
+  {
+    "name": "T17 rumours: a line closes when its steps all hold",
+    "file": "crates/core/src/rumours.rs",
+    "find": "        if l.held.len() >= ls.steps.len() {",
+    "replace": "        if l.held.len() > ls.steps.len() {",
+    "test": "picking_up_the_item_advances_and_closes_the_line"
+  },
+  {
+    "name": "T17 rumours: a step once held stays held",
+    "file": "crates/core/src/rumours.rs",
+    "find": "            .filter(|c| !l.held.contains(c) && holds(w, c))\n            .collect();\n        let l = &mut w.rumours.lines[k];\n        l.held.extend(now.into_iter().cloned());",
+    "replace": "            .filter(|c| holds(w, c))\n            .collect();\n        let l = &mut w.rumours.lines[k];\n        l.held = now.into_iter().cloned().collect();",
+    "test": "picking_up_the_item_advances_and_closes_the_line"
+  },
+  {
+    "name": "T17 rumours: a person greets once",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    if !opening && !met {\n        w.rumours.met.push(id.to_string());\n    }",
+    "replace": "",
+    "test": "a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line"
+  },
+  {
+    "name": "T17 rumours: a person with nothing left says the closing line",
+    "file": "crates/core/src/rumours.rs",
+    "find": "                    out.push(c.clone());",
+    "replace": "",
+    "test": "a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line"
+  },
+  {
+    "name": "T17 rumours: a rumour heard is heard from everyone",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    if !st.heard(&r.id) {\n        st.heard.push(r.id.clone());\n    }",
+    "replace": "",
+    "test": "a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line"
+  },
+  {
+    "name": "T17 rumours: the people stand on flattened ground",
+    "file": "crates/core/src/rumours.rs",
+    "find": "                at: t.logs,\n                yaw_deg: t.logs_yaw_deg,\n                inside: false,",
+    "replace": "                at: t.logs,\n                yaw_deg: t.logs_yaw_deg,\n                inside: true,",
+    "test": "the_people_stand_clear_on_flattened_ground"
+  },
+  {
+    "name": "T17 rumours: a person kept out of a waystone's gap",
+    "file": "data/rumours.json",
+    "find": "\"at\": [482, 2060],",
+    "replace": "\"at\": [330, 1770],",
+    "test": "the_people_stand_clear_on_flattened_ground"
+  },
+  {
+    "name": "T17 rumours: the Quest screen lists open lines before those done",
+    "file": "crates/core/src/rumours.rs",
+    "find": "        .filter(|l| !l.done)\n        .chain(st.iter().filter(|l| l.done))",
+    "replace": "        .filter(|_| true)\n        .chain(st.iter().filter(|_| false))",
+    "test": "the_quest_screen_lists_the_open_lines_then_those_done"
+  },
+  {
+    "name": "T17 rumours: the map shows a question mark until walked",
+    "file": "crates/core/src/ui.rs",
+    "find": "                \"data/icons/place_rumour.svg\".into()",
+    "replace": "                \"data/icons/place.svg\".into()",
+    "test": "the_quest_screen_lists_the_open_lines_then_those_done"
+  },
+  {
+    "name": "T17 rumours: what was heard is in the world",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    let Some(t) = own().nth(k) else {\n        return;\n    };\n    let lines = talk_lines(w, &t.id, &[]);",
+    "replace": "    let Some(t) = own().nth(k + 99) else {\n        return;\n    };\n    let lines = talk_lines(w, &t.id, &[]);",
+    "test": "the_same_seed_and_talk_give_the_same_world"
+  },
+  {
     "name": "M7 save: a load gives back the coins",
     "file": "crates/core/src/save.rs",
     "find": "inv.coins = p.coins;",
@@ -4100,6 +4226,13 @@
     "find": "    want = crate::sprint::want(f, input, want, n);\n",
     "replace": "",
     "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
+  },
+  {
+    "name": "T17 rumours: the quest lines come back from a save",
+    "file": "crates/core/src/rumours.rs",
+    "find": "    w.rumours = st;\n",
+    "replace": "    w.rumours = State {\n        lines: Vec::new(),\n        ..st\n    };\n",
+    "test": "the_quest_lines_and_marks_come_back_from_a_save"
   },
   {
     "name": "M7 feel: a voice repeats inside its gap",

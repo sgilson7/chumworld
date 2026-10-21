@@ -577,8 +577,11 @@ fn the_traveller_charges_exactly_refuses_short_and_the_ride_wakes_the_waystone()
     assert_eq!(g.screen, Screen::Dialogue);
     assert_eq!(
         g.world.ui.dialogue.as_ref().unwrap().lines,
-        vec!["traveller_hello"]
+        // M7 rumours (T17): then the first rumour the traveller knows
+        vec!["traveller_hello", "rumour_trousers"]
     );
+    g.act("dialogue.next", "").unwrap();
+    g.act("dialogue.next", "").unwrap();
     g.act("dialogue.next", "").unwrap();
     g.act("dialogue.next", "").unwrap();
     frames(&mut g, 1, 0, 0);
@@ -627,7 +630,11 @@ fn the_traveller_offers_nothing_once_every_place_is_reached() {
         p.reached = true;
     }
     talk(&mut w);
-    assert_eq!(w.ui.dialogue.as_ref().unwrap().lines, vec!["traveller_nowhere"]);
+    // M7 rumours (T17): then the first rumour the traveller knows
+    assert_eq!(
+        w.ui.dialogue.as_ref().unwrap().lines,
+        vec!["traveller_nowhere", "rumour_trousers"]
+    );
     assert_eq!(w.travel.song, None);
 }
 

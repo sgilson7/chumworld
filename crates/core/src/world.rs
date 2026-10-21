@@ -124,6 +124,9 @@ pub struct World {
     pub save: crate::save::State,
     // M7 roadside (T12): the stops beside the ways out, the straggler
     pub roadside: crate::roadside::State,
+    // M7 rumours (T17): what has been heard, who has been met, the quest
+    // lines and the places marked (stable ids, for P10's save)
+    pub rumours: crate::rumours::State,
     // M7 (P9, T15): the encounters between the major areas, what is kept of each
     pub wanderers: crate::wanderers::State,
 }
@@ -175,6 +178,7 @@ impl World {
             travel: crate::travel::State::default(),       // M7 travel
             roadside: crate::roadside::State::default(),   // M7 roadside
             wanderers: crate::wanderers::State::new(seed), // M7 (P9)
+            rumours: crate::rumours::State::default(),     // M7 rumours
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w.boom.blocks = std::rc::Rc::new(crate::boom::blocks(&w)); // M7
@@ -261,6 +265,8 @@ impl World {
         crate::story::step(self, input);
         // M7 travel: the waystones come near, the flute given, a journey
         crate::travel::step(self);
+        // M7 rumours: the quest lines move on as their items come to hand
+        crate::rumours::step(self);
         // M7 (P9): the wanderers stand near the player, are parked away, are beaten
         crate::wanderers::step(self);
         // M7 save: the autosave, and a save that is due
@@ -291,6 +297,8 @@ impl World {
         crate::orbs::draw(self, alpha, look, out);
         // M7 travel: the woken waystones' light, the traveller and the mule
         crate::travel::draw(self, alpha, look, out);
+        // M7 rumours: the people who tell rumours
+        crate::rumours::draw(self, alpha, look, out);
     }
 
     /// What never moves: the static groups, and the meshes they draw.
@@ -343,6 +351,7 @@ impl World {
             Some(("feel", rest)) => crate::feel::act(self, rest, value),  // M7
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
+            Some(("rumours", rest)) => crate::rumours::act(self, rest, value), // M7 rumours
             Some(("wanderers", rest)) => crate::wanderers::act(self, rest, value), // M7 (P9)
             Some(("sprint", rest)) => crate::sprint::act(self, rest, value), // M7 (T14)
             _ => Err(format!("Unknown action \"{name}\".")),

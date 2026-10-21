@@ -209,6 +209,16 @@ ROADSIDE_VIEWS = {
     "rs-west_top": ("roadside.top:west_rocks", [], 150),
     "rs-west_cart": ("roadside.look:west_cart 7", [], 150),
     "rs-west_villager": ("roadside.look:west_villager 4", [], 150),
+    # M7 rumours (T17): a list of acts is sent in order; "ring:N" opens the
+    # ring at the map with M and turns it on with E (1: the map, 2: Quest)
+    "ru-talk": (["story.skip", "rumours.look:woodcutter 1"], ["KeyE", "Space", "Space", "Space"], 150),
+    "ru-quest": (["story.skip", "rumours.hear:jacket", "rumours.hear:gloves", "rumours.hear:sword",
+                  "rumours.hear:imbue", "rumours.hear:traveller"], ["ring:2"], 150),
+    "ru-map": (["story.skip", "places.go:2000,2500", "rumours.hear:jacket", "rumours.hear:gloves",
+                "rumours.hear:imbue", "rumours.hear:boots", "rumours.hear:traveller"], ["ring:1"], 150),
+    "ru-close": (["story.skip", "rumours.hear:sword", "test.give_all"], [], 40),
+    "ru-closed-quest": (["story.skip", "rumours.hear:hood", "rumours.hear:sword", "rumours.hear:boomerang",
+                         "test.give_all"], ["ring:2"], 150),
     "rs-map": ("", ["map"], 150),
 }
 # M2: the time each frame callback of the page takes, and the frames
@@ -468,7 +478,10 @@ def roadside_views(browser, base, out, views, logs):
         page = browser.new_page(viewport=SIZE, device_scale_factor=1)
         page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
         page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
-        flags = ("&act=" + quote(acts)) if acts else ""
+        if isinstance(acts, list):
+            flags = "".join("&act=" + quote(a) for a in acts)
+        else:
+            flags = ("&act=" + quote(acts)) if acts else ""
         if "map" in keys:
             flags = "&go=2000,2500,0,-8" + TEST_ACTS
         page.goto(base + "/index.html?pointer=free" + flags, wait_until="commit")
@@ -478,7 +491,16 @@ def roadside_views(browser, base, out, views, logs):
         page.wait_for_selector("body[data-screen='play']", state="attached")
         wait_frames(page, wait)
         for k in keys:
-            if k == "map":
+            if k.startswith("ring:"):
+                page.keyboard.down("KeyM")
+                page.wait_for_timeout(150)
+                page.keyboard.up("KeyM")
+                page.wait_for_selector("#menu.shown")
+                page.wait_for_timeout(700)
+                for _ in range(int(k[5:]) - 1):
+                    page.keyboard.press("KeyE")
+                    page.wait_for_timeout(700)
+            elif k == "map":
                 page.keyboard.press("Tab")
                 page.wait_for_selector("#menu.shown")
                 page.wait_for_timeout(700)

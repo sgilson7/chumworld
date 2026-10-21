@@ -526,6 +526,16 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .quest-coins .count-value { font-size: 40px; font-weight: 850; line-height: 1; }
 .quest-coins .count-label { color: var(--ink-soft); }
 .quest-task { grid-column: 1 / -1; }
+/* M7 rumours (T17): the quest lines */
+.quest-lines { grid-column: 1 / -1; }
+.quest-lines .lines-none[hidden] { display: none; }
+.line-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px; max-height: 210px; overflow-y: auto; }
+.line-list li { padding: 8px 12px; border-radius: 12px; background: rgba(251, 245, 233, 0.6); }
+.line-list .line-head { display: flex; justify-content: space-between; gap: 12px; font-weight: 850; font-size: 16px; }
+.line-list .line-progress { color: var(--accent-deep); white-space: nowrap; }
+.line-list .line-text { margin: 2px 0 0; font-size: 14px; line-height: 1.35; }
+.line-list li.done { opacity: 0.62; }
+.line-list li.done .line-progress::before { content: "\2713  "; }
 
 /* the turns either side, Ocarina of Time's Z and R */
 .turn {
