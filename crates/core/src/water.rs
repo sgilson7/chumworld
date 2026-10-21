@@ -93,6 +93,13 @@ pub struct RiverSpec {
     pub valley_m: i32,
     pub piers: Vec<PierSpec>,
     pub islets: Vec<IsletSpec>,
+    /// M7: the river's boulders (`River::boulders`)
+    #[serde(default)]
+    pub boulder_every_m: i32,
+    #[serde(default)]
+    pub boulder_pct: i32,
+    #[serde(default)]
+    pub boulder_clear_m: i32,
 }
 
 /// The river at one station.
@@ -141,6 +148,9 @@ pub struct Rock {
     pub speed: Fx,
     pub s: Fx,
     pub across: Fx,
+    /// M7: a boulder of the river's own (`boulders`), which the scatter
+    /// draws as a stone; a pier or an islet is drawn by its place
+    pub boulder: bool,
 }
 
 /// Where a point lies against the river: how far from the centreline
@@ -249,38 +259,49 @@ impl River {
             })
             .collect();
         let step = self.step as i64;
-        let mut stations: Vec<[i64; 2]> = vec![pts[0]];
-        let mut knots = vec![0usize];
-        // the length run since the last station, and the last sample
-        let mut since: i64 = 0;
-        let mut prev = pts[0];
+        // the curve sampled every half metre or so, and the sample each
+        // knot falls on
+        let mut samples: Vec<[i64; 2]> = vec![pts[0]];
+        let mut knot_sample = vec![0usize];
         for k in 0..n - 1 {
             let (p0, p1) = (pts[k], pts[k + 1]);
             let l = len2(p1[0] - p0[0], p1[1] - p0[1]);
             let t0 = [dir[k][0] * l / o, dir[k][1] * l / o];
             let t1 = [dir[k + 1][0] * l / o, dir[k + 1][1] * l / o];
-            // samples every half metre or so along the span
-            let samples = (l / (o / 2)).max(1);
-            for q in 1..=samples {
-                let p = hermite(p0, p1, t0, t1, q * o / samples);
-                let mut from = prev;
-                let mut seg = len2(p[0] - from[0], p[1] - from[1]);
-                // a station wherever a whole step of length is passed
-                while seg > 0 && since + seg >= step {
-                    let need = step - since;
-                    let at = [
-                        from[0] + (p[0] - from[0]) * need / seg,
-                        from[1] + (p[1] - from[1]) * need / seg,
-                    ];
-                    stations.push(at);
-                    since = 0;
-                    seg -= need;
-                    from = at;
-                }
-                since += seg;
-                prev = p;
+            let count = (l / (o / 2)).max(1);
+            for q in 1..=count {
+                samples.push(hermite(p0, p1, t0, t1, q * o / count));
             }
-            knots.push(stations.len() - 1);
+            knot_sample.push(samples.len() - 1);
+        }
+        let samples = self.meander(&samples);
+        let mut stations: Vec<[i64; 2]> = vec![samples[0]];
+        let mut knots = vec![0usize];
+        // the length run since the last station, and the last sample
+        let mut since: i64 = 0;
+        let mut prev = samples[0];
+        let mut next_knot = 1;
+        for (si, &p) in samples.iter().enumerate().skip(1) {
+            let mut from = prev;
+            let mut seg = len2(p[0] - from[0], p[1] - from[1]);
+            // a station wherever a whole step of length is passed
+            while seg > 0 && since + seg >= step {
+                let need = step - since;
+                let at = [
+                    from[0] + (p[0] - from[0]) * need / seg,
+                    from[1] + (p[1] - from[1]) * need / seg,
+                ];
+                stations.push(at);
+                since = 0;
+                seg -= need;
+                from = at;
+            }
+            since += seg;
+            prev = p;
+            while next_knot < knot_sample.len() && knot_sample[next_knot] == si {
+                knots.push(stations.len() - 1);
+                next_knot += 1;
+            }
         }
         // s = 0 at the station nearest where the line enters the square (its
         // first knot at or past z = 0)
@@ -341,6 +362,84 @@ impl River {
         }
         self.stations = out;
         self.knots = knots;
+    }
+
+    /// M7 (R9.47): the curve wandered from side to side at three scales, a
+    /// long meander, a shorter one and a small waver of the banks
+    /// (`MEANDERS`), each sample moved square to the curve; held still near
+    /// the anchors (the bridge, where its piers stand, and the shrine's
+    /// islet): nothing within `MEANDER_HOLD.0` metres of one along the
+    /// river moves, and the wander comes in whole by `MEANDER_HOLD.1`.
+    fn meander(&self, samples: &[[i64; 2]]) -> Vec<[i64; 2]> {
+        let o = ONE as i64;
+        let n = samples.len();
+        if n < 3 {
+            return samples.to_vec();
+        }
+        // how far along each sample is
+        let mut along = vec![0i64; n];
+        for k in 1..n {
+            let (a, b) = (samples[k - 1], samples[k]);
+            along[k] = along[k - 1] + len2(b[0] - a[0], b[1] - a[1]);
+        }
+        // the anchors' places along the curve: the samples nearest them
+        let mut anchors: Vec<[i64; 2]> = self.spec.piers.iter().map(|p| [0, p.z as i64 * o]).collect();
+        for isl in &self.spec.islets {
+            anchors.push([isl.at[0] as i64 * o, isl.at[1] as i64 * o]);
+        }
+        let anchor_s: Vec<i64> = anchors
+            .iter()
+            .map(|a| {
+                // a pier is anchored by its z alone, at the curve's crossing of it
+                let k = if a[0] == 0 {
+                    samples.iter().position(|s| s[1] >= a[1]).unwrap_or(0)
+                } else {
+                    (0..n)
+                        .min_by_key(|&k| len2(samples[k][0] - a[0], samples[k][1] - a[1]))
+                        .unwrap_or(0)
+                };
+                along[k]
+            })
+            .collect();
+        let (h0, h1) = (MEANDER_HOLD.0 as i64 * o, MEANDER_HOLD.1 as i64 * o);
+        (0..n)
+            .map(|k| {
+                let s = along[k];
+                let hold = anchor_s
+                    .iter()
+                    .map(|&a| {
+                        let d = (s - a).abs();
+                        if d <= h0 {
+                            0
+                        } else if d >= h1 {
+                            o
+                        } else {
+                            smooth(((d - h0) * o / (h1 - h0)) as Fx) as i64
+                        }
+                    })
+                    .min()
+                    .unwrap_or(o);
+                let mut off: i64 = 0;
+                for (q, &(wave, amp)) in MEANDERS.iter().enumerate() {
+                    let nz = crate::terrain::noise(
+                        s.clamp(i32::MIN as i64, i32::MAX as i64) as Fx,
+                        0,
+                        wave,
+                        0x3e3e + q as u32,
+                    );
+                    off += nz * amp as i64 / 100;
+                }
+                off = off * hold / o;
+                // square to the curve here
+                let (a, b) = (samples[k.saturating_sub(1)], samples[(k + 1).min(n - 1)]);
+                let l = len2(b[0] - a[0], b[1] - a[1]).max(1);
+                let right = [-(b[1] - a[1]) * o / l, (b[0] - a[0]) * o / l];
+                [
+                    samples[k][0] + right[0] * off / o,
+                    samples[k][1] + right[1] * off / o,
+                ]
+            })
+            .collect()
     }
 
     /// The steady flow, between the stations whose z lies in the solved
@@ -453,6 +552,7 @@ impl River {
                     speed: fx::mul(st.speed, profile(fx::div(across, st.half.max(1)))),
                     s: st.s,
                     across,
+                    boulder: false,
                 });
             }
         }
@@ -468,11 +568,64 @@ impl River {
                     speed: st.speed,
                     s: n.s,
                     across: n.across,
+                    boulder: false,
                 });
             }
         }
+        rocks.extend(self.boulders(&rocks));
         rocks.sort_by_key(|k| k.s);
         self.rocks = rocks;
+    }
+
+    /// M7 (R9.47): a few boulders in the water through the walkable square,
+    /// from the river's own seed: a chance at every `boulder_every_m` down
+    /// it, `boulder_pct` of them taken, none within `boulder_clear_m` along
+    /// the river of a pier, an islet or a ford; each a third to two thirds
+    /// of the way out to a bank, 35 to 75 cm round, standing 15 to 35 cm
+    /// out of the water. The flow goes round each as round a pier.
+    fn boulders(&self, others: &[Rock]) -> Vec<Rock> {
+        let sp = &self.spec;
+        let every = (sp.boulder_every_m.max(1) * ONE / self.step).max(1) as usize;
+        let clear = sp.boulder_clear_m * ONE;
+        let fords: Vec<Fx> = sp
+            .widths
+            .iter()
+            .filter(|w| w.half_cm > sp.half_cm * 3 / 2)
+            .filter_map(|w| self.stations.iter().find(|s| s.at.z >= w.z * ONE).map(|s| s.s))
+            .collect();
+        let (a, b) = self.solved;
+        let mut out = Vec::new();
+        for k in (a..b).step_by(every) {
+            let st = self.stations[k];
+            if st.at.z < 0 || st.at.z > 4000 * ONE {
+                continue;
+            }
+            let h = crate::terrain::hash(k as i32, 0, 0x0b0b);
+            if (h % 100) as i32 >= sp.boulder_pct {
+                continue;
+            }
+            if others.iter().any(|r| (r.s - st.s).abs() < clear)
+                || fords.iter().any(|&f| (f - st.s).abs() < clear)
+            {
+                continue;
+            }
+            let side = if h & 0x100 == 0 { -1 } else { 1 };
+            let share = ONE / 3 + ((h >> 9) % 1000) as Fx * (ONE / 3) / 1000;
+            let across = side * fx::mul(st.half, share);
+            let r = cm(35 + ((h >> 20) % 41) as i32);
+            let right = v3(-st.dir.z, 0, st.dir.x);
+            out.push(Rock {
+                at: v3(st.at.x, 0, st.at.z).add(right.scale(across)),
+                r,
+                top: st.at.y + cm(15 + ((h >> 14) % 21) as i32),
+                flow: st.dir,
+                speed: fx::mul(st.speed, profile(fx::div(across, st.half.max(1)))),
+                s: st.s,
+                across,
+                boulder: true,
+            });
+        }
+        out
     }
 
     /// How far out from an islet's middle its shore lies: where its dome,
@@ -510,7 +663,7 @@ impl River {
             };
         }
         let s0 = self.stations[0].s;
-        let rel = (s - s0).max(0) as i64;
+        let rel = (s as i64 - s0 as i64).max(0);
         let i = ((rel / self.step as i64) as usize).min(n - 1);
         let j = (i + 1).min(n - 1);
         let t =
@@ -651,6 +804,13 @@ impl River {
         found.filter(|f| f.d <= reach)
     }
 }
+
+/// The river's meanders (R9.47): (wavelength m, how far it wanders cm),
+/// longest first.
+pub const MEANDERS: [(i32, i32); 3] = [(420, 1600), (130, 550), (38, 120)];
+/// Near an anchor (the bridge, the islet) the river holds its line out to
+/// the first distance along it (m) and wanders whole from the second.
+pub const MEANDER_HOLD: (i32, i32) = (70, 240);
 
 /// The speed across the channel as a share of the mean: 1.25 (1 − u⁴), whose
 /// mean across is one, so the discharge holds (the fishing game's `bake.rs`).
@@ -1484,6 +1644,71 @@ mod tests {
         let face = at(-pier.r - ONE / 10, 0);
         let (s, a) = (pier.s - pier.r - ONE / 10, pier.across);
         assert!(r.field(face, s, a).white > ONE / 4);
+    }
+
+    /// R9.47: a river laid along a straight line wanders off it by the
+    /// three meanders' sum, at most 16 + 5.5 + 1.2 = 22.7 m (value noise is
+    /// never more than one), and holds the line within 70 m of the bridge's
+    /// piers.
+    #[test]
+    fn the_river_meanders_but_holds_its_line_at_the_bridge() {
+        let mut spec = land().river.spec.clone();
+        spec.line = vec![[600, -3000], [600, 7000]];
+        spec.islets.clear();
+        let r = River::new(&spec);
+        let at = |z: i32| r.stations.iter().find(|s| s.at.z >= int(z)).unwrap().at.x;
+        assert!(
+            (at(2248) - int(600)).abs() < ONE / 2,
+            "at the bridge: {}",
+            at(2248)
+        );
+        let most = (0..4000)
+            .step_by(10)
+            .map(|z| (at(z) - int(600)).abs())
+            .max()
+            .unwrap();
+        assert!(
+            most > int(5) && most <= int(23),
+            "wanders {} m at most",
+            most / ONE
+        );
+    }
+
+    /// The second ford (R9.47), 36 m across over a riffle falling 18 in
+    /// 1 000: Manning's depth h = (q n / √S)^(3/5) with q = 22 / 36 =
+    /// 0.611 m²/s, n = 0.050 and √0.018 = 0.1342: q n / √S = 0.2277, h =
+    /// 0.2277^0.6 = 0.412 m, knee deep; and the river's boulders stand clear
+    /// of the piers, the islet and both fords by 110 m along it.
+    #[test]
+    fn the_south_ford_is_knee_deep_and_the_boulders_keep_clear() {
+        let l = land();
+        let r = &l.river;
+        let st = r.stations.iter().find(|s| s.at.z >= int(3300)).unwrap();
+        assert!((st.half - int(18)).abs() < ONE / 10, "{}", st.half);
+        assert!(
+            (st.depth - ONE * 412 / 1000).abs() < ONE * 412 / 1000 * 6 / 100,
+            "{} cm",
+            st.depth * 100 / ONE
+        );
+        let boulders: Vec<&Rock> = r.rocks.iter().filter(|k| k.boulder).collect();
+        assert!(boulders.len() > 5, "{} boulders", boulders.len());
+        let keep: Vec<Fx> = r
+            .rocks
+            .iter()
+            .filter(|k| !k.boulder)
+            .map(|k| k.s)
+            .chain([1000, 3300].map(|z| r.stations.iter().find(|s| s.at.z >= int(z)).unwrap().s))
+            .collect();
+        for b in boulders {
+            assert!(
+                keep.iter().all(|&s| (b.s - s).abs() >= int(110)),
+                "a boulder at {} m down",
+                b.s / ONE
+            );
+            // in the water, a third to two thirds of the way to a bank
+            let st = r.station(b.s);
+            assert!(b.across.abs() >= st.half / 3 - ONE / 10 && b.across.abs() <= st.half * 2 / 3 + ONE / 10);
+        }
     }
 
     #[test]

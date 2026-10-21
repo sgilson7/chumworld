@@ -194,8 +194,8 @@ pub const UNIFORMS: &[(&str, &str, usize)] = &[
 ];
 
 /// How deep grass and tufts sink as they fade (the second matrix's bands):
-/// deeper than the tallest blade and flower stand, 60 cm.
-pub const SINK: Fx = ONE * 60 / 100;
+/// deeper than the tallest reed stands, 1.2 m.
+pub const SINK: Fx = ONE * 120 / 100;
 
 /// How far a part's shapes reach past its chunk's square, Q16 metres (a
 /// crown's radius, a blade's lean).
@@ -414,6 +414,23 @@ pub fn items(land: &Land, i: i32, j: i32) -> Vec<Item> {
                 tone: r.below(sp.rock.len().max(1) as u32) as usize,
             });
         }
+    }
+    // M7: the river's boulders in this chunk, standing out of the water
+    // (`water::River::boulders`): a stone 2r across, its top where the river
+    // says (a stone's top stands 0.55 of its width over its foot)
+    for (k, b) in land.river.rocks.iter().enumerate().filter(|(_, b)| b.boulder) {
+        let inside = b.at.x >= x0 && b.at.x < x0 + side && b.at.z >= z0 && b.at.z < z0 + side;
+        if !inside {
+            continue;
+        }
+        let h = hash(k as i32, 7, seed ^ 0xb01d);
+        out.push(Item {
+            thing: Thing::Rock,
+            at: v3(b.at.x, b.top - fx::mul(b.r, ONE * 11 / 10), b.at.z),
+            size: (b.r as i64 * 500 / 3 / ONE as i64) as i32,
+            yaw: (h % fx::TURN as u32) as i32,
+            tone: (h >> 16) as usize % sp.rock.len().max(1),
+        });
     }
     out
 }
@@ -858,12 +875,27 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                 // edges low enough in contrast not to crawl as the view pans
                 let ground = land.meadow_in(foot.x, foot.z, 0, &sc);
                 let blade = rgb(sp.blade[r.below(sp.blade.len() as u32) as usize]);
-                let c = shade(crate::look::mix(ground, blade, ONE / 2), 94);
-                let flower = r.chance(sp.flower_pct.max(0) as u32, 100);
-                for blade in 0..4 {
+                let mut c = shade(crate::look::mix(ground, blade, ONE / 2), 94);
+                // M7 (R9.47): by the water's edge, off a gravel bar, reeds:
+                // three times as tall, upright, an olive green
+                // in clumps where a slow noise says so, thinning away from the water
+                let reed = land.near(foot.x, foot.z, &sc).is_some_and(|n| {
+                    let edge = n.d - n.half;
+                    let clump = crate::terrain::noise(foot.x, foot.z, 6, land.spec.seed ^ 0x2eed);
+                    let reach = ONE as i64 / 2 + (clump + ONE as i64) * 2;
+                    edge > ONE * 3 / 10
+                        && (edge as i64) < reach
+                        && clump > -(ONE as i64) / 5
+                        && land.bank_shape(&n).2 < ONE as i64 / 2
+                });
+                if reed {
+                    c = shade(crate::look::mix(blade, land.dry_colour(), ONE * 4 / 10), 84);
+                }
+                let flower = r.chance(sp.flower_pct.max(0) as u32, 100) && !reed;
+                for blade in 0..if reed { 6 } else { 4 } {
                     let a = r.below(fx::TURN as u32) as i32;
-                    let lean = ONE * r.between(6, 16) / 100;
-                    let tall = ONE * r.between(22, 42) / 100;
+                    let lean = ONE * r.between(6, 16) / 100 * if reed { 3 } else { 2 } / 2;
+                    let tall = ONE * r.between(22, 42) / 100 * if reed { 22 } else { 10 } / 10;
                     let tip = foot.add(v3(fx::mul(fx::cos(a), lean), tall, fx::mul(fx::sin(a), lean)));
                     b.blade_lit(
                         foot.add(v3(blade * ONE / 30, 0, 0)),
@@ -989,6 +1021,15 @@ mod tests {
         let all: Vec<Item> = chunks.iter().flat_map(|&(i, j)| items(&l, i, j)).collect();
         assert!(all.len() > 100);
         for it in &all {
+            // none in the water but the river's own boulders (M7)
+            let boulder = l
+                .river
+                .rocks
+                .iter()
+                .any(|b| b.boulder && b.at.x == it.at.x && b.at.z == it.at.z);
+            if boulder {
+                continue;
+            }
             assert!(!l.is_water(it.at.x, it.at.z), "{:?} in water", it.at);
             assert_eq!(it.at.y, l.ground(it.at.x, it.at.z));
             let sc = l.scope_all();

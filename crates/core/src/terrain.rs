@@ -90,6 +90,8 @@ pub struct ColourSpec {
     pub mountain: [i32; 3],
     pub upland: [i32; 3],
     pub snow: [i32; 3],
+    /// M7: the gravel of the river's bars and fords
+    pub gravel: [i32; 3],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -362,6 +364,7 @@ struct Paint {
     mountain: Rgb,
     upland: Rgb,
     snow: Rgb,
+    gravel: Rgb,
 }
 
 /// The land: its numbers, its layout, its river, and the layout's features
@@ -449,6 +452,7 @@ impl Land {
             mountain: rgb(c.mountain),
             upland: rgb(c.upland),
             snow: rgb(c.snow),
+            gravel: rgb(c.gravel),
         };
         let river = River::new(&layout.river);
         let reach = river.stations.iter().map(|s| s.half).max().unwrap_or(0)
@@ -776,8 +780,7 @@ impl Land {
         let half = n.half.max(ONE) as i64;
         // a parabola as deep in the middle as gives the solved mean depth
         let deep = (n.depth as i64 * 3 / 2).max(O / 5);
-        let bank = self.layout.river.bank_cm as i64 * O / 100;
-        let bank_w = (bank * half / deep).clamp(2 * O, BANK_MAX / 2);
+        let (bank, bank_w, _) = self.bank_shape(&n);
         let valley = self.layout.river.valley_m as i64 * O;
         let d = n.d as i64;
         let mut y = if d <= half {
@@ -801,6 +804,30 @@ impl Land {
             }
         }
         y
+    }
+
+    /// The river's bank at `n` (R9.47): how high it rises over the water,
+    /// how wide it is, and how much of a gravel bar it is (0 to ONE). Each
+    /// bank's height wanders along the river, 60% to 130% of `bank_cm`; on
+    /// the inside of a bend it is a low, wide gravel bar, on the outside a
+    /// cut bank. Its width is its height over the bowl's own slope at the
+    /// edge (`half / deep`), so the bank always meets the water at the
+    /// slope the water's bowl does (the depth test, CW-18).
+    pub fn bank_shape(&self, n: &Near) -> (i64, i64, i64) {
+        let half = n.half.max(ONE) as i64;
+        let deep = (n.depth as i64 * 3 / 2).max(O / 5);
+        let base = self.layout.river.bank_cm as i64 * O / 100;
+        let side: u32 = if n.across >= 0 { 0x6b6b } else { 0x7c7c };
+        let wander = noise01(n.s, side as Fx * 64, 160, self.spec.seed ^ side);
+        let mut k = O * 60 / 100 + qmul(wander, O * 70 / 100);
+        // the inside of a bend: the turn a metre against the side
+        let curve = self.river.station(n.s).curve as i64;
+        let inner = if n.across >= 0 { curve } else { -curve };
+        let bar = sstep(O / 600, O / 150, inner);
+        k = qmul(k, O - qmul(bar, O * 6 / 10));
+        let bank = qmul(base, k).max(O / 5);
+        let bank_w = (bank * half / deep).clamp(2 * O, BANK_MAX / 2);
+        (bank, bank_w, bar)
     }
 
     /// The land with the river and the plateaus and ponds in it: what a road
@@ -924,6 +951,11 @@ impl Land {
             }
         }
         h
+    }
+
+    /// The meadow's sun-dried colour.
+    pub fn dry_colour(&self) -> Rgb {
+        self.paint.dry
     }
 
     /// The roads' dirt and its darker patches and ruts.
@@ -1245,8 +1277,9 @@ impl Land {
             // beyond the banks is still meadow
             let wet = (h as i64) < n.surface as i64 && d < half + BANK_MAX / 2;
             if wet {
+                // a stony bed, gravel where it is shallow (the fords)
                 c = mix(
-                    p.sand,
+                    p.gravel,
                     p.bed,
                     (sstep(0, O / 2, n.surface as i64 - h as i64)) as Fx,
                 );
@@ -1254,6 +1287,12 @@ impl Land {
                 let band = cover((d - half).abs(), 2 * O + cell / 4);
                 if band > 0 {
                     c = mix(c, p.sand, band as Fx);
+                }
+                // a gravel bar on the inside of a bend, across its low bank
+                let (_, bank_w, bar) = self.bank_shape(&n);
+                if bar > 0 {
+                    let on = cover(d - half, bank_w);
+                    c = mix(c, p.gravel, qmul(on, bar) as Fx);
                 }
             }
         }
@@ -1775,6 +1814,58 @@ pub(crate) mod tests {
         // and on the road there, within a centimetre
         let (lane, road) = (l.ground(int(2000), int(2251)), l.ground(int(2000), int(2250)));
         assert!((lane - road).abs() <= ONE / 100, "{lane} {road}");
+    }
+
+    /// R9.47: the banks vary. Down the river through the square, both
+    /// sides: each bank stands 60% to 130% of 2 m over the water off a bend
+    /// (1.2 to 2.6 m), lower on a bar; it is as wide as its height over the
+    /// bowl's slope at the edge (half / deep), so where that width is not
+    /// held to its 2 m to 15 m it meets the water at the bowl's own slope;
+    /// and somewhere it is a gravel bar.
+    #[test]
+    fn the_river_s_banks_vary_and_meet_the_water_at_its_slope() {
+        let l = land();
+        let (mut bars, mut lo, mut hi) = (0, i64::MAX, 0);
+        for st in l
+            .river
+            .stations
+            .iter()
+            .filter(|s| s.at.z > 0 && s.at.z < int(4000))
+            .step_by(5)
+        {
+            for side in [-1, 1] {
+                let n = crate::water::Near {
+                    d: st.half,
+                    across: side * st.half,
+                    s: st.s,
+                    surface: st.at.y,
+                    half: st.half,
+                    depth: st.depth,
+                    k: 0,
+                };
+                let (bank, w, bar) = l.bank_shape(&n);
+                assert!(bank <= ONE as i64 * 26 / 10 + 8, "{bank}");
+                if bar == 0 {
+                    assert!(bank >= ONE as i64 * 12 / 10 - 8, "{bank}");
+                    lo = lo.min(bank);
+                    hi = hi.max(bank);
+                }
+                let deep = (st.depth as i64 * 3 / 2).max(O / 5);
+                let exact = bank * st.half as i64 / deep;
+                if exact > 2 * O && exact < BANK_MAX / 2 {
+                    assert!((w - exact).abs() <= 2);
+                }
+                bars += (bar > O / 2) as i32;
+            }
+        }
+        assert!(bars > 10, "{bars} stations on a bar");
+        // off the bars, the banks themselves wander by more than half a metre
+        assert!(
+            hi - lo > O / 2,
+            "banks from {} to {} cm",
+            lo * 100 / O,
+            hi * 100 / O
+        );
     }
 
     #[test]

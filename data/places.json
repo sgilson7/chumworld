@@ -179,15 +179,21 @@
     "_wander_pct": "the width wanders this much either way over a few hundred metres, so the banks are not a canal's",
     "widths": [
       { "_note": "narrows for the bridge", "z": 2248, "half_cm": 430, "reach_m": 45 },
-      { "_note": "the shrine's ford: wide and shallow round an islet", "z": 1000, "half_cm": 1400, "reach_m": 70 }
+      { "_note": "the shrine's ford: wide and shallow round an islet", "z": 1000, "half_cm": 1400, "reach_m": 70 },
+      { "_note": "M7 (R9.47): a second ford, wide and shallow over a riffle, on the way to the south-west hill", "z": 3300, "half_cm": 1800, "reach_m": 90 }
     ],
     "level_at": { "z": 2248, "cm": -400 },
     "_level_at": "the bed is set so that the solved water stands this high where the river crosses this z, under the bridge (the village plateau is 0)",
     "slope_per_1000": 3,
     "riffles": [
       { "from_z": 2320, "to_z": 2372, "slope_per_1000": 24 },
-      { "from_z": 875, "to_z": 915, "slope_per_1000": 20 }
+      { "from_z": 875, "to_z": 915, "slope_per_1000": 20 },
+      { "from_z": 3240, "to_z": 3360, "slope_per_1000": 18 }
     ],
+    "boulder_every_m": 70,
+    "boulder_pct": 45,
+    "boulder_clear_m": 110,
+    "_boulders": "M7 (R9.47): a chance of a boulder every 70 m down the river through the square, 45% of them taken, none within 110 m of a pier, an islet or a ford (water.rs, River::boulders)",
     "discharge_m3_s": 22,
     "n_x1000": 35,
     "n_riffle_x1000": 50,

@@ -2742,5 +2742,47 @@
     "find": "                    raw[k] = self.road_level(o, t);\n                    pinned[k] = true;",
     "replace": "                    let _ = (o, t);",
     "test": "a_road_s_middle_never_rises_or_falls_more_than_its_grade"
+  },
+  {
+    "name": "M7 land: the river does not hold its line at the bridge",
+    "file": "crates/core/src/water.rs",
+    "find": "                off = off * hold / o;",
+    "replace": "                let _ = hold;",
+    "test": "the_river_meanders_but_holds_its_line_at_the_bridge"
+  },
+  {
+    "name": "M7 land: the river does not meander",
+    "file": "crates/core/src/water.rs",
+    "find": "        let samples = self.meander(&samples);",
+    "replace": "        let samples = samples.clone();",
+    "test": "the_river_meanders_but_holds_its_line_at_the_bridge"
+  },
+  {
+    "name": "M7 land: no second ford",
+    "file": "data/places.json",
+    "find": "\"z\": 3300, \"half_cm\": 1800, \"reach_m\": 90 }",
+    "replace": "\"z\": 3300, \"half_cm\": 700, \"reach_m\": 90 }",
+    "test": "the_south_ford_is_knee_deep_and_the_boulders_keep_clear"
+  },
+  {
+    "name": "M7 land: boulders by the bridge",
+    "file": "crates/core/src/water.rs",
+    "find": "            if others.iter().any(|r| (r.s - st.s).abs() < clear) || fords.iter().any(|&f| (f - st.s).abs() < clear) {",
+    "replace": "            if fords.iter().any(|&f| (f - st.s).abs() < clear) && others.is_empty() {",
+    "test": "the_south_ford_is_knee_deep_and_the_boulders_keep_clear"
+  },
+  {
+    "name": "M7 land: no gravel bars",
+    "file": "crates/core/src/terrain.rs",
+    "find": "        let bar = sstep(O / 600, O / 150, inner);",
+    "replace": "        let bar = 0 * sstep(O / 600, O / 150, inner);",
+    "test": "the_river_s_banks_vary_and_meet_the_water_at_its_slope"
+  },
+  {
+    "name": "M7 land: every bank alike",
+    "file": "crates/core/src/terrain.rs",
+    "find": "        let mut k = O * 60 / 100 + qmul(wander, O * 70 / 100);",
+    "replace": "        let mut k = O + 0 * qmul(wander, O * 70 / 100);",
+    "test": "the_river_s_banks_vary_and_meet_the_water_at_its_slope"
   }
 ]
