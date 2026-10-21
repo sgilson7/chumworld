@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 use crate::api::{fill, Action};
 use crate::fx::{self, Fx, ONE};
 use crate::game::{Game, Screen};
+use crate::geom::V3;
 use crate::input::{MAP, MENU};
 use crate::inventory::{self, Refusal};
 use crate::items::{self, catalogue, Hand, Item, Slot};
@@ -791,6 +792,10 @@ pub struct Mark {
     /// from the map's left and top edges, as CSS percentages
     pub left: String,
     pub top: String,
+    /// M7 (R9.410): the label stays hidden, shown only while the mark is
+    /// pointed at, because a mark of higher rank (`data/menus.json`'s
+    /// `map_label`) holds the room its label would take (`quiet_labels`)
+    pub quiet: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1237,20 +1242,56 @@ fn equipment_face(g: &Game, front: bool) -> Face {
 
 /// A world position as a share of the map, "50.00%".
 pub(crate) fn map_pct(v: Fx) -> String {
-    let h = (v as i64 * 10_000 / (REGION_M as i64 * ONE as i64)).clamp(0, 10_000);
+    let h = map_h(v);
     format!("{}.{:02}%", h / 100, h % 100)
+}
+
+/// A world position as hundredths of a percent of the map's side.
+fn map_h(v: Fx) -> i64 {
+    (v as i64 * 10_000 / (REGION_M as i64 * ONE as i64)).clamp(0, 10_000)
+}
+
+/// M7 (R9.410): which marks' labels stay hidden. Every label stands the
+/// same height over its point, so two meet when their points are nearer
+/// than a label's height up and down and than half their two widths across
+/// (each width from its letters, `map_label` in data/menus.json, sized for
+/// the smallest map, at 1280 x 720). Marks are taken by rank, highest first,
+/// then in the map's order; a label that would meet one already shown is
+/// quiet. The pins themselves all stay.
+fn quiet_labels(marks: &mut [Mark], at: &[(i64, i64)]) {
+    let l = &menus().map_label;
+    let rank = |m: &Mark| l.rank.get(&m.kind).copied().unwrap_or(0);
+    let width = |m: &Mark| m.label.chars().count() as i64 * l.char + l.pad;
+    let mut order: Vec<usize> = (0..marks.len()).collect();
+    order.sort_by_key(|&i| std::cmp::Reverse(rank(&marks[i])));
+    let mut shown: Vec<usize> = Vec::new();
+    for i in order {
+        let meets = shown.iter().any(|&j| {
+            (at[i].1 - at[j].1).abs() < l.height
+                && 2 * (at[i].0 - at[j].0).abs() < width(&marks[i]) + width(&marks[j])
+        });
+        marks[i].quiet = meets;
+        if !meets {
+            shown.push(i);
+        }
+    }
 }
 
 fn map_face(g: &Game, front: bool) -> Face {
     let (s, w) = (&g.strings, &g.world);
     let menus = menus();
     let all = crate::places::markers(w);
-    let mut marks: Vec<Mark> = all
+    let seen: Vec<(&str, V3)> = all
         .iter()
+        .copied()
         .filter(|(_, at)| {
             let (cx, cz) = Fog::cell_of(at.x, at.z);
             w.ui.fog.seen(cx, cz)
         })
+        .collect();
+    let mut at: Vec<(i64, i64)> = seen.iter().map(|(_, p)| (map_h(p.x), map_h(p.z))).collect();
+    let mut marks: Vec<Mark> = seen
+        .iter()
         .map(|&(kind, at)| Mark {
             kind: kind.into(),
             label: s.get(&format!("place_{kind}")),
@@ -1261,6 +1302,7 @@ fn map_face(g: &Game, front: bool) -> Face {
             },
             left: map_pct(at.x),
             top: map_pct(at.z),
+            quiet: false,
         })
         .collect();
     // M7 rumours (T17): a place a rumour marked shows as a question mark
@@ -1281,8 +1323,11 @@ fn map_face(g: &Game, front: bool) -> Face {
             },
             left: map_pct(m.at.x),
             top: map_pct(m.at.z),
+            quiet: false,
         });
+        at.push((map_h(m.at.x), map_h(m.at.z)));
     }
+    quiet_labels(&mut marks, &at);
     let p = w.player.pos;
     // a heading turns left as it grows (camera::Aim); the map turns clockwise
     let turn = fx::TURN as i64;
@@ -1311,6 +1356,7 @@ fn map_face(g: &Game, front: bool) -> Face {
                 icon: String::new(),
                 left: map_pct(p.x),
                 top: map_pct(p.z),
+                quiet: false,
             },
             heading: format!("{}.{}", tenths / 10, tenths % 10),
             legend: s.get("map_legend"),
@@ -2007,6 +2053,17 @@ struct Parchment {
 struct Menus {
     map: Parchment,
     place_icons: Vec<String>,
+    map_label: MapLabel,
+}
+
+/// M7 (R9.410): a map label's room, in hundredths of a percent of the
+/// map's side, and each kind of mark's rank (a kind not named is 0)
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+struct MapLabel {
+    height: i64,
+    char: i64,
+    pad: i64,
+    rank: std::collections::BTreeMap<String, i64>,
 }
 
 fn menus() -> &'static Menus {
@@ -2122,6 +2179,43 @@ pub fn map_pixels(g: &Game) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// M7 (R9.410): worked by hand from data/menus.json's `map_label`
+    /// (height 450, 180 a letter, 320 padding, in hundredths of a percent).
+    #[test]
+    fn a_minor_mark_s_label_gives_way_to_a_higher_one_and_far_labels_all_show() {
+        let mark = |kind: &str, label: &str| Mark {
+            kind: kind.into(),
+            label: label.into(),
+            icon: String::new(),
+            left: String::new(),
+            top: String::new(),
+            quiet: false,
+        };
+        let mut marks = vec![
+            // listed first but rank 0: 200 below the village, and 2 x 500 =
+            // 1000 across is under 3560 + 2300, so it gives way
+            mark("tor", "The rocks to climb"),
+            mark("village", "The village"),
+            // 1000 below the village: clear of it
+            mark("roadside_well", "The roadside well"),
+            // 3400 right of the well, 2 x 3400 = 6800 over 3380 + 3200: shown
+            mark("wreck_burnt", "The burning cart"),
+            // 3200 right of the well, 6400 under 3380 + 3200: gives way to the
+            // well, the earlier of two at rank 0
+            mark("rumour_x", "The burning cart"),
+        ];
+        let at = [
+            (5500, 5200),
+            (5000, 5000),
+            (5000, 6000),
+            (8400, 6100),
+            (8200, 6100),
+        ];
+        quiet_labels(&mut marks, &at);
+        let quiet: Vec<bool> = marks.iter().map(|m| m.quiet).collect();
+        assert_eq!(quiet, [true, false, false, false, true]);
+    }
     use crate::game::tests::{frames, game};
     use crate::input::{FORWARD, ITEM_1};
 

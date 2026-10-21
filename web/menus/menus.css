@@ -480,6 +480,17 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .mark { display: flex; flex-direction: column-reverse; align-items: center; transform: translate(-50%, -100%); z-index: 1; }
 .mark::before { content: ""; width: 2px; height: 16px; border-radius: 1px; background: rgba(43, 33, 64, 0.6); }
 .mark .mark-label { margin: 0 0 2px; }
+/* M7 (R9.410): a label the core marks quiet (a higher mark holds its room)
+   shows only while its pin is pointed at; the list beside names every mark */
+.mark.quiet .mark-label { visibility: hidden; }
+.mark.quiet:hover .mark-label { visibility: visible; }
+/* every shown label over every pin: the map's mark is an anchor of no size
+   and no stacking of its own, so its icon, stem and label each stand among
+   all the others' and the labels go on top */
+.face-map .mark { display: block; width: 0; height: 0; transform: none; z-index: auto; }
+.face-map .mark::before { position: absolute; left: -1px; top: -16px; z-index: 1; }
+.face-map .mark img { position: absolute; left: -13px; top: -42px; z-index: 1; }
+.face-map .mark .mark-label { position: absolute; left: 0; bottom: 44px; margin: 0; transform: translateX(-50%); z-index: 3; }
 .you { z-index: 2; }
 .mark img { width: 26px; height: 26px; filter: drop-shadow(0 1px 1px rgba(43, 33, 64, 0.35)); }
 .mark-label { margin-top: 2px; padding: 0 6px; border-radius: 6px; background: rgba(251, 245, 233, 0.85); font-size: 12px; font-weight: 800; white-space: nowrap; }
@@ -898,6 +909,38 @@ body[data-screen="paused"] #overlay > .panel { display: contents; }
 #title table.controls { border-radius: 16px 16px 0 0; padding-top: 14px; }
 #title-more table.controls { border-radius: 0 0 16px 16px; padding-bottom: 8px; margin-top: 0; }
 
+/* M7 (R9.410): the title in two columns, so it fits a 1280 x 720 window
+   and up: the name and the buttons on the left, and on the right one card
+   holding the how-to line and every key. The column wraps at the overlay's
+   height, and the empty item after the buttons (::after, a column of its
+   own) starts the card's column. */
+body[data-screen="title"] #overlay {
+  flex-wrap: wrap;
+  align-content: flex-start;
+  column-gap: 32px;
+  padding: 0 0 0 5vw;
+}
+body[data-screen="title"] #overlay::after { content: ""; order: 4; flex-basis: 100%; width: 0; }
+#title h1 { font-size: clamp(48px, 5.2vw, 124px); }
+#title h2 { order: 5; margin-top: 0; }
+#title > p {
+  order: 6;
+  width: min(720px, 50vw);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 14px 18px 4px;
+  border-radius: 16px 16px 0 0;
+  background: rgba(30, 20, 48, 0.5);
+  backdrop-filter: blur(2px);
+  color: var(--paper);
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(20, 12, 32, 0.6);
+}
+#title table.controls { order: 7; border-radius: 0; padding-top: 6px; }
+#title-more table.controls { order: 8; }
+#title table.controls, #title-more table.controls { width: min(720px, 50vw); column-gap: 26px; }
+#title table.controls tr, #title-more table.controls tr { grid-template-columns: 168px minmax(0, 1fr); column-gap: 8px; }
+
 /* the pause: the heading and its two buttons on the left, the keys on the
    right, in one card */
 body[data-screen="paused"] #overlay {
@@ -910,6 +953,10 @@ body[data-screen="paused"] #overlay {
   align-items: start;
 }
 #paused h1 { grid-area: head; margin-bottom: 18px; }
+/* M7 (R9.322): the card rises into its centre; the shared rise ended at
+   transform: none and left it off centre, running off a short window */
+body[data-screen="paused"] #overlay { animation-name: rise-centred; }
+@keyframes rise-centred { from { transform: translate(-50%, calc(-50% + 14px)) scale(0.98); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
 #paused > button { grid-area: resume; }
 #paused-more > button { grid-area: set; }
 #paused h2 { grid-area: keysh; margin: 10px 0 12px; }
