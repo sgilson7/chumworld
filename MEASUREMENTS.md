@@ -227,3 +227,13 @@ The slow and fast strokes give the same rows as the medium within a tick (any st
 | Near pop-in (T8), before P2's fix: frames of 480 in which a lit shape within 25 m, in view in both frames, appears or disappears without a dither hand-over; the story held still | `cargo test --release -p tool_core --test popin_probe -- --ignored --nocapture` | the village: walking straight 2, running 4, a whole turn on the spot 0; the meadow: 2, 4, 0; the camp's edge: 2, 4, 0. Every pop is a whole grass chunk coming in 6 to 9 m ahead (one instance, a mesh the detail levels built); nothing near goes (R9.97) | 2026-10-20, P3 |
 | What the Equipment figure costs | the browser check's figure canvas; `stage::frame` | one more WebGL context, drawn only while the ring is open at Equipment (the world behind holds still); its canvas about 230 × 430 CSS pixels; the static meshes uploaded to it once | 2026-10-20, P3 |
 | The screens' layout at 1280 × 720, 1920 × 1080 and 2560 × 1440 (words off the window, cut, hidden or overlapping; key caps over words; the keyboard's focus ring) | `.venv/bin/python tools/m7qa_shots.py shots/m7qa/sizes` (Chromium on Metal); the browser check's `menus_m7` | before: 251 findings (title and pause off the window at 1280 × 720, "Mouse, sword drawn" over its label, the imbue ring's words touching, the turn button over the Equipment set panel); after: 0 in Chromium, Firefox and WebKit | 2026-10-20, P3 |
+
+## M7 wanderers (P9, T15)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| The tick with the most wanderers up: three orc pairs moved beside the player, the cap's six standing and fighting a player who does not fall, native release | `cargo test --release -p tool_core --test frame_probe probe_wanderers -- --ignored --nocapture` (`probe_wanderers_tick_cost`) | 0.55 ms mean over 600 ticks, one 14 ms tick on a heavily loaded machine; against the core's 2 ms (CW-11): within it on the mean | 2026-10-20, P9 |
+| Every encounter parked (the player at the village centre) | same probe | 0.07 ms a tick, no wanderer left in `World::foes`; `wanderers::step` alone 1.5 µs over 13 parked encounters | 2026-10-20, P9 |
+| Placing the encounters from the seed | same probe | 30 ms (best of five; 54 to 138 ms under load before the roads and the land's chunks were kept for the pass), so it runs once at load (`Game::new`) and is kept over a dream | 2026-10-20, P9 |
+| WebAssembly size | printed by `./scripts/build.sh` | 2 413 KB (with main's save and roadside) | 2026-10-20, P9 |
+
