@@ -493,8 +493,19 @@ pub fn step(w: &mut World) {
             }
             pos = v3(at.x, pos.y, at.z);
         }
-        pos.y = surface(w, pos.x, pos.z) + if in_bed { w.story.lift } else { 0 };
-        let b = player::parts_mut(w, id).0;
+        let floor = surface(w, pos.x, pos.z) + if in_bed { w.story.lift } else { 0 };
+        let (b, f) = player::parts_mut(w, id);
+        // T21: off a ledge a body hops or falls, and lands (`jump.rs`)
+        let gone = fx::length(pos.x - b.prev_pos.x, pos.z - b.prev_pos.z);
+        let may_hop = !f.drawn() && !f.health.down() && !in_bed;
+        pos.y = crate::jump::settle(
+            &mut f.gait,
+            b.prev_pos.y,
+            floor,
+            gone,
+            fx::length(vel.x, vel.z),
+            may_hop,
+        );
         b.pos = pos;
         b.vel = vel;
     }

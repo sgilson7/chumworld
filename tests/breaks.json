@@ -5206,5 +5206,33 @@
     "find": "                keep_round_all(&trunks, &mut at, &mut moved, RADIUS);",
     "replace": "                let _ = &trunks;",
     "test": "a_body_sprinting_at_ten_times_the_run_does_not_pass_through_a_tree"
+  },
+  {
+    "name": "jump (T21): no hop off a ledge",
+    "file": "crates/core/src/jump.rs",
+    "find": "        g.vy = if may_hop && speed >= hop_speed() { HOP_VY } else { 0 };",
+    "replace": "        g.vy = 0;",
+    "test": "running_off_a_ledge_hops_up_and_comes_down_on_the_floor_below"
+  },
+  {
+    "name": "jump (T21): a drawn sword hops",
+    "file": "crates/core/src/jump.rs",
+    "find": "        g.vy = if may_hop && speed >= hop_speed() { HOP_VY } else { 0 };",
+    "replace": "        g.vy = if speed >= hop_speed() { HOP_VY } else { 0 };",
+    "test": "walking_off_a_ledge_falls_without_rising_and_a_drawn_sword_does_not_hop"
+  },
+  {
+    "name": "jump (T21): a slope is a ledge",
+    "file": "crates/core/src/jump.rs",
+    "find": "        if drop <= STEP_DOWN + crate::fx::mul(gone, SLOPE) {",
+    "replace": "        if drop <= STEP_DOWN {",
+    "test": "a_step_down_or_a_slope_keeps_the_feet_on_the_ground"
+  },
+  {
+    "name": "jump (T21): no fastest fall",
+    "file": "crates/core/src/jump.rs",
+    "find": "    g.vy = (g.vy - GRAVITY).max(-TERMINAL);",
+    "replace": "    g.vy = g.vy - GRAVITY;",
+    "test": "a_fall_never_passes_thirty_metres_a_second"
   }
 ]

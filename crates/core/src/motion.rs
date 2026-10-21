@@ -103,7 +103,15 @@ pub struct Gait {
     pub lift: Fx,
     /// M7 (T14): the sprint, its build and its skid (`sprint.rs`)
     pub sprint: crate::sprint::Sprint,
+    /// T21 (phase A): off its feet, and how fast it rises (+) or falls (−),
+    /// a tick (`jump.rs`)
+    pub air: bool,
+    pub vy: Fx,
 }
+
+/// T21: in the air a body keeps this share of its feet's grip (a sixth),
+/// so a hop goes where it was going (`jump.rs`).
+pub const AIR_GRIP_DIV: Fx = 6;
 
 /// The road's share moved one tick toward on (ONE) or off (0).
 pub fn road_share(share: Fx, on: bool) -> Fx {
@@ -222,7 +230,7 @@ pub fn step_body(
         f.gait.stagger -= 1;
     }
     // the dodge-step: Space with a direction, once the last has worn off
-    let dodge = !down && f.gait.stagger == 0 && f.pressed(input, input::DODGE);
+    let dodge = !down && !f.gait.air && f.gait.stagger == 0 && f.pressed(input, input::DODGE);
     let g = &mut f.gait;
     g.dodge_wait = g.dodge_wait.saturating_sub(1);
     if dodge && g.dodge_wait == 0 && want != V3::ZERO {
@@ -238,7 +246,13 @@ pub fn step_body(
     want = crate::sprint::want(f, input, want, n);
     // M7 (P4): toppled, hopping on one leg or crawling with none
     want = crate::wounds::gait_want(f, want, n);
-    b.vel = approach(b.vel, want, grip(n));
+    // T21: in the air, a sixth of the grip
+    let held = if f.gait.air {
+        grip(n) / AIR_GRIP_DIV
+    } else {
+        grip(n)
+    };
+    b.vel = approach(b.vel, want, held);
     b.vel = crate::sprint::skid(f, b.prev_vel, b.vel, n); // M7 (T14): no sudden stop
     if b.vel.len() <= 1 {
         b.vel = V3::ZERO;
