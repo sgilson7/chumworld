@@ -252,5 +252,7 @@ Not built here, moved by the coordinator: the hit flash (P4), the imbued guard's
 
 For other tasks: R9.6 (P5: M1's fence fails for draw timings near the one chosen), R9.13 (P3: the house's door is shut and walked through), R9.16 (P3: the HUD and the fade hidden off the play screen), R9.19 (P2: the step's surface should read P2's road rule), R9.20 (a scatter chunk's trees cost 5 to 6 ms to build).
 
+Check (2026-10-20, after merging main at ca463be and later): `./scripts/check.sh` steps 1 to 7 pass (format, lint, 488 core tests by `./scripts/count-tests.sh` with 20 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R9.17 and R9.18 have status *person* and the journal does not name them yet, and because the journal cites rows of branches not yet on main (R9.250 to R9.322). Step 9 is left to the coordinator's batched browser check (the person's rule of 2026-10-20); before that rule, run on this branch it passed in all three engines except the frozen spark in Firefox and WebKit, since fixed (R9.23) and seen still there by a pixel diff, and the village green's pan, since back at 23 (R9.7). Breaks: `python3 scripts/break_tests.py "M7 feel"` 38 of 38 caught (and `M7`, all parts, 93 of 93 before the last two merges). Screenshots in `shots/m7feel/` (not committed).
+
 Waiting on the person: R9.17 (the sounds and the mix: `shots/m7feel/sound-mix.wav`), R9.18 (the strings under "### M7 feel" at the foot of `SECOND-ORDER.md`).
 
