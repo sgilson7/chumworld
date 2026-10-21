@@ -87,6 +87,8 @@ pub struct Game {
     pub detail: crate::lod::Detail,
     /// M2: the water program's values this frame (`water::FRAME`)
     pub water_frame: Vec<i32>,
+    /// M7: the scene program's values this frame (`wind::FRAME`)
+    pub scene_frame: Vec<i32>,
     pub scene: Scene,
     pub frame: Frame,
     /// share of a tick the drawing is past the last tick
@@ -136,6 +138,7 @@ impl Game {
             meshes,
             detail,
             water_frame: Vec::new(),
+            scene_frame: Vec::new(),
             scene: Scene::default(),
             frame: Frame::default(),
             alpha: 0,
@@ -312,6 +315,8 @@ impl Game {
             self.probe = Some(now);
         }
         self.water_frame = crate::water::frame_values(&self.world.land, &self.world.water, self.scene.origin);
+        self.scene_frame =
+            crate::wind::frame_values(crate::wind::spec(), &self.world.wind, self.scene.origin);
         self.frame = Frame::build(&self.scene, &moving, &cam, self.aspect);
     }
 

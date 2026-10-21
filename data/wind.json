@@ -1,0 +1,15 @@
+{
+  "_note": "M7 (R9.54): the wind over the meadow (crates/core/src/wind.rs), after the fishing game's waves: four travelling waves summed, each toward a heading (degrees, 0 north, 90 west), so long (m), so fast (cm a second) and so strong (percent of the whole). It bends the blades' tips bend_cm at a full gust and rolls sheen and shadow over the grass on the ground; between the grass's clumps darker troughs, trough_pct dark, two waves crossing trough_cm long. A ground colour is grass where it is greener than its red and blue by the first grass_key (0 to 255), wholly so by the second.",
+  "waves": [
+    { "toward_deg": 60, "length_m": 46, "speed_cms": 520, "amp_pct": 42 },
+    { "toward_deg": 75, "length_m": 23, "speed_cms": 390, "amp_pct": 26 },
+    { "toward_deg": 40, "length_m": 71, "speed_cms": 640, "amp_pct": 20 },
+    { "toward_deg": 95, "length_m": 13, "speed_cms": 300, "amp_pct": 12 }
+  ],
+  "bend_cm": 11,
+  "sheen_pct": 10,
+  "shadow_pct": 8,
+  "trough_pct": 12,
+  "trough_cm": [330, 510],
+  "grass_key": [12, 34]
+}

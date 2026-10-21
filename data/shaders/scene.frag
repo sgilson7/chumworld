@@ -16,6 +16,19 @@ flat in float vFade;
 flat in vec3 vNormalF;
 flat in vec3 vColorF;
 flat in float vFlat;
+flat in float vGround;
+// M7: the wind's waves (direction x, z; radians a metre; share), a column each field,
+// its bend, sheen, shadow and trough strength, and its phases this frame
+uniform mat4 uWindA;
+uniform vec4 uWindK;
+uniform vec4 uWindPhase;
+// the troughs between the grass's clumps: radians a metre of each of the two
+// crossing waves, the grass's two keys; their directions; their phases at
+// the origin; how soon a pattern finer than a pixel fades (troughs, gusts)
+uniform vec4 uTrough;
+uniform vec4 uTroughDir;
+uniform vec2 uTroughPhase;
+uniform vec4 uWindAA;
 uniform vec3 uEye;
 uniform vec4 uModeA;
 uniform vec4 uModeB;
@@ -70,6 +83,17 @@ vec4 haze() {
   return vec4(c, f);
 }
 
+// M7 (wind.rs, R9.54): the wind at p, as the core sums it (`wind::gust`):
+// each wave's share of sin(k d.p - phase), the phase carrying the origin.
+// uWindA's columns: the four waves' direction x, direction z, radians a
+// metre, share
+float wind(vec2 p) {
+  vec4 along = uWindA * vec4(p, 0.0, 0.0);
+  vec4 k = uWindA * vec4(0.0, 0.0, 1.0, 0.0);
+  vec4 a = uWindA * vec4(0.0, 0.0, 0.0, 1.0);
+  return dot(a, sin(along * k - uWindPhase));
+}
+
 // Whether the ordered dither keeps this pixel at fade f (look::keeps).
 bool keep(float f) {
   vec2 p = mod(floor(gl_FragCoord.xy), uBayerSize);
@@ -109,6 +133,20 @@ void main() {
     return;
   }
   vec3 base = facet;
+  // M7 (R9.54): the ground where grass grows (green enough) is never a flat
+  // fill: darker troughs between the clumps, and the wind's gusts rolling
+  // sheen and shadow across it; each fades before it is finer than a pixel
+  if (vGround > 0.0) {
+    float grass = smoothstep(uTrough.z, uTrough.w, facet.g - max(facet.r, facet.b));
+    vec2 p = vWorld.xz;
+    float t1 = dot(uTroughDir.xy, p) * uTrough.x + uTroughPhase.x;
+    float t2 = dot(uTroughDir.zw, p) * uTrough.y + uTroughPhase.y;
+    float fine = clamp(1.0 - (fwidth(t1) + fwidth(t2)) * uWindAA.x, 0.0, 1.0);
+    float trough = max(-sin(t1) * sin(t2), 0.0) * fine;
+    float coarse = clamp(1.0 - fwidth(dot(vec2(uWindA[0].x, uWindA[1].x), p) * (uWindA * vec4(0.0, 0.0, 1.0, 0.0)).x) * uWindAA.y, 0.0, 1.0);
+    float gust = wind(p) * coarse;
+    base *= 1.0 + grass * (max(gust, 0.0) * uWindK.y - max(-gust, 0.0) * uWindK.z - trough * uWindK.w);
+  }
   float wrapped = clamp((dot(n, uLightDir) + uWrap.x) / (1.0 + uWrap.x), 0.0, 1.0);
   float key = mix(wrapped, smoothstep(uWrap.y, uWrap.z, wrapped), uWrap.w);
   vec3 fill = mix(uBounce, uSkyFill, n.y * uK.x + uK.x);

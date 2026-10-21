@@ -230,6 +230,15 @@
       110
     ],
     "road_chunk_m": 64,
+    "meadow_m": [
+      55,
+      75,
+      200,
+      260
+    ],
+    "meadow_chunk_m": 48,
+    "meadow_cell_cm": 300,
+    "meadow_pct": 55,
     "extent_m": [
       -300,
       4300

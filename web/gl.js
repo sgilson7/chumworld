@@ -164,7 +164,7 @@ export function makeRenderer(canvas, N, shaders, meshList, meshData) {
       canvas.width = width;
       canvas.height = height;
     },
-    frame(view, values, draws, waterFrame) {
+    frame(view, values, draws, waterFrame, sceneFrame) {
       gl.bindBuffer(gl.ARRAY_BUFFER, buffers[N.buffers.dynamic]);
       gl.bufferData(gl.ARRAY_BUFFER, values, gl.STREAM_DRAW);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -174,6 +174,9 @@ export function makeRenderer(canvas, N, shaders, meshList, meshData) {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       use("water");
       setList(gl, programs.water.program, N.water.frame, waterFrame);
+      // M7: the wind's phases, to the scene's program
+      use("scene");
+      setList(gl, programs.scene.program, N.scene.frame, sceneFrame);
       for (const key of Object.keys(programs)) programs[key].layer = -1;
       let layer = -1;
       let pass = -1;

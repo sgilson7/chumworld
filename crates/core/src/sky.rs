@@ -80,6 +80,7 @@ pub fn all_uniforms(look: &crate::look::Look) -> Vec<i32> {
     let land =
         crate::terrain::LandSpec::parse(include_str!("../../../data/land.json")).expect("data/land.json");
     u.extend(crate::scatter::uniform_values(&land.scatter));
+    u.extend(crate::wind::uniform_values(&crate::wind::Spec::shipped()));
     u
 }
 

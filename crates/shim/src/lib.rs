@@ -104,6 +104,11 @@ impl Game {
         floats(tool_core::water::uniform_values(&self.inner.world.land))
     }
 
+    /// M7: the scene program's values this frame (`wind::FRAME`).
+    pub fn scene_frame(&self) -> Vec<f32> {
+        floats(self.inner.scene_frame.clone())
+    }
+
     /// The water program's values this frame (M2, `water::FRAME`).
     pub fn water_frame(&self) -> Vec<f32> {
         floats(self.inner.water_frame.clone())

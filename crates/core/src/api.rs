@@ -225,7 +225,7 @@ pub fn numbers() -> String {
         "buffers": { "static": render::STATIC_BUFFER, "dynamic": render::DYNAMIC_BUFFER },
         "passes": render::pass_states(),
         // the look's uniforms, then M2's sky's (`sky.rs`)
-        "uniforms": look::UNIFORMS.iter().chain(crate::sky::UNIFORMS).chain(crate::scatter::UNIFORMS).map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+        "uniforms": look::UNIFORMS.iter().chain(crate::sky::UNIFORMS).chain(crate::scatter::UNIFORMS).chain(crate::wind::UNIFORMS).map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
         // the view values: each layer's matrix by layer number, then the eye
         "view": { "layers": [[0, 16], [16, 32]], "eye": [32, 35] },
         // M2: `uploads` lists each new mesh as (id, vertex count, M7: index
@@ -233,6 +233,10 @@ pub fn numbers() -> String {
         // program's own uniforms (once) and its frame's (each frame), and the
         // nearest distance each layer draws water at, by layer number
         "upload_values": 3,
+        // M7: the scene program's values a frame (the wind's phases)
+        "scene": {
+            "frame": crate::wind::FRAME.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
+        },
         "water": {
             "uniforms": crate::water::UNIFORMS.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),
             "frame": crate::water::FRAME.iter().map(|(n, call, len)| serde_json::json!([n, call, len, call.contains("Matrix")])).collect::<Vec<_>>(),

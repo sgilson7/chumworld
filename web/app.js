@@ -226,7 +226,7 @@ async function main() {
       staticVersion = game.static_version();
       renderer.setStatic(game.static_values());
     }
-    renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame());
+    renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame(), game.scene_frame());
     if (game.ui_version() !== uiVersion) {
       uiVersion = game.ui_version();
       show(JSON.parse(game.ui()).ok);

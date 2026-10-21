@@ -50,6 +50,10 @@ pub struct ScatterSpec {
     pub tuft_pct: i32,
     pub road_m: [i32; 2],
     pub road_chunk_m: i32,
+    pub meadow_m: [i32; 4],
+    pub meadow_chunk_m: i32,
+    pub meadow_cell_cm: i32,
+    pub meadow_pct: i32,
     pub extent_m: [i32; 2],
     pub forest_cell_m: i32,
     pub forest_pct: i32,
@@ -85,7 +89,12 @@ pub const GRASS: u8 = 6;
 pub const TUFT: u8 = 7;
 /// M7: the roads' surface, with its ruts, crown and soft edges (R9.46)
 pub const ROAD: u8 = 8;
-pub const PARTS: [u8; 9] = [WHOLE, WHOLE_INK, CONE, CLUSTER, ROCK, ROCK_INK, GRASS, TUFT, ROAD];
+/// M7 (R9.53): the meadow's far clumps, the middle tier of grass, out to
+/// a few hundred metres
+pub const MEADOW: u8 = 9;
+pub const PARTS: [u8; 10] = [
+    WHOLE, WHOLE_INK, CONE, CLUSTER, ROCK, ROCK_INK, GRASS, TUFT, ROAD, MEADOW,
+];
 
 /// Never: a distance past any the land reaches, metres.
 const NEVER: i32 = 1 << 20;
@@ -105,6 +114,7 @@ pub fn band(sp: &ScatterSpec, part: u8) -> [i32; 4] {
         GRASS => near(sp.grass_m),
         TUFT => sp.tuft_m,
         ROAD => near(sp.road_m),
+        MEADOW => sp.meadow_m,
         _ => [NEVER, NEVER, NEVER, NEVER],
     }
 }
@@ -118,7 +128,8 @@ pub fn band_slot(part: u8) -> usize {
         ROCK | ROCK_INK => 3,
         GRASS => 4,
         TUFT => 5,
-        _ => 6,
+        ROAD => 6,
+        _ => 7,
     }
 }
 
@@ -181,9 +192,10 @@ pub fn uniform_values(sp: &ScatterSpec) -> Vec<i32> {
         }
     }
     out.push(SINK);
-    out.extend([band_value(WHOLE), 4 * ONE, 6 * ONE]);
-    // a unit normal is 1 long, an indexed facet's 2 (`lod::index_flat`)
-    out.push(ONE * 3 / 2);
+    out.extend([band_value(WHOLE), 4 * ONE, 6 * ONE, 7 * ONE]);
+    // a unit normal is 1 long, an indexed facet's 2 (to 3 where grass
+    // bends, `Bake::bend_from`), the ground's 4 (`lod::index_flat`)
+    out.extend([ONE * 3 / 2, ONE * 7 / 2, 2 * ONE]);
     out
 }
 
@@ -192,8 +204,8 @@ pub const UNIFORMS: &[(&str, &str, usize)] = &[
     ("uBands", "uniformMatrix4fv", 16),
     ("uBands2", "uniformMatrix4fv", 16),
     ("uSink", "uniform1fv", 1),
-    ("uBandKey", "uniform3fv", 3),
-    ("uFlatKey", "uniform1fv", 1),
+    ("uBandKey", "uniform4fv", 4),
+    ("uFlatKey", "uniform3fv", 3),
 ];
 
 /// How deep grass and tufts sink as they fade (the second matrix's bands):
@@ -291,10 +303,10 @@ fn room_grass(land: &Land, sc: &crate::terrain::Scope, x: Fx, z: Fx) -> bool {
 /// generator, seeded by its cell, so the mesh and the tests see the same.
 pub fn tufts(land: &Land, part: u8, i: i32, j: i32) -> Vec<(V3, crate::rng::Rng)> {
     let sp = &land.spec.scatter;
-    let (side, cell_cm, pct, salt) = if part == TUFT {
-        (sp.tuft_chunk_m, sp.tuft_cell_cm, sp.tuft_pct, 0x7f7f)
-    } else {
-        (sp.grass_chunk_m, sp.grass_cell_cm, sp.grass_pct, 0x9a55)
+    let (side, cell_cm, pct, salt) = match part {
+        TUFT => (sp.tuft_chunk_m, sp.tuft_cell_cm, sp.tuft_pct, 0x7f7f),
+        MEADOW => (sp.meadow_chunk_m, sp.meadow_cell_cm, sp.meadow_pct, 0x6e6e),
+        _ => (sp.grass_chunk_m, sp.grass_cell_cm, sp.grass_pct, 0x9a55),
     };
     let side = side * ONE;
     let cell = (cell_cm.max(10) * ONE / 100) as Fx;
@@ -501,6 +513,25 @@ impl Bake {
     /// half its width (a point would blink as the view pans, R4.25).
     fn blade(&mut self, foot: V3, tip: V3, width: Fx, c: Rgb) {
         self.blade_lit(foot, tip, width, c, 0);
+    }
+
+    /// M7 (R9.53): how far the wind bends each vertex pushed since `from`,
+    /// written into its normal's length (a unit normal stretched by 1 plus
+    /// half its bend, 0 at the foot `foot_y` to ONE 50 cm up), which the
+    /// shader reads back (`scene.vert`, `bend`): the foot stays put, the
+    /// tip swings.
+    fn bend_from(&mut self, from: usize, foot_y: Fx) {
+        let vv = prim::VERTEX_VALUES;
+        let mut k = from;
+        while k + vv <= self.out.len() {
+            let y = self.out[k + 1] + self.centre.y;
+            let bend = ((y - foot_y).max(0) as i64 * ONE as i64 / (ONE as i64 / 2)).min(ONE as i64);
+            let s = ONE as i64 + bend / 2;
+            for q in 3..6 {
+                self.out[k + q] = (self.out[k + q] as i64 * s / ONE as i64) as i32;
+            }
+            k += vv;
+        }
     }
 
     /// The same, each face's normal turned `up` of the way toward the sky:
@@ -900,7 +931,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                 // edges low enough in contrast not to crawl as the view pans
                 let ground = land.meadow_in(foot.x, foot.z, 0, &sc);
                 let blade = rgb(sp.blade[r.below(sp.blade.len() as u32) as usize]);
-                let mut c = shade(crate::look::mix(ground, blade, ONE / 2), 94);
+                let mut c = shade(crate::look::mix(ground, blade, ONE * 45 / 100), 96);
                 // M7 (R9.47): by the water's edge, off a gravel bar, reeds:
                 // three times as tall, upright, an olive green
                 // in clumps where a slow noise says so, thinning away from the water
@@ -917,18 +948,13 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                     c = shade(crate::look::mix(blade, land.dry_colour(), ONE * 4 / 10), 84);
                 }
                 let flower = r.chance(sp.flower_pct.max(0) as u32, 100) && !reed;
+                let from = b.out.len();
                 for blade in 0..if reed { 6 } else { 4 } {
                     let a = r.below(fx::TURN as u32) as i32;
                     let lean = ONE * r.between(6, 16) / 100 * if reed { 3 } else { 2 } / 2;
                     let tall = ONE * r.between(22, 42) / 100 * if reed { 22 } else { 10 } / 10;
                     let tip = foot.add(v3(fx::mul(fx::cos(a), lean), tall, fx::mul(fx::sin(a), lean)));
-                    b.blade_lit(
-                        foot.add(v3(blade * ONE / 30, 0, 0)),
-                        tip,
-                        ONE * 5 / 100,
-                        c,
-                        ONE * 4 / 5,
-                    );
+                    b.blade_lit(foot.add(v3(blade * ONE / 30, 0, 0)), tip, ONE * 5 / 100, c, ONE);
                 }
                 if flower {
                     let fc = rgb(sp.flower[r.below(sp.flower.len() as u32) as usize]);
@@ -941,6 +967,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                     )));
                     b.shape(Mesh::Octa, &head, fc);
                 }
+                b.bend_from(from, foot.y);
             }
         }
         TUFT => {
@@ -955,6 +982,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                 let blade = rgb(sp.blade[r.below(sp.blade.len() as u32) as usize]);
                 let c = shade(crate::look::mix(ground, blade, ONE * 25 / 100), 90);
                 let blades = if r.chance(1, 3) { 2 } else { 1 };
+                let from = b.out.len();
                 for k in 0..blades {
                     let a = r.below(fx::TURN as u32) as i32;
                     let lean = ONE * r.between(4, 10) / 100;
@@ -963,6 +991,25 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                     let tip = at.add(v3(fx::mul(fx::cos(a), lean), tall, fx::mul(fx::sin(a), lean)));
                     b.blade_lit(at, tip, ONE * 16 / 100, c, ONE);
                 }
+                b.bend_from(from, foot.y);
+            }
+        }
+        MEADOW => {
+            // the middle tier: one broad, low clump every few metres, lit
+            // and coloured as the meadow is, a little darker, so far off it
+            // is the grass's own texture (R9.53)
+            let sc = land.scope(i * side, j * side, (i + 1) * side, (j + 1) * side);
+            for (foot, mut r) in tufts(land, MEADOW, i, j) {
+                let ground = land.meadow_in(foot.x, foot.z, 0, &sc);
+                let blade = rgb(sp.blade[r.below(sp.blade.len() as u32) as usize]);
+                let c = shade(crate::look::mix(ground, blade, ONE / 5), 93);
+                let a = r.below(fx::TURN as u32) as i32;
+                let lean = ONE * r.between(4, 12) / 100;
+                let tall = ONE * r.between(30, 46) / 100;
+                let tip = foot.add(v3(fx::mul(fx::cos(a), lean), tall, fx::mul(fx::sin(a), lean)));
+                let from = b.out.len();
+                b.blade_lit(foot, tip, ONE * 30 / 100, c, ONE);
+                b.bend_from(from, foot.y);
             }
         }
         ROAD => road_surface(land, i, j, &mut b),
@@ -990,6 +1037,7 @@ pub fn side_of(sp: &ScatterSpec, part: u8) -> Fx {
         GRASS => sp.grass_chunk_m,
         TUFT => sp.tuft_chunk_m,
         ROAD => sp.road_chunk_m,
+        MEADOW => sp.meadow_chunk_m,
         _ => sp.chunk_m,
     };
     m * ONE
@@ -1099,7 +1147,7 @@ mod tests {
     fn the_shader_fades_each_triangle_through_the_core_s_band() {
         let sp = &land().spec.scatter;
         let u = uniform_values(sp);
-        assert_eq!(u.len(), BANDS * 4 + 5);
+        assert_eq!(u.len(), BANDS * 4 + 8);
         // grass's band in slot 4: from −1 m (whole from the eye), 28 to 38 m
         assert_eq!(&u[16..20], &[-ONE, -ONE, int(28), int(38)]);
         assert_eq!(band_value(GRASS), 6 * ONE);
@@ -1107,9 +1155,12 @@ mod tests {
         assert!(vert.contains("return go > 0.0 ? go - 1.0 : come;"));
         assert!(vert.contains("float f = k >= 0.0 ? band(length((w - uEye).xz), k) : iD.a;"));
         // the first band's value, 2, and four bands a matrix
-        assert_eq!(&u[BANDS * 4 + 1..BANDS * 4 + 4], &[2 * ONE, 4 * ONE, 6 * ONE]);
+        assert_eq!(
+            &u[BANDS * 4 + 1..BANDS * 4 + 5],
+            &[2 * ONE, 4 * ONE, 6 * ONE, 7 * ONE]
+        );
         // an indexed facet's normal is twice a unit's: 1.5 tells them apart
-        assert_eq!(u[BANDS * 4 + 4], ONE * 3 / 2);
+        assert_eq!(&u[BANDS * 4 + 5..], &[ONE * 3 / 2, ONE * 7 / 2, 2 * ONE]);
         assert!(vert.contains("w.y -= (1.0 - (f >= 0.0 ? f : -f)) * uSink;"));
         // grass and tufts take the second matrix's slots, which sink
         assert!(band_slot(GRASS) >= 4 && band_slot(TUFT) >= 4 && band_slot(ROCK) < 4);

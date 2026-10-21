@@ -241,7 +241,11 @@ impl Detail {
         let (i, j) = (key.i, key.j);
         let things = if matches!(
             key.level,
-            crate::scatter::GRASS | crate::scatter::CLUSTER | crate::scatter::TUFT
+            crate::scatter::GRASS
+                | crate::scatter::CLUSTER
+                | crate::scatter::TUFT
+                | crate::scatter::ROAD
+                | crate::scatter::MEADOW
         ) {
             Vec::new()
         } else {
@@ -369,7 +373,15 @@ impl Detail {
             .by_key
             .keys()
             .filter(|k| {
-                k.kind == SCATTER && k.level != crate::scatter::GRASS && k.level != crate::scatter::TUFT
+                k.kind == SCATTER
+                    && matches!(
+                        k.level,
+                        crate::scatter::WHOLE
+                            | crate::scatter::WHOLE_INK
+                            | crate::scatter::CONE
+                            | crate::scatter::ROCK
+                            | crate::scatter::ROCK_INK
+                    )
             })
             .map(|k| (k.i, k.j))
             .collect();
@@ -570,7 +582,9 @@ impl Detail {
         let (vertices, indices) = if key.kind == WATER {
             (b.vertices.clone(), Vec::new())
         } else {
-            index_flat(&b.vertices)
+            // the ground's normals four times as long, the rest twice: the
+            // shader shades grass on the ground (R9.54)
+            index_flat(&b.vertices, if key.kind == TERRAIN { 4 } else { 2 })
         };
         let slot = Slot {
             key,
@@ -863,9 +877,10 @@ impl Detail {
 /// vertex, the one WebGL takes a `flat` value from, is its own, carrying
 /// the facet's normal and colour; its first two share any vertex already
 /// at their place, whatever it carries. So a grid of facets holds about one
-/// vertex a triangle instead of three. Each normal is stored twice as long,
-/// which tells the shader to take the facet's values flat (`scene.vert`).
-pub fn index_flat(soup: &[i32]) -> (Vec<i32>, Vec<u32>) {
+/// vertex a triangle instead of three. Each normal is stored `stretch`
+/// times as long (2, or the ground's 4), which tells the shader to take the
+/// facet's values flat, and the ground from the rest (`scene.vert`).
+pub fn index_flat(soup: &[i32], stretch: i32) -> (Vec<i32>, Vec<u32>) {
     let vv = crate::prim::VERTEX_VALUES;
     let mut out: Vec<i32> = Vec::with_capacity(soup.len() / 2);
     let mut indices = Vec::with_capacity(soup.len() / vv);
@@ -873,7 +888,7 @@ pub fn index_flat(soup: &[i32]) -> (Vec<i32>, Vec<u32>) {
     let push = |out: &mut Vec<i32>, v: &[i32]| -> u32 {
         let k = (out.len() / vv) as u32;
         out.extend_from_slice(&v[..3]);
-        out.extend(v[3..6].iter().map(|n| n * 2));
+        out.extend(v[3..6].iter().map(|n| n * stretch));
         out.extend_from_slice(&v[6..vv]);
         k
     };
@@ -1266,6 +1281,71 @@ mod tests {
     /// (c and d) shared by place; indices 0 1 2 and 2 3 4. Each triangle's
     /// last vertex carries its own colour; every normal is twice as long,
     /// so the shader knows to take them flat.
+    /// T13, R9.53: grass in every tier's range wherever the meadow grows.
+    /// Standing on the meadow west of the village, after the detail levels
+    /// settle: the blades whole 10 m off, the tufts whole 50 m off, the
+    /// meadow's clumps whole 150 m off, each in a part drawn this frame; and
+    /// none of them on a road or in the water.
+    #[test]
+    fn grass_stands_in_every_tier_out_to_the_meadow_s_clumps() {
+        use crate::scatter::{self, GRASS, MEADOW, TUFT};
+        let w = crate::world::World::new(1);
+        let look = crate::look::tests::look();
+        let l = &w.land;
+        let sp = &l.spec.scatter;
+        let mut d = Detail::new(&l.spec.lod, 100);
+        let mut eye = v3(int(1500), 0, int(2650));
+        eye.y = w.ground(eye.x, eye.z) + int(2);
+        for _ in 0..400 {
+            let mut out = Shapes::default();
+            d.frame(&w, &look, eye, &mut out);
+        }
+        let drawn: std::collections::BTreeSet<Key> = d.drawn.iter().map(|k| k.key).collect();
+        for (part, at) in [(GRASS, 10), (TUFT, 50), (MEADOW, 150)] {
+            let side = scatter::side_of(sp, part);
+            let mut found = 0;
+            for a in 0..16 {
+                // a ring round the eye at that distance
+                let ang = fx::TURN * a / 16;
+                let p = eye.add(v3(
+                    fx::mul(fx::cos(ang), int(at)),
+                    0,
+                    fx::mul(fx::sin(ang), int(at)),
+                ));
+                let (i, j) = (p.x.div_euclid(side), p.z.div_euclid(side));
+                let key = Key {
+                    kind: SCATTER,
+                    level: part,
+                    i,
+                    j,
+                    part: 0,
+                };
+                let tufts = scatter::tufts(l, part, i, j);
+                if tufts.is_empty() {
+                    continue;
+                }
+                assert!(drawn.contains(&key), "part {part}'s chunk {at} m off not drawn");
+                for (t, _) in &tufts {
+                    let e = v3(t.x - eye.x, 0, t.z - eye.z).len_xz() as i64;
+                    let k = scatter::kept(scatter::band_fade(scatter::band(sp, part), e));
+                    let (dist, _) = (e, k);
+                    if (dist - int(at) as i64).abs() < int(3) as i64 {
+                        assert_eq!(k, ONE, "part {part} at {} m not whole", dist / ONE as i64);
+                    }
+                    let sc = l.scope_all();
+                    let (rd, rh) = l.road_distance(t.x, t.z, &sc);
+                    assert!(rh == 0 || rd > rh, "a tuft on a road");
+                    assert!(!l.is_water(t.x, t.z), "a tuft in the water");
+                }
+                found += 1;
+            }
+            assert!(
+                found >= 12,
+                "part {part}: grass in {found} of 16 places {at} m off"
+            );
+        }
+    }
+
     #[test]
     fn two_facets_sharing_an_edge_take_five_vertices_each_its_own_last() {
         let up = [0, ONE, 0];
@@ -1281,7 +1361,7 @@ mod tests {
             v(a, blue),
         ]
         .concat();
-        let (verts, idx) = index_flat(&soup);
+        let (verts, idx) = index_flat(&soup, 2);
         assert_eq!(idx, vec![0, 1, 2, 2, 3, 4]);
         assert_eq!(verts.len(), 5 * crate::prim::VERTEX_VALUES);
         let at = |k: usize| &verts[k * crate::prim::VERTEX_VALUES..(k + 1) * crate::prim::VERTEX_VALUES];

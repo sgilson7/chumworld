@@ -114,6 +114,8 @@ pub struct World {
     pub imbue: crate::imbue::State,
     // M7: what things in flight meet (props, trees, rocks), worked out once
     pub obstacles: std::rc::Rc<crate::obstacles::Map>,
+    // M7: the wind over the meadow (`wind.rs`)
+    pub wind: crate::wind::State,
 }
 
 impl World {
@@ -157,6 +159,7 @@ impl World {
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
             obstacles: std::rc::Rc::default(),
+            wind: crate::wind::State::default(),
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w.obstacles = std::rc::Rc::new(crate::obstacles::Map::build(&w));
@@ -223,7 +226,8 @@ impl World {
         crate::story::step(self, input);
         // 8. M2: the water
         crate::water::step(self);
-        // M4: the map fills in round the player; the toast counts down
+        crate::wind::step(self); // M7: and the wind
+                                 // M4: the map fills in round the player; the toast counts down
         crate::ui::step(self);
     }
 

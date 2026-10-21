@@ -63,3 +63,4 @@ pub mod imbue;
 pub mod orbs;
 // M7 Polish
 pub mod obstacles;
+pub mod wind;
