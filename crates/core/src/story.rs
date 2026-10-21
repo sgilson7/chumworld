@@ -301,6 +301,8 @@ pub enum Use {
     Waystone(usize),
     /// M7 travel: the traveller at the crossroads
     Traveller,
+    /// M7 roadside: a cart to search, the well, a villager by the way
+    Roadside(usize),
 }
 
 /// A line over the game, by string key, and how long it has left.
@@ -465,6 +467,8 @@ pub fn begin(w: &mut World, seed: u64) {
         });
     }
     crate::merchant::begin(w);
+    // M7 roadside: the stops beside the ways out
+    crate::roadside::begin(w);
 }
 
 /// The player lying in bed: their heels past its foot, on the quilt.
@@ -574,6 +578,7 @@ pub fn step_aside(w: &mut World) {
     w.story.raid.clear();
     crate::camp::forget(w);
     crate::trainer::forget(w);
+    crate::roadside::forget(w); // M7 roadside
 }
 
 // ---- the tick -----------------------------------------------------------------
@@ -638,6 +643,7 @@ pub fn steer(w: &mut World, mut inputs: Vec<Input>) -> Vec<Input> {
     steer_raid(w, &mut inputs);
     crate::camp::steer(w, &mut inputs);
     crate::trainer::steer(w, &mut inputs);
+    crate::roadside::steer(w, &mut inputs); // M7 roadside: the straggler
     if w.story.still {
         for i in inputs.iter_mut() {
             *i = Input::default();
@@ -809,6 +815,7 @@ pub fn step(w: &mut World, raw: &Input) {
     crate::merchant::step(w);
     crate::camp::step(w);
     crate::trainer::step(w);
+    crate::roadside::step(w); // M7 roadside
 }
 
 fn phases(w: &mut World) {
@@ -1077,6 +1084,9 @@ pub fn nearest_use(w: &World) -> Option<(Use, Fx)> {
     if let Some(d) = crate::travel::talk_reach(w) {
         offer(Use::Traveller, d);
     }
+    if let Some((k, d)) = crate::roadside::reach(w) {
+        offer(Use::Roadside(k), d);
+    }
     best
 }
 
@@ -1116,6 +1126,7 @@ fn act_on(w: &mut World, u: Use) {
         Use::Chest => crate::camp::open_chest(w),
         Use::Waystone(k) => crate::travel::use_waystone(w, k), // M7 travel
         Use::Traveller => crate::travel::talk(w),
+        Use::Roadside(k) => crate::roadside::use_stop(w, k),
     }
 }
 
@@ -1201,6 +1212,7 @@ pub fn prompt(w: &World, s: &Strings) -> Option<String> {
         Use::Chest => s.get("does_open_chest"),
         Use::Waystone(_) => s.get("does_wake_waystone"), // M7 travel
         Use::Traveller => s.get("does_talk_traveller"),
+        Use::Roadside(k) => s.get(crate::roadside::prompt_key(w, k)),
     };
     Some(crate::api::fill(
         &s.get("prompt"),
@@ -1241,6 +1253,7 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     }
     crate::merchant::draw(w, alpha, look, out);
     crate::camp::draw(w, alpha, look, out);
+    crate::roadside::draw(w, alpha, look, out); // M7 roadside
 }
 
 /// Whether the player's house shows cut away: the player is in it or at

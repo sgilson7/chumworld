@@ -67,5 +67,7 @@ pub mod swing;
 pub mod travel;
 // M7 polish (P4): hits read on the body
 pub mod wounds;
+// M7 roadside (T12)
+pub mod roadside;
 // M7 polish (P8, T14): the sprint that builds to triple speed
 pub mod sprint;
