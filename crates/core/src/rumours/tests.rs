@@ -48,8 +48,7 @@ fn press_e(w: &mut World) {
 
 /// What was said, line by line, and the dialogue put away.
 fn said(w: &mut World) -> Vec<String> {
-    let lines = w.ui.dialogue.take().map(|d| d.lines).unwrap_or_default();
-    lines
+    w.ui.dialogue.take().map(|d| d.lines).unwrap_or_default()
 }
 
 #[test]
@@ -74,7 +73,11 @@ fn every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found() {
         ("traveller", "ride", Some("crossroads")),
         ("waystone", "wake", Some("waystone_village")),
     ];
-    assert_eq!(spec().rumours.len(), want.len(), "a rumour the table does not cover");
+    assert_eq!(
+        spec().rumours.len(),
+        want.len(),
+        "a rumour the table does not cover"
+    );
     for (of, route, place) in want {
         let r = spec()
             .rumours
@@ -86,8 +89,15 @@ fn every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found() {
         // the claim is the thing's own route, as the data that rules it says
         match Item::from_id(of) {
             Some(i) => {
-                assert_eq!(i.def().routes, vec![r.route.clone()], "{of}'s route in items.json");
-                assert!(r.until.contains(&format!("has:{of}")), "{of} is moot once in hand");
+                assert_eq!(
+                    i.def().routes,
+                    vec![r.route.clone()],
+                    "{of}'s route in items.json"
+                );
+                assert!(
+                    r.until.contains(&format!("has:{of}")),
+                    "{of} is moot once in hand"
+                );
             }
             None if of == "imbue" => {
                 assert_eq!(catalogue().imbue.routes, vec![r.route.clone()]);
@@ -151,11 +161,18 @@ fn a_rumour_is_offered_only_while_its_condition_holds() {
     // and the traveller
     assert_eq!(ids(&offered(&w, "north_villager")), ["hood", "traveller"]);
     give(&mut w, Item::Hood);
-    assert_eq!(ids(&offered(&w, "north_villager")), ["traveller"], "the hood is in hand");
+    assert_eq!(
+        ids(&offered(&w, "north_villager")),
+        ["traveller"],
+        "the hood is in hand"
+    );
     for p in &mut w.travel.points {
         p.reached = true;
     }
-    assert!(offered(&w, "north_villager").is_empty(), "the traveller has nowhere left to go");
+    assert!(
+        offered(&w, "north_villager").is_empty(),
+        "the traveller has nowhere left to go"
+    );
     // the chest's key is moot with the key or with the boomerang
     assert_eq!(ids(&offered(&w, "fisher")), ["boots", "chest_key", "imbue"]);
     give(&mut w, Item::Boomerang);
@@ -167,6 +184,16 @@ fn a_rumour_is_offered_only_while_its_condition_holds() {
     give(&mut w, Item::Flute);
     assert!(w.rumours.line("trainer").unwrap().done);
     assert_eq!(ids(&offered(&w, "fisher")), ["boots"]);
+    // the waystones' line done (each woken, though none counted as been
+    // near): the traveller's rumour is moot with it
+    let mut v = world();
+    hear(&mut v, rumour("waystone"));
+    for p in &mut v.travel.points {
+        p.woken = true;
+    }
+    step(&mut v);
+    assert!(v.travel.points.iter().all(|p| !p.reached));
+    assert_eq!(ids(&offered(&v, "north_villager")), ["hood"]);
     // a rumour heard is not offered again, by anyone
     hear(&mut w, rumour("boots"));
     assert!(offered(&w, "fisher").is_empty());
@@ -182,19 +209,33 @@ fn no_rumour_is_told_during_the_opening() {
         assert!(offered(&w, &t.id).is_empty(), "{} tells in the opening", t.id);
     }
     // a roadside villager says its own lines and nothing more
-    talk_roadside(&mut w, "north_villager", &["roadside_north_1", "roadside_north_2"]);
+    talk_roadside(
+        &mut w,
+        "north_villager",
+        &["roadside_north_1", "roadside_north_2"],
+    );
     assert_eq!(said(&mut w), ["roadside_north_1", "roadside_north_2"]);
     assert!(w.rumours.heard.is_empty() && w.rumours.met.is_empty() && w.rumours.lines.is_empty());
     // the opening over, the same talk tells
     w.story.phase = Phase::Free;
-    talk_roadside(&mut w, "north_villager", &["roadside_north_1", "roadside_north_2"]);
-    assert_eq!(said(&mut w), ["roadside_north_1", "roadside_north_2", "rumour_hood"]);
+    talk_roadside(
+        &mut w,
+        "north_villager",
+        &["roadside_north_1", "roadside_north_2"],
+    );
+    assert_eq!(
+        said(&mut w),
+        ["roadside_north_1", "roadside_north_2", "rumour_hood"]
+    );
 }
 
 #[test]
 fn hearing_a_rumour_starts_its_line_and_marks_its_place() {
     let mut w = world();
-    assert_eq!(tell(&mut w, "north_east_villager").as_deref(), Some("rumour_gloves"));
+    assert_eq!(
+        tell(&mut w, "north_east_villager").as_deref(),
+        Some("rumour_gloves")
+    );
     assert_eq!(
         w.rumours.lines,
         [Line {
@@ -205,9 +246,15 @@ fn hearing_a_rumour_starts_its_line_and_marks_its_place() {
         }]
     );
     assert_eq!(w.rumours.marks, ["camp"]);
-    assert_eq!(w.story.banner.as_ref().map(|b| b.key.as_str()), Some("rumour_marked"));
+    assert_eq!(
+        w.story.banner.as_ref().map(|b| b.key.as_str()),
+        Some("rumour_marked")
+    );
     // the next of the line's rumours becomes its latest; the camp is marked once
-    assert_eq!(tell(&mut w, "north_east_villager").as_deref(), Some("rumour_trousers"));
+    assert_eq!(
+        tell(&mut w, "north_east_villager").as_deref(),
+        Some("rumour_trousers")
+    );
     assert_eq!(w.rumours.lines.len(), 1);
     assert_eq!(w.rumours.lines[0].latest, "trousers");
     assert_eq!(w.rumours.marks, ["camp", "hollow_tree"]);
@@ -216,7 +263,10 @@ fn hearing_a_rumour_starts_its_line_and_marks_its_place() {
     let mut v = world();
     hear(&mut v, rumour("hood"));
     assert!(v.rumours.marks.is_empty());
-    assert_eq!(v.story.banner.as_ref().map(|b| b.key.as_str()), Some("rumour_noted"));
+    assert_eq!(
+        v.story.banner.as_ref().map(|b| b.key.as_str()),
+        Some("rumour_noted")
+    );
     // on the map: a question mark at the camp while it is unwalked
     let m = marks(&w);
     assert_eq!(m.len(), 2);
@@ -231,10 +281,19 @@ fn hearing_a_rumour_starts_its_line_and_marks_its_place() {
 fn picking_up_the_item_advances_and_closes_the_line() {
     let mut w = world();
     hear(&mut w, rumour("sword"));
-    assert_eq!(w.rumours.line("sword").map(|l| (l.held.len(), l.done)), Some((0, false)));
+    assert_eq!(
+        w.rumours.line("sword").map(|l| (l.held.len(), l.done)),
+        Some((0, false))
+    );
     give(&mut w, Item::Sword);
-    assert_eq!(w.rumours.line("sword").map(|l| (l.held.len(), l.done)), Some((1, true)));
-    assert_eq!(w.story.banner.as_ref().map(|b| b.key.as_str()), Some("line_sword_done"));
+    assert_eq!(
+        w.rumours.line("sword").map(|l| (l.held.len(), l.done)),
+        Some((1, true))
+    );
+    assert_eq!(
+        w.story.banner.as_ref().map(|b| b.key.as_str()),
+        Some("line_sword_done")
+    );
     // the speedster's armour, a piece at a time; a piece sold still counts
     hear(&mut w, rumour("hood"));
     give(&mut w, Item::Hood);
@@ -242,7 +301,11 @@ fn picking_up_the_item_advances_and_closes_the_line() {
     give(&mut w, Item::Jacket);
     crate::inventory::take(&mut w, Item::Hood, 1);
     step(&mut w);
-    assert_eq!(w.rumours.line("speedster").unwrap().held, ["has:hood", "has:jacket"], "the hood was sold");
+    assert_eq!(
+        w.rumours.line("speedster").unwrap().held,
+        ["has:hood", "has:jacket"],
+        "the hood was sold"
+    );
     for i in [Item::Gloves, Item::Trousers] {
         give(&mut w, i);
     }
@@ -253,10 +316,16 @@ fn picking_up_the_item_advances_and_closes_the_line() {
     // into the lock)
     hear(&mut w, rumour("chest_key"));
     give(&mut w, Item::ChestKey);
-    assert_eq!(w.rumours.line("chest").map(|l| (l.held.len(), l.done)), Some((1, false)));
+    assert_eq!(
+        w.rumours.line("chest").map(|l| (l.held.len(), l.done)),
+        Some((1, false))
+    );
     crate::inventory::take(&mut w, Item::ChestKey, 1);
     give(&mut w, Item::Boomerang);
-    assert_eq!(w.rumours.line("chest").map(|l| (l.held.len(), l.done)), Some((2, true)));
+    assert_eq!(
+        w.rumours.line("chest").map(|l| (l.held.len(), l.done)),
+        Some((2, true))
+    );
     // a line that was never heard of does not open by itself
     crate::imbue::learn(&mut w);
     step(&mut w);
@@ -288,9 +357,21 @@ fn a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line() {
     assert_eq!(w.rumours.met, ["woodcutter"]);
     // what one person told, another skips: the villager to the north-east
     // knows the gloves, the trousers and the boomerang
-    let stop = w.roadside.stops.iter().position(|(s, _)| s.id == "north_east_villager").unwrap();
+    let stop = w
+        .roadside
+        .stops
+        .iter()
+        .position(|(s, _)| s.id == "north_east_villager")
+        .unwrap();
     crate::roadside::use_stop(&mut w, stop);
-    assert_eq!(said(&mut w), ["roadside_north_east_1", "roadside_north_east_2", "rumour_boomerang"]);
+    assert_eq!(
+        said(&mut w),
+        [
+            "roadside_north_east_1",
+            "roadside_north_east_2",
+            "rumour_boomerang"
+        ]
+    );
     crate::roadside::use_stop(&mut w, stop);
     assert_eq!(said(&mut w), ["rumour_villager_done"], "its own lines once");
     // the trainer, after the practice, then its own closing line
@@ -317,6 +398,17 @@ fn the_people_stand_clear_on_flattened_ground() {
         let id = &p.teller.id;
         let place = crate::places::at(&w, &format!("{PLACE}{id}")).unwrap_or_else(|| panic!("{id}"));
         assert_eq!((place.x, place.z), (p.at.x, p.at.z));
+        // the ground under them is the woodpile's flattened ground: the
+        // same height as under the pile
+        let logs = crate::places::metres([
+            p.teller.at.unwrap()[0] + p.teller.logs[0],
+            p.teller.at.unwrap()[1] + p.teller.logs[1],
+        ]);
+        assert_eq!(
+            w.land.height(p.at.x, p.at.z),
+            w.land.height(logs.x, logs.z),
+            "{id} is off the flat"
+        );
         // the ground is level round them: within 2 cm a metre each way
         for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
             let h = w.land.height(p.at.x + dx * ONE, p.at.z + dz * ONE);
@@ -329,7 +421,10 @@ fn the_people_stand_clear_on_flattened_ground() {
         // off every road's surface, with a metre to spare
         for r in &l.roads {
             for k in 0..r.line.len() - 1 {
-                let (a, b) = (crate::places::metres(r.line[k]), crate::places::metres(r.line[k + 1]));
+                let (a, b) = (
+                    crate::places::metres(r.line[k]),
+                    crate::places::metres(r.line[k + 1]),
+                );
                 let n = (b.sub(a).len_xz() / ONE).max(1);
                 for q in 0..=n {
                     let at = a.lerp(b, q * ONE / n);
@@ -345,7 +440,11 @@ fn the_people_stand_clear_on_flattened_ground() {
         // out of every waystone's gap
         for pt in &crate::travel::spec().points {
             let at = crate::places::at(&w, &pt.place).unwrap();
-            assert!(at.sub(p.at).len_xz() > fx::int(spec().keep_clear_m), "{id} by {}", pt.place);
+            assert!(
+                at.sub(p.at).len_xz() > fx::int(spec().keep_clear_m),
+                "{id} by {}",
+                pt.place
+            );
         }
         // clear of every footprint but its own woodpile
         for q in l.places.iter().filter(|q| q.kind != format!("{PLACE}{id}")) {
@@ -398,7 +497,10 @@ fn the_quest_screen_lists_the_open_lines_then_those_done() {
     // the map: a question mark at the scarecrow and at the hut
     crate::ui::open(&mut g, crate::ui::MAP_FACE);
     let u = serde_json::to_value(crate::api::ui(&g)).unwrap();
-    let marks = u["menu"]["faces"][crate::ui::MAP_FACE]["map"]["marks"].as_array().unwrap().clone();
+    let marks = u["menu"]["faces"][crate::ui::MAP_FACE]["map"]["marks"]
+        .as_array()
+        .unwrap()
+        .clone();
     let q: Vec<_> = marks
         .iter()
         .filter(|m| m["icon"] == "data/icons/place_rumour.svg")
@@ -427,12 +529,17 @@ fn the_same_seed_and_talk_give_the_same_world() {
     assert_eq!(a, b);
     assert_eq!(a.hash(), b.hash());
     assert_eq!(a.rumours.heard, ["boots", "chest_key", "imbue"]);
-    assert_ne!(run(false).hash(), a.hash(), "what was heard is in the world's one number");
+    assert_ne!(
+        run(false).hash(),
+        a.hash(),
+        "what was heard is in the world's one number"
+    );
 }
 
 #[test]
 fn the_rumours_file_refuses_what_it_cannot_mean() {
-    let base: serde_json::Value = serde_json::from_str(include_str!("../../../../data/rumours.json")).unwrap();
+    let base: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../data/rumours.json")).unwrap();
     let with = |f: &dyn Fn(&mut serde_json::Value)| {
         let mut v = base.clone();
         f(&mut v);
@@ -448,4 +555,3 @@ fn the_rumours_file_refuses_what_it_cannot_mean() {
     );
     assert!(with(&|v| v["rumours"][0]["told_by"][0] = "king".into()).contains("\"king\""));
 }
-

@@ -313,7 +313,7 @@ impl World {
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
-            Some(("rumours", rest)) => crate::rumours::act(self, rest, value),   // M7 rumours
+            Some(("rumours", rest)) => crate::rumours::act(self, rest, value), // M7 rumours
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

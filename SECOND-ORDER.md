@@ -301,6 +301,25 @@ One row per assumption, surprise or open item. **Kind** is *divergence* (what wa
 | R9.103 | finding | `tools/playthrough.py` plays the published flow by keyboard and mouse. | Real input only (the page's `act` and `game` are exposed to read state for steering, as `shoot.py` does). From the title through the wake, a dream, the boundary, the cart stopped with a rock, the trainer's practice (passed on the fourth volley), the shrine's boots and the road all pass, in about 20 minutes of play. The camp was not cleared: by scripted input the player went from 100 to under 60 health in 30 s while the foes were barely hurt. With the one allowed test act for the fight's outcome (`story.still` and `magic.freeze`) the script's cuts still did not land, and frozen orbs and held-out blades still hurt a player walking into them. So the chest, the boomerang and the second shop visit were not reached in a run. Run as staged segments, all of these passed: the trousers, the jacket, wearing all five (Speed 200%, Footing 5%), the ice slide (9.5 m, against CW-8's 9.8 m by hand) and every menu. | Kept in `tools/` and out of `check.sh` (about an hour a run). The script also holds a last resort that gives the camp's drops by test act (`inventory.give`), logged as a test act; it went past the one allowed act, was tried only in a staged run, and the player died on the way to the chest there. A committed swing like `shoot.py`'s d2-hit is what the script still needs to win the camp by input. Log and shots: `shots/m7qa/playthrough/`. | `tools/playthrough.py` | open |
 | R9.104 | worklist | | The hood (60 coins) cannot be bought the first time the cart is met: the player has no coins, and the only early ones are 12 on the green. It waits until after the camp (72 coins), which means a second hunt for the cart and something to throw at it. | For the person: keep it so (the hood after the camp), or put more coins on the way, or lower its price. | | person |
 | R9.105 | finding | | The playthrough's issues in other parts' areas. For P1 (feel, camera, staging): the camp is very hard by input (five foes engage at once within 40 m; the lookout alone took the player from 100 to 33); the leader still casts while held by `story.still`; frozen orbs hurt a body walking into them. For P2 (land, collision): the player sticks at about (3221, 1051) at the camp trail's clearing edge and at (3195, 1020); the trousers and the boots lie against their props' footprints, so the prompt shows only from some sides. Near pop-in: R9.97. | For the coordinator to route. | | open |
+| R9.340 | divergence | T17's lines read "Speedster's outfit 2/5". | `GLOSSARY.md` names it "Speedster's armour", and TONE.md's rule 3 keeps one name a thing. | The line is "Speedster's armour", with "2 of 5" beside it. | `data/strings.json` `line_speedster`, `line_progress` | done |
+| R9.341 | finding | "The long sword" is the `sword` item (route `leader_duel`). | "longsword" is on the Sword entry's `Not:` line. | The rumour says "a heavy sword" won from the bandit leader in a duel; its line is "The leader's sword". | `rumour_sword`, `line_sword` | done |
+| R9.342 | finding | The merchant might sell a rumour for a coin. | | The merchant's rumour is free: one after the greeting, then the shop, while it has one left. A paid rumour would be a second price list for one line of text. The merchant and the traveller have no closing line; their greeting and their screen come either way. | `merchant::talk`, `travel::talk`, `rumours::after` | done |
+| R9.343 | worklist | | Three new people tell rumours, each in villagers' clothes beside a woodpile (a new small prop, `logs`, 2 × 1 m, so the ground under them is flattened): a woodcutter north of the crossroads across the road from the traveller (2014, 2226); a fisher on the river's east bank north of the bridge, facing the water (652, 2188); a herder beside the trail up the trainer's hill (482, 2060). Each stands off every road with a metre to spare, out of the water, 20 m or more from every waystone, and clear of every other footprint. The names are descriptive (CW-20). | Where they stand, who they are and the woodpile are the person's (`shots/rumours/`). | `data/rumours.json` `tellers`; `models/props.rs` `logs`; `the_people_stand_clear_on_flattened_ground` | person |
+| R9.344 | finding | P10 "save" (`m7-save`) must keep the quest lines. | All the rumours keep is `rumours::State` (`World::rumours`): `heard` (rumour ids), `met` (teller ids), `lines` (each `Line`: its id, its `latest` rumour id, the steps `held` as their condition text, `done`) and `marks` (place kinds). Everything is a stable id from `data/rumours.json` or `data/places.json`, not an index, and it derives serde's `Serialize` and `Deserialize`. | For P10 and the coordinator. | `rumours::State` | open |
+| R9.345 | finding | How talk avoids repeating itself. | | A talk tells the first rumour the teller knows (file order) that is neither heard nor moot. A rumour heard from anyone counts as heard. With none left, the teller says its closing line, every talk after. A roadside villager says its own two lines on the first talk only. The trainer tells only once the practice is passed, and its closing line is its old `trainer_done`. | `rumours::talk_lines`, `offered`; `a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line` | done |
+| R9.346 | finding | | A line's steps are conditions (`has:hood`, `knows:imbue`, `woke:bridge`). A step once held stays held, so a sold piece still counts and the chest key, gone into the lock, still counts. A line done makes its rumours moot. A line opens only when one of its rumours is heard; items found first are counted when it opens. | | `rumours::advance`, `moot` | done |
+| R9.347 | finding | The rumours' claims cannot drift from the items. | The test compares each rumour's `route` with its item's one route in `data/items.json` (the imbue's in its own entry), the traveller's place with `travel.json`, and the marked place with a table worked by hand from `story.json`'s pickups and `camp.rs`. It cannot read the rumour's wording: a string that names the wrong place passes. | The person reads the wording (R9.355). | `every_rumour_names_its_thing_s_one_route_and_the_place_it_is_found` | done |
+| R9.348 | finding | The lines T17 names, and two more. | | Five lines: Speedster's armour (5 steps), The leader's sword, The bandits' chest (key, then boomerang), The trainer (imbue, then flute) and The waystones (one step a waystone woken; started by the traveller's rumour or the waystone's). | `data/rumours.json` `lines` | done |
+| R9.349 | finding | | The glossary's Quest entry still says "the menu screen for the imbue, your coins and what to do next". It now holds the quest lines too. The rules let a part only add glossary entries, so I added Quest line and Rumour and left Quest as it is. | For the coordinator. | `GLOSSARY.md` | open |
+| R9.350 | divergence | P11 adds `rumours.rs` and `data/rumours.json`. | Joining them needed entries elsewhere, and three tests of other parts that pinned exact dialogue lines. | Added, not changed: `world.rs` (state, step after travel, draw, `rumours.` acts), `story.rs` (`Use::Teller`), `roadside.rs` (`use_stop`'s villager branch calls `rumours::talk_roadside`), `merchant.rs`, `trainer.rs`, `travel.rs` (a rumour after the greeting), `places.rs` (`logs`, `rumours::lay`), `models.rs` and `models/props.rs` (`Prop::Logs`), `ui.rs` (the Quest screen's lines, the map's rumour marks), `page.rs`, `web/menus/menus.js` and `.css`. Tests changed to expect the added rumour line: `roadside/tests.rs` `a_villager_by_the_way_says_where_to_go`, and `travel/tests.rs` `the_traveller_charges_exactly_…` and `the_traveller_offers_nothing_once_every_place_is_reached`. | | open |
+| R9.351 | finding | | A marked place shows on the map as a question mark (`place_rumour.svg`) until its 32 m cell is walked. After that it shows as the map's own mark; where the map has none (the crossroads, or the village's waystone before it is woken) it shows as the plain place mark. | | `ui::map_face`, `rumours::marks` | done |
+| R9.352 | finding | | Hearing a rumour sets a line over the game: "The place is marked on your map." or "The Quest screen keeps what you heard." A line done sets its own. They show after the dialogue closes, and a later line in the same tick replaces them (the trainer's "story_learned" and the trainer line's progress do not clash: the line closes on the flute). | | `rumours::hear`, `advance` | done |
+| R9.353 | worklist | | No rumour for the rock, the throwing knife or the bandage: each has several routes (ground, merchant, roadside). The test's "every item with a non-start route" reads as every item with one route of its own (CW-6's items: the sword, the boomerang, the chest key, the five speedster's pieces, the flute) and the imbue. | Whether supplies want rumours is the person's. | `every_item_with_a_route_of_its_own_has_a_rumour` | person |
+| R9.354 | finding | CW-11 | Not measured: three more figures drawn every frame and three baked woodpiles. | For the coordinator's measuring pass. | `MEASUREMENTS.md` | open |
+| R9.355 | worklist | | Every string P11 wrote is listed under "### M7 rumours (P11)" at the foot of this file. The three portraits copy the villager's (`portrait_woodcutter.svg`, `portrait_fisher.svg`, `portrait_herder.svg`). | | | person |
+| R9.356 | finding | | View and test acts, as R6.7: `rumours.hear <id>` hears a rumour as if told; `rumours.look <teller> [metres]` stands the player before one of the three people. | Goes with the person's answer to R6.7. | `rumours::act` | open |
+| R9.357 | finding | Browser check | Per the coordinator's instruction the browser check (step 9) was not run here; the Quest screen's new card and the map's question marks need it in the batched run. | For the coordinator. | `web/menus/menus.js` | open |
+| R9.358 | finding | P10's save keeps a part's progress as a set of ids (`save::Part`). | A set keeps no order, and `State` keeps the order things were heard and lines opened. | The part "rumours" in `save::PARTS` writes `heard.<rumour>`, `met.<teller>`, `mark.<place>`, `latest.<line>.<rumour>`, `held.<line>.<step>` and `done.<line>`; a loaded world takes them back in `data/rumours.json`'s order, so the Quest screen may list open lines in another order after a load. No version bump: a save without the part has heard nothing. | `rumours::save_ids`, `save_known`, `save_apply`; `the_quest_lines_and_marks_come_back_from_a_save` | done |
 
 ## Strings written by the agent
 
@@ -675,3 +694,53 @@ The stops beside the ways out of the village (T12).
 | `story_bandage_kept` | You are not hurt. The bandage keeps. |
 | core: `menu.hover_quick` refusal | A quick key is 0, 1 or 2, not "…". |
 | `cargo test` message | GLOSSARY.md: "…" is defined at line … and again at line …: keep one entry |
+
+### M7 rumours (P11)
+
+| Key | Text |
+| --- | --- |
+| `rumour_hood` | The merchant's cart sells a speedster's hood. Stop the cart and bring coins. |
+| `rumour_jacket` | The scarecrow in the field south-west of the village wears a speedster's jacket. No one will miss it. |
+| `rumour_gloves` | The bandits' lookout wears speedster's gloves. Beat the lookout and they are yours. |
+| `rumour_trousers` | Someone hid a pair of speedster's trousers in a hollow tree at the forest's east edge. |
+| `rumour_boots` | A pair of speedster's boots lies at the river shrine, north of the bridge. |
+| `rumour_sword` | The bandit leader carries a heavy sword. Beat the leader in a duel and it is yours. |
+| `rumour_chest_key` | The bandit leader keeps the key to the camp's chest. Clear the camp and the leader drops it. |
+| `rumour_boomerang` | The chest at the bandit camp holds a boomerang. Throw it and it flies an arc and comes back. |
+| `rumour_imbue` | The trainer in the hut on the hill west of the river teaches the imbue. Pass the practice and your sword turns magic. |
+| `rumour_flute` | The trainer gives a flute to whoever passes the practice. Its song carries you back to a waystone. |
+| `rumour_traveller` | A traveller waits with a pack mule at the crossroads. For coins, the traveller takes you where you have not been. |
+| `rumour_waystone` | A waystone stands on the lane north of the village. Press E beside it and it wakes. |
+| `rumour_marked` | The place is marked on your map. |
+| `rumour_noted` | The Quest screen keeps what you heard. |
+| `rumour_villager_done` | That is all I know. Mind the orcs on the road. |
+| `rumour_woodcutter_done` | That is all the news that comes this way. Back to the logs. |
+| `rumour_fisher_done` | I have told you all I heard. Now let me fish. |
+| `rumour_herder_done` | That is all I know. The trainer knows more than I do. |
+| `woodcutter_hello` | Folk from the village ran past here. You look like one of them. |
+| `fisher_hello` | Quiet, or you scare the fish. People cross the bridge all day, and they talk. |
+| `herder_hello` | My goats graze this hill. Most who climb to the trainer's hut pass me on the way. |
+| `who_woodcutter` | A woodcutter |
+| `who_fisher` | A fisher |
+| `who_herder` | A herder |
+| `does_talk_woodcutter` | Talk to the woodcutter |
+| `does_talk_fisher` | Talk to the fisher |
+| `does_talk_herder` | Talk to the herder |
+| `lines_heading` | Quest lines |
+| `lines_none` | Talk to the people you meet. What they tell you starts a quest line here. |
+| `line_progress` | {n} of {of} |
+| `line_done` | Done |
+| `line_speedster` | Speedster's armour |
+| `line_sword` | The leader's sword |
+| `line_chest` | The bandits' chest |
+| `line_trainer` | The trainer |
+| `line_waystones` | The waystones |
+| `line_speedster_done` | You have every piece of the speedster's armour. |
+| `line_sword_done` | The leader's sword is yours. |
+| `line_chest_done` | The boomerang from the bandits' chest is yours. |
+| `line_trainer_done` | The trainer taught you the imbue and gave you the flute. |
+| `line_waystones_done` | Every waystone is awake. |
+| `place_crossroads` | The crossroads |
+| core: `rumours.` refusals | There is no rumour "…". / There is no one to talk to called "…". / Unknown action "rumours.…". |
+| core: rumours file refusals | The rumours file's rumour "…" moves on a line there is none of / is told by "…", who is not among its tellers / is told by no one / names a condition there is none of; its teller "…" is neither a roadside villager, the merchant, the traveller, the trainer, nor a person with a place. |
+| `GLOSSARY.md` | Quest line, Rumour (new entries) |

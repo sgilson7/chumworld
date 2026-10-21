@@ -161,7 +161,10 @@ impl Spec {
                 }
             }
             if r.told_by.is_empty() {
-                return Err(format!("The rumours file's rumour \"{}\" is told by no one.", r.id));
+                return Err(format!(
+                    "The rumours file's rumour \"{}\" is told by no one.",
+                    r.id
+                ));
             }
             for c in &r.until {
                 check_condition(c).map_err(|e| format!("The rumours file's rumour \"{}\" {e}", r.id))?;
@@ -345,7 +348,7 @@ pub fn talk_lines(w: &mut World, id: &str, first: &[&str]) -> Vec<String> {
     let opening = w.story.opening();
     match tell(w, id) {
         Some(line) => out.push(line),
-        None if met || out.is_empty() => {
+        None if out.is_empty() => {
             if let Some(c) = teller(id).and_then(|t| t.closing.as_ref()) {
                 if !opening {
                     out.push(c.clone());
@@ -431,7 +434,10 @@ pub struct Person {
 
 /// The tellers with places of their own.
 pub fn own() -> impl Iterator<Item = &'static TellerSpec> {
-    spec().tellers.iter().filter(|t| t.who.is_some() && t.at.is_some())
+    spec()
+        .tellers
+        .iter()
+        .filter(|t| t.who.is_some() && t.at.is_some())
 }
 
 /// Each person standing, their feet on the ground.
@@ -604,6 +610,102 @@ pub fn lines(w: &World, s: &Strings) -> Vec<LineView> {
         .collect()
 }
 
+// ---- the save (P10, T16) --------------------------------------------------------------
+
+/// `State` as the save's ids under the part "rumours" (`save::PARTS`):
+/// `heard.<rumour>`, `met.<teller>`, `mark.<place>`, `latest.<line>.<rumour>`,
+/// `held.<line>.<step>` and `done.<line>`. A set keeps no order, so a loaded
+/// world lists what was heard, the lines and the marks in the file's order.
+pub fn save_ids(w: &World) -> std::collections::BTreeSet<String> {
+    let st = &w.rumours;
+    let mut out = std::collections::BTreeSet::new();
+    out.extend(st.heard.iter().map(|h| format!("heard.{h}")));
+    out.extend(st.met.iter().map(|m| format!("met.{m}")));
+    out.extend(st.marks.iter().map(|m| format!("mark.{m}")));
+    for l in &st.lines {
+        out.insert(format!("latest.{}.{}", l.id, l.latest));
+        out.extend(l.held.iter().map(|c| format!("held.{}.{c}", l.id)));
+        if l.done {
+            out.insert(format!("done.{}", l.id));
+        }
+    }
+    out
+}
+
+/// Every id `save_ids` can write, from data/rumours.json.
+fn every_id() -> Vec<String> {
+    let sp = spec();
+    let mut out = Vec::new();
+    for r in &sp.rumours {
+        out.push(format!("heard.{}", r.id));
+        out.push(format!("latest.{}.{}", r.line, r.id));
+        if let Some(m) = &r.reveals {
+            out.push(format!("mark.{}", m.place));
+        }
+    }
+    out.extend(sp.tellers.iter().map(|t| format!("met.{}", t.id)));
+    for l in &sp.lines {
+        out.push(format!("done.{}", l.id));
+        out.extend(l.steps.iter().map(|c| format!("held.{}.{c}", l.id)));
+    }
+    out
+}
+
+/// Whether the save may hold `id` under "rumours".
+pub fn save_known(id: &str) -> bool {
+    every_id().iter().any(|k| k == id)
+}
+
+/// A loaded world takes back what `save_ids` wrote.
+pub fn save_apply(w: &mut World, ids: &std::collections::BTreeSet<String>) {
+    let sp = spec();
+    let has = |k: String| ids.contains(&k);
+    let mut st = State {
+        heard: sp
+            .rumours
+            .iter()
+            .filter(|r| has(format!("heard.{}", r.id)))
+            .map(|r| r.id.clone())
+            .collect(),
+        met: sp
+            .tellers
+            .iter()
+            .filter(|t| has(format!("met.{}", t.id)))
+            .map(|t| t.id.clone())
+            .collect(),
+        lines: Vec::new(),
+        marks: Vec::new(),
+    };
+    for r in &sp.rumours {
+        if let Some(m) = &r.reveals {
+            if has(format!("mark.{}", m.place)) && !st.marks.contains(&m.place) {
+                st.marks.push(m.place.clone());
+            }
+        }
+    }
+    for l in &sp.lines {
+        let Some(latest) = sp
+            .rumours
+            .iter()
+            .find(|r| r.line == l.id && has(format!("latest.{}.{}", l.id, r.id)))
+        else {
+            continue;
+        };
+        st.lines.push(Line {
+            id: l.id.clone(),
+            latest: latest.id.clone(),
+            held: l
+                .steps
+                .iter()
+                .filter(|c| has(format!("held.{}.{c}", l.id)))
+                .cloned()
+                .collect(),
+            done: has(format!("done.{}", l.id)),
+        });
+    }
+    w.rumours = st;
+}
+
 // ---- act ------------------------------------------------------------------------------
 
 /// `rumours.<name>`, for tests and views: `hear <id>` hears a rumour as if
@@ -632,7 +734,11 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             let eye = p.at.add(crate::geom::facing(p.yaw, 0).scale(fx::int(back)));
             let yaw = yaw_of(p.at.sub(eye));
             let yaw_deg = (yaw as i64 * 360).div_euclid(fx::TURN as i64);
-            crate::places::act(w, "go", &format!("{},{} {} -6", eye.x / ONE, eye.z / ONE, yaw_deg))
+            crate::places::act(
+                w,
+                "go",
+                &format!("{},{} {} -6", eye.x / ONE, eye.z / ONE, yaw_deg),
+            )
         }
         _ => Err(format!("Unknown action \"rumours.{name}\".")),
     }

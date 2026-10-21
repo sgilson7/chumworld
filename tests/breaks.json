@@ -3894,8 +3894,8 @@
   {
     "name": "T17 rumours: a person with nothing left says the closing line",
     "file": "crates/core/src/rumours.rs",
-    "find": "        None if met || out.is_empty() => {",
-    "replace": "        None if out.is_empty() => {",
+    "find": "                    out.push(c.clone());",
+    "replace": "",
     "test": "a_person_s_talk_goes_through_what_they_know_and_ends_on_a_closing_line"
   },
   {
