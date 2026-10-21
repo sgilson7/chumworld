@@ -419,7 +419,10 @@ fn e_wakes_a_waystone_and_its_mark_appears_on_the_map() {
     g.act("places.go", &format!("{},{}", fx::floor(s.x) + 1, fx::floor(s.z)))
         .unwrap();
     frames(&mut g, 2, 0, 0);
-    assert_eq!(crate::places::markers(&g.world).len(), 7);
+    // the seven places and (M7 roadside, T12) the roadside's marks after them
+    // (M7 save, T16: and the save points' posts)
+    let roadside = crate::roadside::marks(&g.world).len() + crate::save::marks(&g.world).len();
+    assert_eq!(crate::places::markers(&g.world).len(), 7 + roadside);
     assert!(matches!(
         crate::story::nearest_use(&g.world),
         Some((crate::story::Use::Waystone(HILL), _))
@@ -436,7 +439,7 @@ fn e_wakes_a_waystone_and_its_mark_appears_on_the_map() {
         }
     );
     let m = crate::places::markers(&g.world);
-    assert_eq!(m.len(), 8);
+    assert_eq!(m.len(), 8 + roadside);
     assert_eq!(m[7].0, "waystone_hill");
     // E there now does nothing more to it
     assert!(crate::travel::wake_reach(&g.world).is_none());

@@ -278,11 +278,26 @@ fn drops(w: &mut World) {
         let slot = |s: usize| crate::save::drop_key(&key, s);
         match m.role {
             Role::Lookout => {
-                save_drop(w, &slot(0), Gift::Item(Item::Gloves, 1), beside(ONE * 8 / 10, deg(90)));
-                save_drop(w, &slot(1), Gift::Coins(sp.bandit_coins), beside(ONE * 8 / 10, -deg(90)));
+                save_drop(
+                    w,
+                    &slot(0),
+                    Gift::Item(Item::Gloves, 1),
+                    beside(ONE * 8 / 10, deg(90)),
+                );
+                save_drop(
+                    w,
+                    &slot(1),
+                    Gift::Coins(sp.bandit_coins),
+                    beside(ONE * 8 / 10, -deg(90)),
+                );
             }
             Role::Bandit => {
-                save_drop(w, &slot(0), Gift::Coins(sp.bandit_coins), beside(ONE * 8 / 10, deg(90)));
+                save_drop(
+                    w,
+                    &slot(0),
+                    Gift::Coins(sp.bandit_coins),
+                    beside(ONE * 8 / 10, deg(90)),
+                );
                 save_drop(
                     w,
                     &slot(1),
@@ -292,7 +307,12 @@ fn drops(w: &mut World) {
             }
             Role::Leader => {
                 save_drop(w, &slot(0), Gift::Item(Item::Sword, 1), beside(ONE, deg(90)));
-                save_drop(w, &slot(1), Gift::Coins(sp.leader_coins), beside(ONE * 8 / 10, -deg(90)));
+                save_drop(
+                    w,
+                    &slot(1),
+                    Gift::Coins(sp.leader_coins),
+                    beside(ONE * 8 / 10, -deg(90)),
+                );
             }
         }
         w.camp.members[k].dropped = true;

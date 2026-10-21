@@ -120,6 +120,8 @@ pub struct Map {
     pub walls: Vec<Wall>,
     /// each bridge's deck as a rectangle, and the deck's height
     pub decks: Vec<(Wall, Fx)>,
+    /// M7 roadside: the watchtower's and the tor's tops and ramps
+    pub climbs: Vec<crate::roadside::Climb>,
     pub home: Option<Home>,
 }
 
@@ -129,6 +131,7 @@ impl Map {
         let mut m = Map {
             walls: walls(w, home),
             decks: Vec::new(),
+            climbs: crate::roadside::climbs(w),
             home,
         };
         for s in places::prop_spots(w, Prop::Bridge) {
@@ -193,7 +196,8 @@ fn walls(w: &World, home: Option<Home>) -> Vec<Wall> {
             let Some(prop) = places::prop_kind(&q.prop) else {
                 continue;
             };
-            if q.inside || prop == Prop::Bridge {
+            // M7 roadside: what is climbed has walls of its own (below)
+            if q.inside || matches!(prop, Prop::Bridge | Prop::Watchtower | Prop::Tor) {
                 continue;
             }
             let Some(size) = layout.footprints_m.get(&q.prop) else {
@@ -235,6 +239,7 @@ fn walls(w: &World, home: Option<Home>) -> Vec<Wall> {
             });
         }
     }
+    out.extend(crate::roadside::walls(w));
     for s in places::prop_spots(w, Prop::Bridge) {
         for side in [-1, 1] {
             let (dx, dz) = rot(s.yaw, side * DECK_HALF, 0);
@@ -258,6 +263,8 @@ fn small(prop: Prop, mut wall: Wall) -> Wall {
         Prop::Well => ONE * 15 / 100,
         Prop::Campfire => ONE * 25 / 100,
         Prop::Chest => ONE * 5 / 100,
+        // M7 roadside: a lone tree's trunk, not its crown
+        Prop::LoneTree => ONE * 115 / 100,
         _ => 0,
     };
     wall.hx -= shrink;
@@ -314,6 +321,10 @@ pub fn surface(w: &World, x: Fx, z: Fx) -> Fx {
         if let Some(y) = raised(&floor, h.foot.y + FLOOR, ground, x, z, DOOR_RAMP, true) {
             best = best.max(y);
         }
+    }
+    // M7 roadside: the watchtower's and the tor's tops and ramps
+    if let Some(y) = crate::roadside::surface(&w.solid.climbs, x, z) {
+        best = best.max(y);
     }
     best
 }
@@ -382,6 +393,8 @@ pub fn step(w: &mut World) {
         if !in_bed {
             let close = near(&map.walls, pos.x, pos.z, ONE * 2);
             keep_out(&close, &mut pos, &mut vel, RADIUS);
+            // M7 roadside: no one walks under a platform or into a rock
+            crate::roadside::guard(&map.climbs, b.prev_pos.y, &mut pos, &mut vel);
         }
         pos.y = surface(w, pos.x, pos.z) + if in_bed { w.story.lift } else { 0 };
         let b = player::parts_mut(w, id).0;

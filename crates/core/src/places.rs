@@ -148,7 +148,10 @@ impl Layout {
 
     /// The layout the game ships with.
     pub fn shipped() -> Layout {
-        Layout::parse(include_str!("../../../data/places.json")).expect("data/places.json")
+        let mut l = Layout::parse(include_str!("../../../data/places.json")).expect("data/places.json");
+        // M7 roadside (T12): the stops beside the ways out, as places
+        crate::roadside::lay(&mut l);
+        l
     }
 }
 
@@ -170,8 +173,14 @@ pub fn prop_kind(name: &str) -> Option<Prop> {
         "bed" => Prop::Bed,
         "signpost" => Prop::Signpost,
         "hollow_tree" => Prop::HollowTree,
-        "waystone" => Prop::Waystone, // M7 travel
+        "waystone" => Prop::Waystone,  // M7 travel
         "save_post" => Prop::SavePost, // M7 save
+        // M7 roadside (T12)
+        "wreck" => Prop::Wreck,
+        "wreck_burnt" => Prop::WreckBurnt,
+        "watchtower" => Prop::Watchtower,
+        "tor" => Prop::Tor,
+        "lone_tree" => Prop::LoneTree,
         _ => return None,
     })
 }
@@ -392,6 +401,8 @@ pub fn markers(w: &World) -> Vec<(&'static str, V3)> {
         .chain(crate::travel::marks(w))
         // M7 save: each save point's lantern post
         .chain(crate::save::marks(w))
+        // M7 roadside: the stops with models
+        .chain(crate::roadside::marks(w))
         .collect()
 }
 

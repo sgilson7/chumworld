@@ -57,7 +57,7 @@
 //! How a module joins the world (state, step, draw, scene, screen, act):
 //! the extension contract in `world.rs`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
@@ -105,8 +105,8 @@ pub struct Spec {
 
 impl Spec {
     pub fn parse(json: &str) -> Result<Spec, String> {
-        let mut v: Value =
-            serde_json::from_str(json).map_err(|e| format!("The save file's rules could not be read: {e}"))?;
+        let mut v: Value = serde_json::from_str(json)
+            .map_err(|e| format!("The save file's rules could not be read: {e}"))?;
         if let Some(m) = v.as_object_mut() {
             m.retain(|k, _| !k.starts_with('_'));
         }
@@ -151,7 +151,10 @@ pub fn point_id(k: usize) -> String {
     if k < n {
         format!("waystone.{}", crate::travel::spec().points[k].id)
     } else {
-        format!("post.{}", spec().posts.get(k - n).map(|p| p.id.as_str()).unwrap_or(""))
+        format!(
+            "post.{}",
+            spec().posts.get(k - n).map(|p| p.id.as_str()).unwrap_or("")
+        )
     }
 }
 
@@ -230,9 +233,10 @@ pub fn marks(w: &World) -> Vec<(&'static str, V3)> {
 /// The major area the player stands in, by its index in the file.
 pub fn area_of(w: &World) -> Option<usize> {
     let me = w.player.pos;
-    spec().areas.iter().position(|a| {
-        crate::places::at(w, &a.place).is_some_and(|c| c.sub(me).len_xz() < a.radius_m * ONE)
-    })
+    spec()
+        .areas
+        .iter()
+        .position(|a| crate::places::at(w, &a.place).is_some_and(|c| c.sub(me).len_xz() < a.radius_m * ONE))
 }
 
 // ---- stable keys --------------------------------------------------------------
@@ -262,11 +266,30 @@ pub fn drop_key(foe: &str, slot: usize) -> String {
     format!("drop.{foe}.{slot}")
 }
 
+/// The roadside's stops (P7, T12) of a kind, by id, in the file's order.
+pub fn roadside_stops(kind: crate::roadside::Kind) -> Vec<&'static crate::roadside::StopSpec> {
+    crate::roadside::spec()
+        .sides
+        .iter()
+        .flat_map(|s| s.stops.iter())
+        .filter(|s| crate::roadside::Kind::named(&s.kind) == Some(kind))
+        .collect()
+}
+
+/// The roadside's straggler at stop `id`: `roadside.<id>`.
+pub fn roadside_key(id: &str) -> String {
+    format!("roadside.{id}")
+}
+
 /// A foe or encounter a save may name as beaten. A later part adds its
-/// keys here.
+/// keys here (and stands a beaten one down when it stands, as
+/// `camp::spawn` and `roadside::step` do with `beaten` and `lay_down`).
 pub fn known_foe(key: &str) -> bool {
     camp_keys().iter().any(|k| k == key)
         || (0..story::spec().raid.orcs.len()).any(|r| raid_key(r) == key)
+        || roadside_stops(crate::roadside::Kind::Straggler)
+            .iter()
+            .any(|s| roadside_key(&s.id) == key)
 }
 
 /// The story's pickup `k` (by its order in `data/story.json`).
@@ -274,13 +297,90 @@ pub fn pickup_key(k: usize) -> String {
     format!("pickup.{k}")
 }
 
-/// Something a save may name as taken. A later part adds its keys here.
+/// Something a save may name as taken. A later part adds its keys here,
+/// and lays its drops through `drop` with them.
 pub fn known_taken(key: &str) -> bool {
+    use crate::roadside::Kind as R;
     key == KEY_DROP
         || (0..story::spec().pickups.len()).any(|k| pickup_key(k) == key)
         || camp_keys()
             .iter()
             .any(|f| (0..DROPS_EACH).any(|s| drop_key(f, s) == key))
+        || roadside_stops(R::Rocks)
+            .iter()
+            .any(|s| (0..s.gives.len()).any(|n| drop_key(&roadside_key(&s.id), n) == key))
+        || roadside_stops(R::Straggler)
+            .iter()
+            .any(|s| drop_key(&roadside_key(&s.id), 0) == key)
+}
+
+// ---- a part's own progress ----------------------------------------------------
+
+/// A part's progress that is neither a foe beaten nor a thing taken (the
+/// roadside's carts searched; P11's rumours heard, quest steps and revealed
+/// marks): a set of ids under the part's name in the save's `parts`. A part
+/// joins by adding one `Part` to `PARTS`: the ids it may hold, the ids the
+/// world holds now, and how a loaded world takes them back. A save without
+/// the part has none of its ids, so adding a part needs no new version.
+pub struct Part {
+    pub name: &'static str,
+    pub known: fn(&str) -> bool,
+    pub ids: fn(&World) -> BTreeSet<String>,
+    pub apply: fn(&mut World, &BTreeSet<String>),
+}
+
+pub const PARTS: &[Part] = &[Part {
+    name: "roadside",
+    known: roadside_known,
+    ids: roadside_ids,
+    apply: roadside_apply,
+}];
+
+/// The roadside's carts searched: `searched.<stop id>`.
+fn searched_key(id: &str) -> String {
+    format!("searched.{id}")
+}
+
+fn roadside_known(id: &str) -> bool {
+    crate::roadside::spec()
+        .sides
+        .iter()
+        .flat_map(|s| s.stops.iter())
+        .filter(|s| crate::roadside::Kind::named(&s.kind).is_some_and(|k| k.searched()))
+        .any(|s| searched_key(&s.id) == id)
+}
+
+fn roadside_ids(w: &World) -> BTreeSet<String> {
+    w.roadside
+        .stops
+        .iter()
+        .zip(&w.roadside.searched)
+        .filter(|(_, on)| **on)
+        .map(|((s, _), _)| searched_key(&s.id))
+        .collect()
+}
+
+fn roadside_apply(w: &mut World, ids: &BTreeSet<String>) {
+    for k in 0..w.roadside.stops.len() {
+        if ids.contains(&searched_key(&w.roadside.stops[k].0.id)) {
+            if let Some(s) = w.roadside.searched.get_mut(k) {
+                *s = true;
+            }
+        }
+    }
+}
+
+/// Whether a part's ids name a searched cart that gives `item`.
+fn searched_gives(parts: &BTreeMap<String, BTreeSet<String>>, item: Item) -> bool {
+    let Some(ids) = parts.get("roadside") else {
+        return false;
+    };
+    crate::roadside::spec()
+        .sides
+        .iter()
+        .flat_map(|s| s.stops.iter())
+        .filter(|s| ids.contains(&searched_key(&s.id)))
+        .any(|s| s.gives.iter().any(|g| g.item.as_deref() == Some(item.id())))
 }
 
 /// The story's pickup that gives `item`, if one does.
@@ -359,6 +459,8 @@ pub struct Progress {
     pub beaten: BTreeSet<String>,
     pub kept: Kept,
     pub map: Vec<u64>,
+    /// each part's own ids, by part (`PARTS`); a part with none is absent
+    pub parts: BTreeMap<String, BTreeSet<String>>,
 }
 
 /// Who and what is beaten in `w`: the save's own, then each camp member
@@ -373,12 +475,17 @@ fn beaten_in(w: &World) -> BTreeSet<String> {
             }
         }
     }
+    if let Some(s) = w.roadside.straggler {
+        if w.foes.get(s.foe).is_some_and(|f| f.fighter.health.down()) {
+            if let Some((stop, _)) = w.roadside.stops.get(s.stop) {
+                out.insert(roadside_key(&stop.id));
+            }
+        }
+    }
     if !w.story.opening() {
         for r in 0..story::spec().raid.orcs.len() {
             let mut on = w.story.raid.iter().filter(|x| x.route == r).peekable();
-            if on.peek().is_some()
-                && on.all(|x| w.foes.get(x.foe).is_none_or(|f| f.fighter.health.down()))
-            {
+            if on.peek().is_some() && on.all(|x| w.foes.get(x.foe).is_none_or(|f| f.fighter.health.down())) {
                 out.insert(raid_key(r));
             }
         }
@@ -447,6 +554,11 @@ pub fn progress(w: &World) -> Progress {
             look_pct: w.aim.pct,
         },
         map: w.ui.fog.bits().to_vec(),
+        parts: PARTS
+            .iter()
+            .map(|p| (p.name.to_string(), (p.ids)(w)))
+            .filter(|(_, ids)| !ids.is_empty())
+            .collect(),
     }
 }
 
@@ -498,6 +610,7 @@ pub fn game_value(p: &Progress) -> Value {
         "flags": p.flags.iter().map(|f| f.id()).collect::<Vec<_>>(),
         "items": items,
         "map": p.map.iter().map(|w| format!("{w:016x}")).collect::<String>(),
+        "parts": p.parts.iter().map(|(k, ids)| (k.clone(), json!(ids))).collect::<Map<String, Value>>(),
         "phase": "free",
         "playtime": p.playtime,
         "point": point_id(p.point),
@@ -522,9 +635,9 @@ pub fn game_value(p: &Progress) -> Value {
 
 /// The keys of a save's `game` object: what a save holds, and nothing else
 /// (no name, no date or clock reading, nothing about the device).
-pub const GAME_KEYS: [&str; 17] = [
-    "beaten", "coins", "flags", "items", "map", "phase", "playtime", "point", "quick", "reached", "seed",
-    "settings", "stock", "taken", "weapon", "woken", "worn",
+pub const GAME_KEYS: [&str; 18] = [
+    "beaten", "coins", "flags", "items", "map", "parts", "phase", "playtime", "point", "quick", "reached",
+    "seed", "settings", "stock", "taken", "weapon", "woken", "worn",
 ];
 pub const SETTING_KEYS: [&str; 6] = ["blood", "cue", "hand_pct", "invert_y", "look_pct", "volume_pct"];
 pub const TOP_KEYS: [&str; 4] = ["checksum", "format", "game", "version"];
@@ -686,7 +799,10 @@ pub fn read(text: &str) -> Result<Progress, Refusal> {
     }
     let seed = uint(&g["seed"], "seed", u32::MAX as u64)? as u32;
     let playtime = uint(&g["playtime"], "playtime", sp.playtime_most)?;
-    let point = g["point"].as_str().and_then(point_of).ok_or_else(|| bad("point"))?;
+    let point = g["point"]
+        .as_str()
+        .and_then(point_of)
+        .ok_or_else(|| bad("point"))?;
     let coins = uint(&g["coins"], "coins", sp.coins_most as u64)? as u32;
     let count = counts(&g["items"], "items")?;
     let stock = counts(&g["stock"], "stock")?;
@@ -697,10 +813,16 @@ pub fn read(text: &str) -> Result<Progress, Refusal> {
     let mut worn = [None; 5];
     for (slot, v) in object(&g["worn"], "worn")? {
         let f = format!("worn.{slot}");
-        let k = Slot::ALL.iter().position(|s| s.id() == slot).ok_or_else(|| bad(&f))?;
+        let k = Slot::ALL
+            .iter()
+            .position(|s| s.id() == slot)
+            .ok_or_else(|| bad(&f))?;
         worn[k] = Some(item(v, &f)?);
     }
-    let q = g["quick"].as_array().filter(|a| a.len() == 3).ok_or_else(|| bad("quick"))?;
+    let q = g["quick"]
+        .as_array()
+        .filter(|a| a.len() == 3)
+        .ok_or_else(|| bad("quick"))?;
     let mut quick = [None; 3];
     for (k, v) in q.iter().enumerate() {
         quick[k] = match v {
@@ -746,6 +868,16 @@ pub fn read(text: &str) -> Result<Progress, Refusal> {
         )?,
     };
     let map = map_bits(&g["map"])?;
+    let mut parts = BTreeMap::new();
+    for (name, ids) in object(&g["parts"], "parts")? {
+        let f = format!("parts.{name}");
+        let part = PARTS.iter().find(|p| p.name == name).ok_or_else(|| bad(&f))?;
+        let set = id_set(ids, &f, part.known)?;
+        if set.is_empty() {
+            return Err(bad(&f));
+        }
+        parts.insert(name.clone(), set);
+    }
     let p = Progress {
         seed,
         playtime,
@@ -763,6 +895,7 @@ pub fn read(text: &str) -> Result<Progress, Refusal> {
         beaten,
         kept,
         map,
+        parts,
     };
     hands(&p)?;
     routes(&p)?;
@@ -773,8 +906,14 @@ pub fn read(text: &str) -> Result<Progress, Refusal> {
 /// word's cells past the map's edge clear.
 fn map_bits(v: &Value) -> Result<Vec<u64>, Refusal> {
     let words = crate::ui::Fog::words();
-    let hex = v.as_str().filter(|h| h.len() == words * 16).ok_or_else(|| bad("map"))?;
-    if !hex.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
+    let hex = v
+        .as_str()
+        .filter(|h| h.len() == words * 16)
+        .ok_or_else(|| bad("map"))?;
+    if !hex
+        .bytes()
+        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
         return Err(bad("map"));
     }
     let out: Vec<u64> = (0..words)
@@ -847,8 +986,16 @@ fn routes(p: &Progress) -> Result<(), Refusal> {
             Item::Jacket | Item::Trousers | Item::Boots => pickup_of(i).is_some_and(|k| took(&pickup_key(k))),
             Item::Gloves => took(&drop_key("camp.lookout", 0)),
             Item::Flute => on(Flag::FluteGiven),
-            Item::Knife => on(Flag::MerchantMet) || bandits.iter().any(|b| took(&drop_key(b, 1))),
-            Item::Bandage => on(Flag::MerchantMet) || pickup_of(i).is_some_and(|k| took(&pickup_key(k))),
+            Item::Knife => {
+                on(Flag::MerchantMet)
+                    || bandits.iter().any(|b| took(&drop_key(b, 1)))
+                    || searched_gives(&p.parts, i)
+            }
+            Item::Bandage => {
+                on(Flag::MerchantMet)
+                    || pickup_of(i).is_some_and(|k| took(&pickup_key(k)))
+                    || searched_gives(&p.parts, i)
+            }
         }
     };
     for i in Item::ALL {
@@ -910,6 +1057,20 @@ pub fn world(p: &Progress) -> World {
             pk.taken = true;
         }
     }
+    // the drops the opening lays by key (the tor's rocks)
+    let keyed = std::mem::take(&mut w.save.keyed);
+    for (k, key) in &keyed {
+        if p.taken.contains(key) {
+            if let Some(pk) = w.story.pickups.get_mut(*k) {
+                pk.taken = true;
+            }
+        }
+    }
+    for part in PARTS {
+        if let Some(ids) = p.parts.get(part.name) {
+            (part.apply)(&mut w, ids);
+        }
+    }
     // what the player carries
     let inv = &mut w.inventory;
     inv.count = p.count;
@@ -948,6 +1109,7 @@ pub fn world(p: &Progress) -> World {
         playtime: p.playtime,
         taken: p.taken.clone(),
         beaten: p.beaten.clone(),
+        keyed,
         ..State::default()
     };
     stand_at(&mut w, p.point);
@@ -1406,7 +1568,8 @@ mod tests {
         p.worn[Slot::Hands as usize] = Some(Item::Gloves);
         p.quick = [Some(Item::Rock), None, Some(Item::Flute)];
         p.coins = 36;
-        p.flags.extend([Flag::PracticePassed, Flag::ImbueLearned, Flag::FluteGiven]);
+        p.flags
+            .extend([Flag::PracticePassed, Flag::ImbueLearned, Flag::FluteGiven]);
         p.woken[2] = true;
         p.reached[2] = true;
         p.point = 2;
@@ -1415,6 +1578,13 @@ mod tests {
         p.kept.settings.hand_pct = 135;
         p.kept.look_pct = 60;
         p.map[3] = 0x00f0;
+        // the roadside (P7): the north-east cart searched (its knives
+        // carried), the straggler beaten, the tor's first rocks taken
+        p.parts
+            .insert("roadside".into(), ["searched.north_east_cart".to_string()].into());
+        p.count[Item::Knife as usize] = 2;
+        p.beaten.insert(roadside_key("north_east_orc"));
+        p.taken.insert(drop_key(&roadside_key("west_rocks"), 0));
         p
     }
 
@@ -1443,6 +1613,21 @@ mod tests {
         assert_eq!(a.trainer.stage, crate::trainer::Stage::Done);
         assert!(a.story.pickups[pickup_of(Item::Jacket).unwrap()].taken);
         assert!(!a.ui.settings.blood);
+        let cart = a
+            .roadside
+            .stops
+            .iter()
+            .position(|(s, _)| s.id == "north_east_cart")
+            .unwrap();
+        assert!(a.roadside.searched[cart], "the searched cart stays searched");
+        let rocks = a
+            .save
+            .keyed
+            .iter()
+            .find(|(_, k)| k == "drop.roadside.west_rocks.0")
+            .unwrap()
+            .0;
+        assert!(a.story.pickups[rocks].taken, "the tor's rocks stay taken");
         assert_eq!(a.aim.pct, 60);
         assert_eq!(a.story.phase, Phase::Free, "a load is past the opening");
         // standing at the hill's waystone, 4 m in front of it
@@ -1490,49 +1675,290 @@ mod tests {
     fn each_bad_field_is_refused_by_name() {
         let p = some_progress();
         let field = |f: &str| Err(Refusal::Field(f.into()));
-        let cases: Vec<(&str, Box<dyn Fn(&mut Map<String, Value>)>, Result<Progress, Refusal>)> = vec![
-            ("coins as text", Box::new(|g| { g.insert("coins".into(), json!("36")); }), field("coins")),
-            ("coins over the most", Box::new(|g| { g.insert("coins".into(), json!(100_000)); }), field("coins")),
-            ("coins negative", Box::new(|g| { g.insert("coins".into(), json!(-1)); }), field("coins")),
-            ("a fraction", Box::new(|g| { g.insert("playtime".into(), json!(1.5)); }), field("playtime")),
-            ("seed past 32 bits", Box::new(|g| { g.insert("seed".into(), json!(1u64 << 32)); }), field("seed")),
-            ("an unknown item", Box::new(|g| { g["items"]["lute"] = json!(1); }), field("items.lute")),
-            ("rocks over the stack", Box::new(|g| { g["items"]["rock"] = json!(21); }), field("items.rock")),
-            ("a count of none", Box::new(|g| { g["items"]["rock"] = json!(0); }), field("items.rock")),
-            ("an unknown field", Box::new(|g| { g.insert("name".into(), json!("Sam")); }), field("name")),
-            ("a missing field", Box::new(|g| { g.remove("point"); }), field("point")),
-            ("an unknown save point", Box::new(|g| { g.insert("point".into(), json!("post.moon")); }), field("point")),
-            ("the opening's phase", Box::new(|g| { g.insert("phase".into(), json!("raid")); }), field("phase")),
-            ("a weapon not carried", Box::new(|g| { g.insert("weapon".into(), json!("sword")); }), field("weapon")),
-            ("a throwable in the sword hand", Box::new(|g| { g.insert("weapon".into(), json!("rock")); }), field("weapon")),
-            ("armour in the wrong slot", Box::new(|g| { g["worn"]["head"] = json!("jacket"); }), field("worn.head")),
-            ("an unknown slot", Box::new(|g| { g["worn"]["tail"] = json!("jacket"); }), field("worn.tail")),
-            ("armour on a quick key", Box::new(|g| { g.insert("quick".into(), json!(["jacket", null, null])); }), field("quick")),
-            ("an item on two keys", Box::new(|g| { g.insert("quick".into(), json!(["rock", "rock", null])); }), field("quick")),
-            ("four quick keys", Box::new(|g| { g.insert("quick".into(), json!([null, null, null, null])); }), field("quick")),
-            ("an unknown flag", Box::new(|g| { g.insert("flags".into(), json!(["dragon_slain"])); }), field("flags")),
-            ("an unknown foe", Box::new(|g| { g["beaten"]["camp.dragon"] = json!(true); }), field("beaten.camp.dragon")),
-            ("a foe beaten as false", Box::new(|g| { g["beaten"]["camp.leader"] = json!(false); }), field("beaten.camp.leader")),
-            ("an unknown pickup", Box::new(|g| { g.insert("taken".into(), json!(["pickup.99"])); }), field("taken")),
-            ("a pickup twice", Box::new(|g| { g.insert("taken".into(), json!(["pickup.5", "pickup.5"])); }), field("taken")),
-            ("an unknown waystone", Box::new(|g| { g.insert("woken".into(), json!(["moon"])); }), field("woken")),
-            ("woken but never reached", Box::new(|g| { g.insert("reached".into(), json!([])); }), field("woken")),
-            ("a setting out of range", Box::new(|g| { g["settings"]["hand_pct"] = json!(9000); }), field("settings.hand_pct")),
-            ("a setting missing", Box::new(|g| { g["settings"].as_object_mut().unwrap().remove("blood"); }), field("settings.blood")),
-            ("a setting of the wrong type", Box::new(|g| { g["settings"]["invert_y"] = json!(1); }), field("settings.invert_y")),
-            ("a short map", Box::new(|g| { g.insert("map".into(), json!("00ff")); }), field("map")),
-            ("cells past the map's edge", Box::new(|g| {
-                let m = g["map"].as_str().unwrap().to_string();
-                let n = m.len();
-                g.insert("map".into(), json!(format!("{}ffffffffffffffff", &m[..n - 16])));
-            }), field("map")),
-            ("the imbue without the practice", Box::new(|g| { g.insert("flags".into(), json!(["flute_given", "imbue_learned"])); }), field("flags")),
-            ("a cleared camp with its foes standing", Box::new(|g| { g.insert("flags".into(), json!(["camp_cleared", "flute_given", "imbue_learned", "practice_passed"])); }), field("flags")),
-            ("a stocked item never sold", Box::new(|g| {
-                g["items"].as_object_mut().unwrap().remove("boots");
-                g["stock"]["boots"] = json!(1);
-            }), field("stock")),
-            ("a stocked stack", Box::new(|g| { g["stock"]["rock"] = json!(1); }), field("stock.rock")),
+        let cases: Vec<(
+            &str,
+            Box<dyn Fn(&mut Map<String, Value>)>,
+            Result<Progress, Refusal>,
+        )> = vec![
+            (
+                "coins as text",
+                Box::new(|g| {
+                    g.insert("coins".into(), json!("36"));
+                }),
+                field("coins"),
+            ),
+            (
+                "coins over the most",
+                Box::new(|g| {
+                    g.insert("coins".into(), json!(100_000));
+                }),
+                field("coins"),
+            ),
+            (
+                "coins negative",
+                Box::new(|g| {
+                    g.insert("coins".into(), json!(-1));
+                }),
+                field("coins"),
+            ),
+            (
+                "a fraction",
+                Box::new(|g| {
+                    g.insert("playtime".into(), serde_json::from_str("1.5").unwrap());
+                }),
+                field("playtime"),
+            ),
+            (
+                "seed past 32 bits",
+                Box::new(|g| {
+                    g.insert("seed".into(), json!(1u64 << 32));
+                }),
+                field("seed"),
+            ),
+            (
+                "an unknown item",
+                Box::new(|g| {
+                    g["items"]["lute"] = json!(1);
+                }),
+                field("items.lute"),
+            ),
+            (
+                "rocks over the stack",
+                Box::new(|g| {
+                    g["items"]["rock"] = json!(21);
+                }),
+                field("items.rock"),
+            ),
+            (
+                "a count of none",
+                Box::new(|g| {
+                    g["items"]["rock"] = json!(0);
+                }),
+                field("items.rock"),
+            ),
+            (
+                "an unknown field",
+                Box::new(|g| {
+                    g.insert("name".into(), json!("Sam"));
+                }),
+                field("name"),
+            ),
+            (
+                "a missing field",
+                Box::new(|g| {
+                    g.remove("point");
+                }),
+                field("point"),
+            ),
+            (
+                "an unknown save point",
+                Box::new(|g| {
+                    g.insert("point".into(), json!("post.moon"));
+                }),
+                field("point"),
+            ),
+            (
+                "the opening's phase",
+                Box::new(|g| {
+                    g.insert("phase".into(), json!("raid"));
+                }),
+                field("phase"),
+            ),
+            (
+                "a weapon not carried",
+                Box::new(|g| {
+                    g.insert("weapon".into(), json!("sword"));
+                }),
+                field("weapon"),
+            ),
+            (
+                "a throwable in the sword hand",
+                Box::new(|g| {
+                    g.insert("weapon".into(), json!("rock"));
+                }),
+                field("weapon"),
+            ),
+            (
+                "armour in the wrong slot",
+                Box::new(|g| {
+                    g["worn"]["head"] = json!("jacket");
+                }),
+                field("worn.head"),
+            ),
+            (
+                "an unknown slot",
+                Box::new(|g| {
+                    g["worn"]["tail"] = json!("jacket");
+                }),
+                field("worn.tail"),
+            ),
+            (
+                "armour on a quick key",
+                Box::new(|g| {
+                    g.insert("quick".into(), json!(["jacket", null, null]));
+                }),
+                field("quick"),
+            ),
+            (
+                "an item on two keys",
+                Box::new(|g| {
+                    g.insert("quick".into(), json!(["rock", "rock", null]));
+                }),
+                field("quick"),
+            ),
+            (
+                "four quick keys",
+                Box::new(|g| {
+                    g.insert("quick".into(), json!([null, null, null, null]));
+                }),
+                field("quick"),
+            ),
+            (
+                "an unknown flag",
+                Box::new(|g| {
+                    g.insert("flags".into(), json!(["dragon_slain"]));
+                }),
+                field("flags"),
+            ),
+            (
+                "an unknown foe",
+                Box::new(|g| {
+                    g["beaten"]["camp.dragon"] = json!(true);
+                }),
+                field("beaten.camp.dragon"),
+            ),
+            (
+                "a foe beaten as false",
+                Box::new(|g| {
+                    g["beaten"]["camp.leader"] = json!(false);
+                }),
+                field("beaten.camp.leader"),
+            ),
+            (
+                "an unknown pickup",
+                Box::new(|g| {
+                    g.insert("taken".into(), json!(["pickup.99"]));
+                }),
+                field("taken"),
+            ),
+            (
+                "a pickup twice",
+                Box::new(|g| {
+                    g.insert("taken".into(), json!(["pickup.5", "pickup.5"]));
+                }),
+                field("taken"),
+            ),
+            (
+                "an unknown waystone",
+                Box::new(|g| {
+                    g.insert("woken".into(), json!(["moon"]));
+                }),
+                field("woken"),
+            ),
+            (
+                "woken but never reached",
+                Box::new(|g| {
+                    g.insert("reached".into(), json!([]));
+                }),
+                field("woken"),
+            ),
+            (
+                "a setting out of range",
+                Box::new(|g| {
+                    g["settings"]["hand_pct"] = json!(9000);
+                }),
+                field("settings.hand_pct"),
+            ),
+            (
+                "a setting missing",
+                Box::new(|g| {
+                    g["settings"].as_object_mut().unwrap().remove("blood");
+                }),
+                field("settings.blood"),
+            ),
+            (
+                "a setting of the wrong type",
+                Box::new(|g| {
+                    g["settings"]["invert_y"] = json!(1);
+                }),
+                field("settings.invert_y"),
+            ),
+            (
+                "a short map",
+                Box::new(|g| {
+                    g.insert("map".into(), json!("00ff"));
+                }),
+                field("map"),
+            ),
+            (
+                "cells past the map's edge",
+                Box::new(|g| {
+                    let m = g["map"].as_str().unwrap().to_string();
+                    let n = m.len();
+                    g.insert("map".into(), json!(format!("{}ffffffffffffffff", &m[..n - 16])));
+                }),
+                field("map"),
+            ),
+            (
+                "the imbue without the practice",
+                Box::new(|g| {
+                    g.insert("flags".into(), json!(["flute_given", "imbue_learned"]));
+                }),
+                field("flags"),
+            ),
+            (
+                "a cleared camp with its foes standing",
+                Box::new(|g| {
+                    g.insert(
+                        "flags".into(),
+                        json!(["camp_cleared", "flute_given", "imbue_learned", "practice_passed"]),
+                    );
+                }),
+                field("flags"),
+            ),
+            (
+                "a stocked item never sold",
+                Box::new(|g| {
+                    g["items"].as_object_mut().unwrap().remove("boots");
+                    g["stock"]["boots"] = json!(1);
+                }),
+                field("stock"),
+            ),
+            (
+                "an unknown part",
+                Box::new(|g| {
+                    g["parts"]["dragons"] = json!(["slain"]);
+                }),
+                field("parts.dragons"),
+            ),
+            (
+                "an unknown id of a part",
+                Box::new(|g| {
+                    g["parts"]["roadside"] = json!(["searched.moon"]);
+                }),
+                field("parts.roadside"),
+            ),
+            (
+                "a part with no ids",
+                Box::new(|g| {
+                    g["parts"]["roadside"] = json!([]);
+                }),
+                field("parts.roadside"),
+            ),
+            (
+                "an unknown straggler",
+                Box::new(|g| {
+                    g["beaten"]["roadside.moon"] = json!(true);
+                }),
+                field("beaten.roadside.moon"),
+            ),
+            (
+                "a stocked stack",
+                Box::new(|g| {
+                    g["stock"]["rock"] = json!(1);
+                }),
+                field("stock.rock"),
+            ),
         ];
         for (what, edit, want) in cases {
             assert_eq!(read(&sealed(&p, edit)), want, "{what}");
@@ -1543,16 +1969,79 @@ mod tests {
     fn nothing_is_held_without_the_route_that_gives_it() {
         let p = some_progress();
         let route = |i: Item| Err(Refusal::Route(i));
-        let cases: Vec<(&str, Box<dyn Fn(&mut Map<String, Value>)>, Result<Progress, Refusal>)> = vec![
-            ("the sword with the leader standing", Box::new(|g| { g["items"]["sword"] = json!(1); }), route(Item::Sword)),
-            ("the boomerang with the chest shut", Box::new(|g| { g["items"]["boomerang"] = json!(1); }), route(Item::Boomerang)),
-            ("the chest key from nowhere", Box::new(|g| { g["items"]["chest_key"] = json!(1); }), route(Item::ChestKey)),
-            ("the hood never bought", Box::new(|g| { g["items"]["hood"] = json!(1); g["stock"].as_object_mut().unwrap().remove("hood"); }), route(Item::Hood)),
-            ("the hood twice", Box::new(|g| { g["items"]["hood"] = json!(1); g.insert("flags".into(), json!(["flute_given", "imbue_learned", "merchant_met", "practice_passed"])); }), route(Item::Hood)),
-            ("the trousers not taken", Box::new(|g| { g["items"]["trousers"] = json!(1); }), route(Item::Trousers)),
-            ("knives from no one", Box::new(|g| { g["items"]["knife"] = json!(2); }), route(Item::Knife)),
-            ("a flute the trainer never gave", Box::new(|g| { g.insert("flags".into(), json!(["imbue_learned", "practice_passed"])); }), route(Item::Flute)),
-            ("a taken key that vanished", Box::new(|g| { g["taken"].as_array_mut().unwrap().push(json!("drop.camp.key")); }), route(Item::ChestKey)),
+        let cases: Vec<(
+            &str,
+            Box<dyn Fn(&mut Map<String, Value>)>,
+            Result<Progress, Refusal>,
+        )> = vec![
+            (
+                "the sword with the leader standing",
+                Box::new(|g| {
+                    g["items"]["sword"] = json!(1);
+                }),
+                route(Item::Sword),
+            ),
+            (
+                "the boomerang with the chest shut",
+                Box::new(|g| {
+                    g["items"]["boomerang"] = json!(1);
+                }),
+                route(Item::Boomerang),
+            ),
+            (
+                "the chest key from nowhere",
+                Box::new(|g| {
+                    g["items"]["chest_key"] = json!(1);
+                }),
+                route(Item::ChestKey),
+            ),
+            (
+                "the hood never bought",
+                Box::new(|g| {
+                    g["items"]["hood"] = json!(1);
+                    g["stock"].as_object_mut().unwrap().remove("hood");
+                }),
+                route(Item::Hood),
+            ),
+            (
+                "the hood twice",
+                Box::new(|g| {
+                    g["items"]["hood"] = json!(1);
+                    g.insert(
+                        "flags".into(),
+                        json!(["flute_given", "imbue_learned", "merchant_met", "practice_passed"]),
+                    );
+                }),
+                route(Item::Hood),
+            ),
+            (
+                "the trousers not taken",
+                Box::new(|g| {
+                    g["items"]["trousers"] = json!(1);
+                }),
+                route(Item::Trousers),
+            ),
+            (
+                "knives from no one",
+                Box::new(|g| {
+                    g.insert("parts".into(), json!({}));
+                }),
+                route(Item::Knife),
+            ),
+            (
+                "a flute the trainer never gave",
+                Box::new(|g| {
+                    g.insert("flags".into(), json!(["imbue_learned", "practice_passed"]));
+                }),
+                route(Item::Flute),
+            ),
+            (
+                "a taken key that vanished",
+                Box::new(|g| {
+                    g["taken"].as_array_mut().unwrap().push(json!("drop.camp.key"));
+                }),
+                route(Item::ChestKey),
+            ),
         ];
         for (what, edit, want) in cases {
             assert_eq!(read(&sealed(&p, edit)), want, "{what}");
@@ -1560,7 +2049,10 @@ mod tests {
         // with its route, each reads: the leader's sword taken
         let ok = sealed(&p, |g| {
             g["items"]["sword"] = json!(1);
-            g["taken"].as_array_mut().unwrap().push(json!("drop.camp.leader.0"));
+            g["taken"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!("drop.camp.leader.0"));
             let mut t: Vec<Value> = g["taken"].as_array().unwrap().clone();
             t.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
             g.insert("taken".into(), json!(t));
@@ -1577,8 +2069,8 @@ mod tests {
         assert_eq!(
             keys(&v["game"]),
             [
-                "beaten", "coins", "flags", "items", "map", "phase", "playtime", "point", "quick", "reached",
-                "seed", "settings", "stock", "taken", "weapon", "woken", "worn"
+                "beaten", "coins", "flags", "items", "map", "parts", "phase", "playtime", "point", "quick",
+                "reached", "seed", "settings", "stock", "taken", "weapon", "woken", "worn"
             ]
         );
         assert_eq!(
@@ -1609,7 +2101,10 @@ mod tests {
         assert!(w.save.last.is_none());
         use_point(&mut w, 0);
         assert_eq!(w.save.seq, 0);
-        assert_eq!(w.story.banner.as_ref().map(|b| b.key.as_str()), Some("save_refuse_opening"));
+        assert_eq!(
+            w.story.banner.as_ref().map(|b| b.key.as_str()),
+            Some("save_refuse_opening")
+        );
         // crossing the boundary writes the first save, at the save point
         // nearest the crossing: the village's waystone on the north lane
         let c = story::centre(&w);
@@ -1620,7 +2115,10 @@ mod tests {
         idle(&mut w, 1);
         assert_eq!(w.story.phase, Phase::Free);
         assert_eq!(w.save.seq, 1, "saved as the opening ends");
-        assert_eq!(w.save.last.as_ref().map(|p| point_id(p.point)), Some("waystone.village".into()));
+        assert_eq!(
+            w.save.last.as_ref().map(|p| point_id(p.point)),
+            Some("waystone.village".into())
+        );
     }
 
     #[test]
@@ -1673,12 +2171,19 @@ mod tests {
         let k = points() - spec().posts.len();
         let (foot, yaw) = foot(&w, k).unwrap();
         w.player = crate::player::Body::new(foot.add(facing(yaw, 0).scale(ONE * 15 / 10)), 0);
-        assert_eq!(reach(&w).map(|(p, _)| p), Some(k), "the crossroads' post is in reach");
+        assert_eq!(
+            reach(&w).map(|(p, _)| p),
+            Some(k),
+            "the crossroads' post is in reach"
+        );
         let seq = w.save.seq;
         use_point(&mut w, k);
         assert_eq!(w.save.seq, seq + 1);
         assert_eq!(w.story.banner.as_ref().map(|b| b.key.as_str()), Some("saved"));
-        assert_eq!(w.save.last.as_ref().map(|p| point_id(p.point)), Some("post.crossroads".into()));
+        assert_eq!(
+            w.save.last.as_ref().map(|p| point_id(p.point)),
+            Some("post.crossroads".into())
+        );
         // a dormant waystone is not a save point until it is woken
         assert!(w.travel.points.iter().all(|p| !p.woken));
         let (stone, _) = crate::travel::stone(&w, 1).unwrap();
@@ -1710,12 +2215,24 @@ mod tests {
         assert_eq!(w.story.phase, Phase::Free);
         assert!(!w.player_down(), "come to, whole");
         let (want, _) = arrival(&w, k).unwrap();
-        assert!(want.sub(w.player.pos).len_xz() < ONE / 10, "at the trail's post, not the village");
+        assert!(
+            want.sub(w.player.pos).len_xz() < ONE / 10,
+            "at the trail's post, not the village"
+        );
         assert_eq!(w.inventory.coins, 20, "the coins kept");
         assert!(w.inventory.has(Item::Gloves), "the gloves kept");
-        assert!(!w.save.beaten.contains("camp.lookout"), "the lookout stands again");
-        assert!(w.save.taken.contains(&drop_key("camp.lookout", 0)), "and will not drop the gloves twice");
-        assert_eq!(w.story.banner.as_ref().map(|b| b.key.as_str()), Some("save_came_to"));
+        assert!(
+            !w.save.beaten.contains("camp.lookout"),
+            "the lookout stands again"
+        );
+        assert!(
+            w.save.taken.contains(&drop_key("camp.lookout", 0)),
+            "and will not drop the gloves twice"
+        );
+        assert_eq!(
+            w.story.banner.as_ref().map(|b| b.key.as_str()),
+            Some("save_came_to")
+        );
     }
 
     fn fx_m(m: i32) -> Fx {
@@ -1758,9 +2275,15 @@ mod tests {
         assert_eq!(g.world.story.phase, Phase::Bed(0), "the opening, untouched");
         // a refused file leaves the game as it was, with its line
         let before = g.world.clone();
-        g.act("save.load", &t.replacen("\"coins\": 36", "\"coins\": 37", 1)).unwrap();
+        g.act("save.load", &t.replacen("\"coins\": 36", "\"coins\": 37", 1))
+            .unwrap();
         assert_eq!(g.world, before, "never a half-loaded world");
-        assert!(g.saves.note.as_deref().unwrap_or("").contains("changed since it was written"));
+        assert!(g
+            .saves
+            .note
+            .as_deref()
+            .unwrap_or("")
+            .contains("changed since it was written"));
     }
 
     #[test]

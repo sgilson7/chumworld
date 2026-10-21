@@ -69,3 +69,5 @@ pub mod travel;
 pub mod wounds;
 // M7 save (P10, T16): saves, save points, the autosave
 pub mod save;
+// M7 roadside (T12)
+pub mod roadside;

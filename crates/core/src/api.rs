@@ -169,10 +169,10 @@ pub fn ui(g: &Game) -> Ui {
         Screen::Menu | Screen::Settings | Screen::Dialogue | Screen::Shop => {}
         Screen::Song => {} // M7 travel: drawn from `travel::view`
     }
-    // M7 save: New game, Load save file, Download save, and the save's line
-    crate::save::panels(g, &mut panels);
     // M4: the settings button and the menu's keys on the title and pause
     crate::ui::panels(g, &mut panels);
+    // M7 save: New game, Load save file, Download save, and the save's line
+    crate::save::panels(g, &mut panels);
     let mut hud = vec![HudItem {
         id: "hint".into(),
         text: s.get("hint_pause"),

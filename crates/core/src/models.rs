@@ -64,6 +64,15 @@ pub use lineup::{act, draw, Lineup, Show};
 pub use props::{donkey, prop_radius, prop_shapes, DONKEY_TO_CART};
 // M7 travel: the woken waystone's glow, drawn over the baked waystone
 pub use props::waystone_glow;
+// M7 roadside: how tall a prop stands, for the landmarks seen from the
+// boundary, and the numbers its climbed props are built to
+pub use props::prop_top;
+pub mod props_numbers {
+    pub use super::props::{
+        TOR_EDGE, TOR_FOOT, TOR_RAMP_HALF, TOR_TOP, WATCH_FOOT, WATCH_HALF, WATCH_STAIR_HALF, WATCH_TOP,
+        WATCH_Z,
+    };
+}
 
 /// The parts each model is drawn from, for counting and testing.
 pub use figure::model as figure_model;
@@ -92,10 +101,16 @@ pub enum Prop {
     Waystone,
     // M7 save (P10, T16): the lantern post at a save point
     SavePost,
+    // M7 roadside (P7, T12): what stands beside the ways out of the village
+    Wreck,
+    WreckBurnt,
+    Watchtower,
+    Tor,
+    LoneTree,
 }
 
 impl Prop {
-    pub const ALL: [Prop; 17] = [
+    pub const ALL: [Prop; 22] = [
         Prop::House,
         Prop::Barn,
         Prop::Well,
@@ -113,6 +128,11 @@ impl Prop {
         Prop::HollowTree,
         Prop::Waystone,
         Prop::SavePost,
+        Prop::Wreck,
+        Prop::WreckBurnt,
+        Prop::Watchtower,
+        Prop::Tor,
+        Prop::LoneTree,
     ];
 }
 
