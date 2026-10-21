@@ -161,11 +161,18 @@ M6_VIEWS = ["magic-fan", "magic-ring", "magic-wave", "magic-spiral", "magic-line
 # M7 P4 (wounds): a flash, a spray, a forearm off, a hop, the leader one-handed,
 # a bandit running, splats, the player one-armed, the dream's wake
 W_VIEWS = ["w-flash", "w-spray", "w-forearm", "w-hop", "w-crawl", "w-leader", "w-bandit", "w-splats", "w-player", "w-dream"]
+# M7 P8 (sprint, T14): standing, 2 s into a sprint, at the top, the HUD's bar
+# mid-build, a skid stop; one page, run for real on the plains (no test act)
+S_VIEWS = ["s-standing", "s-two", "s-top", "s-hud", "s-skid"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 # M5: the opening, the merchant, the camp, the trainer, the boomerang, a pickup
 M5_VIEWS = ["m5-title", "m5-bed", "m5-wake", "m5-raid", "m5-fall", "m5-dream", "m5-boundary", "m5-cart",
             "m5-cart-stopped", "m5-shop", "m5-camp", "m5-chest", "m5-boomerang", "m5-practice", "m5-learned", "m5-pickup"]
+# M7 (task P1, feel): the opening's drama, the house's hand-over, the
+# camera's boom by a wall, the spark held still, the practice from its mark,
+# the scabbard from behind
+M7_VIEWS = ["m7-wake", "m7-door", "m7-fire", "m7-fade", "m7-wall", "m7-corner", "m7-spark", "m7-spark-side", "m7-practice", "m7-scabbard", "m7-imbued"]
 # M2: view: the place (?go=), and extra address flags
 M2_VIEWS = {
     "village": ("1996,2838,18,-7", ""),
@@ -1148,13 +1155,156 @@ def m5_views(browser, base, out, views, logs):
         page.close()
 
 
+def s_views(browser, base, out, views, logs, numbers):
+    """The sprint's views (S_VIEWS), one page on the plains west of the
+    village: W held, Shift tapped, the build run for real; with --measure,
+    the frames a second standing, at a sprint's start and at its top."""
+    page = w_page(browser, base, logs, "go=1500,2650,80,-3", draw=False)
+    frames(page, 90)
+    page.screenshot(path=str(out / "s-standing.png"))
+    numbers["sprint_standing"] = frame_times(page, 3000)
+    page.keyboard.down("KeyW")
+    frames(page, 30)
+    page.keyboard.down("ShiftLeft")
+    frames(page, 3)
+    page.keyboard.up("ShiftLeft")
+    page.wait_for_timeout(2000)
+    page.screenshot(path=str(out / "s-two.png"))
+    numbers["sprint_running"] = frame_times(page, 2000)
+    # (2 s, 2 s measured: 4 s in) to 6.5 s, the build under way
+    page.wait_for_timeout(2500)
+    page.screenshot(path=str(out / "s-hud.png"))
+    page.locator(".hud-vitals").screenshot(path=str(out / "s-hud-bar.png"))
+    # to 9.5 s: the top (5 s, then 4 s of build)
+    page.wait_for_timeout(3000)
+    page.screenshot(path=str(out / "s-top.png"))
+    numbers["sprint_top"] = frame_times(page, 3000)
+    page.keyboard.up("KeyW")
+    frames(page, 12)
+    page.screenshot(path=str(out / "s-skid.png"))
+    page.wait_for_timeout(1500)
+    page.screenshot(path=str(out / "s-skid-after.png"))
+    page.close()
+
+
+def m7_views(browser, base, out, views, logs):
+    """M7's views (M7_VIEWS), each a fresh page at a reader-openable URL."""
+
+    def open_page(flags, play=True):
+        page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+        page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+        page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+        page.route("**/app.js*", expose_act)
+        page.goto(base + "/index.html?pointer=free" + flags, wait_until="commit")
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+        wait_frames(page, 30)
+        if play:
+            page.click("#title button")
+            page.wait_for_selector("body[data-screen='play']", state="attached")
+        return page
+
+    def shot(page, name):
+        page.screenshot(path=str(out / f"{name}.png"))
+
+    def act(page, name, value=""):
+        page.evaluate("([n, v]) => window.__act(n, v)", [name, value])
+
+    def press(page, key, n=1):
+        page.keyboard.press(key)
+        wait_frames(page, n)
+
+    def read_on(page):
+        for _ in range(12):
+            if page.get_attribute("body", "data-screen") != "dialogue":
+                return
+            press(page, "Space", 6)
+
+    if "m7-wake" in views:
+        page = open_page("")
+        wait_frames(page, 170)
+        shot(page, "m7-wake")
+        page.close()
+    if "m7-door" in views:
+        # in the player's doorway, looking out west over the meadow
+        page = open_page("&go=1964,2806,90,-4")
+        wait_frames(page, 90)
+        shot(page, "m7-door")
+        page.close()
+    if "m7-fire" in views:
+        # a burning house to the north-west of the door, held still
+        page = open_page("&go=1972,2800,60,-2&act=story.still:on")
+        wait_frames(page, 90)
+        shot(page, "m7-fire")
+        page.close()
+    if "m7-fade" in views:
+        # 7 m out from the door, facing in, walking in: the roof hands over
+        page = open_page("&go=1957,2806,270,-10")
+        wait_frames(page, 60)
+        page.keyboard.down("KeyW")
+        wait_frames(page, 150)
+        for k in range(1, 9):
+            wait_frames(page, 4)
+            shot(page, f"m7-fade-{k}")
+        page.keyboard.up("KeyW")
+        page.close()
+    if "m7-wall" in views:
+        # 1.5 m out from a house's north wall, facing away from it
+        page = open_page("&go=1992,2842,0,-8&act=story.skip")
+        wait_frames(page, 60)
+        shot(page, "m7-wall")
+        page.close()
+    if "m7-corner" in views:
+        # just off a house's north-west corner, facing away from it: the
+        # boom comes in past the corner, clear of both walls
+        page = open_page("&go=1988,2842,45,-8&act=story.skip")
+        wait_frames(page, 60)
+        shot(page, "m7-corner")
+        page.close()
+    if any(v in views for v in ("m7-spark", "m7-spark-side")):
+        # the orc's guard set across the player's (duel.guard), both drawn;
+        # a spark staged where the blades come nearest, 3 ticks old, and the
+        # world frozen there (the core's feel.stage_spark); then the view
+        # turned round to the side, the world still frozen
+        page = open_page("&duel=orc&foe=still&gap=150&act=duel.guard:-25,10")
+        press(page, "KeyX", 90)
+        act(page, "feel.stage_spark", "3")
+        wait_frames(page, 10)
+        shot(page, "m7-spark")
+        move(page, -10, 3, 30)
+        wait_frames(page, 10)
+        shot(page, "m7-spark-side")
+        page.close()
+    if "m7-practice" in views:
+        page = open_page("&go=335,1759,0,-12")
+        wait_frames(page, 30)
+        press(page, "KeyE", 20)
+        read_on(page)
+        act(page, "trainer.mark")
+        wait_frames(page, 10)
+        press(page, "KeyX", 40)
+        read_on(page)
+        wait_frames(page, 80)
+        shot(page, "m7-practice")
+        page.close()
+    if "m7-imbued" in views:
+        page = open_page("&duel=orc&foe=still&gap=320&act=magic.lend:600")
+        press(page, "KeyX", 90)
+        shot(page, "m7-imbued")
+        page.close()
+    if "m7-scabbard" in views:
+        page = open_page("&duel=orc&foe=still&gap=320")
+        wait_frames(page, 60)
+        shot(page, "m7-scabbard")
+        page.close()
+
+
 def main(argv):
     if not argv or argv[0].startswith("--"):
         sys.exit(__doc__)
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
     views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + D2_VIEWS + M4_VIEWS + list(M2_VIEWS) + M5_VIEWS
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in W_VIEWS and v not in ROADSIDE_VIEWS and v not in WANDERER_VIEWS]
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in W_VIEWS and v not in ROADSIDE_VIEWS and v not in S_VIEWS and v not in M7_VIEWS and v not in WANDERER_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -1248,12 +1398,16 @@ def main(argv):
             m2_views(browser, base, out, views, logs, numbers, measure)
         if any(v in M5_VIEWS for v in views):
             m5_views(browser, base, out, views, logs)
+        if any(v in M7_VIEWS for v in views):
+            m7_views(browser, base, out, views, logs)
         if any(v in W_VIEWS for v in views):
             w_views(browser, base, out, views, logs)
         if any(v in ROADSIDE_VIEWS for v in views):
             roadside_views(browser, base, out, views, logs)
         if any(v in WANDERER_VIEWS for v in views):
             wanderer_views(browser, base, out, views, logs)
+        if any(v in S_VIEWS for v in views):
+            s_views(browser, base, out, views, logs, numbers)
         browser.close()
     server.shutdown()
     for name in views:

@@ -411,3 +411,49 @@ fn probe_wanderers_tick_cost() {
     let (rms, _) = best(&|| wanderers::runs(&w).len());
     println!("placing {n} encounters: {ms:.1} ms (best of 5), of which measuring the ways {rms:.1} ms");
 }
+
+/// M7 (T14, CW-11): what a sprint costs the core a frame. From the plains
+/// west of the village, 25 s of frames: one run with Shift held, one with a
+/// tap of Shift that builds to three times the run speed after 9 s, the
+/// same gentle turn in both. The frames carry the ticks, the camera, the
+/// detail levels streaming the land past at speed, and the draw list.
+#[test]
+#[ignore]
+fn probe_sprint_frame_cost() {
+    let run = |sprint: bool| {
+        let mut g = game();
+        g.act("places.go", "1500,2650,80,0").unwrap();
+        g.act("screen.show", "play").unwrap();
+        let mut now = 0i64;
+        for _ in 0..120 {
+            now += FRAME_US;
+            g.advance(now, 0, 0, 0, 0);
+        }
+        let frames = 1500;
+        let (mut worst, mut slow) = (0.0f64, 0);
+        let start = g.world.player.pos;
+        let t = Instant::now();
+        for k in 0..frames {
+            now += FRAME_US;
+            let shift = if sprint { (20..23).contains(&k) } else { true };
+            let bits = 1 | if shift { 1 << 4 } else { 0 };
+            let f = Instant::now();
+            g.advance(now, bits, 40, 0, 0);
+            let ms = f.elapsed().as_secs_f64() * 1000.0;
+            worst = worst.max(ms);
+            slow += (ms > 8.0) as u32;
+        }
+        let mean = t.elapsed().as_secs_f64() * 1000.0 / frames as f64;
+        let gone = g.world.player.pos.sub(start).len_xz() / 65_536;
+        let top = tool_core::player::mps(g.world.player.vel.len_xz());
+        (mean, worst, slow, gone, top, g.scene.version - 1)
+    };
+    for (name, sprint) in [("run (Shift held)", false), ("sprint (Shift tapped)", true)] {
+        let (mean, worst, slow, gone, top, rebuilds) = run(sprint);
+        println!(
+            "{name}: {mean:.3} ms mean, {worst:.3} ms worst, {slow} frames over 8 ms; {gone} m in 25 s, {} m/s at the end; static rebuilds {rebuilds}",
+            tool_core::fx::decimal(top, 1)
+        );
+        assert!(mean < 16.0, "a frame costs the core more than the whole budget");
+    }
+}

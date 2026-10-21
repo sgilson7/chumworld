@@ -789,3 +789,42 @@ fn a_caster_raises_its_hands_as_a_volley_leaves() {
     assert!((down - guard).abs() <= 2, "{down}");
     assert_eq!(w.foes[0].body.pos, feet);
 }
+
+/// M7 (R9.24): a volley frozen in the air (`magic.freeze`) holds the world:
+/// walking into the frozen orbs and the leader's held blade for 400 ticks
+/// takes no more health than the volley took before it froze.
+#[test]
+fn a_frozen_volley_hurts_no_one() {
+    let mut w = World::new(9);
+    w.act("duel.pilot", "still").unwrap();
+    w.act("magic.leader", "").unwrap();
+    w.act("magic.freeze", "150").unwrap();
+    for _ in 0..200 {
+        w.step(&Input::default());
+    }
+    assert!(w.orbs.frozen && !w.orbs.flying.is_empty());
+    let hp = w.me.health.hp;
+    // what the volley took before it froze is kept, and no more taken
+    for _ in 0..400 {
+        w.step(&Input {
+            keys: crate::input::FORWARD,
+            ..Input::default()
+        });
+    }
+    assert_eq!(w.me.health.hp, hp);
+}
+
+/// M7 (R9.24): held by the story (`story.still`), a volley flies on but
+/// hurts no one: the leader's whole pattern takes nothing from 100.
+#[test]
+fn held_by_the_story_a_volley_hurts_no_one() {
+    let mut w = World::new(9);
+    w.act("duel.pilot", "still").unwrap();
+    w.act("magic.leader", "").unwrap();
+    w.story.still = true;
+    for _ in 0..1200 {
+        w.step(&Input::default());
+    }
+    assert!(w.orbs.next > 20, "the volley was thrown");
+    assert_eq!(w.me.health.hp, 100);
+}

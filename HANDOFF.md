@@ -267,12 +267,55 @@ Built (`crates/core/src/wanderers.rs`, `data/wanderers.json`):
 
 Rows: R9.280 to R9.293 in `SECOND-ORDER.md`, strings under "### M7 wanderers". Tests: 18 in `wanderers/tests.rs`, one probe (`probe_wanderers_tick_cost`). Break rows: 21, all caught.
 
-Merged main at 88e45bd (roadside) and 60a1d64 (save): `lib.rs`, `world.rs`, `GLOSSARY.md` and `tests/breaks.json` kept both sides.
+Merged main at 88e45bd (roadside), 60a1d64 (save) and 4763a93 (feel, sprint): `lib.rs`, `world.rs`, `GLOSSARY.md` and `tests/breaks.json` kept both sides.
 
 Waiting on the person: R9.286 (whether beaten groups come back, and after how long), R9.290 (the kinds, counts, rewards and the lean-to's look), R9.291 (a captain would need its own kind and name), R9.293 (the strings).
 
 For the coordinator:
-- `./scripts/check.sh` steps 1 to 8 pass; step 9 (the browser check) was not run, per the new rule. Please include in the batch: the `wd-*` views load, and a still view by a held site renders the same pixels on consecutive frames (the core's coplanar scan passes at each site).
+- `./scripts/check.sh` steps 1 to 7 pass; step 8 (journal) fails only on R9.286, R9.290, R9.291 and R9.293, the journal entry being yours; step 9 (the browser check) was not run, per the new rule. Please include in the batch: the `wd-*` views load, and a still view by a held site renders the same pixels on consecutive frames (the core's coplanar scan passes at each site).
 - R9.288: wanderers appear at 250 m with no dither. R9.289: an ambush on the open hill trail is easy to see.
 - R9.292: the one-line hooks outside `wanderers.rs`.
+
+## 2026-10-20: M7 sprint (part P8, branch `m7-sprint`, T14)
+
+The person: "you should be able to set yourself to sprinting, and if you've been sprinting for 5seconds you start to go faster and faster until you are running at triple speed".
+
+Built (`crates/core/src/sprint.rs`, its tests in `sprint/tests.rs`):
+- **The key**: a tap of Shift while moving sets a sprint on; another tap ends it. Holding Shift still runs. A tap is a short press (at most 0.2 s) after a quiet spell, counted once Shift stays up 0.1 s, so the orcs' and villagers' running never sprints (R9.250). The controls panel says "Shift, tapped · Sprint on or off, while moving".
+- **The build**: 5 s at the run speed, then a smoothstep over 4 s to 3 times it, as a multiplier on `motion::RUN` and the road (15 m/s now, 21 m/s once P2's 7 m/s run lands; R9.251). The speedster's pieces add 20% of the run each on top, capped at 4 times the bare run (R9.252).
+- **What ends it**: a tap, a stop, the sword drawn or a foe held on, a blow, a dodge-step, a hard turn (over 100°), falling or a leg off.
+- **Feel**: steering falls from 10° a tick at the run to 2° at the top; a stop at speed skids at 30 m/s² (3.5 m from 15 m/s); uphill the build gives way; ice unchanged (R9.253). The camera pulls back up to 0.8 m and the view widens up to 6°, eased; a still view is unchanged (R9.254). No speed streaks.
+- **The opening**: the build does not count until the boundary is crossed, so the escape takes as long as running (R9.255).
+- **HUD**: a Sprint bar with words ("Builds in 3 s", "2.4 × run speed") under health, a chevron fill; glossary entry Sprint.
+- Test acts `sprint.set` (ticks) and `sprint.off` (R9.259); five views `s-*` in `tools/shoot.py`; a cost probe `probe_sprint_frame_cost`.
+
+Touched outside P8's own files, each a hook or an added entry: `motion.rs` (`Gait::sprint`; three hook lines, R9.260), `world.rs` (the act route; the camera's pull and widening), `ui.rs` (`HudView::sprint`), `api.rs` (a controls row), `game.rs` (glossary values), `page.rs`, `data/strings.json`, `GLOSSARY.md`, `web/menus/menus.js` and `.css` (the bar), `tests/breaks.json`, `tools/shoot.py`, `crates/core/tests/frame_probe.rs`.
+
+Waiting on the person: R9.261 (the key, the numbers, the opening's hold, and the strings under "### M7 sprint (P8)" at the foot of `SECOND-ORDER.md`).
+
+Open: R9.257 (pop-in and grass reach at speed, for P2), R9.258 (the gait at speed reads stiff), R9.260 (the merge with P2).
+
+Check, 2026-10-20, after merging main at 88e45bd (roadside T12, triage T17; conflicts in `lib.rs`, `world.rs`, `tools/shoot.py`, `tests/breaks.json` and the notes, both sides kept): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests: 427 core tests, the release build, the import audit, art, the notebook's form). Step 8 (the journal) fails on this part's person row R9.261 and on R9.97 to R9.105, which the journal cites from a branch not yet on main. Step 9 was not run here, by the person's rule (the coordinator's batched check): a first run before that rule failed one real check, the title's controls count (13, now 14 with the tap of Shift), which `tests/browser/interactions.py` now expects, with a check of the new row; that change is unverified in a browser. Breaks: `python3 scripts/break_tests.py "M7 sprint"`, 24 of 24 caught (one missed on the first run, its test then held Shift up long enough to count). Screenshots in `shots/sprint/` (not committed).
+
+## 2026-10-20: M7 polish, feel (task P1, branch `m7-feel`)
+
+Built:
+- **Sound** (`sound.rs`, `sound/synth.rs`, `data/sound.json`, `web/sound.js`). Every sound is a named row of layers the core makes into samples on the reader's first click; the core lists each tick's sounds and each frame's levels, sides and loops, and the page plays them. Steps by what they land on (grass, road, the bridge's planks, the house's floor), the sword drawn and put away, a blade cutting the air (louder and higher the faster), blades meeting, a blow landing, a body falling, the imbue starting, pulsing in its last two seconds and ending, a volley leaving, an orb turned, throws and landings, the donkey when the cart is stopped, the orcs' shouts, the menus' tick, the dialogue's blip, the pickup chime, the dream's pad and the opening's end; loops for wind, the river by distance, the fires, the cart and the boomerang. The volume setting (M4's) scales everything; pause silences every loop. P4's wound sounds are one row and one `sound::cue` each (R9.1 to R9.4).
+- **The camera's boom** (`boom.rs`): kept 0.45 m clear of every building, tent, fence, trunk and crown, easing in before a wall and out after it, rising over the shoulder when it is short (R9.5).
+- **The player's house** hands over by the ordered dither over 24 ticks, a tick at a time (R9.11).
+- **The opening**: two houses burning either side of the view from the door (flames, embers, smoke), a seventh orc in sight, a villager running past, the view lifting as you get up (R9.8, R9.9).
+- **The practice** from a circle of light 8 m in front of the trainer, in steps: one orb, three, the pattern (R9.12).
+- **The duel**: the spark burns 20 ticks with a white-hot core; the draw takes 20 ticks (0.33 s); the scabbard angled back was tried and put back, since it read barely shorter and shimmered (R9.6, R9.7, R9.14). Test acts `feel.freeze_spark`, `feel.stage_spark`, `trainer.mark` (R9.10).
+- **The fade** eases in going dark and out lifting; the story's line drifts in (R9.15).
+- `tools/shoot.py` has ten M7 views (`m7-*`); the browser check sees the sound set up after Play, a burning house held still, and a frozen spark.
+
+- **QA's findings** (R9.105): a held world (`story.still`, `magic.freeze`) hurts no one and the leader casts nothing while held (R9.24); the camp comes in a member every 2.5 s after the alarm, at most two pressing (R9.25); the camera in a village corner is the boom's, confirmed (R9.26).
+
+Not built here, moved by the coordinator: the hit flash (P4), the imbued guard's framing (P5).
+
+For other tasks: R9.6 (P5: M1's fence fails for draw timings near the one chosen), R9.13 (P3: the house's door is shut and walked through), R9.16 (P3: the HUD and the fade hidden off the play screen), R9.19 (P2: the step's surface should read P2's road rule), R9.20 (a scatter chunk's trees cost 5 to 6 ms to build).
+
+Check (2026-10-20, after merging main at ca463be and later): `./scripts/check.sh` steps 1 to 7 pass (format, lint, 488 core tests by `./scripts/count-tests.sh` with 20 probes ignored, the release build, the import audit, art, the notebook's form); step 8 (the journal) fails only because R9.17 and R9.18 have status *person* and the journal does not name them yet, and because the journal cites rows of branches not yet on main (R9.250 to R9.322). Step 9 is left to the coordinator's batched browser check (the person's rule of 2026-10-20); before that rule, run on this branch it passed in all three engines except the frozen spark in Firefox and WebKit, since fixed (R9.23) and seen still there by a pixel diff, and the village green's pan, since back at 23 (R9.7). Breaks: `python3 scripts/break_tests.py "M7 feel"` 38 of 38 caught (and `M7`, all parts, 93 of 93 before the last two merges). Screenshots in `shots/m7feel/` (not committed).
+
+Waiting on the person: R9.17 (the sounds and the mix: `shots/m7feel/sound-mix.wav`), R9.18 (the strings under "### M7 feel" at the foot of `SECOND-ORDER.md`).
 

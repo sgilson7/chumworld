@@ -6,7 +6,7 @@
 //!
 //! `opening(seed)` is the game's start: the player lies in bed in their
 //! house (`solid::Home`), the house drawn cut away so the room shows, while
-//! six orcs walk their rounds of the village (`data/story.json`) and the
+//! seven orcs walk their rounds of the village (`data/story.json`) and the
 //! villagers flee. The player gets up after `WAKE_TICKS`, or at once on a
 //! movement key. An orc that sees the player (`SIGHT`) runs at them, draws
 //! within `DRAW_AT` and duels by its own behaviour tree (M1's pilot); one that
@@ -90,6 +90,9 @@ pub const WAKE_TICKS: u32 = 90;
 pub const RISE_TICKS: u32 = crate::health::FALL_TICKS as u32;
 /// Lying in bed, the body is this far over the floor: on the quilt.
 pub const BED_TOP: Fx = ONE * 62 / 100;
+/// M7: getting up, the view eases up to look this far down: out of the
+/// door and over the meadow, the burning houses and the orcs in sight.
+pub const RISEN_PITCH: i32 = -deg(10);
 /// The heels lie this far past the bed's middle, toward its foot; getting up,
 /// the body slides on to `STAND` (clear of the bed by a body's radius).
 pub const HEELS: Fx = ONE * 115 / 100;
@@ -170,6 +173,35 @@ pub struct CampSpec {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct TrainerSpec {
     pub at: [i32; 2],
+    /// M7: the practice's mark, this far in front of the trainer, this round
+    pub mark_m: i32,
+    pub mark_r_cm: i32,
+    pub mark: [i32; 3],
+}
+
+/// M7: the raid's burning houses and how their fire is drawn.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct FireSpec {
+    pub houses: Vec<[i32; 2]>,
+    pub tongues: i32,
+    /// the roof's ridge over the house's foot, and its slope (rise per run, %)
+    pub ridge_cm: i32,
+    pub slope_pct: i32,
+    pub tongue_cm: [i32; 2],
+    pub tongue_wide_cm: [i32; 2],
+    pub flicker_ticks: [i32; 2],
+    pub puffs: i32,
+    pub puff_ticks: i32,
+    pub puff_rise_cm: i32,
+    pub puff_cm: [i32; 2],
+    pub drift_cm: i32,
+    pub embers: i32,
+    pub ember_ticks: i32,
+    pub flame: [i32; 3],
+    pub core: [i32; 3],
+    pub ember: [i32; 3],
+    pub smoke: [i32; 3],
+    pub smoke_high: [i32; 3],
 }
 
 /// `data/story.json`.
@@ -181,6 +213,7 @@ pub struct Spec {
     pub merchant: MerchantSpec,
     pub camp: CampSpec,
     pub trainer: TrainerSpec,
+    pub fires: FireSpec,
 }
 
 impl Spec {
@@ -339,6 +372,9 @@ pub struct State {
     pub still: bool,
     /// chance for the story's own choices, from the seed
     pub rng: Rng,
+    /// M7: the fire's own clock, this tick and last (held by `still`)
+    pub fire: u32,
+    pub fire_prev: u32,
 }
 
 impl Default for State {
@@ -358,6 +394,8 @@ impl Default for State {
             last_keys: 0,
             still: false,
             rng: Rng::new(0),
+            fire: 0,
+            fire_prev: 0,
         }
     }
 }
@@ -432,6 +470,8 @@ pub fn begin(w: &mut World, seed: u64) {
     st.phase = Phase::Bed(0);
     lie_down(w);
     arrive(w);
+    // M7: in bed, the house is cut away from the first frame
+    crate::boom::cut_now(w);
     // the raid
     for (k, o) in sp.raid.orcs.iter().enumerate() {
         let at = near_place(w, "village", o.route[0]);
@@ -543,6 +583,13 @@ pub fn arrive(w: &mut World) {
         w.aim.yaw = yaw;
         w.aim.pitch = pitch;
     }
+}
+
+/// M7 (R9.24): the world is held for a picture or a check (`story.still`,
+/// or a volley frozen by `magic.freeze`): no blow lands, no orb hurts, the
+/// camp's leader casts nothing.
+pub fn holding(w: &World) -> bool {
+    w.story.still || w.orbs.frozen
 }
 
 /// Whether the player is in the bed (lying, or getting up), where the
@@ -808,6 +855,11 @@ pub fn step(w: &mut World, raw: &Input) {
             w.story.banner = None;
         }
     }
+    // M7: the fire's clock
+    w.story.fire_prev = w.story.fire;
+    if !w.story.still {
+        w.story.fire += 1;
+    }
     phases(w);
     reinforce(w);
     flee(w);
@@ -867,6 +919,11 @@ fn phases(w: &mut World) {
             } else {
                 let left = RISE_TICKS.saturating_sub(t + 1);
                 w.me.health.down_ticks = left as u16;
+                // M7: getting up, the view lifts from the bed toward the
+                // doorway's level, an eighth of the way a tick, so the raid
+                // outside comes into sight (the mouse still turns it)
+                let gap = RISEN_PITCH - w.aim.pitch;
+                w.aim.pitch += gap / 8;
                 let fall = w.me.health.fall();
                 w.story.lift = fx::mul(BED_TOP, fall);
                 // sliding off the bed's foot as the body comes up
@@ -1262,7 +1319,9 @@ pub fn stamp(w: &World) -> (Option<String>, Option<Use>, bool) {
 /// away while the player is in or by it) and its bed, the villagers, the
 /// pickups; then the merchant, the camp, the trainer's things.
 pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
-    draw_home(w, look, out);
+    draw_home(w, alpha, look, out);
+    // M7: the raid's burning houses
+    draw_fires(w, alpha, look, out);
     for v in &w.story.villagers {
         if !v.gone {
             draw_villager(w, v, alpha, look, out);
@@ -1282,45 +1341,69 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     }
     crate::merchant::draw(w, alpha, look, out);
     crate::camp::draw(w, alpha, look, out);
+    crate::trainer::draw(w, look, out); // M7: the practice's mark
     crate::roadside::draw(w, alpha, look, out); // M7 roadside
 }
 
-/// Whether the player's house shows cut away: the player is in it or at
-/// its walls.
+/// Whether any of the player's house shows cut away (M7: the hand-over in
+/// `boom.rs`, from the player at it or the eye in it).
 pub fn cut_away(w: &World) -> bool {
-    let Some(h) = w.solid.home else {
-        return false;
-    };
-    let p = w.player.pos;
-    h.wall.holds(p.x, p.z, CUT_NEAR + solid::RADIUS)
+    w.boom.cut > 0
 }
 
-fn draw_home(w: &World, look: &Look, out: &mut Shapes) {
+/// Whether a part of the house's model stands low enough to show cut away.
+fn low_part(p: &models::Part) -> bool {
+    p.at.t.y + p.at.c1.y.abs() / 2 <= solid::FLOOR + ONE / 100
+}
+
+/// The player's house, `t` of the way from whole (0) to cut away (`ONE`,
+/// `boom::cut_share`): what stands low on the footing is drawn always; the
+/// rest of the whole house and the cut walls hand over by the ordered
+/// dither, each pixel drawn by one or the other (`look::hand_over`, CW-18).
+fn draw_home(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     let Some(h) = w.solid.home else {
         return;
     };
     let place = Affine::translate(h.foot).then(&Affine::rot_y(h.wall.yaw));
     let house = models::prop_model(Prop::House);
     let floor = h.foot.y + solid::FLOOR;
-    if !cut_away(w) {
-        house.placed(&place).emit(look.ink(), out);
+    let t = crate::boom::cut_share(w, alpha);
+    let ink = look.ink();
+    let (cut_fade, whole_fade) = crate::look::hand_over(t);
+    if t <= 0 {
+        house.placed(&place).emit(ink, out);
     } else {
-        // the footing and what stands low on it; the walls cut low, with a
-        // rail along their tops; the roof left off
         let low = models::Model {
-            parts: house
-                .parts
-                .iter()
-                .filter(|p| p.at.t.y + p.at.c1.y.abs() / 2 <= solid::FLOOR + ONE / 100)
-                .copied()
-                .collect(),
+            parts: house.parts.iter().filter(|p| low_part(p)).copied().collect(),
             decals: Vec::new(),
         };
-        low.placed(&place).emit(look.ink(), out);
-        let t = models::table();
-        let (plaster, timber) = (t.c("plaster"), t.c("timber"));
-        let ink = look.ink();
+        low.placed(&place).emit(ink, out);
+        if t < ONE {
+            // the rest of the whole house, going
+            let high = models::Model {
+                parts: house.parts.iter().filter(|p| !low_part(p)).copied().collect(),
+                decals: Vec::new(),
+            };
+            high.placed(&place).emit_faded(ink, whole_fade, out);
+        }
+        // the walls cut low, with a rail along their tops, and the boards
+        let t_ = models::table();
+        let (plaster, timber) = (t_.c("plaster"), t_.c("timber"));
         let wall_y = solid::FLOOR + CUT_WALL / 2;
+        let put = |out: &mut Shapes, at: Affine, rgb, inked: bool| {
+            if t >= ONE {
+                if inked {
+                    out.inked(Mesh::Cube, at, rgb, ink);
+                } else {
+                    out.solid(Mesh::Cube, at, rgb, 0);
+                }
+            } else {
+                out.dithered(Mesh::Cube, at, rgb, cut_fade);
+                if inked {
+                    out.outline(Mesh::Cube, &at, ink, cut_fade);
+                }
+            }
+        };
         for k in solid::house_walls(&solid::Wall {
             x: 0,
             z: 0,
@@ -1331,7 +1414,7 @@ fn draw_home(w: &World, look: &Look, out: &mut Shapes) {
             let at = place
                 .then(&Affine::translate(v3(k.x, wall_y, k.z)))
                 .then(&Affine::scale(size));
-            out.inked(Mesh::Cube, at, plaster, ink);
+            put(out, at, plaster, true);
             let rail = place
                 .then(&Affine::translate(v3(
                     k.x,
@@ -1343,7 +1426,7 @@ fn draw_home(w: &World, look: &Look, out: &mut Shapes) {
                     ONE * 8 / 100,
                     2 * k.hz + ONE * 6 / 100,
                 )));
-            out.inked(Mesh::Cube, rail, timber, ink);
+            put(out, rail, timber, true);
         }
         // floorboards a little over the footing
         let boards = place
@@ -1353,12 +1436,196 @@ fn draw_home(w: &World, look: &Look, out: &mut Shapes) {
                 ONE * 3 / 100,
                 2 * h.wall.hz - solid::WALL_THICK * 2,
             )));
-        out.solid(Mesh::Cube, boards, t.c("plank_1"), 0);
+        put(out, boards, t_.c("plank_1"), false);
     }
     // the bed, on the floor
     let mut bed = h.bed.at;
     bed.y = floor;
     models::prop_shapes(Prop::Bed, bed, h.bed.yaw, look, out);
+}
+
+// ---- M7: the burning houses ---------------------------------------------------
+
+/// The burning houses: each one's foot, heading and roof's height, from
+/// `data/story.json` matched to the village's houses. None in a bare world
+/// (`Phase::Off`).
+pub fn burning(w: &World) -> Vec<(V3, i32, Fx)> {
+    if w.story.phase == Phase::Off {
+        return Vec::new();
+    }
+    let c = centre(w);
+    let top = crate::boom::top_of(Prop::House);
+    let houses = crate::places::prop_spots(w, Prop::House);
+    spec()
+        .fires
+        .houses
+        .iter()
+        .filter_map(|at| {
+            let want = c.add(v3(at[0] * ONE, 0, at[1] * ONE));
+            houses
+                .iter()
+                .find(|s| s.at.sub(want).len_xz() < ONE)
+                .map(|s| (s.at, s.yaw, top))
+        })
+        .collect()
+}
+
+/// Where each fire is heard from: over the middle of each burning roof.
+pub fn fires(w: &World) -> Vec<V3> {
+    burning(w)
+        .into_iter()
+        .map(|(at, _, top)| at.add(v3(0, top * 3 / 4, 0)))
+        .collect()
+}
+
+/// A share from 0 to `ONE` for thing `k` of a kind, the same every run.
+fn pick(k: i32, salt: u32) -> Fx {
+    (crate::terrain::hash(k, 17, salt) % 1000) as Fx * ONE / 1000
+}
+
+fn rgb255(c: [i32; 3]) -> crate::look::Rgb {
+    [c[0] * ONE / 255, c[1] * ONE / 255, c[2] * ONE / 255]
+}
+
+/// The fire on each burning house: tongues of flame over the roof, unlit
+/// cones that grow and shrink by the fire's clock; a glow round them; embers
+/// rising; puffs of smoke rising, paling and at last shrinking away, opaque
+/// and faceted (nothing see-through to sort, and no dither that a slow pan
+/// would see shimmer, CW-18).
+fn draw_fires(w: &World, alpha: Fx, _look: &Look, out: &mut Shapes) {
+    let sp = &spec().fires;
+    let clock = fx::lerp(w.story.fire_prev as i32 * ONE, w.story.fire as i32 * ONE, alpha);
+    let cm = |v: i32| v * ONE / 100;
+    let (flame, core, ember, smoke) = (
+        rgb255(sp.flame),
+        rgb255(sp.core),
+        rgb255(sp.ember),
+        rgb255(sp.smoke),
+    );
+    let high = rgb255(sp.smoke_high);
+    for (n, (at, yaw, top)) in burning(w).into_iter().enumerate() {
+        let n = n as i32;
+        let place = Affine::translate(at).then(&Affine::rot_y(yaw));
+        let (hx, hz) = (ONE * 3, ONE * 5 / 2);
+        let k_n = sp.tongues.max(2);
+        for k in 0..k_n {
+            let id = n * 100 + k;
+            // along the ridge (the house's x), on either slope
+            let lx = -hx * 8 / 10 + hx * 16 / 10 * k / (k_n - 1);
+            let lz = if k % 2 == 0 { hz / 5 } else { -hz / 5 } + fx::mul(pick(id, 3) - ONE / 2, hz / 2);
+            let period = sp.flicker_ticks[0]
+                + (fx::mul(pick(id, 5), (sp.flicker_ticks[1] - sp.flicker_ticks[0]) * ONE) / ONE);
+            let phase = (clock as i64 * fx::TURN as i64 / (period.max(1) as i64 * ONE as i64)) as i32
+                + fx::mul(pick(id, 7), fx::TURN);
+            let beat = ONE * 3 / 4 + fx::sin(phase) / 4 + fx::sin(phase * 2 + fx::deg(40)) / 10;
+            let tall = fx::mul(
+                cm(sp.tongue_cm[0]) + fx::mul(pick(id, 11), cm(sp.tongue_cm[1] - sp.tongue_cm[0])),
+                beat,
+            );
+            let wide = cm(sp.tongue_wide_cm[0])
+                + fx::mul(pick(id, 13), cm(sp.tongue_wide_cm[1] - sp.tongue_wide_cm[0]));
+            let wide = fx::mul(wide, ONE * 9 / 10 + fx::sin(phase + fx::deg(90)) / 10);
+            // on the roof's face there, a little sunk into it
+            let base = cm(sp.ridge_cm) - lz.abs() * sp.slope_pct / 100 - ONE / 5;
+            let foot = place.apply(v3(lx, base + tall / 2, lz));
+            out.solid(
+                Mesh::Cone,
+                Affine::translate(foot).then(&Affine::scale(v3(wide, tall, wide))),
+                flame,
+                ONE,
+            );
+            let inner = place.apply(v3(lx, base + tall * 3 / 10, lz));
+            out.solid(
+                Mesh::Cone,
+                Affine::translate(inner).then(&Affine::scale(v3(
+                    wide * 11 / 20,
+                    tall * 6 / 10,
+                    wide * 11 / 20,
+                ))),
+                core,
+                ONE,
+            );
+        }
+        // the glow round the roof, breathing with the flames
+        let breathe = ONE * 4 / 5 + fx::sin((clock as i64 * fx::TURN as i64 / (23 * ONE as i64)) as i32) / 5;
+        out.glow(
+            Mesh::Dot,
+            Affine::translate(place.apply(v3(0, top * 85 / 100, 0))).then(&Affine::scale(v3(
+                hx * 3,
+                top,
+                hz * 3,
+            ))),
+            flame,
+            fx::mul(ONE * 2 / 5, breathe),
+        );
+        // embers
+        for k in 0..sp.embers {
+            let id = n * 100 + 50 + k;
+            let life = sp.ember_ticks.max(1) * ONE;
+            let age = (clock + fx::mul(pick(id, 23), life)).rem_euclid(life);
+            let a = fx::div(age, life);
+            let lx = fx::mul(pick(id, 29) - ONE / 2, hx);
+            let lz = fx::mul(pick(id, 31) - ONE / 2, hz);
+            let sway = fx::mul(
+                fx::sin(fx::mul(a, fx::TURN) + fx::mul(pick(id, 37), fx::TURN)),
+                ONE / 3,
+            );
+            let p = place.apply(v3(lx + sway, top + fx::mul(a, ONE * 3), lz));
+            let r = fx::mul(ONE * 7 / 100, ONE - a);
+            if r > 0 {
+                out.glow(
+                    Mesh::Dot,
+                    Affine::translate(p).then(&Affine::scale(v3(r * 3, r * 3, r * 3))),
+                    ember,
+                    ONE - a,
+                );
+                out.solid(
+                    Mesh::Octa,
+                    Affine::translate(p).then(&Affine::scale(v3(r, r, r))),
+                    core,
+                    ONE,
+                );
+            }
+        }
+        // smoke
+        let life = sp.puff_ticks.max(1) * ONE;
+        for k in 0..sp.puffs {
+            let id = n * 100 + 80 + k;
+            let age = (clock + life * k / sp.puffs.max(1)).rem_euclid(life);
+            let a = fx::div(age, life);
+            // grows as it rises, then shrinks away over its last fifth
+            let grown = cm(sp.puff_cm[0]) + fx::mul(a, cm(sp.puff_cm[1] - sp.puff_cm[0]));
+            let size = fx::mul(grown, share_left(a));
+            let drift = fx::mul(fx::mul(a, a), cm(sp.drift_cm));
+            let lx = fx::mul(pick(id, 41) - ONE / 2, hx);
+            let p = place
+                .apply(v3(lx, top * 9 / 10 + fx::mul(a, cm(sp.puff_rise_cm)), 0))
+                .add(v3(drift, 0, -drift / 3));
+            if size > 0 {
+                // dark over the fire, paler as it rises
+                let c = [0, 1, 2].map(|i| fx::lerp(smoke[i], high[i], a));
+                out.solid(
+                    Mesh::Sphere,
+                    Affine::translate(p)
+                        .then(&Affine::rot_y(fx::mul(pick(id, 43), fx::TURN)))
+                        .then(&Affine::scale(v3(size, size * 4 / 5, size))),
+                    c,
+                    ONE / 3,
+                );
+            }
+        }
+    }
+}
+
+/// The share of a puff's size left at `a` of its life: whole until four
+/// fifths, then shrinking to nothing at its end.
+fn share_left(a: Fx) -> Fx {
+    let from = ONE * 4 / 5;
+    if a <= from {
+        ONE
+    } else {
+        ONE - fx::div(a - from, ONE - from)
+    }
 }
 
 fn draw_villager(w: &World, v: &Villager, alpha: Fx, look: &Look, out: &mut Shapes) {
@@ -1519,6 +1786,27 @@ mod tests {
         }
     }
 
+    /// M7: the raid has two houses burning, on either side of the door's
+    /// view, and their fire's clock stops while the story is held still.
+    #[test]
+    fn two_houses_burn_in_the_raid_and_their_fire_holds_still_with_the_story() {
+        let mut w = opening(3);
+        let b = burning(&w);
+        assert_eq!(b.len(), 2);
+        let c = centre(&w);
+        assert_eq!(
+            b[0].0.sub(c).len_xz() / ONE,
+            47,
+            "the house 46 m west, 10 m north"
+        );
+        idle(&mut w, 5);
+        assert_eq!((w.story.fire_prev, w.story.fire), (4, 5));
+        w.story.still = true;
+        idle(&mut w, 5);
+        assert_eq!((w.story.fire_prev, w.story.fire), (5, 5), "held");
+        assert!(burning(&World::new(3)).is_empty(), "none in a bare world");
+    }
+
     /// M7: pickups float and turn with the world's clock, and hold still
     /// with the story held still for a picture (`story.still`).
     #[test]
@@ -1576,8 +1864,9 @@ mod tests {
         assert!(!w.me.health.down(), "but not hurt");
         let h = w.solid.home.unwrap();
         assert!(h.wall.holds(w.player.pos.x, w.player.pos.z, 0), "in the house");
-        assert_eq!(w.story.raid.len(), 6);
-        assert_eq!(w.foes.len(), 6);
+        // M7: a seventh in sight of the door, by a burning house (R9.8)
+        assert_eq!(w.story.raid.len(), 7);
+        assert_eq!(w.foes.len(), 7);
         let c = centre(&w);
         for r in &w.story.raid {
             let f = &w.foes[r.foe];
@@ -1836,13 +2125,13 @@ mod tests {
         let k = w.story.raid[2].foe;
         w.foes[k].fighter.health.hp = 0;
         idle(&mut w, COMES_AFTER - 1);
-        assert_eq!(w.story.raid.len(), 6);
-        idle(&mut w, 2);
         assert_eq!(w.story.raid.len(), 7);
+        idle(&mut w, 2);
+        assert_eq!(w.story.raid.len(), 8);
         let new = w.foes.last().unwrap().body.pos;
         assert!(new.z > centre(&w).z + fx::int(100), "from the south: {new:?}");
         idle(&mut w, COMES_AFTER * 2);
-        assert_eq!(w.story.raid.len(), 7, "one for one");
+        assert_eq!(w.story.raid.len(), 8, "one for one");
     }
 
     /// CW-4: a recorded opening (the wake, a walk out of the house, a
@@ -2114,17 +2403,23 @@ mod playthrough {
         walk_to(&mut g, t.add(v3(0, 0, fx::int(2))), false);
         press_e(&mut g);
         assert_eq!(g.world.trainer.stage, crate::trainer::Stage::Ready);
-        frames(&mut g, 1, DRAW, 0);
-        frames(&mut g, 30, 0, 0);
-        assert!(matches!(g.world.trainer.stage, crate::trainer::Stage::Volley(_)));
-        // the guard held toward the trainer, the lent imbue turns the motes
-        // (M6's orbs)
+        // M7: the practice is staged from the mark in front of the trainer
+        let mark = crate::trainer::mark(&g.world).unwrap();
+        walk_to(&mut g, mark, false);
+        assert!(crate::trainer::on_mark(&g.world), "on the mark");
+        // the view turned round to the trainer from walking out to the mark
         for _ in 0..30 {
             let w = &g.world;
             let tp = crate::player::body(w, crate::trainer::id(w).unwrap()).pos;
             let turn = fx::wrap(yaw_of(tp.sub(w.player.pos)) - w.aim.yaw);
             frames(&mut g, 1, 0, dx_for(turn));
         }
+        frames(&mut g, 1, DRAW, 0);
+        frames(&mut g, 30, 0, 0);
+        read_on(&mut g); // the trainer's line for the first step
+        assert!(matches!(g.world.trainer.stage, crate::trainer::Stage::Volley(_)));
+        // the guard held toward the trainer, the lent imbue turns the motes
+        // (M6's orbs)
         for _ in 0..60 * 120 {
             if crate::imbue::learned(&g.world) {
                 break;

@@ -296,8 +296,8 @@
   {
     "name": "the shoulder turns with the view",
     "file": "crates/core/src/camera.rs",
-    "find": "    let pivot = head.add(v3(0, ABOVE, 0)).add(right_of(look.yaw).scale(RIGHT));",
-    "replace": "    let pivot = head.add(v3(RIGHT, ABOVE, 0));",
+    "find": "    head.add(v3(0, ABOVE, 0)).add(right_of(look.yaw).scale(RIGHT))",
+    "replace": "    head.add(v3(RIGHT, ABOVE, 0))",
     "test": "turned_a_quarter_left_the_shoulder_turns_with_the_view"
   },
   {
@@ -3932,6 +3932,440 @@
     "find": "s.removeItem(KEY);",
     "replace": "s.removeItem(\"chumworld.other\");",
     "test": "the_save_module_keeps_exactly_one_key"
+  },
+  {
+    "name": "M7 sprint: a held run counts as a tap",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            s.tapping = s.quiet && s.down <= TAP_MOST;",
+    "replace": "            s.tapping = s.quiet;",
+    "test": "a_tap_of_shift_while_moving_sets_a_sprint_and_another_ends_it"
+  },
+  {
+    "name": "M7 sprint: the orcs' running taps a sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        if s.tapping && s.up >= SETTLE {",
+    "replace": "        if s.tapping {",
+    "test": "the_orcs_running_never_sprints"
+  },
+  {
+    "name": "M7 sprint: the build starts before 5 s",
+    "file": "crates/core/src/sprint.rs",
+    "find": "pub const BUILD_AFTER: u32 = 300;",
+    "replace": "pub const BUILD_AFTER: u32 = 240;",
+    "test": "five_seconds_of_sprint_go_at_the_run_speed_then_it_builds"
+  },
+  {
+    "name": "M7 sprint: the top is twice the run",
+    "file": "crates/core/src/sprint.rs",
+    "find": "pub const TOP: Fx = fx::int(3);",
+    "replace": "pub const TOP: Fx = fx::int(2);",
+    "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
+  },
+  {
+    "name": "M7 sprint: a stop does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        } else if !k.moving {\n            End::Stop",
+    "replace": "        } else if false {\n            End::Stop",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: pressing X does not end it in the world",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            drawn: f.drawn() || f.pressed(&inp, input::DRAW),",
+    "replace": "            drawn: f.drawn(),",
+    "test": "in_the_world_a_sprint_ends_at_the_draw_and_at_a_stop"
+  },
+  {
+    "name": "M7 sprint: health lost does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let hit = k.stagger || k.hp < s.hp;",
+    "replace": "    let hit = k.stagger;",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: a dodge-step does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        } else if k.dodge {",
+    "replace": "        } else if false {",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: a hard turn does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": ".abs() > HARD_TURN {",
+    "replace": ".abs() > HARD_TURN * 2 {",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: the build jumps to the top",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    fx::mul(fx::mul(t, t), 3 * ONE - 2 * t)",
+    "replace": "    if t > 0 { ONE } else { 0 }",
+    "test": "the_build_never_jumps_from_one_tick_to_the_next"
+  },
+  {
+    "name": "M7 sprint: a stop at speed does not skid",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let out = if was - now > SKID {",
+    "replace": "    let out = if false {",
+    "test": "a_stop_from_the_top_skids_and_a_plain_run_stops_as_before"
+  },
+  {
+    "name": "M7 sprint: the speedster's share multiplies the sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let sprint = fx::mul(bare, mult) + pieces;",
+    "replace": "    let sprint = fx::mul(bare + pieces, mult);",
+    "test": "speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds"
+  },
+  {
+    "name": "M7 sprint: no cap on a sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    road.min(fx::mul(bare, CAP))",
+    "replace": "    road",
+    "test": "speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds"
+  },
+  {
+    "name": "M7 sprint: the turn rate stays as at a run",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    TURN_AT_RUN - fx::mul(TURN_AT_RUN - TURN_AT_TOP, past)",
+    "replace": "    TURN_AT_RUN",
+    "test": "the_turn_rate_falls_with_speed"
+  },
+  {
+    "name": "M7 sprint: the heading turns at once",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            s.heading = fx::wrap(s.heading + fx::wrap(k.goal - s.heading).clamp(-rate, rate));",
+    "replace": "            s.heading = k.goal;",
+    "test": "the_turn_rate_falls_with_speed"
+  },
+  {
+    "name": "M7 sprint: a climb does not slow the build",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    (ONE - fx::div(grade, STEEP)).clamp(0, ONE)",
+    "replace": "    ONE",
+    "test": "uphill_the_build_gives_way"
+  },
+  {
+    "name": "M7 sprint: the build counts in the opening",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            if !k.opening {",
+    "replace": "            if true {",
+    "test": "the_opening_holds_a_sprint_at_the_run_speed"
+  },
+  {
+    "name": "M7 sprint: the view does not widen",
+    "file": "crates/core/src/world.rs",
+    "find": "        cam.fov += widen;\n",
+    "replace": "",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the camera does not pull back",
+    "file": "crates/core/src/world.rs",
+    "find": "aim, back + pull, |x, z|",
+    "replace": "aim, back + pull * 0, |x, z|",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the view snaps rather than eases",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    s.view = fx::approach(s.view, goal, VIEW_EASE);",
+    "replace": "    s.view = goal;",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the HUD shows no sprint",
+    "file": "crates/core/src/ui.rs",
+    "find": "        sprint: crate::sprint::bar(s, w),",
+    "replace": "        sprint: None,",
+    "test": "the_hud_shows_the_build_as_a_bar_with_words"
+  },
+  {
+    "name": "M7 sprint: a tap never sets a sprint (the replay sees none)",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            tap = true;",
+    "replace": "            tap = false;",
+    "test": "the_same_seed_and_inputs_give_the_same_world_with_a_sprint"
+  },
+  {
+    "name": "M7 sprint: the controls panel leaves out the tap",
+    "file": "crates/core/src/api.rs",
+    "find": "            row(\"key_sprint\", \"control_sprint\"), // M7 (T14)\n",
+    "replace": "",
+    "test": "the_controls_name_the_tap_and_the_glossary_gives_the_numbers"
+  },
+  {
+    "name": "M7 sprint: the sprint's want is not used",
+    "file": "crates/core/src/motion.rs",
+    "find": "    want = crate::sprint::want(f, input, want, n);\n",
+    "replace": "",
+    "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
+  },
+  {
+    "name": "M7 feel: a voice repeats inside its gap",
+    "file": "crates/core/src/sound.rs",
+    "find": "    if gap > 0 && last != u64::MAX && w.tick < last + gap {",
+    "replace": "    if false {",
+    "test": "a_clash_is_heard_exactly_once_and_not_again_within_its_gap"
+  },
+  {
+    "name": "M7 feel: blades that brush clash aloud",
+    "file": "crates/core/src/sound.rs",
+    "find": "        if c.speed >= CLASH_MIN {",
+    "replace": "        if c.speed >= 0 {",
+    "test": "a_clash_is_heard_exactly_once_and_not_again_within_its_gap"
+  },
+  {
+    "name": "M7 feel: a blow that takes nothing is heard",
+    "file": "crates/core/src/sound.rs",
+    "find": "        if crate::health::damage(h.speed, h.part) > 0 {",
+    "replace": "        if true {",
+    "test": "a_blow_that_lands_is_heard_once"
+  },
+  {
+    "name": "M7 feel: the draw makes no sound",
+    "file": "crates/core/src/sound.rs",
+    "find": "            Sheath::Drawing(t) if t == player::REACH_TICKS => {",
+    "replace": "            Sheath::Drawing(t) if t == 250 => {",
+    "test": "drawing_and_sheathing_are_each_heard_once"
+  },
+  {
+    "name": "M7 feel: the second foot lands unheard",
+    "file": "crates/core/src/sound.rs",
+    "find": "    passes(before, now, fx::QUARTER_TURN) || passes(before, now, -fx::QUARTER_TURN)",
+    "replace": "    passes(before, now, fx::QUARTER_TURN)",
+    "test": "a_foot_lands_as_its_stride_passes_a_quarter_turn"
+  },
+  {
+    "name": "M7 feel: the bridge's planks sound like grass",
+    "file": "crates/core/src/sound.rs",
+    "find": "    if w.solid.decks.iter().any(|(span, _)| span.holds(x, z, 0)) {",
+    "replace": "    if false {",
+    "test": "a_step_sounds_of_what_it_lands_on"
+  },
+  {
+    "name": "M7 feel: a sound far off is as loud as one near",
+    "file": "crates/core/src/sound.rs",
+    "find": "    let fall = if d <= near { ONE } else { fx::div(near, d) };",
+    "replace": "    let fall = ONE;",
+    "test": "a_sound_is_heard_by_its_distance_and_side"
+  },
+  {
+    "name": "M7 feel: a sound on the right is heard in the middle",
+    "file": "crates/core/src/sound.rs",
+    "find": "        fx::mul(flat.norm().dot(right), ONE * sp.pan_pct / 100)",
+    "replace": "        0",
+    "test": "a_sound_is_heard_by_its_distance_and_side"
+  },
+  {
+    "name": "M7 feel: the volume setting changes nothing",
+    "file": "crates/core/src/sound.rs",
+    "find": "    let base = ONE * row.level_pct / 100 * bus / 100 * volume_pct.clamp(0, 100) / 100;",
+    "replace": "    let base = ONE * row.level_pct / 100 * bus / 100;",
+    "test": "a_sound_is_heard_by_its_distance_and_side"
+  },
+  {
+    "name": "M7 feel: the loops play on while paused",
+    "file": "crates/core/src/game.rs",
+    "find": "        let live = matches!(self.screen, Screen::Play | Screen::Dialogue);",
+    "replace": "        let live = true;",
+    "test": "pausing_silences_every_loop_and_starts_nothing"
+  },
+  {
+    "name": "M7 feel: the menus make no tick",
+    "file": "crates/core/src/sound.rs",
+    "find": "    [\"menu.\", \"settings.\", \"dialogue.\", \"shop.\", \"screen.\"]",
+    "replace": "    [\"nothing.\"]",
+    "test": "a_press_on_the_menus_ticks_once"
+  },
+  {
+    "name": "M7 feel: a dialogue blips every letter",
+    "file": "crates/core/src/sound.rs",
+    "find": "    after > before && (before / BLIP_EVERY != after / BLIP_EVERY || before == 0)",
+    "replace": "    after > before",
+    "test": "a_dialogue_blips_every_third_letter"
+  },
+  {
+    "name": "M7 feel: the dream's fade is heard every tick it is down",
+    "file": "crates/core/src/sound.rs",
+    "find": "    if veil && !was && w.story.phase != crate::story::Phase::Free {",
+    "replace": "    if veil && w.story.phase != crate::story::Phase::Free {",
+    "test": "the_dream_s_fade_is_heard_once"
+  },
+  {
+    "name": "M7 feel: a voice is made past full scale",
+    "file": "crates/core/src/sound/synth.rs",
+    "find": "        let want = ONE as i64 * v.peak_pct as i64 / 100;",
+    "replace": "        let want = ONE as i64 * 101 / 100;",
+    "test": "every_voice_is_made_to_its_peak_and_never_clips"
+  },
+  {
+    "name": "M7 feel: a floor's step is named no more",
+    "file": "crates/core/src/sound.rs",
+    "find": "            return \"step_floor\";",
+    "replace": "            return \"step_grass\";",
+    "test": "every_sound_the_core_names_has_a_row"
+  },
+  {
+    "name": "M7 feel: the draw slower again",
+    "file": "crates/core/src/player.rs",
+    "find": "pub const REACH_TICKS: u8 = 12;",
+    "replace": "pub const REACH_TICKS: u8 = 18;",
+    "test": "the_draw_is_heard_as_the_blade_slides_and_is_done_in_twenty_ticks"
+  },
+  {
+    "name": "M7 feel: a block's height is ignored",
+    "file": "crates/core/src/boom.rs",
+    "find": "                combine(&[lx.abs() - wall.hx, lz.abs() - wall.hz, (y0 - p.y).max(p.y - y1)])",
+    "replace": "                combine(&[lx.abs() - wall.hx, lz.abs() - wall.hz])",
+    "test": "a_block_s_gap_is_its_distance_out_or_in"
+  },
+  {
+    "name": "M7 feel: the boom keeps no clearance",
+    "file": "crates/core/src/boom.rs",
+    "find": "        near.iter().all(|(s, m)| s.gap(p) >= *m)",
+    "replace": "        near.iter().all(|(s, _)| s.gap(p) >= 0)",
+    "test": "the_boom_stops_short_of_a_wall_by_its_clearance"
+  },
+  {
+    "name": "M7 feel: the frame's hard clearance is dropped",
+    "file": "crates/core/src/boom.rs",
+    "find": "    let hard = reach(&all, pivot, eye, HARD);",
+    "replace": "    let hard = ONE;",
+    "test": "walking_round_every_house_the_eye_is_never_inside_a_solid"
+  },
+  {
+    "name": "M7 feel: the boom jumps back out",
+    "file": "crates/core/src/boom.rs",
+    "find": "        (b.len + fx::mul(want - b.len, OUT_SHARE).max(OUT_MIN)).min(want)",
+    "replace": "        want",
+    "test": "passing_a_corner_the_eye_comes_in_and_out_smoothly"
+  },
+  {
+    "name": "M7 feel: the roof is cut at once",
+    "file": "crates/core/src/boom.rs",
+    "find": "        (b.cut + 1).min(CUT_TICKS)",
+    "replace": "        CUT_TICKS",
+    "test": "the_house_fades_out_and_in_a_tick_at_a_time"
+  },
+  {
+    "name": "M7 feel: the opening's house is whole on the title",
+    "file": "crates/core/src/story.rs",
+    "find": "    // M7: in bed, the house is cut away from the first frame\n    crate::boom::cut_now(w);\n",
+    "replace": "",
+    "test": "the_opening_shows_the_house_cut_away_from_the_first_frame"
+  },
+  {
+    "name": "M7 feel: a short boom does not rise",
+    "file": "crates/core/src/boom.rs",
+    "find": "    if near >= SHORT {\n        return (at, fwd);\n    }",
+    "replace": "    if near >= 0 {\n        return (at, fwd);\n    }",
+    "test": "backed_against_a_wall_the_eye_rises_over_the_right_shoulder"
+  },
+  {
+    "name": "M7 feel: the spark burns as briefly as before",
+    "file": "crates/core/src/feel.rs",
+    "find": "pub const SPARK_TICKS: u8 = 20;",
+    "replace": "pub const SPARK_TICKS: u8 = 14;",
+    "test": "a_spark_burns_a_third_of_a_second_and_is_sized_by_the_meeting"
+  },
+  {
+    "name": "M7 feel: the spark as small as before",
+    "file": "crates/core/src/feel.rs",
+    "find": "    (ONE / 8 + fx::mul(speed, ONE / 40)).min(ONE / 3)",
+    "replace": "    (ONE / 12 + fx::mul(speed, ONE / 60)).min(ONE / 4)",
+    "test": "a_spark_burns_a_third_of_a_second_and_is_sized_by_the_meeting"
+  },
+  {
+    "name": "M7 feel: the mark stands at the trainer's elbow",
+    "file": "crates/core/src/trainer.rs",
+    "find": "        .add(crate::geom::facing(t.facing, 0).scale(fx::int(sp.mark_m)));",
+    "replace": "        .add(crate::geom::facing(t.facing, 0).scale(fx::int(2)));",
+    "test": "the_practice_s_mark_is_eight_metres_in_front_of_the_trainer"
+  },
+  {
+    "name": "M7 feel: the practice begins off the mark",
+    "file": "crates/core/src/trainer.rs",
+    "find": "            if w.me.sheath == Sheath::Drawn && ready_on_mark(w) {",
+    "replace": "            if w.me.sheath == Sheath::Drawn {",
+    "test": "talking_to_the_trainer_starts_the_practice_with_the_imbue_lent"
+  },
+  {
+    "name": "M7 feel: the practice never moves past one orb",
+    "file": "crates/core/src/trainer.rs",
+    "find": "                if got > 0 {\n                    w.trainer.step = (w.trainer.step + 1).min(STEPS - 1);\n                }",
+    "replace": "",
+    "test": "an_ordinary_player_passes_the_practice_within_a_minute"
+  },
+  {
+    "name": "M7 feel: no house burns",
+    "file": "crates/core/src/story.rs",
+    "find": "                .find(|s| s.at.sub(want).len_xz() < ONE)",
+    "replace": "                .find(|s| s.at.sub(want).len_xz() < 0)",
+    "test": "two_houses_burn_in_the_raid_and_their_fire_holds_still_with_the_story"
+  },
+  {
+    "name": "M7 feel: the fire burns on while the story holds still",
+    "file": "crates/core/src/story.rs",
+    "find": "    if !w.story.still {\n        w.story.fire += 1;\n    }",
+    "replace": "    w.story.fire += 1;",
+    "test": "two_houses_burn_in_the_raid_and_their_fire_holds_still_with_the_story"
+  },
+  {
+    "name": "M7 feel: the orc by the door is gone",
+    "file": "data/story.json",
+    "find": "      { \"route\": [[-30, 84], [-52, 70], [-46, 92]] },\n      { \"route\": [[-58, -12]",
+    "replace": "      { \"route\": [[-30, 84], [-52, 70], [-46, 92]] }\n    ], \"x\": [\n      { \"route\": [[-58, -12]",
+    "test": "the_game_opens_in_bed_with_six_orcs_in_the_village_and_none_in_a_wall"
+  },
+  {
+    "name": "M7 feel: a held world's boom still eases between ticks",
+    "file": "crates/core/src/feel.rs",
+    "find": "    w.boom.prev = w.boom.len;\n    w.boom.prev_cut = w.boom.cut;\n",
+    "replace": "    w.boom.prev_cut = w.boom.cut;\n",
+    "test": "held_still_the_camera_does_not_move_between_ticks"
+  },
+  {
+    "name": "M7 feel: a frozen spark still shrinks between ticks",
+    "file": "crates/core/src/feel.rs",
+    "find": "    let alpha = if w.feel.frozen { 0 } else { alpha };\n",
+    "replace": "",
+    "test": "held_still_the_camera_does_not_move_between_ticks"
+  },
+  {
+    "name": "M7 feel: a held world's blows land",
+    "file": "crates/core/src/world.rs",
+    "find": "        if crate::story::holding(self) {\n            self.blades.hits.clear();\n        }\n",
+    "replace": "",
+    "test": "a_frozen_volley_hurts_no_one"
+  },
+  {
+    "name": "M7 feel: a held world's orbs hurt",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    if crate::story::holding(w) {\n        return;\n    }\n",
+    "replace": "",
+    "test": "held_by_the_story_a_volley_hurts_no_one"
+  },
+  {
+    "name": "M7 feel: the leader casts while held",
+    "file": "crates/core/src/camp.rs",
+    "find": "    if story::holding(w) || !w.camp.alarm",
+    "replace": "    if !w.camp.alarm",
+    "test": "held_still_the_leader_casts_nothing"
+  },
+  {
+    "name": "M7 feel: the camp comes in all at once",
+    "file": "crates/core/src/camp.rs",
+    "find": "pub const JOIN_EVERY: u64 = 150;",
+    "replace": "pub const JOIN_EVERY: u64 = 0;",
+    "test": "the_camp_comes_in_a_beat_apart_and_no_more_than_two_press_at_once"
+  },
+  {
+    "name": "M7 feel: the whole camp presses at once",
+    "file": "crates/core/src/camp.rs",
+    "find": "pub const PRESS_MOST: usize = 2;",
+    "replace": "pub const PRESS_MOST: usize = 5;",
+    "test": "the_camp_comes_in_a_beat_apart_and_no_more_than_two_press_at_once"
   },
   {
     "name": "wanderers: what an encounter leaves is a consumable (CW-6)",

@@ -89,6 +89,10 @@ pub struct State {
     /// the chest is open, and how far its lid has swung (ticks)
     pub open: bool,
     pub lid: u32,
+    /// M7 (R9.25): the tick the alarm went up, and the order the camp comes
+    /// in after it (members by number, nearest the player first)
+    pub alarm_at: Option<u64>,
+    pub order: Vec<usize>,
 }
 
 /// The camp's centre, on the ground.
@@ -111,11 +115,58 @@ pub fn leader(w: &World) -> Option<usize> {
         .filter(|&id| id < player::count(w))
 }
 
+/// M7 (R9.25): after the alarm the camp comes in one at a time, a member
+/// every `JOIN_EVERY` (2.5 s), nearest the player first; of those come in, at
+/// most `PRESS_MOST` press the player at once (the leader, once in, is one
+/// of them, from where it casts), the nearest; the rest stand drawn at their
+/// posts and wait their turn.
+pub const JOIN_EVERY: u64 = 150;
+pub const PRESS_MOST: usize = 2;
+
+/// Whether member `k` has come in: the alarm is up and its beat has come
+/// (an alarm set with no tick, as a test sets it, brings everyone in).
+pub fn joined(w: &World, k: usize) -> bool {
+    if !w.camp.alarm {
+        return false;
+    }
+    let Some(at) = w.camp.alarm_at else {
+        return true;
+    };
+    let place = w.camp.order.iter().position(|&m| m == k).unwrap_or(k) as u64;
+    w.tick >= at + place * JOIN_EVERY
+}
+
+/// The members pressing the player now, at most `PRESS_MOST`: those come in,
+/// standing, within reach of a fight and of home; the leader first, then the
+/// nearest.
+pub fn pressing(w: &World) -> Vec<usize> {
+    let me = w.player.pos;
+    let mut can: Vec<(bool, Fx, usize)> = Vec::new();
+    for (k, m) in w.camp.members.iter().enumerate() {
+        let Some(foe) = w.foes.get(m.foe) else {
+            continue;
+        };
+        let at = foe.body.pos;
+        if foe.fighter.health.down()
+            || !joined(w, k)
+            || me.sub(at).len_xz() >= FIGHT_IN
+            || at.sub(m.home).len_xz() >= LEASH
+        {
+            continue;
+        }
+        can.push((m.role != Role::Leader, me.sub(at).len_xz(), k));
+    }
+    can.sort();
+    can.into_iter().take(PRESS_MOST).map(|(_, _, k)| k).collect()
+}
+
 /// A test duel forgets the camp: its foes are gone with the duel's reset.
 pub fn forget(w: &mut World) {
     w.camp.members.clear();
     w.camp.spawned = false;
     w.camp.alarm = false;
+    w.camp.alarm_at = None;
+    w.camp.order.clear();
 }
 
 fn spawn(w: &mut World) {
@@ -162,7 +213,7 @@ fn spawn(w: &mut World) {
 /// Step 2b: before the alarm, the camp stands; after it, each draws and
 /// its tree fights a player within reach, or it walks home sheathed.
 pub fn steer(w: &mut World, inputs: &mut [Input]) {
-    let me = w.player.pos;
+    let press = pressing(w);
     for k in 0..w.camp.members.len() {
         let m = w.camp.members[k];
         let Some(foe) = w.foes.get(m.foe) else {
@@ -173,8 +224,20 @@ pub fn steer(w: &mut World, inputs: &mut [Input]) {
         }
         let f = &foe.fighter;
         let at = foe.body.pos;
-        let fight = w.camp.alarm && me.sub(at).len_xz() < FIGHT_IN && at.sub(m.home).len_xz() < LEASH;
-        inputs[m.foe] = if fight {
+        // M7 (R9.25): only those pressing fight; one come in and waiting
+        // stands drawn at its post
+        let fight = press.contains(&k);
+        let waiting = !fight && joined(w, k) && at.sub(m.home).len_xz() <= ONE * 15 / 10;
+        inputs[m.foe] = if waiting {
+            Input {
+                keys: if f.sheath == Sheath::Sheathed {
+                    story::sheath_keys(f, true)
+                } else {
+                    0
+                },
+                ..Input::default()
+            }
+        } else if fight {
             if f.sheath == Sheath::Sheathed {
                 Input {
                     keys: story::sheath_keys(f, true),
@@ -227,6 +290,16 @@ pub fn step(w: &mut World) {
         if seen && !w.player_down() {
             w.camp.alarm = true;
             story::banner(w, "story_alarm");
+            // M7 (R9.25): the camp comes in nearest first, a beat apart
+            w.camp.alarm_at = Some(w.tick);
+            let mut order: Vec<(Fx, usize)> = (0..w.camp.members.len())
+                .map(|k| {
+                    let at = w.foes.get(w.camp.members[k].foe).map_or(me, |f| f.body.pos);
+                    (at.sub(me).len_xz(), k)
+                })
+                .collect();
+            order.sort();
+            w.camp.order = order.into_iter().map(|(_, k)| k).collect();
         }
     }
     casts(w);
@@ -241,7 +314,11 @@ fn casts(w: &mut World) {
         return;
     };
     let f = player::fighter(w, id);
-    if !w.camp.alarm || f.health.down() || f.engaged != Some(0) {
+    // M7 (R9.24): held still, the leader casts nothing; (R9.25) nor before
+    // it presses the player
+    let k = w.camp.members.iter().position(|m| m.role == Role::Leader);
+    let presses = k.is_some_and(|k| w.camp.alarm_at.is_none() || pressing(w).contains(&k));
+    if story::holding(w) || !w.camp.alarm || !presses || f.health.down() || f.engaged != Some(0) {
         return;
     }
     let gap = player::body(w, id).pos.sub(w.player.pos).len_xz();
@@ -327,11 +404,19 @@ fn drops(w: &mut World) {
         let at = leader(w)
             .map(|id| player::body(w, id).pos)
             .unwrap_or_else(|| centre(w));
+        // M7 (R9.25): toward the player, clear of the fallen leader's body
+        // (the camp now falls where it waits, by the tents and the chest)
+        let to = w.player.pos.sub(at);
+        let way = if to.len_xz() > 0 {
+            v3(to.x, 0, to.z).norm()
+        } else {
+            v3(0, 0, ONE)
+        };
         save_drop(
             w,
             crate::save::KEY_DROP,
             Gift::Item(Item::ChestKey, 1),
-            at.add(v3(0, 0, ONE * 7 / 10)),
+            at.add(way.scale(ONE * 12 / 10)),
         );
         // M7 save: cleared in the save this world came from, it is not said again
         if !crate::save::was_cleared(w) {
@@ -565,5 +650,56 @@ mod tests {
         w.tick += CAST_EVERY;
         casts(&mut w);
         assert_eq!(w.camp.casts, 2);
+    }
+
+    /// M7 (R9.25): after the alarm the camp comes in nearest first, one
+    /// every 150 ticks (2.5 s): five members at 0, 150, 300, 450 and 600
+    /// ticks after it; and no more than two ever press the player at once.
+    #[test]
+    fn the_camp_comes_in_a_beat_apart_and_no_more_than_two_press_at_once() {
+        let mut w = at_camp();
+        w.me.health = crate::health::Health::new(100_000);
+        let fire = centre(&w);
+        let mut p = fire.add(v3(0, 0, fx::int(6)));
+        p.y = w.ground(p.x, p.z);
+        w.player = crate::player::Body::new(p, 0);
+        w.step(&Input::default());
+        assert!(w.camp.alarm, "by the fire, the camp is up");
+        let at = w.camp.alarm_at.unwrap();
+        let n = w.camp.members.len();
+        assert_eq!(n, 5);
+        let mut came: Vec<Option<u64>> = (0..n).map(|k| joined(&w, k).then_some(0)).collect();
+        let mut most = 0;
+        for _ in 0..900 {
+            w.step(&Input::default());
+            for (k, c) in came.iter_mut().enumerate() {
+                if c.is_none() && joined(&w, k) {
+                    *c = Some(w.tick - at);
+                }
+            }
+            most = most.max(pressing(&w).len());
+        }
+        let mut beats: Vec<u64> = came.iter().map(|c| c.unwrap()).collect();
+        beats.sort();
+        assert_eq!(beats, vec![0, 150, 300, 450, 600]);
+        assert_eq!(most, 2, "two press at most, and two do");
+    }
+
+    /// M7 (R9.24): held still (`story.still`), the leader casts nothing,
+    /// though everything else says it should.
+    #[test]
+    fn held_still_the_leader_casts_nothing() {
+        let mut w = at_camp();
+        w.camp.alarm = true;
+        let id = leader(&w).unwrap();
+        let p = player::body(&w, id).pos.add(v3(fx::int(9), 0, 0));
+        w.player = crate::player::Body::new(p, 0);
+        w.foes[id - 1].fighter.engaged = Some(0);
+        w.story.still = true;
+        casts(&mut w);
+        assert_eq!(w.camp.casts, 0);
+        w.story.still = false;
+        casts(&mut w);
+        assert_eq!(w.camp.casts, 1, "let go, it casts");
     }
 }

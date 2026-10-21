@@ -112,6 +112,10 @@ pub struct World {
     // M6: the orbs in flight and the casts under way; the imbue
     pub orbs: crate::orbs::State,
     pub imbue: crate::imbue::State,
+    // M7 (feel): the tick's sounds and what they listen for; the camera's
+    // boom, kept out of walls, houses and trunks
+    pub sound: crate::sound::State,
+    pub boom: crate::boom::State,
     // M7 travel (T11): the waystones, the flute's song screen, a journey
     pub travel: crate::travel::State,
     // M7 (P4): blood in flight and on the ground, parts taken off, the cues
@@ -165,12 +169,15 @@ impl World {
             camp: crate::camp::State::default(),
             trainer: crate::trainer::State::default(),
             boomerang: crate::boomerang::State::default(),
-            save: crate::save::State::default(),           // M7 save
+            save: crate::save::State::default(),   // M7 save
+            sound: crate::sound::State::default(), // M7
+            boom: crate::boom::State::default(),
             travel: crate::travel::State::default(),       // M7 travel
             roadside: crate::roadside::State::default(),   // M7 roadside
             wanderers: crate::wanderers::State::new(seed), // M7 (P9)
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
+        w.boom.blocks = std::rc::Rc::new(crate::boom::blocks(&w)); // M7
         w
     }
 
@@ -182,6 +189,8 @@ impl World {
 
     /// One tick, in the order the module doc gives.
     pub fn step(&mut self, input: &Input) {
+        // M7: last tick's sounds are gone
+        crate::sound::begin(self);
         // M5: a dream gone dark wakes as the opening instead of a tick; in
         // bed or down, the keys do nothing (the mouse still looks)
         if crate::story::waking(self) {
@@ -191,6 +200,11 @@ impl World {
         let input = &crate::story::filter(self, input);
         // M7 travel: on a journey, the keys and the mouse do nothing
         let input = &crate::travel::filter(self, input);
+        // M7: frozen for a picture of a spark (test-only), only the view turns
+        if self.feel.frozen {
+            crate::feel::frozen(self, input);
+            return;
+        }
         self.tick += 1;
         // M6: the scripted defender's hand added to the record, for a view
         // (`magic.defend`, a test act)
@@ -227,6 +241,10 @@ impl World {
         // 4. M1:
         crate::arm::step(self, input, &inputs);
         crate::blade::step(self);
+        // M7 (R9.24): a world held for a picture or a check hurts no one
+        if crate::story::holding(self) {
+            self.blades.hits.clear();
+        }
         crate::health::step(self);
         crate::feel::step(self); // M1:
                                  // 5. M1/M5: throwables, the boomerang
@@ -251,6 +269,9 @@ impl World {
         crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
         crate::ui::step(self);
+        // 9. M7: what was heard this tick; the camera's boom
+        crate::sound::step(self);
+        crate::boom::step(self);
     }
 
     /// What moves, drawn `alpha` of the way from the last tick to this one.
@@ -319,9 +340,11 @@ impl World {
             Some(("trainer", rest)) => crate::trainer::act(self, rest, value),
             Some(("merchant", rest)) => crate::merchant::act(self, rest, value),
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
+            Some(("feel", rest)) => crate::feel::act(self, rest, value),  // M7
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
             Some(("wanderers", rest)) => crate::wanderers::act(self, rest, value), // M7 (P9)
+            Some(("sprint", rest)) => crate::sprint::act(self, rest, value), // M7 (T14)
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }
@@ -343,13 +366,20 @@ impl World {
         } else {
             self.aim
         };
-        let mut cam = camera::view_from(self.player.feet(alpha), aim, back, |x, z| self.ground(x, z));
+        let feet = self.player.feet(alpha);
+        // M7 (T14): the sprint's build pulls the camera back and widens the view
+        let (pull, widen) = crate::sprint::view(self, alpha);
+        let mut cam = camera::view_from(feet, aim, back + pull, |x, z| self.ground(x, z));
+        cam.fov += widen;
         // M1: a hard blow knocks the view a little; held on a foe, the view
         // frames the duel from a little higher and further right
         cam.eye = cam
             .eye
             .add(crate::feel::knock_at(self, alpha))
             .add(crate::player::framing(self, alpha, aim.yaw));
+        // M7: brought in along the boom, clear of walls, houses and trees
+        let pivot = camera::pivot(feet, aim).add(crate::player::framing(self, alpha, aim.yaw));
+        (cam.eye, cam.fwd) = crate::boom::clip(self, alpha, feet, pivot, cam.eye, cam.fwd);
         cam
     }
 

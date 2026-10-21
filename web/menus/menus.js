@@ -219,8 +219,10 @@ export function makeMenus(root, { act, pixels, keys }) {
   footing.bars = [bar("speed"), bar("footing")];
   footing.append(...footing.bars);
   const vitals = make("div", "hud-vitals");
+  // M7 (T14): the sprint's build, while sprinting
+  const sprint = bar("sprint");
   const vitalBars = make("div", "hud-bars");
-  vitalBars.append(health, footing);
+  vitalBars.append(health, footing, sprint);
   vitals.append(imbue, vitalBars);
   const foeBox = make("div", "hud-foe");
   foeBox.append(foe);
@@ -252,6 +254,7 @@ export function makeMenus(root, { act, pixels, keys }) {
     }
     footing.hidden = h.footing.length === 0;
     footing.bars.forEach((b, i) => setBar(b, h.footing[i]));
+    setBar(sprint, h.sprint);
     h.quick.forEach((q, i) => setQuick(hudQuick[i], q));
     setCount(coins, h.coins);
     flag(toast, "shown", h.toast.shown);
