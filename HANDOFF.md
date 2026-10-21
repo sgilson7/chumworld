@@ -373,3 +373,9 @@ Waiting on the person: R9.445 and R9.456 (the cart's and the raid's smoke), R9.4
 
 Check (2026-10-21, after merging main at 08a01f6): `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test` pass; `python3 scripts/break_tests.py "forest:"` 29 of 29 caught (two missed on the first run, their tests strengthened). The browser check was not run (the coordinator batches it, R9.455). Screenshots in `shots/forest/` (not committed).
 
+## T21 phase A: the first dungeon's foundations (coordinator, no subagents)
+
+Built: the automatic hop (`jump.rs`); rooms behind doors far north of the region and 1.9 km up, with floors, ledges, six-sided pillars, a ramp, walls, a ceiling and a fade between (`dungeon.rs`, `data/dungeon.json`); the hub, three hops from its entrance to each door; its healing spring and save fountain (`fountain.great_tree`); ants on its floor (`critters.rs`); the great tree in the forest with its solid trunk, its door sealed until two orbs of the roots' bulb are turned into its sockets, and its rumour, map mark and quest line. Rows R9.460 to R9.470.
+
+Waiting on the person: R9.469 (the hub's and the tree's looks), R9.470 (the strings under "### T21 dungeon (phase A)").
+

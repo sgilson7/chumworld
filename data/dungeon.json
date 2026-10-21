@@ -14,7 +14,9 @@
       "centre_m": [0, 0],
       "size_cm": [3200, 2100],
       "height_cm": 1200,
-      "colours": { "floor": [205, 183, 143], "wall": [154, 118, 80], "ceiling": [110, 82, 54], "top": [134, 96, 61], "side": [154, 118, 80], "door": [58, 39, 22], "frame": [107, 74, 47] },
+      "colours": { "floor": [118, 96, 70], "wall": [104, 76, 50], "ceiling": [62, 45, 30], "top": [132, 98, 64], "side": [112, 82, 54], "door": [34, 22, 13], "frame": [86, 60, 38], "root": [92, 64, 40], "mushroom": [232, 196, 120] },
+      "decor": { "seed": 7, "hanging": 46, "ridges": 22, "mushrooms": 16 },
+      "_decor": "the hub's roots: strands hanging from the ceiling (their ends at least 7.5 m up, over every hop), ridges up the walls, and glowing mushrooms at the feet of the walls and pillars, placed from the seed",
       "pillars": [
         [-450, 400, 120, 300], [-850, 150, 120, 300],
         [0, 250, 140, 300], [0, -250, 120, 300],

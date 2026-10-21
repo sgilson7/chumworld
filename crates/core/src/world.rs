@@ -386,6 +386,7 @@ impl World {
             Some(("rumours", rest)) => crate::rumours::act(self, rest, value), // M7 rumours
             Some(("wanderers", rest)) => crate::wanderers::act(self, rest, value), // M7 (P9)
             Some(("sprint", rest)) => crate::sprint::act(self, rest, value), // M7 (T14)
+            Some(("dungeon", rest)) => crate::dungeon::act(self, rest, value), // T21
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }

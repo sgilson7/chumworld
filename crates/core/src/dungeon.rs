@@ -110,6 +110,18 @@ pub struct Colours {
     pub side: [i32; 3],
     pub door: [i32; 3],
     pub frame: [i32; 3],
+    pub root: [i32; 3],
+    pub mushroom: [i32; 3],
+}
+
+/// A room's dressing, placed from its seed: roots hanging from the ceiling,
+/// ridges of root up its walls, glowing mushrooms at the feet of things.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Default)]
+pub struct Decor {
+    pub seed: u64,
+    pub hanging: u32,
+    pub ridges: u32,
+    pub mushrooms: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -119,6 +131,8 @@ pub struct RoomSpec {
     pub size_cm: [i32; 2],
     pub height_cm: i32,
     pub colours: Colours,
+    #[serde(default)]
+    pub decor: Decor,
     /// x, z, radius, top
     pub pillars: Vec<[i32; 4]>,
     /// x0, z0, x1, z1, top
@@ -587,6 +601,42 @@ fn put_at(w: &mut World, d: &Door) {
     w.aim.rest = (0, 0);
 }
 
+/// Test acts for views and checks (`dungeon.<name>`): `go:<door>` stands
+/// the player in front of a door (`outside`, or a room's door id; a
+/// world set up from the address never saves, `save.staged`), `open` lights
+/// both of the great tree's sockets.
+pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
+    match name {
+        "go" => {
+            let all = doors(w);
+            let d = all
+                .iter()
+                .find(|d| d.id == value)
+                .cloned()
+                .ok_or_else(|| format!("There is no door \"{value}\"."))?;
+            put_at(w, &d);
+            if let Some(room) = d.room {
+                crate::critters::reset(w, room);
+            }
+            // play opens from the title's camera unless an arrival says
+            // otherwise (`places::arrive`): look the way the door faces
+            let (at, yaw) = arrival(w, &d);
+            w.arrival = Some(crate::places::Arrival {
+                at,
+                yaw: Some(yaw),
+                pitch: None,
+            });
+            Ok(())
+        }
+        "open" => {
+            w.dungeon.sockets = [true, true];
+            w.dungeon.open = true;
+            Ok(())
+        }
+        other => Err(format!("There is no dungeon act \"{other}\".")),
+    }
+}
+
 // ---- the great tree outside ---------------------------------------------------------
 
 /// The great tree's trunk's middle, on the ground.
@@ -920,6 +970,7 @@ pub fn scene(w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group
                 ONE * 7 / 10,
             );
         }
+        dress(r, look, &mut g);
         // a spring: a glow of green water just over the pillar's top
         for s in &r.springs {
             let p = at(r, s.at_cm[0], s.top_cm, s.at_cm[1]);
@@ -938,6 +989,73 @@ pub fn scene(w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group
         out.push(g);
     }
     out.push(tree_group(w, look));
+}
+
+/// The lowest a hanging root comes, over the room's floor: above every hop
+/// from a 3 m top (feet 3.5 m, head 5.3 m) and the camera's boom over it.
+pub const HANG_CLEAR_CM: i32 = 750;
+
+/// A room's dressing (`Decor`), the same every run from its seed (CW-4).
+fn dress(r: &RoomSpec, look: &Look, g: &mut Group) {
+    let d = &r.decor;
+    let mut rng = crate::rng::Rng::new(d.seed);
+    let c = centre(r);
+    let (hx, hz) = (r.size_cm[0] / 2, r.size_cm[1] / 2);
+    let ink = look.ink();
+    let root = rgb(r.colours.root);
+    let lit = rgb(r.colours.mushroom);
+    // hanging roots: tapering down from the ceiling
+    for _ in 0..d.hanging {
+        let x = rng.between(-hx + 60, hx - 60);
+        let z = rng.between(-hz + 60, hz - 60);
+        let len = rng.between(150, r.height_cm - HANG_CLEAR_CM);
+        let thick = rng.between(12, 30);
+        let top = at(r, x, r.height_cm - len / 2, z);
+        let a = Affine::translate(top)
+            .then(&Affine::rot_x(fx::deg(180)))
+            .then(&Affine::scale(v3(cm(thick), cm(len), cm(thick))));
+        g.shapes.inked(Mesh::Taper, a, root, ink);
+    }
+    // ridges of root up the walls, half in them
+    for k in 0..d.ridges {
+        let wall = k % 4;
+        let t = rng.between(-90, 90);
+        let (x, z) = match wall {
+            0 => (hx * t / 100, -hz),
+            1 => (hx * t / 100, hz),
+            2 => (-hx, hz * t / 100),
+            _ => (hx, hz * t / 100),
+        };
+        let w = rng.between(40, 70);
+        let a = Affine::translate(at(r, x, r.height_cm / 2, z)).then(&Affine::scale(v3(
+            cm(w),
+            cm(r.height_cm),
+            cm(w),
+        )));
+        g.shapes.inked(Mesh::Taper, a, root, ink);
+    }
+    // mushrooms: at the feet of the walls and the pillars, glowing softly
+    for k in 0..d.mushrooms {
+        let (x, z) = if k % 2 == 0 && !r.pillars.is_empty() {
+            let p = r.pillars[(k as usize / 2) % r.pillars.len()];
+            let a = fx::deg(rng.between(0, 359));
+            let rr = p[2] + 25;
+            (
+                p[0] + fx::mul(fx::cos(a), rr * ONE) / ONE,
+                p[1] - fx::mul(fx::sin(a), rr * ONE) / ONE,
+            )
+        } else {
+            let t = rng.between(-85, 85);
+            if k % 4 == 1 {
+                (hx * t / 100, -hz + 35)
+            } else {
+                (-hx + 35, hz * t / 100)
+            }
+        };
+        let s = rng.between(10, 22);
+        let cap = Affine::translate(at(r, x, s, z)).then(&Affine::scale(v3(cm(s * 2), cm(s), cm(s * 2))));
+        g.shapes.glow(Mesh::Sphere, cap, lit, ONE * 6 / 10);
+    }
 }
 
 /// The great tree in the forest, a place's group of its own
@@ -1391,6 +1509,26 @@ mod tests {
             &crate::save::read(&crate::save::text(&crate::save::progress(&at_the_tree()))).unwrap(),
         );
         assert!(!shut.dungeon.open);
+    }
+
+    #[test]
+    fn every_room_door_leaves_you_inside_its_room_on_its_ledge() {
+        let w = crate::story::opening(9);
+        for d in doors(&w).iter().filter(|d| d.room.is_some()) {
+            let (p, _) = arrival(&w, d);
+            let r = &spec().rooms[d.room.unwrap()];
+            let q = p.sub(centre(r));
+            assert_eq!(
+                room_at(p),
+                d.room,
+                "door {} leaves you at x {} z {} y {} cm",
+                d.id,
+                q.x * 100 / ONE,
+                q.z * 100 / ONE,
+                q.y * 100 / ONE
+            );
+            assert_eq!(p.y - centre(r).y, cm(300), "door {} on its sill's ledge", d.id);
+        }
     }
 
     #[test]
