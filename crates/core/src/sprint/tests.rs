@@ -559,8 +559,14 @@ fn the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged
     assert_eq!((s.on, s.view), (false, 0));
 }
 
-/// The HUD bar (T18): the seconds to the build (240 − 120 = 120 ticks, 2
-/// s), then how many times the run, the bar filled by the build's share.
+/// The HUD bar (T18, R9.424): the seconds to the build (240 − 120 = 120
+/// ticks, 2 s), then how many times the bare run (7 645 a tick) the sprint
+/// asks for, pieces included, to the nearest whole; filled by that
+/// multiple's share of the way from 1 to the cap, 10. By hand: no pieces,
+/// half way (3 × 7 645 = 22 935): 3, 2/9 = 22%; at the top (38 225): 5,
+/// 4/9 = 44%. Five pieces, half way: 3 × 15 291 = 45 873, 6.0003 times,
+/// so 6, 5.0003/9 = 56%; at the top, the cap's 76 450: 10, 100%; and before
+/// the build, their run (15 291, 2 times): 1/9 = 11%.
 #[test]
 fn the_hud_shows_the_build_as_a_bar_with_words() {
     let mut g = crate::game::tests::game();
@@ -573,12 +579,17 @@ fn the_hud_shows_the_build_as_a_bar_with_words() {
     );
     g.world.act("sprint.set", "239").unwrap();
     assert_eq!(crate::ui::hud(&g).sprint.unwrap().text, "Builds in 1 s");
-    g.world.act("sprint.set", "360").unwrap();
-    let b = crate::ui::hud(&g).sprint.unwrap();
-    assert_eq!((b.text.as_str(), b.pct), ("3 × run speed", 50));
-    g.world.act("sprint.set", "480").unwrap();
-    let b = crate::ui::hud(&g).sprint.unwrap();
-    assert_eq!((b.text.as_str(), b.pct), ("5 × run speed", 100));
+    let at = |g: &mut crate::game::Game, ticks: &str| {
+        g.world.act("sprint.set", ticks).unwrap();
+        let b = crate::ui::hud(g).sprint.unwrap();
+        (b.text, b.pct)
+    };
+    assert_eq!(at(&mut g, "360"), ("3 × run speed".into(), 22));
+    assert_eq!(at(&mut g, "480"), ("5 × run speed".into(), 44));
+    g.world.act("motion.speedster", "5").unwrap();
+    assert_eq!(at(&mut g, "120"), ("Builds in 2 s".into(), 11));
+    assert_eq!(at(&mut g, "360"), ("6 × run speed".into(), 56));
+    assert_eq!(at(&mut g, "480"), ("10 × run speed".into(), 100));
     g.world.act("sprint.off", "").unwrap();
     assert_eq!(crate::ui::hud(&g).sprint, None);
     assert_eq!(

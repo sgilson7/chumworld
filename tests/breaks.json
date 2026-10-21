@@ -4996,5 +4996,12 @@
     "find": "                ahead.push((d - ring(level - 1), Detail::tile_key(level - 1, ci, cj)));",
     "replace": "                ahead.push((d, Detail::tile_key(level - 1, ci, cj)));",
     "test": "every_tuft_tree_and_rock_within_25_m_is_drawn_whole_every_frame"
+  },
+  {
+    "name": "M7 sprint2: the HUD's multiple leaves out the speedster's pieces",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let times = fx::div(speed(n, mult(sp), run, run), bare.max(1));",
+    "replace": "    let times = fx::div(fx::mul(bare, mult(sp)) + 0 * run, bare.max(1));",
+    "test": "the_hud_shows_the_build_as_a_bar_with_words"
   }
 ]

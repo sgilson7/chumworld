@@ -349,25 +349,33 @@ pub fn view(w: &World, alpha: Fx) -> (Fx, i32) {
     (fx::mul(PULL, e), fx::mul(WIDEN, e))
 }
 
-/// The HUD's sprint bar while the player sprints: the build's share filled,
-/// the seconds until it starts or how many times the run speed it gives.
+/// The HUD's sprint bar while the player sprints: the seconds until the
+/// build starts, then how many times the bare run speed the sprint asks
+/// for, the speedster's pieces included, to the nearest whole number (T18,
+/// R9.424); filled by the same multiple's share of the way from the bare
+/// run to `CAP`.
 pub fn bar(s: &Strings, w: &World) -> Option<crate::ui::Bar> {
     let sp = &w.me.gait.sprint;
     if !sp.on {
         return None;
     }
-    let build = share(sp.ticks);
+    let n = motion::pieces(w);
+    let (bare, run) = (motion::per_tick(motion::RUN, 0), motion::per_tick(motion::RUN, n));
+    let times = fx::div(speed(n, mult(sp), run, run), bare.max(1));
     let text = if sp.ticks < BUILD_AFTER {
         let left = (BUILD_AFTER - sp.ticks).div_ceil(TICKS_PER_SECOND as u32);
         crate::api::fill(&s.get("sprint_builds"), &[("n", left.to_string())])
     } else {
-        crate::api::fill(&s.get("sprint_times"), &[("n", fx::decimal(mult(sp), 1))])
+        let whole = (times + ONE / 2) / ONE;
+        crate::api::fill(&s.get("sprint_times"), &[("n", whole.to_string())])
     };
+    let past = (times - ONE).max(0) as i64;
+    let span = (CAP - ONE) as i64;
     Some(crate::ui::Bar {
         id: "sprint".into(),
         label: s.get("sprint"),
         text,
-        pct: ((build as i64 * 100 + ONE as i64 / 2) / ONE as i64) as i32,
+        pct: ((past * 100 + span / 2) / span).min(100) as i32,
     })
 }
 
