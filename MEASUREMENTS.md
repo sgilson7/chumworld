@@ -219,3 +219,11 @@ The slow and fast strokes give the same rows as the medium within a tick (any st
 | How long a cut forearm takes to lie still | `a_part_taken_off_falls_and_comes_to_rest_exactly_within_its_bound` (a scratch print of the tick) | 46 ticks; bound 300 | 2026-10-20, P4 |
 | WebAssembly size | printed by `./scripts/build.sh` | 1 768 KB (M6: 1 531 KB) | 2026-10-20, P4 |
 | Flicker: a frozen view after a part is taken off (the stump, the piece, the dropped cleaver, blood on the ground) | `tests/browser/interactions.py` (`?duel=orc&foe=still&act=wounds.take_off:forearm_r&act=wounds.cut:torso,14&act=wounds.freeze:420`) | see the check's result in `HANDOFF.md` | 2026-10-20, P4 |
+
+## M7 sprint (P8, T14)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| A frame while sprinting against one while running: 25 s of frames on the plains west of the village (1500, 2650), the same gentle turn, the core's ticks, camera, detail levels streaming the land, and draw list, native release | `cargo test --release -p tool_core --test frame_probe probe_sprint -- --ignored --nocapture` (`probe_sprint_frame_cost`) | running (Shift held): 2.031 ms mean, 3.711 ms worst, no frame over 8 ms, 116 m covered, 1 static-array rebuild; sprinting (Shift tapped, the build after 9 s): 2.100 ms mean, 3.878 ms worst, no frame over 8 ms, 282 m covered at 14.5 m/s at the end, 2 rebuilds. The sprint's own step (one `Sprint` a fighter, two ground reads) costs within the run-to-run noise; the extra is the land streaming past faster | 2026-10-20, P8, on a heavily loaded machine |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 909 KB | 2026-10-20, P8 |
+| Draw distance and pop-in at speed | `tools/shoot.py shots/sprint s-standing s-two s-top s-hud s-skid` (by eye) | at 15 m/s the near grass thins to dither a few metres ahead and pops in as it passes; forest-edge trees arrive late. Left to P2 (R9.257) | 2026-10-20, P8 |

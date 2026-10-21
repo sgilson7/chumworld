@@ -264,6 +264,12 @@ The speedster's armour for the legs. They are hidden in a hollow tree.
 
 Not: pants, leggings
 
+### Sprint
+
+A run that holds itself: tap Shift while moving to start it, and tap it again to stop. After {sprint.after} s it builds over {sprint.ramp} s to {sprint.top} times the run speed. Stopping, drawing the sword, a blow, a dodge-step or a hard turn ends it.
+
+Not: dash, boost, turbo
+
 ### Swing
 
 Holding the left button while you move the mouse. The way the mouse goes picks the cut: a level cut, a chop, a rising cut, a diagonal cut or a thrust. Once picked, the cut draws back, swings through and carries on past, and the mouse waits until it is over.

@@ -102,6 +102,7 @@ fn controls(g: &Game) -> (String, Vec<Row>) {
         vec![
             row("key_move", "control_move"),
             row("key_run", "control_run"),
+            row("key_sprint", "control_sprint"), // M7 (T14)
             row("key_look", "control_look"),
             row("key_pause", "control_pause"),
             // M1: the duel's controls

@@ -152,6 +152,9 @@ M6_VIEWS = ["magic-fan", "magic-ring", "magic-wave", "magic-spiral", "magic-line
 # M7 P4 (wounds): a flash, a spray, a forearm off, a hop, the leader one-handed,
 # a bandit running, splats, the player one-armed, the dream's wake
 W_VIEWS = ["w-flash", "w-spray", "w-forearm", "w-hop", "w-crawl", "w-leader", "w-bandit", "w-splats", "w-player", "w-dream"]
+# M7 P8 (sprint, T14): standing, 2 s into a sprint, at the top, the HUD's bar
+# mid-build, a skid stop; one page, run for real on the plains (no test act)
+S_VIEWS = ["s-standing", "s-two", "s-top", "s-hud", "s-skid"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 # M5: the opening, the merchant, the camp, the trainer, the boomerang, a pickup
@@ -1021,13 +1024,45 @@ def m5_views(browser, base, out, views, logs):
         page.close()
 
 
+def s_views(browser, base, out, views, logs, numbers):
+    """The sprint's views (S_VIEWS), one page on the plains west of the
+    village: W held, Shift tapped, the build run for real; with --measure,
+    the frames a second standing, at a sprint's start and at its top."""
+    page = w_page(browser, base, logs, "go=1500,2650,80,-3", draw=False)
+    frames(page, 90)
+    page.screenshot(path=str(out / "s-standing.png"))
+    numbers["sprint_standing"] = frame_times(page, 3000)
+    page.keyboard.down("KeyW")
+    frames(page, 30)
+    page.keyboard.down("ShiftLeft")
+    frames(page, 3)
+    page.keyboard.up("ShiftLeft")
+    page.wait_for_timeout(2000)
+    page.screenshot(path=str(out / "s-two.png"))
+    numbers["sprint_running"] = frame_times(page, 2000)
+    # (2 s, 2 s measured: 4 s in) to 6.5 s, the build under way
+    page.wait_for_timeout(2500)
+    page.screenshot(path=str(out / "s-hud.png"))
+    page.locator(".hud-vitals").screenshot(path=str(out / "s-hud-bar.png"))
+    # to 9.5 s: the top (5 s, then 4 s of build)
+    page.wait_for_timeout(3000)
+    page.screenshot(path=str(out / "s-top.png"))
+    numbers["sprint_top"] = frame_times(page, 3000)
+    page.keyboard.up("KeyW")
+    frames(page, 12)
+    page.screenshot(path=str(out / "s-skid.png"))
+    page.wait_for_timeout(1500)
+    page.screenshot(path=str(out / "s-skid-after.png"))
+    page.close()
+
+
 def main(argv):
     if not argv or argv[0].startswith("--"):
         sys.exit(__doc__)
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
     views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + D2_VIEWS + M4_VIEWS + list(M2_VIEWS) + M5_VIEWS
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in W_VIEWS]
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in W_VIEWS and v not in S_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -1123,6 +1158,8 @@ def main(argv):
             m5_views(browser, base, out, views, logs)
         if any(v in W_VIEWS for v in views):
             w_views(browser, base, out, views, logs)
+        if any(v in S_VIEWS for v in views):
+            s_views(browser, base, out, views, logs, numbers)
         browser.close()
     server.shutdown()
     for name in views:

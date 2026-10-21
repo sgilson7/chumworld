@@ -180,3 +180,22 @@ Waiting on the person: R9.120 (what losing a part does to the player), R9.136 (t
 Open: R9.130 (a foe without an off-hand still throws), R9.131 (per-part physical reactions need the resting-blade sink fixed), R9.134 (P1 to read the cues), R9.138 (what still looks wrong).
 
 Check, 2026-10-20, after merging main at 11b55e6 (P5 swings; conflicts in `lib.rs`, `world.rs`, `ui.rs`, `data/pilots.json`, the browser check and the notes, both sides kept: the settings list Swing cue, then Blood): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, notebook form); step 8 fails only on this task's person rows R9.120, R9.136 and R9.137, which the journal does not yet name. Step 9, the browser check: before the merge it passed in Chromium, Firefox and WebKit, the frozen view after a part is taken off included; after the merge it passed in Chromium alone (`BUILDER_ENGINES=chromium`), while two three-engine runs timed out waiting on the opening's line and on Play with the machine's load average at 35 to 58 (other tasks running): to rerun on a quiet machine. 380 tests by `./scripts/count-tests.sh` (13 ignored, the probes). Breaks: `python3 scripts/break_tests.py "M7 wounds"`, 30 of 30 caught; `"M7 swing"` 12 of 12 after the merge. Screenshots in `shots/m7wounds/` (not committed).
+
+## 2026-10-20: M7 sprint (part P8, branch `m7-sprint`, T14)
+
+The person: "you should be able to set yourself to sprinting, and if you've been sprinting for 5seconds you start to go faster and faster until you are running at triple speed".
+
+Built (`crates/core/src/sprint.rs`, its tests in `sprint/tests.rs`):
+- **The key**: a tap of Shift while moving sets a sprint on; another tap ends it. Holding Shift still runs. A tap is a short press (at most 0.2 s) after a quiet spell, counted once Shift stays up 0.1 s, so the orcs' and villagers' running never sprints (R9.250). The controls panel says "Shift, tapped · Sprint on or off, while moving".
+- **The build**: 5 s at the run speed, then a smoothstep over 4 s to 3 times it, as a multiplier on `motion::RUN` and the road (15 m/s now, 21 m/s once P2's 7 m/s run lands; R9.251). The speedster's pieces add 20% of the run each on top, capped at 4 times the bare run (R9.252).
+- **What ends it**: a tap, a stop, the sword drawn or a foe held on, a blow, a dodge-step, a hard turn (over 100°), falling or a leg off.
+- **Feel**: steering falls from 10° a tick at the run to 2° at the top; a stop at speed skids at 30 m/s² (3.5 m from 15 m/s); uphill the build gives way; ice unchanged (R9.253). The camera pulls back up to 0.8 m and the view widens up to 6°, eased; a still view is unchanged (R9.254). No speed streaks.
+- **The opening**: the build does not count until the boundary is crossed, so the escape takes as long as running (R9.255).
+- **HUD**: a Sprint bar with words ("Builds in 3 s", "2.4 × run speed") under health, a chevron fill; glossary entry Sprint.
+- Test acts `sprint.set` (ticks) and `sprint.off` (R9.259); five views `s-*` in `tools/shoot.py`; a cost probe `probe_sprint_frame_cost`.
+
+Touched outside P8's own files, each a hook or an added entry: `motion.rs` (`Gait::sprint`; three hook lines, R9.260), `world.rs` (the act route; the camera's pull and widening), `ui.rs` (`HudView::sprint`), `api.rs` (a controls row), `game.rs` (glossary values), `page.rs`, `data/strings.json`, `GLOSSARY.md`, `web/menus/menus.js` and `.css` (the bar), `tests/breaks.json`, `tools/shoot.py`, `crates/core/tests/frame_probe.rs`.
+
+Waiting on the person: R9.261 (the key, the numbers, the opening's hold, and the strings under "### M7 sprint (P8)" at the foot of `SECOND-ORDER.md`).
+
+Open: R9.257 (pop-in and grass reach at speed, for P2), R9.258 (the gait at speed reads stiff), R9.260 (the merge with P2).
