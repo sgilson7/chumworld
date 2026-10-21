@@ -434,8 +434,9 @@ fn local(b: &Body, build: &Build, fall: Fx) -> impl Fn(V3) -> V3 {
     let turn = Affine::rot_y(b.facing).then(&Affine::rot_x(fx::mul(fall, deg(90))));
     let feet = b.pos;
     let mm = |v: i32| (v as i64 * build.height as i64 / 1700) as Fx;
-    let back = fx::mul(mm(LIE_BACK_MM) * build.girth_pct / 100, fall);
-    let head = fx::mul(mm(crate::blade::HEAD_MM), fall);
+    // (M7: a fall below 0 lies on the front, raised the same)
+    let back = fx::mul(mm(LIE_BACK_MM) * build.girth_pct / 100, fall.abs());
+    let head = fx::mul(mm(crate::blade::HEAD_MM), fall.abs());
     let (hips, neck, crown) = (build.hip_y, build.shoulder_y, build.height - build.head / 2);
     move |p: V3| {
         let lift = if p.y <= hips {
@@ -462,7 +463,12 @@ const LIE_BACK_MM: i32 = 122;
 /// staggered (`Gait::stagger`), the head knocked back along the blow by up
 /// to `STAGGER_LEAN`, easing off as the stagger wears off.
 fn leaning(b: &Body, build: &Build, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
-    let base = local(b, build, fall);
+    // M7 (P4): bent at the hips to take up a weapon (`Gait::stoop`), and
+    // lifted off the ground in a hop (`Gait::lift`)
+    let unbent = local(b, build, fall);
+    let bend = crate::wounds::bend(build.hip_y, g.stoop);
+    let hop = v3(0, g.lift, 0);
+    let base = move |p: V3| unbent(bend(p)).add(hop);
     let by = (SLIDE_LEAN as i64 * g.slide.min(fx::int(5)) as i64 / fx::int(5) as i64) as i32;
     let tip = |way: i32, by: i32| {
         Affine::rot_y(way)
@@ -471,6 +477,8 @@ fn leaning(b: &Body, build: &Build, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
     };
     let shaken = STAGGER_LEAN * g.stagger as i32 / crate::feel::STAGGER_TICKS as i32;
     let tilt = tip(crate::geom::yaw_of(b.vel), by).then(&tip(crate::geom::yaw_of(g.stagger_way), -shaken));
+    // M7 (R9.177): a thrust leans the body in after its point
+    let tilt = tilt.then(&tip(b.facing, -fx::mul(crate::swing::LUNGE_LEAN, g.lunge)));
     let feet = b.pos;
     move |p: V3| feet.add(tilt.apply_dir(base(p).sub(feet)))
 }
@@ -581,7 +589,7 @@ pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
     let hip = [-1, 1].map(|s| place(v3(s * build.hip_x, build.hip_y - bob, 0)));
     let flat = crate::motion::feet(b, &f.gait, &build, b.pos);
     // a fallen body's feet stay where they were; standing, the gait's
-    let foot = if fall > 0 {
+    let foot = if fall != 0 {
         [-1, 1].map(|s| place(v3(s * build.hip_x, ONE / 20, 0)))
     } else {
         flat
@@ -589,7 +597,7 @@ pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
     let fwd = facing(b.facing, 0);
     let knee = [0, 1].map(|s| crate::motion::knee(hip[s], foot[s], build.thigh, build.shin, fwd));
     let a = &f.arm;
-    Pose {
+    let mut pose = Pose {
         pelvis,
         chest: place(v3(0, build.shoulder_y - ONE / 10, 0)),
         head: place(v3(0, build.height - build.head / 2, 0)),
@@ -602,7 +610,10 @@ pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
         foot,
         grip: a.grip_point(),
         tip: a.pts[arm::TIP].p,
-    }
+    };
+    // M7 (P4): the wounds' changes to the joints (lost parts folded away)
+    crate::wounds::shape_pose(b, f, &mut pose);
+    pose
 }
 
 /// The joints of fighter `id` this tick.
@@ -658,21 +669,55 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Fx, Goals) {
     let blade = arm::blade_dir(b.facing, &f.arm.shell, f.arm.reach());
     // M6: imbued, the player's guard holds the blade across the line orbs come down
     let blade = crate::imbue::guard_line(w, id, b.facing, &f.arm.shell, blade);
+    // M7 (T10): a cut under way aims the hand along its arc and the blade
+    // along its plane (`swing.rs`)
+    let cut = f
+        .arm
+        .swing
+        .cut
+        .filter(|_| f.sheath == Sheath::Drawn && !f.health.down());
+    let (shell_hand, blade) = match cut {
+        Some(c) => crate::swing::targets(
+            &c,
+            b.facing,
+            f.arm.frame.shoulder[1],
+            f.arm.reach(),
+            f.arm.grip_point(),
+        ),
+        None => (shell_hand, blade),
+    };
     let two = wpn.two_handed();
     let winding = f.throw.winding();
     let shaken = 100 - STAGGER_WEAK_PCT * f.gait.stagger as i32 / crate::feel::STAGGER_TICKS as i32;
-    let full = [0, 1].map(|s| f.servo_pct * f.health.strength(s) / 100 * shaken / 100);
+    // M7 (T10): a cut's wind-up gathers at part strength (`swing::strength_pct`)
+    let gather = f
+        .arm
+        .swing
+        .cut
+        .map(|c| crate::swing::strength_pct(&c))
+        .unwrap_or(100);
+    let full = [0, 1].map(|s| f.servo_pct * f.health.strength(s) / 100 * shaken / 100 * gather / 100);
     let mut g = Goals {
         hand: [Some(rest(0)), Some(rest(1))],
         tip: None,
         strength: full,
-        swing: input.button(input::SWING) && !down,
+        swing: cut.is_some(),
         in_hand: false,
         hold: [false, false],
         sheath: (pommel, tip),
         ride: None,
         grasp: false,
         target: None,
+        // M7 (T10): a cut's strike turns the weapon about its pivot
+        turn: cut.and_then(|c| {
+            crate::swing::turn(
+                &c,
+                b.facing,
+                f.arm.frame.shoulder[1],
+                f.arm.reach(),
+                f.arm.grip_point(),
+            )
+        }),
     };
     // the free hand steadies the scabbard at its mouth while the sword
     // goes in or out
@@ -703,12 +748,19 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Fx, Goals) {
             // the second hand takes the hilt once it has come to it
             let second = shell_hand.sub(blade.scale(wpn.grip[1] - wpn.grip[0]));
             let near = f.arm.pts[arm::HAND[0]].p.dist(f.arm.hilt_at(wpn.grip[0])) < ONE / 20;
-            let both = two && !winding;
+            // (a level cut swings wider than the free arm reaches: it lets
+            // go of the hilt and takes it again after, T10)
+            let both = two && !winding && !cut.is_some_and(|c| crate::swing::wide(&c));
             g.hold = [both && (f.arm.hold[0] || near), true];
             g.hand[1] = Some(shell_hand);
             g.target = Some(shell_hand);
             g.hand[0] = Some(if both { second } else { free(0) });
-            g.tip = Some(shell_hand.add(through_front(&f.arm, blade, b.facing).scale(wpn.len - wpn.grip[1])));
+            // (a cut turns its blade within its own plane, `swing::toward`)
+            let line = match cut {
+                Some(_) => crate::swing::toward(&f.arm, blade),
+                None => through_front(&f.arm, blade, b.facing),
+            };
+            g.tip = Some(shell_hand.add(line.scale(wpn.len - wpn.grip[1])));
         }
         Sheath::Sheathing(t) if t < ALIGN_TICKS => {
             // the point brought to the mouth, the blade along the scabbard,
@@ -748,7 +800,8 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Fx, Goals) {
         g.ride = None;
         g.hold = [false, false];
     }
-    (sheath, tilt, g)
+    // M7 (P4): a lost arm, a dropped weapon, taking it up, a crawl
+    crate::wounds::goals(w, id, (sheath, tilt, g))
 }
 
 /// The line the blade's servo turns it toward this tick: the line asked
@@ -798,7 +851,8 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
             _ => 0,
         };
         let dress = crate::models::Dress { worn, variant: 0 };
-        crate::models::figure_dressed(f.kind, &p, dress, look, out);
+        // M7 (P4): through wounds, which draw what is still on the body
+        crate::wounds::figure(w, id, &p, dress, look, out);
         if f.held != Held::Nothing && !w.sticks {
             crate::models::held(f.held, p.grip, p.tip, look, out);
         }
@@ -824,6 +878,9 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
             ONE / 2,
         );
     }
+    // M7 (T10): the cut the mouse would pick, as a line of beads
+    crate::swing::draw(w, look, out);
+    crate::swing::draw_trails(w, look, out); // and every blade's trail (R9.175)
     if w.sticks {
         sticks(w, alpha, look, out);
     }
@@ -936,9 +993,14 @@ pub fn bar(out: &mut Shapes, a: V3, b: V3, width: Fx, colour: crate::look::Rgb, 
 
 /// What the duel's lines over the game show, in one value: the page reads
 /// the screen again when it changes (`game.rs`).
-pub fn hud_stamp(w: &World) -> (i32, Option<(u8, i32)>) {
+pub fn hud_stamp(w: &World) -> (i32, Option<(u8, i32)>, Option<&'static str>) {
     let foe = w.me.engaged.filter(|&k| (k as usize) < count(w));
-    (w.me.health.hp, foe.map(|k| (k, fighter(w, k as usize).health.hp)))
+    (
+        w.me.health.hp,
+        foe.map(|k| (k, fighter(w, k as usize).health.hp)),
+        // M7 (T10): the swing cue's word
+        crate::swing::cue(w).map(|c| crate::swing::cue_key(c.0)),
+    )
 }
 
 /// `act("duel.<name>", value)`: `spawn` puts an `orc`, `bandit` or `leader`
@@ -1037,6 +1099,42 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
             w.pilots.control = control.clone();
             for f in &mut w.foes {
                 f.brain.control = control.clone();
+            }
+            Ok(())
+        }
+        // M7 (T10): every foe makes one cut through its record now (`level`,
+        // `backhand`, `chop`, `rising`, `thrust`), then stands still: staging
+        // for a picture
+        "cut" => {
+            let way = match value.trim() {
+                "level" => (-6_000, 0, 0),
+                "backhand" => (6_000, 0, 0),
+                "chop" => (0, 6_000, 0),
+                "rising" => (0, -6_000, 0),
+                "thrust" => (0, 0, -100),
+                _ => {
+                    return Err(format!(
+                        "A cut is level, backhand, chop, rising or thrust, not \"{value}\"."
+                    ))
+                }
+            };
+            for f in &mut w.foes {
+                let mut list = vec![Input::default(); f.brain.ticks as usize];
+                list.push(Input {
+                    buttons: input::SWING,
+                    dx: way.0,
+                    dy: way.1,
+                    wheel: way.2,
+                    ..Input::default()
+                });
+                list.extend(std::iter::repeat_n(
+                    Input {
+                        buttons: input::SWING,
+                        ..Input::default()
+                    },
+                    40,
+                ));
+                f.brain.control = crate::pilot::Control::Script(list);
             }
             Ok(())
         }

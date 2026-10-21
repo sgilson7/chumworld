@@ -18,6 +18,12 @@ Not: tap, dispenser, nozzle
 
 Wraps a wound and gives back {bandage.heals} health. The merchant sells them.
 
+### Blood
+
+What a hit sheds: faceted drops that fly from the cut and mark the ground, then fade. A setting turns it off.
+
+Not: claret
+
 ### Boomerang
 
 A weapon thrown from the free hand. It flies an arc up to {boomerang.reach} metres out and comes back. It lies in the chest at the bandit camp.
@@ -32,6 +38,12 @@ What the merchant takes and pays. Bandits carry them.
 
 Not: gold, rupees, money
 
+### Chop
+
+A cut straight down from above the head: hold the left button and move the mouse down.
+
+Not: overhead slash
+
 ### Cooldown
 
 The wait after the imbue is cast before it can be cast again: {imbue.cooldown} seconds, counted from the cast.
@@ -43,6 +55,10 @@ Not: recharge
 Turn one orb back with the edge of an imbued sword. Each orb the edge meets is turned once, back toward whoever cast it; a sword that is not imbued does nothing to an orb.
 
 Not: parry, reflect
+
+### Diagonal cut
+
+A cut along a slant, from high on one side to low on the other or the other way: hold the left button and move the mouse clearly on a slant.
 
 ### Dodge-step
 
@@ -59,6 +75,12 @@ Not: unsheathe
 The menu screen of what you wear and hold: the sword in your sword hand and the speedster's armour in its slots. Enter wears or holds the item chosen.
 
 Not: gear screen
+
+### Flute
+
+The trainer's gift once the practice is passed. Played from a quick key or from Select Item, it opens a staff: the arrows and Space play its {flute.keys} notes, and the travel song takes you to a waystone you have woken.
+
+Not: ocarina, whistle, pipe
 
 ### Footing
 
@@ -87,6 +109,12 @@ Not: spell, buff
 ### Invert Y
 
 A setting: moving the mouse down looks up, and moving it up looks down.
+
+### Level cut
+
+A cut across from one side to the other with the blade held flat: hold the left button and move the mouse sideways. It runs high, at the middle or low, by where the sword hand was.
+
+Not: horizontal slash
 
 ### Lineup
 
@@ -157,6 +185,10 @@ Not: hotbar
 ### Reach
 
 How far from the shoulder the sword hand stretches. The wheel draws it in or sends it out.
+
+### Rising cut
+
+A cut from low in front up over the shoulder: hold the left button and move the mouse up.
 
 ### Rock
 
@@ -234,7 +266,11 @@ Not: pants, leggings
 
 ### Swing
 
-Holding the left button while you move the mouse. The arm pushes harder, so the sword moves faster and hits harder.
+Holding the left button while you move the mouse. The way the mouse goes picks the cut: a level cut, a chop, a rising cut, a diagonal cut or a thrust. Once picked, the cut draws back, swings through and carries on past, and the mouse waits until it is over.
+
+### Swing cue
+
+A setting: while the left button is held, a thin glowing line shows where the sword's point will run, ending in a bead, and the cut's name shows below the middle of the view. Each blade in a cut leaves a short glowing trail while the setting is on.
 
 ### Sword
 
@@ -258,6 +294,20 @@ A small blade thrown from the free hand.
 
 Not: dagger
 
+### Thrust
+
+A straight stab ahead: hold the left button and turn the wheel away from you.
+
+### Travel song
+
+The song the trainer teaches with the flute, {song.notes} notes long. Played, it shows the waystones you have woken on the map; choose one and the view fades and you stand beside it.
+
+Not: warp song
+
+### Traveller
+
+Waits with a pack mule at the crossroads. For {ride.least} to {ride.most} coins, more for farther, the traveller takes you to a waystone you have not yet been near and sets you down beside it, woken.
+
 ### Volume
 
 A setting: how loud the game plays, as a percentage. No sound plays yet.
@@ -265,6 +315,12 @@ A setting: how loud the game plays, as a percentage. No sound plays yet.
 ### Walk
 
 Moving at {walk.speed} metres a second with W, A, S or D, the way the camera faces.
+
+### Waystone
+
+A carved standing slab at a travel spot: by the village, by the bridge, on the trainer's hill, at the shrine and below the bandit camp. It sleeps until you press E beside it; woken, its marks glow and the map shows it.
+
+Not: warp point, teleporter
 
 ### WebGL 2
 

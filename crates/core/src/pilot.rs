@@ -62,6 +62,22 @@ pub struct KindSpec {
     pub keep_cm: [i32; 2],
     /// the tree it duels with
     pub tree: String,
+    /// M7 (T10): how often an attack is each cut, as weights
+    pub cuts: Cuts,
+}
+
+/// M7 (T10): the weights an attack picks its cut by: a level cut from the
+/// right, a level cut from the left, a chop, a rising cut, a thrust. A pilot
+/// cuts as the player does, through its input record: the left button held
+/// and the mouse moved the cut's way (`swing.rs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Cuts {
+    pub level: u32,
+    pub backhand: u32,
+    pub chop: u32,
+    pub rising: u32,
+    pub thrust: u32,
 }
 
 /// One condition on what the pilot sees. Distances in centimetres, speeds
@@ -90,6 +106,15 @@ pub enum Cond {
     Chance(u32),
     /// the one I fight is down
     FoeDown,
+    /// M7 (P4): my weapon has dropped from my hand
+    Unarmed,
+    /// my weapon has dropped and I have a whole hand to take it up in
+    CanTakeUp,
+    /// my dropped weapon lies within this of my feet
+    WeaponWithin(i32),
+    /// the arm that holds my weapon is lost, or a leg
+    LostSwordArm,
+    LostLeg,
 }
 
 /// What a rule does: a move the pilot plays for some ticks.
@@ -101,11 +126,16 @@ pub enum Move {
     Circle,
     RaiseGuard,
     Block,
-    /// one of `Overhead`, `Sweep` and `Thrust`, chosen by chance
+    /// one of the cuts below, chosen by the kind's `cuts` weights
     Attack,
+    /// a chop
     Overhead,
+    /// a level cut from the right
     Sweep,
     Thrust,
+    /// M7 (T10): a level cut from the left, and a rising cut
+    Backhand,
+    Rising,
     Feint,
     Flee,
     Throw,
@@ -114,12 +144,19 @@ pub enum Move {
     BackOff,
     /// M6's hook: the leader's pattern. Until then it guards.
     Cast,
+    /// M7 (P4): go to my dropped weapon and take it up in the other hand
+    TakeUp,
+    /// turn and run from the one I fight
+    RunAway,
 }
 
 impl Move {
     /// A committed swing: no interrupt breaks in.
     fn committed(self) -> bool {
-        matches!(self, Move::Overhead | Move::Sweep | Move::Thrust)
+        matches!(
+            self,
+            Move::Overhead | Move::Sweep | Move::Thrust | Move::Backhand | Move::Rising
+        )
     }
 }
 
@@ -372,6 +409,10 @@ pub struct Plan {
     pub keys: u32,
     pub swing: bool,
     pub fast: bool,
+    /// M7 (T10): with the left button, the mouse's travel that picks a cut
+    /// (right, down, wheel), sent as it is; holding the button without it
+    /// sends no movement, so the cut under way plays out
+    pub gesture: Option<(i32, i32, i32)>,
 }
 
 /// A foe's guard (degrees right and up, reach in percent of the arm): a
@@ -423,7 +464,7 @@ pub fn decide(w: &World, id: usize) -> (Input, Brain) {
         };
         if let Some(m) = pick {
             if under_way != Some(m) {
-                start(&mut b, m);
+                start(&mut b, m, &spec.cuts);
             }
         }
     }
@@ -444,9 +485,9 @@ pub fn decide(w: &World, id: usize) -> (Input, Brain) {
 }
 
 /// A move begun: an attack picks its swing, a circle its way round.
-fn start(b: &mut Brain, m: Move) {
+fn start(b: &mut Brain, m: Move, cuts: &Cuts) {
     let m = match m {
-        Move::Attack => [Move::Overhead, Move::Sweep, Move::Thrust][b.rng.below(3) as usize],
+        Move::Attack => pick_cut(&mut b.rng, cuts),
         Move::Circle | Move::Ring if b.rng.below(100) < 35 => {
             b.dir = -b.dir;
             m
@@ -454,6 +495,26 @@ fn start(b: &mut Brain, m: Move) {
         m => m,
     };
     b.current = Some((m, 0));
+}
+
+/// An attack's cut, by the kind's weights.
+fn pick_cut(rng: &mut Rng, c: &Cuts) -> Move {
+    let all = [
+        (Move::Sweep, c.level),
+        (Move::Backhand, c.backhand),
+        (Move::Overhead, c.chop),
+        (Move::Rising, c.rising),
+        (Move::Thrust, c.thrust),
+    ];
+    let total: u32 = all.iter().map(|(_, w)| w).sum();
+    let mut at = rng.below(total.max(1));
+    for (m, w) in all {
+        if at < w {
+            return m;
+        }
+        at -= w;
+    }
+    Move::Sweep
 }
 
 /// The first rule whose conditions all hold (only those marked `interrupt`
@@ -525,6 +586,19 @@ fn holds(c: &Cond, v: &View, rng: &mut Rng) -> bool {
         }
         Cond::Chance(pct) => rng.below(100) < *pct,
         Cond::FoeDown => v.they.down,
+        Cond::Unarmed => v.f.health.limbs.loose,
+        Cond::CanTakeUp => {
+            let l = &v.f.health.limbs;
+            l.loose && !l.prone && !crate::wounds::arm_lost(l.lost, 1 - l.sword_side())
+        }
+        Cond::WeaponWithin(c) => {
+            v.f.health.limbs.loose && v.f.arm.grip_point().sub(v.me.feet).len_xz() < cm(*c)
+        }
+        Cond::LostSwordArm => {
+            let l = &v.f.health.limbs;
+            crate::wounds::arm_lost(l.lost, l.sword_side())
+        }
+        Cond::LostLeg => crate::wounds::legs_lost(v.f.health.limbs.lost) > 0,
     }
 }
 
@@ -545,6 +619,7 @@ fn hold(v: &View, shell: (i32, i32, i32), dir: i32) -> Plan {
         keys,
         swing: false,
         fast: false,
+        gesture: None,
     }
 }
 
@@ -569,6 +644,12 @@ fn recover(v: &View) -> u32 {
 
 /// How far inside its reach an attack steps, centimetres.
 pub const LUNGE_CM: i32 = 10;
+/// An attack readies its hand this many ticks, then holds the left button
+/// through its cut for `CUT_TICKS`; a thrust is the wheel turned two
+/// notches away (M7, T10).
+pub const READY_TICKS: u32 = 8;
+pub const CUT_TICKS: u32 = 36;
+pub const THRUST_WHEEL: i32 = 200;
 
 /// One tick of a move, or `None` once it is over.
 fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
@@ -578,13 +659,18 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
         keys,
         swing: false,
         fast: false,
+        gesture: None,
     };
-    let strike = |shell, keys| Plan {
-        shell,
+    // the left button held, the mouse moved the cut's way once, then held
+    // still while the cut plays out (`swing.rs`)
+    let strike = |t: u32, way: (i32, i32, i32), keys| Plan {
+        shell: GUARD,
         keys,
         swing: true,
         fast: true,
+        gesture: Some(if t == READY_TICKS { way } else { (0, 0, 0) }),
     };
+    let px = v.w.pilots.book.kinds[key_of(v.w.foes[v.id - 1].brain.kind)].strike_px * 100;
     let guard = hold(v, GUARD, dir);
     Some(match m {
         Move::Guard | Move::Cast if t <= 12 => guard,
@@ -595,6 +681,19 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
         Move::BackOff if t <= 20 => plain(GUARD, input::BACK),
         Move::Flee if t <= 48 => plain((-20, -30, 60), input::BACK | side_key),
         Move::Throw if t <= 14 => plain(GUARD, if t == 0 { input::THROW } else { 0 }),
+        // M7 (P4): to the weapon, then the draw key on it, every other tick
+        Move::TakeUp if t <= 120 => {
+            if crate::wounds::can_take_up(v.w, v.id) {
+                plain(GUARD, if t.is_multiple_of(2) { input::DRAW } else { 0 })
+            } else if v.f.health.limbs.take_up > 0 {
+                plain(GUARD, 0)
+            } else if v.f.health.limbs.loose {
+                plain(GUARD, toward(v, v.f.arm.grip_point()))
+            } else {
+                return None;
+            }
+        }
+        Move::RunAway if t <= 60 => plain(GUARD, input::BACK | input::RUN | side_key),
         Move::Ring if t <= 40 => {
             let gap = v.gap_cm();
             let keys = if gap > 900 {
@@ -606,26 +705,26 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
             };
             plain(GUARD, keys)
         }
-        // each attack: wound up while stepping in, struck still stepping
-        // in, then back out to the band to recover
-        Move::Overhead => match t {
-            0..=13 => plain((10, 78, 70), lunge(v)),
-            14..=29 => strike((-8, -36, 96), if t < 22 { lunge(v) } else { 0 }),
-            30..=44 => plain(GUARD, recover(v)),
-            _ => return None,
-        },
-        Move::Sweep => match t {
-            0..=11 => plain((75, 8, 86), lunge(v)),
-            12..=27 => strike((-65, -8, 96), if t < 20 { lunge(v) } else { 0 }),
-            28..=42 => plain(GUARD, recover(v)),
-            _ => return None,
-        },
-        Move::Thrust => match t {
-            0..=9 => plain((0, -6, 45), lunge(v)),
-            10..=21 => strike((-2, -6, 97), lunge(v)),
-            22..=36 => plain(GUARD, recover(v)),
-            _ => return None,
-        },
+        // each attack: readied while stepping in, then the cut picked by the
+        // mouse's travel with the left button held, still stepping in, then
+        // back out to the band to recover
+        Move::Overhead | Move::Sweep | Move::Backhand | Move::Rising | Move::Thrust => {
+            let (ready, way) = match m {
+                Move::Overhead => ((10, 20, 80), (0, px, 0)),
+                Move::Rising => ((10, -30, 80), (0, -px, 0)),
+                Move::Sweep => ((40, -10, 85), (-px, 0, 0)),
+                Move::Backhand => ((-30, -10, 85), (px, 0, 0)),
+                _ => ((0, -6, 80), (0, 0, -THRUST_WHEEL)),
+            };
+            match t {
+                t if t < READY_TICKS => plain(ready, lunge(v)),
+                t if t < READY_TICKS + CUT_TICKS => {
+                    strike(t, way, if t < READY_TICKS + 10 { lunge(v) } else { 0 })
+                }
+                t if t < READY_TICKS + CUT_TICKS + 15 => plain(GUARD, recover(v)),
+                _ => return None,
+            }
+        }
         Move::Feint => match t {
             0..=9 => plain((10, 70, 72), 0),
             10..=18 => plain(GUARD, 0),
@@ -633,6 +732,31 @@ fn play(m: Move, t: u32, v: &View, dir: i32) -> Option<Plan> {
         },
         _ => return None,
     })
+}
+
+/// The movement keys that walk a pilot toward `at`: its keys turn by the way
+/// it looks (`player::look_yaw`), as the player's turn by the camera's.
+fn toward(v: &View, at: V3) -> u32 {
+    let d = at.sub(v.me.feet);
+    let d = crate::geom::v3(d.x, 0, d.z).norm();
+    let yaw = v.f.look_yaw;
+    let (ahead, right) = (
+        d.dot(crate::geom::facing(yaw, 0)),
+        d.dot(crate::geom::right_of(yaw)),
+    );
+    let lean = ONE * 38 / 100;
+    let mut keys = 0;
+    if ahead > lean {
+        keys |= input::FORWARD;
+    } else if ahead < -lean {
+        keys |= input::BACK;
+    }
+    if right > lean {
+        keys |= input::RIGHT;
+    } else if right < -lean {
+        keys |= input::LEFT;
+    }
+    keys
 }
 
 /// Where to put the hand to block: on the line from the sword shoulder to
@@ -658,6 +782,12 @@ fn to_input(f: &Fighter, p: &Plan, spec: &KindSpec) -> Input {
     let reach = f.arm.reach() * p.shell.2 / 100;
     let notch = arm::REACH_PER_NOTCH as i64;
     let wheel = (-((reach - s.reach) as i64) * 10_000 / notch).clamp(-20_000, 20_000) as i32;
+    // M7 (T10): the left button held, the mouse makes the cut's travel alone
+    let (dx, dy, wheel) = match (p.swing, p.gesture) {
+        (true, Some(g)) => g,
+        (true, None) => (0, 0, 0),
+        _ => (dx, dy, wheel),
+    };
     Input {
         keys: p.keys,
         buttons: if p.swing { input::SWING } else { 0 },
@@ -888,6 +1018,12 @@ mod tests {
                     keys,
                     ..Input::default()
                 });
+                // a player who never goes down: since M7 (R9.139) a head
+                // taken off is down whatever the health, so a player cut is
+                // made whole again at once, with health it cannot lose
+                if w.me.health.limbs.lost != 0 || w.me.health.down() {
+                    w.me.health = crate::health::Health::new(100_000);
+                }
                 let gap = (w.foes[0].body.pos.sub(w.player.pos).len_xz() as i64 * 100 / ONE as i64) as i32;
                 let now = w.foes[0].brain.current.map(|(m, _)| m);
                 let attacking = |m: Option<Move>| m.is_some_and(Move::committed);
@@ -933,6 +1069,7 @@ mod tests {
             keys: 0,
             swing: false,
             fast: false,
+            gesture: None,
         };
         let i = to_input(f, &p, spec);
         // far from 60°, 60°: the most a tick, hand_px pixels each way

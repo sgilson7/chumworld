@@ -1460,7 +1460,7 @@
     "file": "crates/core/src/player.rs",
     "find": "    if now.dot(want) >= 0 {",
     "replace": "    if true {",
-    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: a sweep lays the blade flat",
@@ -1474,14 +1474,14 @@
     "file": "crates/core/src/arm.rs",
     "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
     "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
-    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: a moving reach holds the thrust's line",
     "file": "crates/core/src/arm.rs",
     "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
     "replace": "        .max(0);",
-    "test": "an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path"
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: the high guard is high and to the left",
@@ -1663,7 +1663,7 @@
     "file": "crates/core/src/arm.rs",
     "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
     "replace": "                v.x -= v.x * 0 / 100;",
-    "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   },
   {
     "name": "M1b player: a staggered body leans back along the blow",
@@ -2875,5 +2875,642 @@
     "find": "    let green = c[1] - c[0].max(c[2]);",
     "replace": "    let green = c[1] - c[2];",
     "test": "the_blades_and_the_ground_sum_the_same_wind_and_agree_where_grass_is"
+  },
+  {
+    "name": "M7 swing: a level cut's plane is level",
+    "file": "crates/core/src/swing.rs",
+    "find": "    let start = r.scale(-fx::cos(travel)).add(u.scale(-fx::sin(travel)));",
+    "replace": "    let start = r.scale(-fx::cos(travel)).add(u.scale(-fx::sin(travel) + ONE / 3));",
+    "test": "pure_sideways_input_gives_a_level_cut_of_a_full_arc"
+  },
+  {
+    "name": "M7 swing: a level cut sweeps a full arc",
+    "file": "crates/core/src/swing.rs",
+    "find": "        Way::Level(true) => (deg(95), if low { LOW_ACROSS } else { deg(70) }),",
+    "replace": "        Way::Level(true) => (deg(40), if low { LOW_ACROSS } else { deg(30) }),",
+    "test": "pure_sideways_input_gives_a_level_cut_of_a_full_arc"
+  },
+  {
+    "name": "M7 swing: a chop falls in the upright plane ahead",
+    "file": "crates/core/src/swing.rs",
+    "find": "    (facing(yaw, 0), start.norm())",
+    "replace": "    (facing(yaw - deg(25), 0), start.norm())",
+    "test": "pure_vertical_input_gives_an_upright_chop_of_a_full_arc"
+  },
+  {
+    "name": "M7 swing: a chop falls a full arc",
+    "file": "crates/core/src/swing.rs",
+    "find": "        Way::Chop => (deg(115), deg(50)),",
+    "replace": "        Way::Chop => (deg(60), deg(20)),",
+    "test": "pure_vertical_input_gives_an_upright_chop_of_a_full_arc"
+  },
+  {
+    "name": "M7 swing: near an axis snaps to it",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const SNAP: i32 = deg(30);",
+    "replace": "pub const SNAP: i32 = deg(10);",
+    "test": "a_travel_near_an_axis_snaps_to_it_and_a_clear_slant_is_a_diagonal"
+  },
+  {
+    "name": "M7 swing: a clear slant is a diagonal",
+    "file": "crates/core/src/swing.rs",
+    "find": "    let travel = if off.abs() <= SNAP {",
+    "replace": "    let travel = if true || off.abs() <= SNAP {",
+    "test": "a_travel_near_an_axis_snaps_to_it_and_a_clear_slant_is_a_diagonal"
+  },
+  {
+    "name": "M7 swing: the arm cuts on the snapped axis",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const SNAP: i32 = deg(30);",
+    "replace": "pub const SNAP: i32 = deg(10);",
+    "test": "an_off_axis_travel_cuts_on_its_axis_and_a_slant_cuts_on_the_slant"
+  },
+  {
+    "name": "M7 swing: the arm cuts a slant on the slant",
+    "file": "crates/core/src/swing.rs",
+    "find": "    let travel = if off.abs() <= SNAP {",
+    "replace": "    let travel = if true || off.abs() <= SNAP {",
+    "test": "an_off_axis_travel_cuts_on_its_axis_and_a_slant_cuts_on_the_slant"
+  },
+  {
+    "name": "M7 swing: a committed cut turns fast",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const TURN_MOST: Fx = ONE * 18 / 100;",
+    "replace": "pub const TURN_MOST: Fx = ONE * 9 / 100;",
+    "test": "a_short_sword_cuts_fast_and_a_cleaver_slower"
+  },
+  {
+    "name": "M7 arm: a heavy weapon's heft slows its cut",
+    "file": "crates/core/src/arm.rs",
+    "find": "        let most = (t.most as i64 * (100 + self.weapon.heft_pct) as i64 / 200) as Fx;",
+    "replace": "        let most = t.most;",
+    "test": "a_short_sword_cuts_fast_and_a_cleaver_slower"
+  },
+  {
+    "name": "M7 swing: a cut is spent on the block it meets",
+    "file": "crates/core/src/swing.rs",
+    "find": "        if c.age >= MAX_TICKS || (met && c.phase != Phase::WindUp) {",
+    "replace": "        if c.age >= MAX_TICKS {",
+    "test": "a_cut_into_a_held_guard_stops_on_it"
+  },
+  {
+    "name": "M7 pilot: a pilot's cut is its record's travel",
+    "file": "crates/core/src/pilot.rs",
+    "find": "        (true, Some(g)) => g,",
+    "replace": "        (true, Some(_)) => (0, 0, 0),",
+    "test": "a_pilot_s_level_cuts_and_chops_come_through_its_input_record"
+  },
+  {
+    "name": "M7 pilot: an attack weighs its cuts",
+    "file": "crates/core/src/pilot.rs",
+    "find": "    let mut at = rng.below(total.max(1));",
+    "replace": "    let mut at = 0 * rng.below(total.max(1));",
+    "test": "a_pilot_s_level_cuts_and_chops_come_through_its_input_record"
+  },
+  {
+    "name": "M7 arm: the player's record picks the cuts",
+    "file": "crates/core/src/arm.rs",
+    "find": "        crate::swing::step(w, id, inp)",
+    "replace": "        crate::swing::step(w, id, &Input::default())",
+    "test": "a_recorded_duel_of_cuts_hashes_the_same_every_run"
+  },
+  {
+    "name": "M7 swing: the cue off draws nothing",
+    "file": "crates/core/src/swing.rs",
+    "find": "    if !w.ui.settings.cue || f.sheath != Sheath::Drawn || f.health.down() || f.mouse_looks {",
+    "replace": "    if f.sheath != Sheath::Drawn || f.health.down() || f.mouse_looks {",
+    "test": "the_swing_cue_shows_the_cut_and_draws_nothing_when_off"
+  },
+  {
+    "name": "M7 swing: the cue waits for travel",
+    "file": "crates/core/src/swing.rs",
+    "find": "            } else if fx::length(dx, dy) >= CUE_PX && f.last.button(input::SWING) {",
+    "replace": "            } else if f.last.button(input::SWING) {",
+    "test": "holding_the_button_still_draws_identical_frames"
+  },
+  {
+    "name": "M7 blade: a stopped blade stops the hand on it",
+    "file": "crates/core/src/blade.rs",
+    "find": "    for i in [arm::POMMEL, arm::TIP, arm::HAND[0], arm::HAND[1]] {",
+    "replace": "    for i in [arm::POMMEL, arm::TIP] {",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M7 arm: a point on the ground drags to rest along z",
+    "file": "crates/core/src/arm.rs",
+    "find": "                v.z -= v.z * GROUND_DRAG_PCT / 100;",
+    "replace": "                v.z -= v.z * 0 / 100;",
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
+  },
+  {
+    "name": "M7 travel: the right phrase is judged right only when it is the song",
+    "file": "crates/core/src/travel.rs",
+    "find": "    let right = s.played == spec().song;\n",
+    "replace": "    let right = true;\n",
+    "test": "playing_the_exact_song_opens_the_list_and_a_wrong_note_does_not"
+  },
+  {
+    "name": "M7 travel: the song held on the staff opens the list",
+    "file": "crates/core/src/travel.rs",
+    "find": "        *s = Song::new(Phase::Pick { ride: false });\n    } else if !j.right",
+    "replace": "        s.judged = None;\n    } else if !j.right",
+    "test": "playing_the_exact_song_opens_the_list_and_a_wrong_note_does_not"
+  },
+  {
+    "name": "M7 travel: a wrong phrase clears from the staff",
+    "file": "crates/core/src/travel.rs",
+    "find": "        s.played.clear();\n        s.judged = None;",
+    "replace": "        s.judged = None;",
+    "test": "playing_the_exact_song_opens_the_list_and_a_wrong_note_does_not"
+  },
+  {
+    "name": "M7 travel: each note sounds",
+    "file": "crates/core/src/travel.rs",
+    "find": "    sound(w, id);\n    if done {",
+    "replace": "    if done {",
+    "test": "each_note_sounds_and_shows_on_the_staff_at_its_line"
+  },
+  {
+    "name": "M7 travel: the flute lists woken waystones only",
+    "file": "crates/core/src/travel.rs",
+    "find": "                p.woken\n            }",
+    "replace": "                true\n            }",
+    "test": "only_woken_waystones_are_listed_and_only_unreached_ones_offered"
+  },
+  {
+    "name": "M7 travel: the traveller offers only places not reached",
+    "file": "crates/core/src/travel.rs",
+    "find": "                !p.reached && !p.woken",
+    "replace": "                !p.woken",
+    "test": "only_woken_waystones_are_listed_and_only_unreached_ones_offered"
+  },
+  {
+    "name": "M7 travel: no travel in the opening",
+    "file": "crates/core/src/travel.rs",
+    "find": "    if w.story.opening() {\n        return Some(\"travel_refuse_opening\");",
+    "replace": "    if false {\n        return Some(\"travel_refuse_opening\");",
+    "test": "travel_is_refused_during_the_opening_with_its_line"
+  },
+  {
+    "name": "M7 travel: no travel mid-dialogue",
+    "file": "crates/core/src/travel.rs",
+    "find": "    if w.ui.dialogue.is_some() || w.ui.shop_open {",
+    "replace": "    if w.ui.shop_open {",
+    "test": "travel_is_refused_mid_dialogue_with_its_line"
+  },
+  {
+    "name": "M7 travel: no travel with a drawn foe near",
+    "file": "crates/core/src/travel.rs",
+    "find": "        (f.drawn() && near) || f.engaged == Some(0)",
+    "replace": "        f.engaged == Some(0)",
+    "test": "travel_is_refused_in_a_duel_and_allowed_once_clear"
+  },
+  {
+    "name": "M7 travel: a drawn foe past 32 m is no duel",
+    "file": "crates/core/src/travel.rs",
+    "find": "pos.sub(me).len_xz() < spec().danger;",
+    "replace": "pos.sub(me).len_xz() < fx::int(1000);",
+    "test": "travel_is_refused_in_a_duel_and_allowed_once_clear"
+  },
+  {
+    "name": "M7 travel: arrival is in front of the waystone",
+    "file": "crates/core/src/travel.rs",
+    "find": "    let mut p = at.add(facing(yaw, 0).scale(spec().arrive));",
+    "replace": "    let mut p = at;",
+    "test": "arrival_is_in_front_of_the_waystone_on_dry_ground_outside_any_wall"
+  },
+  {
+    "name": "M7 travel: arrival stands on what is underfoot",
+    "file": "crates/core/src/travel.rs",
+    "find": "    p.y = crate::solid::surface(w, p.x, p.z);\n    Some((p, yaw))",
+    "replace": "    Some((p, yaw))",
+    "test": "arrival_is_in_front_of_the_waystone_on_dry_ground_outside_any_wall"
+  },
+  {
+    "name": "M7 travel: a journey moves the player in the dark",
+    "file": "crates/core/src/travel.rs",
+    "find": "        put_at(w, j.to);\n        sound(w, \"travel_in\");",
+    "replace": "        sound(w, \"travel_in\");",
+    "test": "a_journey_fades_out_moves_the_player_and_fades_back"
+  },
+  {
+    "name": "M7 travel: the keys do nothing on a journey",
+    "file": "crates/core/src/travel.rs",
+    "find": "    if w.travel.warp.is_some() {\n        Input::default()",
+    "replace": "    if false {\n        Input::default()",
+    "test": "a_journey_fades_out_moves_the_player_and_fades_back"
+  },
+  {
+    "name": "M7 travel: a ride costs at most the most",
+    "file": "crates/core/src/travel.rs",
+    "find": "    (p.base + (metres / p.per_m) as u32).min(p.most)",
+    "replace": "    p.base + (metres / p.per_m) as u32",
+    "test": "each_ride_is_priced_by_its_distance"
+  },
+  {
+    "name": "M7 travel: a ride takes its price",
+    "file": "crates/core/src/travel.rs",
+    "find": "        g.world.inventory.coins -= cost;\n",
+    "replace": "",
+    "test": "the_traveller_charges_exactly_refuses_short_and_the_ride_wakes_the_waystone"
+  },
+  {
+    "name": "M7 travel: a ride short of coins is refused",
+    "file": "crates/core/src/travel.rs",
+    "find": "        if have < cost {",
+    "replace": "        if false {",
+    "test": "the_traveller_charges_exactly_refuses_short_and_the_ride_wakes_the_waystone"
+  },
+  {
+    "name": "M7 travel: arriving wakes the waystone",
+    "file": "crates/core/src/travel.rs",
+    "find": "    wake(w, k);\n    if let Some(p) = w.travel.points.get_mut(k) {",
+    "replace": "    if let Some(p) = w.travel.points.get_mut(k) {",
+    "test": "the_traveller_charges_exactly_refuses_short_and_the_ride_wakes_the_waystone"
+  },
+  {
+    "name": "M7 travel: the trainer gives the flute",
+    "file": "crates/core/src/travel.rs",
+    "find": "        crate::inventory::give(w, Item::Flute, 1);\n        crate::ui::say(",
+    "replace": "        crate::ui::say(",
+    "test": "the_trainer_gives_the_flute_and_teaches_the_song_with_its_notes"
+  },
+  {
+    "name": "M7 travel: the teaching line shows the notes",
+    "file": "crates/core/src/ui.rs",
+    "find": "        song: (d.lines[d.line] == crate::travel::TEACH_LINE).then(|| crate::travel::song_card(s)),",
+    "replace": "        song: None,",
+    "test": "the_trainer_gives_the_flute_and_teaches_the_song_with_its_notes"
+  },
+  {
+    "name": "M7 travel: the quest line names the flute",
+    "file": "crates/core/src/story.rs",
+    "find": "    if crate::travel::quest(w) {\n        return \"quest_flute\";",
+    "replace": "    if false {\n        return \"quest_flute\";",
+    "test": "the_trainer_gives_the_flute_and_teaches_the_song_with_its_notes"
+  },
+  {
+    "name": "M7 travel: the quest screen shows the song",
+    "file": "crates/core/src/ui.rs",
+    "find": "            song: crate::travel::known(w, s),",
+    "replace": "            song: None,",
+    "test": "the_quest_screen_shows_the_song_and_the_line_moves_on_once_one_is_woken"
+  },
+  {
+    "name": "M7 travel: the flute's quick key plays it",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if pressed && inv.quick[k] == Some(Item::Flute) {\n            play = true;",
+    "replace": "        if false {\n            play = true;",
+    "test": "the_flute_s_quick_key_plays_it_and_never_readies_it"
+  },
+  {
+    "name": "M7 travel: Enter on the flute plays it",
+    "file": "crates/core/src/ui.rs",
+    "find": "    if face == SELECT && select_item(&g.world.inventory, g.menu.cursor[SELECT]) == Some(Item::Flute) {",
+    "replace": "    if false {",
+    "test": "enter_on_the_flute_in_select_item_plays_it"
+  },
+  {
+    "name": "M7 travel: Esc puts the flute away",
+    "file": "crates/core/src/ui.rs",
+    "find": "        Screen::Song => crate::travel::cancel(g),\n",
+    "replace": "",
+    "test": "escape_puts_the_flute_away"
+  },
+  {
+    "name": "M7 travel: E is offered by a dormant waystone",
+    "file": "crates/core/src/story.rs",
+    "find": "        offer(Use::Waystone(k), d);",
+    "replace": "        let _ = (k, d);",
+    "test": "e_wakes_a_waystone_and_its_mark_appears_on_the_map"
+  },
+  {
+    "name": "M7 travel: a woken waystone is marked on the map",
+    "file": "crates/core/src/places.rs",
+    "find": "        .chain(crate::travel::marks(w))\n",
+    "replace": "",
+    "test": "e_wakes_a_waystone_and_its_mark_appears_on_the_map"
+  },
+  {
+    "name": "M7 travel: E reaches a waystone from 1.2 m past its edge",
+    "file": "crates/core/src/travel.rs",
+    "find": "    let edge = ONE / 2 + spec().wake;",
+    "replace": "    let edge = ONE * 4;",
+    "test": "a_waystone_out_of_reach_is_not_offered"
+  },
+  {
+    "name": "M7 travel: coming within 20 m counts as reached",
+    "file": "crates/core/src/travel.rs",
+    "find": "is_some_and(|at| at.sub(me).len_xz() < sp.reach)",
+    "replace": "is_some_and(|at| at.sub(me).len_xz() < fx::int(30))",
+    "test": "coming_within_twenty_metres_counts_as_having_been_there"
+  },
+  {
+    "name": "M7 travel: a dormant waystone draws no light",
+    "file": "crates/core/src/travel.rs",
+    "find": "        if !w.travel.points[k].woken {\n            continue;\n        }\n",
+    "replace": "",
+    "test": "a_dormant_waystone_draws_no_light"
+  },
+  {
+    "name": "M7 travel: a woken waystone's light holds still",
+    "file": "crates/core/src/travel.rs",
+    "find": "        let place = Affine::translate(at).then(&Affine::rot_y(yaw));\n        glow.placed",
+    "replace": "        let place = Affine::translate(at.add(v3(0, (w.tick % 2) as i32, 0))).then(&Affine::rot_y(yaw));\n        glow.placed",
+    "test": "a_woken_waystone_in_view_draws_the_same_frame_tick_after_tick"
+  },
+  {
+    "name": "M7 travel: a journey goes where it was chosen",
+    "file": "crates/core/src/travel.rs",
+    "find": "        to: k,\n        ticks: 0,\n        ride: false,",
+    "replace": "        to: 2,\n        ticks: 0,\n        ride: false,",
+    "test": "a_recorded_journey_hashes_the_same_every_run"
+  },
+  {
+    "name": "M7 travel: the staff needs each note a line",
+    "file": "crates/core/src/travel.rs",
+    "find": "        if Note::ALL.iter().any(|n| !staff.contains(n)) || staff.len() != Note::ALL.len() {",
+    "replace": "        if false {",
+    "test": "the_travel_file_gives_a_six_note_song_and_refuses_an_unknown_note"
+  },
+  {
+    "name": "M7 travel: CW-6: the flute's route is its own",
+    "file": "data/items.json",
+    "find": "      \"routes\": [\"trainer_gift\"],",
+    "replace": "      \"routes\": [\"trainer\"],",
+    "test": "the_flute_has_one_route_and_one_mechanic_of_its_own"
+  },
+  {
+    "name": "M7 travel: CW-6: the flute's mechanic is its own",
+    "file": "data/items.json",
+    "find": "      \"mechanic\": \"songs\",",
+    "replace": "      \"mechanic\": \"arc_return\",",
+    "test": "the_flute_has_one_route_and_one_mechanic_of_its_own"
+  },
+  {
+    "name": "M7b swing: a strike leaves a trail",
+    "file": "crates/core/src/swing.rs",
+    "find": "        sw.trail_len = (sw.trail_len + 1).min(TRAIL as u8);",
+    "replace": "        sw.trail_len = (sw.trail_len + 1).min(2);",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b swing: the trail fades to nothing",
+    "file": "crates/core/src/swing.rs",
+    "find": "        sw.trail_len = sw.trail_len.saturating_sub(TRAIL_FADE);",
+    "replace": "        sw.trail_len = sw.trail_len.saturating_sub(TRAIL_FADE).max(sw.trail_len.min(1));",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b swing: the cue off draws no trail",
+    "file": "crates/core/src/swing.rs",
+    "find": "    if !w.ui.settings.cue {\n        return;\n    }\n    let colour = rgb(look.palette.lamp);\n    for id in 0..player::count(w) {",
+    "replace": "    if false {\n        return;\n    }\n    let colour = rgb(look.palette.lamp);\n    for id in 0..player::count(w) {",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b arm: every fighter's blade keeps its trail",
+    "file": "crates/core/src/arm.rs",
+    "find": "        crate::swing::trail(&mut f.arm); // M7 (R9.175)",
+    "replace": "        if id == 0 { crate::swing::trail(&mut f.arm); } // M7 (R9.175)",
+    "test": "a_foe_s_cut_leaves_a_trail"
+  },
+  {
+    "name": "M7b swing: a thrust is pushed fast",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const THRUST_MOST: Fx = ONE * 26 / 100;",
+    "replace": "pub const THRUST_MOST: Fx = ONE * 8 / 100;",
+    "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
+    "name": "M7b player: a thrust leans the body in",
+    "file": "crates/core/src/player.rs",
+    "find": "    let tilt = tilt.then(&tip(b.facing, -fx::mul(crate::swing::LUNGE_LEAN, g.lunge)));",
+    "replace": "    let tilt = tilt.then(&tip(b.facing, -fx::mul(0, g.lunge)));",
+    "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
+    "name": "M7b swing: the lunge eases out",
+    "file": "crates/core/src/swing.rs",
+    "find": "    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { 0 }, LUNGE_STEP);",
+    "replace": "    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { ONE / 2 }, LUNGE_STEP);",
+    "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
+    "name": "M7 wounds: a blow's damage is kept on its part",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        l.dmg[s] += taken;",
+    "replace": "        l.dmg[s] += taken / 2;",
+    "test": "a_cut_on_a_forearm_sets_its_damage_and_flashes_only_that_part"
+  },
+  {
+    "name": "M7 wounds: the flash never reaches nothing",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            l.flash[s] = l.flash[s].saturating_sub(1);",
+    "replace": "            l.flash[s] = l.flash[s].saturating_sub(1).max(l.flash[s].min(1));",
+    "test": "the_flash_is_red_on_the_part_weaker_on_the_body_and_exactly_nothing_after_its_ticks"
+  },
+  {
+    "name": "M7 wounds: the whole body flashes as hard as the part",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                let k = fx::mul(amount(s), sp.flash_pct * ONE / 100)",
+    "replace": "                let k = fx::mul(body, sp.flash_pct * ONE / 100)",
+    "test": "the_flash_is_red_on_the_part_weaker_on_the_body_and_exactly_nothing_after_its_ticks"
+  },
+  {
+    "name": "M7 wounds: a part comes off one unit late",
+    "file": "crates/core/src/wounds.rs",
+    "find": "dmg >= sp.take_off(s, kind)",
+    "replace": "dmg > sp.take_off(s, kind)",
+    "test": "a_part_comes_off_at_its_take_off_and_not_one_unit_before"
+  },
+  {
+    "name": "M7 wounds: one very fast cut does not take a part off",
+    "file": "crates/core/src/wounds.rs",
+    "find": "h.speed >= sp.one_cut(s, kind)",
+    "replace": "h.speed > sp.one_cut(s, kind)",
+    "test": "one_very_fast_cut_takes_a_limb_off_at_once"
+  },
+  {
+    "name": "M7 wounds: a blow on a stump counts on the trunk",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            3 | 5 | 7 | 9 => s - 1,",
+    "replace": "            3 | 5 | 7 | 9 => TORSO,",
+    "test": "a_blow_on_a_stump_counts_on_the_part_above"
+  },
+  {
+    "name": "M7 wounds: a piece rests only when time runs out",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        if (pc.landed && quiet && pc.age > 10) || pc.age >= ps.rest_by {",
+    "replace": "        if pc.age >= ps.rest_by {",
+    "test": "a_part_taken_off_falls_and_comes_to_rest_exactly_within_its_bound"
+  },
+  {
+    "name": "M7 wounds: a piece sinks into the ground",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                    pc.p[k].y = floor;",
+    "replace": "                    pc.p[k].y = floor - ONE / 2;",
+    "test": "a_part_taken_off_falls_and_comes_to_rest_exactly_within_its_bound"
+  },
+  {
+    "name": "M7 wounds: a dropped weapon never settles",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                l.settled = true;",
+    "replace": "                l.settled = false;",
+    "test": "the_dropped_weapon_settles_and_lies_still"
+  },
+  {
+    "name": "M7 wounds: a one-legged body walks at a walk",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        want.clamp_len(walk * sp.hop_pct / 100)",
+    "replace": "        want",
+    "test": "a_one_legged_orc_hops_at_its_share_of_a_walk_through_its_input_record_alone"
+  },
+  {
+    "name": "M7 wounds: a pilot moves a wounded body itself",
+    "file": "crates/core/src/pilot.rs",
+    "find": "        w.foes[k].brain = brain;",
+    "replace": "        w.foes[k].brain = brain;\n        if matches!(w.foes[k].brain.control, Control::Tree) && w.foes[k].fighter.health.limbs.lost != 0 {\n            w.foes[k].body.pos.x += 100;\n        }",
+    "test": "a_one_legged_orc_hops_at_its_share_of_a_walk_through_its_input_record_alone"
+  },
+  {
+    "name": "M7 wounds: a crawl goes at a hop",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        want.clamp_len(walk * sp.crawl_pct / 100)",
+    "replace": "        want.clamp_len(walk * sp.hop_pct / 100)",
+    "test": "with_both_legs_gone_a_body_lies_on_its_front_and_crawls_slower_than_a_hop"
+  },
+  {
+    "name": "M7 wounds: no legs and still upright",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            l.prone = legs == 2;",
+    "replace": "            l.prone = false;",
+    "test": "with_both_legs_gone_a_body_lies_on_its_front_and_crawls_slower_than_a_hop"
+  },
+  {
+    "name": "M7 wounds: drops pass their cap",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        if w.wounds.drops.len() >= d.most {",
+    "replace": "        if w.wounds.drops.len() >= d.most + 40 {",
+    "test": "blood_never_passes_its_caps"
+  },
+  {
+    "name": "M7 wounds: splats pass their cap",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    if w.wounds.splats.len() >= room {",
+    "replace": "    if w.wounds.splats.len() >= room + 40 {",
+    "test": "blood_never_passes_its_caps"
+  },
+  {
+    "name": "M7 wounds: overlapping marks share a height",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    let Some(layer) = heights.into_iter().find(|l| !used.contains(l)) else {",
+    "replace": "    let Some(layer) = heights.into_iter().next() else {",
+    "test": "overlapping_marks_never_lie_at_one_height"
+  },
+  {
+    "name": "M7 wounds: blood off still sheds drops",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    cue(w, CueKind::Cut, h.at, h.speed);\n    if blood_on(w) {",
+    "replace": "    cue(w, CueKind::Cut, h.at, h.speed);\n    if true {",
+    "test": "with_blood_off_nothing_of_blood_is_made_or_drawn"
+  },
+  {
+    "name": "M7 wounds: blood changes with something outside the world",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    w.wounds.made = w.wounds.made.wrapping_add(1);",
+    "replace": "    static MADE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);\n    w.wounds.made = MADE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);",
+    "test": "a_recorded_duel_with_a_part_taken_off_hashes_the_same_every_run"
+  },
+  {
+    "name": "M7 wounds: the dream keeps the lost parts",
+    "file": "crates/core/src/story.rs",
+    "find": "    *w = fresh;\n    arrive(w);\n}",
+    "replace": "    let limbs = w.me.health.limbs;\n    *w = fresh;\n    arrive(w);\n    w.me.health.limbs = limbs;\n}",
+    "test": "the_dream_wakes_the_player_with_every_part"
+  },
+  {
+    "name": "M7 wounds: the weapon never changes hands",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                swap(f);",
+    "replace": "",
+    "test": "the_leader_takes_its_sword_up_in_the_other_hand_and_a_bandit_runs"
+  },
+  {
+    "name": "M7 wounds: the leader backs off instead of taking up its sword",
+    "file": "data/pilots.json",
+    "find": "{ \"if\": [\"can_take_up\", { \"weapon_within\": 900 }], \"do\": \"take_up\", \"interrupt\": true },",
+    "replace": "{ \"if\": [\"can_take_up\", { \"weapon_within\": 900 }], \"do\": \"back_off\", \"interrupt\": true },",
+    "test": "the_leader_takes_its_sword_up_in_the_other_hand_and_a_bandit_runs"
+  },
+  {
+    "name": "M7 wounds: a bandit without its sword arm fights on",
+    "file": "data/pilots.json",
+    "find": "      { \"if\": [\"lost_sword_arm\"], \"do\": \"run_away\", \"interrupt\": true },\n      { \"if\": [\"unarmed\"], \"do\": \"run_away\", \"interrupt\": true },",
+    "replace": "      { \"if\": [\"lost_sword_arm\"], \"do\": \"circle\", \"interrupt\": true },\n      { \"if\": [\"unarmed\"], \"do\": \"circle\", \"interrupt\": true },",
+    "test": "the_leader_takes_its_sword_up_in_the_other_hand_and_a_bandit_runs"
+  },
+  {
+    "name": "M7 wounds: the left hand is as strong as the right",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        g.strength[1] = g.strength[1] * pct / 100;",
+    "replace": "",
+    "test": "the_player_without_a_sword_hand_takes_the_sword_up_in_the_other_and_is_weaker"
+  },
+  {
+    "name": "M7 wounds: every model part is labelled the torso",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            best.1\n",
+    "replace": "            1\n",
+    "test": "every_kind_s_parts_are_labelled_on_any_pose"
+  },
+  {
+    "name": "M7 wounds: a knee flinches without buckling",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            p.knee[side] = p.knee[side].add(d.scale(ONE * 3 / 4)).sub(v3(0, k / 2, 0));",
+    "replace": "            p.knee[side] = p.knee[side].add(d.scale(ONE * 3 / 4));",
+    "test": "a_struck_part_flinches_as_drawn_and_eases_back"
+  },
+  {
+    "name": "M7 wounds: a blow names the head's capsule wherever it lands",
+    "file": "crates/core/src/blade.rs",
+    "find": "            seg: index[y] as u8,",
+    "replace": "            seg: 0,",
+    "test": "a_blade_s_contact_names_the_capsule_it_struck"
+  },
+  {
+    "name": "M7 wounds: a pool lies at a drop's height",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        lay(w, v3(at.x, ground, at.z), mm(sp.pool.mm), true);",
+    "replace": "        lay(w, v3(at.x, ground, at.z), mm(sp.pool.mm), false);",
+    "test": "a_fallen_body_bleeds_a_pool_that_spreads_to_its_size_and_no_more"
+  },
+  {
+    "name": "M7 wounds: a pool spreads past its size",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                s.r = (s.r + s.goal / sp.pool.grow_ticks.max(1) as i32 + 1).min(s.goal);",
+    "replace": "                s.r += s.goal / sp.pool.grow_ticks.max(1) as i32 + 1;",
+    "test": "a_fallen_body_bleeds_a_pool_that_spreads_to_its_size_and_no_more"
+  },
+  {
+    "name": "M7 wounds: pieces pass their cap",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    if w.wounds.pieces.len() >= most {",
+    "replace": "    if w.wounds.pieces.len() >= most + 8 {",
+    "test": "pieces_never_pass_their_cap_and_the_oldest_fade_out"
+  },
+  {
+    "name": "M7 wounds: the blood setting is not offered",
+    "file": "crates/core/src/ui.rs",
+    "find": "            // M7 (P4): blood on or off\n            Control {",
+    "replace": "            // M7 (P4): blood on or off\n            #[cfg(any())]\n            Control {",
+    "test": "settings_open_from_the_title_and_the_pause_and_go_back_there"
+  },
+  {
+    "name": "M7 wounds: the player's parts come off at a foe's cut",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            cms * self.player_pct / 100\n",
+    "replace": "            cms\n",
+    "test": "one_very_fast_cut_takes_a_limb_off_at_once"
   }
 ]

@@ -140,6 +140,20 @@
       "mechanic": "speedster",
       "value": 60,
       "stack": 1
+    },
+    {
+      "id": "flute",
+      "kind": "instrument",
+      "routes": ["trainer_gift"],
+      "_routes": "given by the trainer once the practice is passed, with the travel song taught in the same talk (M7 travel, T11; SECOND-ORDER.md R9.190)",
+      "mechanic": "songs",
+      "_mechanic": "played from a quick key or Select Item: five notes on a staff; the travel song takes you to a waystone you have woken (travel.rs)",
+      "grid": 4,
+      "quick": true,
+      "keep": true,
+      "_keep": "the merchant does not buy it: the trainer's gift is the only way to it (CW-6)",
+      "value": 0,
+      "stack": 1
     }
   ],
   "slots": ["head", "body", "hands", "legs", "feet"],

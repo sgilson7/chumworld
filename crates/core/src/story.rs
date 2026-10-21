@@ -297,6 +297,10 @@ pub enum Use {
     Merchant,
     Trainer,
     Chest,
+    /// M7 travel: a dormant waystone, by its point
+    Waystone(usize),
+    /// M7 travel: the traveller at the crossroads
+    Traveller,
 }
 
 /// A line over the game, by string key, and how long it has left.
@@ -1066,6 +1070,13 @@ pub fn nearest_use(w: &World) -> Option<(Use, Fx)> {
     if let Some(d) = crate::camp::chest_reach(w) {
         offer(Use::Chest, d);
     }
+    // M7 travel
+    if let Some((k, d)) = crate::travel::wake_reach(w) {
+        offer(Use::Waystone(k), d);
+    }
+    if let Some(d) = crate::travel::talk_reach(w) {
+        offer(Use::Traveller, d);
+    }
     best
 }
 
@@ -1103,6 +1114,8 @@ fn act_on(w: &mut World, u: Use) {
         Use::Merchant => crate::merchant::talk(w),
         Use::Trainer => crate::trainer::talk(w),
         Use::Chest => crate::camp::open_chest(w),
+        Use::Waystone(k) => crate::travel::use_waystone(w, k), // M7 travel
+        Use::Traveller => crate::travel::talk(w),
     }
 }
 
@@ -1113,6 +1126,10 @@ pub fn task(w: &World) -> &'static str {
     }
     if !crate::imbue::learned(w) {
         return "quest_trainer";
+    }
+    // M7 travel: the flute, until a waystone is woken
+    if crate::travel::quest(w) {
+        return "quest_flute";
     }
     if !w.inventory.has(Item::Boomerang) {
         return "quest_camp";
@@ -1182,6 +1199,8 @@ pub fn prompt(w: &World, s: &Strings) -> Option<String> {
         Use::Merchant => s.get(crate::merchant::prompt_key(w)),
         Use::Trainer => s.get(crate::trainer::prompt_key(w)),
         Use::Chest => s.get("does_open_chest"),
+        Use::Waystone(_) => s.get("does_wake_waystone"), // M7 travel
+        Use::Traveller => s.get("does_talk_traveller"),
     };
     Some(crate::api::fill(
         &s.get("prompt"),
@@ -1367,6 +1386,14 @@ fn draw_pickup(p: &Pickup, look: &Look, out: &mut Shapes) {
             Item::Sword => lay(out, Held::Sword, models::grip_to_tip(Held::Sword)),
             Item::ShortSword => lay(out, Held::ShortSword, models::grip_to_tip(Held::ShortSword)),
             Item::Boomerang => lay(out, Held::Boomerang, models::grip_to_tip(Held::Boomerang)),
+            // M7 travel: the flute is given, never found; lying, a short pipe
+            Item::Flute => {
+                let at = Affine::translate(p.at.add(v3(0, ONE * 2 / 100, 0)))
+                    .then(&Affine::rot_y(p.yaw))
+                    .then(&Affine::rot_z(fx::QUARTER_TURN))
+                    .then(&Affine::scale(v3(ONE * 3 / 100, ONE * 30 / 100, ONE * 3 / 100)));
+                out.inked(Mesh::Cyl, at, models::table().c("traveller_staff"), ink);
+            }
             Item::Bandage => {
                 let at = Affine::translate(p.at.add(v3(0, ONE * 6 / 100, 0)))
                     .then(&Affine::rot_y(p.yaw))
@@ -2020,6 +2047,12 @@ mod playthrough {
             read_on(&mut g);
         }
         read_on(&mut g);
+        // M7 travel: the flute, given in the talk after the practice's, the
+        // song taught in it (a hit-stop may hold the world a few ticks first)
+        frames(&mut g, 10, 0, 0);
+        read_on(&mut g);
+        assert!(g.world.inventory.has(Item::Flute), "route: trainer_gift");
+        assert_eq!(crate::ui::task(&g.world), "quest_flute");
         assert!(
             crate::imbue::learned(&g.world),
             "route: trainer: {} turned, stage {:?}, facing {} aim {} screen {:?} tick {} stop {}",
@@ -2034,6 +2067,12 @@ mod playthrough {
         let _ = g.world.feel.stop;
         frames(&mut g, 1, DRAW, 0);
         frames(&mut g, 30, 0, 0);
+        // M7 travel: the waystone by the hut, woken with E
+        let (stone, _) = crate::travel::stone(&g.world, 2).unwrap();
+        walk_near(&mut g, stone, false, ONE * 14 / 10);
+        press_e(&mut g);
+        assert!(g.world.travel.points[2].woken, "the hill's waystone wakes");
+        assert_eq!(crate::ui::task(&g.world), "quest_camp");
         // the camp: the lookout sees you; its people put down; their drops
         let c = crate::camp::centre(&g.world);
         go(&mut g, fx::floor(c.x) - 40, fx::floor(c.z) + 40);

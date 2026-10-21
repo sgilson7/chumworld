@@ -1,6 +1,7 @@
 //! `health` (M1 Duel, task D): a hit takes health by the blade's speed at
 //! contact, and a hit on an arm weakens that arm's servo for a while
-//! (CW-16; no limb is cut in the MVP). A fighter at no health is down: it
+//! (CW-16). Each part's own damage, the flash, blood and parts taken off
+//! are M7's `wounds.rs`, kept here in `Health::limbs`. A fighter at no health is down: it
 //! falls over `FALL_TICKS`, its arms go limp and its pilot stops. Steps
 //! after `blade` at 4 in `World::step`; its numbers reach the screen through
 //! `player::hud`.
@@ -40,6 +41,8 @@ pub struct Health {
     pub weak: [u16; 2],
     /// ticks since it went down (0 standing)
     pub down_ticks: u16,
+    /// M7: what each part has taken and lost (`wounds.rs`)
+    pub limbs: crate::wounds::Limbs,
 }
 
 impl Health {
@@ -49,6 +52,7 @@ impl Health {
             most,
             weak: [0, 0],
             down_ticks: 0,
+            limbs: crate::wounds::Limbs::default(),
         }
     }
 
@@ -61,13 +65,23 @@ impl Health {
         (self.hp.max(0) * 100 / self.most.max(1)).min(100)
     }
 
-    /// How far fallen, `ONE` lying down, eased in.
+    /// How far fallen, `ONE` lying down on the back, eased in; M7: a body
+    /// that has lost a leg topples and gets up again (`wounds::Limbs::fall`),
+    /// and one that has lost both lies on its front, negative.
     pub fn fall(&self) -> Fx {
-        if self.down_ticks == 0 {
-            return 0;
+        let toppled = self.limbs.fall();
+        let dead = if self.down_ticks == 0 {
+            0
+        } else {
+            let t = (self.down_ticks.min(FALL_TICKS) as i64 * ONE as i64 / FALL_TICKS as i64) as Fx;
+            crate::fx::mul(t, t)
+        };
+        let m = dead.max(toppled.abs());
+        if self.limbs.prone {
+            -m
+        } else {
+            m
         }
-        let t = (self.down_ticks.min(FALL_TICKS) as i64 * ONE as i64 / FALL_TICKS as i64) as Fx;
-        crate::fx::mul(t, t)
     }
 
     /// An arm's servo strength now, percent.
@@ -112,6 +126,8 @@ pub fn step(w: &mut World) {
     for h in &hits {
         player::parts_mut(w, h.on as usize).1.health.take(h.speed, h.part);
     }
+    // M7: each blow marked on its part; enough takes the part off
+    crate::wounds::take(w);
     // who went down this tick (the story's hook, `feel::State::downed`)
     w.feel.downed = (0..player::count(w))
         .filter(|&id| up[id] && player::fighter(w, id).health.down())

@@ -151,7 +151,8 @@ pub fn ui(g: &Game) -> Ui {
         Screen::Title => panels.push(Panel {
             id: "title".into(),
             heading: s.get("title"),
-            text: String::new(),
+            // M7 (T10): how to choose a cut
+            text: s.get("swing_how"),
             rows_heading,
             rows,
             actions: vec![button(g, "screen.show", "play", "play", true)],
@@ -159,7 +160,7 @@ pub fn ui(g: &Game) -> Ui {
         Screen::Paused => panels.push(Panel {
             id: "paused".into(),
             heading: s.get("paused"),
-            text: String::new(),
+            text: s.get("swing_how"), // M7 (T10)
             rows_heading,
             rows,
             actions: vec![button(g, "screen.show", "play", "resume", true)],
@@ -167,6 +168,7 @@ pub fn ui(g: &Game) -> Ui {
         Screen::Play => {}
         // M4: drawn from `ui::views` below
         Screen::Menu | Screen::Settings | Screen::Dialogue | Screen::Shop => {}
+        Screen::Song => {} // M7 travel: drawn from `travel::view`
     }
     // M4: the settings button and the menu's keys on the title and pause
     crate::ui::panels(g, &mut panels);

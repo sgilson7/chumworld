@@ -177,3 +177,137 @@ fn probe_opening_tick_cost() {
     );
     assert!(mean < 2.0 && cmean < 2.0, "over the core's 2 ms");
 }
+
+/// M7 travel (CW-11): travel's own share of a tick: the five waystones'
+/// nearness, the gift's check and a journey, called alone over 60 000 ticks
+/// on a world past the opening with every waystone woken; then the woken
+/// waystones' light and the traveller drawn. Native release.
+#[test]
+#[ignore]
+fn probe_travel_tick_cost() {
+    use tool_core::world::World;
+    let mut w = tool_core::story::opening(9);
+    tool_core::story::step_aside(&mut w);
+    // the dearest case first: nothing yet reached, so every tick measures
+    // the player's distance to all five waystones
+    let ticks = 60_000;
+    let t = Instant::now();
+    for _ in 0..ticks {
+        tool_core::travel::step(&mut w);
+    }
+    let unreached_us = t.elapsed().as_secs_f64() * 1_000_000.0 / ticks as f64;
+    for k in 0..5 {
+        tool_core::travel::wake(&mut w, k);
+    }
+    let t = Instant::now();
+    for k in 0..ticks {
+        if k % 1000 == 0 {
+            w.travel.warp = Some(tool_core::travel::Warp {
+                to: (k / 1000) % 5,
+                ticks: 0,
+                ride: false,
+            });
+        }
+        tool_core::travel::step(&mut w);
+    }
+    let step_us = t.elapsed().as_secs_f64() * 1_000_000.0 / ticks as f64;
+    let look = tool_core::look::Look::parse(include_str!("../../../data/look.json")).unwrap();
+    let mut shapes = tool_core::render::Shapes::default();
+    let t = Instant::now();
+    let frames = 2_000;
+    for _ in 0..frames {
+        shapes.list.clear();
+        tool_core::travel::draw(&w, 0, &look, &mut shapes);
+    }
+    let draw_us = t.elapsed().as_secs_f64() * 1_000_000.0 / frames as f64;
+    let _: &World = &w;
+    println!(
+        "travel: step {unreached_us:.3} µs a tick with nothing reached, {step_us:.3} µs with every waystone woken and a journey each 1 000 ticks; draw {draw_us:.1} µs a frame, {} shapes (five woken waystones and the traveller)",
+        shapes.list.len()
+    );
+    assert!(
+        unreached_us.max(step_us) < 20.0,
+        "travel's tick is not negligible"
+    );
+}
+
+/// M7 P4 (CW-11): the raid of `probe_raid_tick_cost` with wounds: every
+/// foe cut on a part every 20 ticks, a part taken off every 60, so the drops
+/// stay near their cap of 160, the splats at their 64 and the pieces at
+/// their 12. The tick, and drawing what moves (`World::draw`), native release.
+#[test]
+#[ignore]
+fn probe_raid_wounds_cost() {
+    use tool_core::input::Input;
+    use tool_core::world::World;
+    let mut w = World::new(9);
+    for kind in ["orc", "orc", "orc", "bandit", "bandit", "bandit", "leader"] {
+        w.act("duel.spawn", kind).unwrap();
+    }
+    w.me.health = tool_core::health::Health::new(1_000_000);
+    w.step(&Input {
+        keys: tool_core::input::DRAW,
+        ..Input::default()
+    });
+    let parts = [
+        "forearm_l",
+        "shin_r",
+        "upper_arm_l",
+        "thigh_l",
+        "forearm_r",
+        "shin_l",
+    ];
+    let look = tool_core::look::Look::parse(include_str!("../../../data/look.json")).unwrap();
+    let (mut worst, mut total, mut draw_worst, mut draw_total) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    let (mut most_drops, mut most_splats, mut most_pieces, mut most_shapes) = (0, 0, 0, 0);
+    let ticks = 600;
+    for k in 0..ticks {
+        if k % 20 == 0 {
+            w.act("wounds.cut", "torso,14").unwrap();
+            for f in &mut w.foes {
+                f.fighter.health.hp = f.fighter.health.most;
+                f.fighter.health.down_ticks = 0;
+            }
+        }
+        if k % 60 == 0 {
+            // a fresh part each time: the foes made whole first
+            for f in &mut w.foes {
+                f.fighter.health.limbs = Default::default();
+            }
+            w.act("wounds.take_off", parts[(k / 60) % parts.len()]).unwrap();
+        }
+        let i = Input {
+            dx: if k % 40 < 20 { 2_000 } else { -2_000 },
+            buttons: if k % 40 > 30 { tool_core::input::SWING } else { 0 },
+            ..Input::default()
+        };
+        let f = Instant::now();
+        w.step(&i);
+        let ms = f.elapsed().as_secs_f64() * 1000.0;
+        worst = worst.max(ms);
+        total += ms;
+        if ms > 3.0 {
+            println!(
+                "  tick {k}: {ms:.3} ms, {} drops, {} splats",
+                w.wounds.drops.len(),
+                w.wounds.splats.len()
+            );
+        }
+        let d = Instant::now();
+        let mut out = tool_core::render::Shapes::default();
+        w.draw(0, &look, &mut out);
+        let dms = d.elapsed().as_secs_f64() * 1000.0;
+        draw_worst = draw_worst.max(dms);
+        draw_total += dms;
+        most_drops = most_drops.max(w.wounds.drops.len());
+        most_splats = most_splats.max(w.wounds.splats.len());
+        most_pieces = most_pieces.max(w.wounds.pieces.len());
+        most_shapes = most_shapes.max(out.len());
+    }
+    let mean = total / ticks as f64;
+    println!(
+        "raid with wounds, 8 fighters: tick {mean:.3} ms mean, {worst:.3} ms worst; draw {:.3} ms mean, {draw_worst:.3} ms worst; at most {most_drops} drops, {most_splats} splats, {most_pieces} pieces, {most_shapes} shapes drawn",
+        draw_total / ticks as f64
+    );
+    assert!(mean < 2.0, "the raid's tick with wounds is over the core's 2 ms");
+}

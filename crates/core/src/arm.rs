@@ -63,13 +63,13 @@ pub const GAIN: Fx = ONE * 35 / 100;
 pub const HAND_SPEED: Fx = ONE * 65 / 600;
 pub const HAND_ACCEL: Fx = ONE * 9 / 600;
 pub const SWING_SPEED: Fx = ONE * 130 / 600;
-pub const SWING_ACCEL: Fx = ONE * 17 / 600;
+pub const SWING_ACCEL: Fx = ONE * 30 / 600;
 /// The blade's servo, which turns the tip toward the line the shell asks
 /// for; in a committed swing it keeps `SWING_TIP_PCT` of its strength.
 pub const TIP_SPEED: Fx = ONE * 90 / 600;
 pub const TIP_ACCEL: Fx = ONE * 10 / 600;
 pub const SWING_TIP_SPEED: Fx = ONE * 200 / 600;
-pub const SWING_TIP_ACCEL: Fx = ONE * 22 / 600;
+pub const SWING_TIP_ACCEL: Fx = ONE * 40 / 600;
 /// A hand with no target (the sword sheathed, the arm at rest) is held at
 /// this share of the servo's strength.
 pub const REST_PCT: i32 = 45;
@@ -463,7 +463,38 @@ pub struct Goals {
     pub grasp: bool,
     /// the shell's target, for the reticle
     pub target: Option<V3>,
+    /// M7 (T10): a cut's strike turns the weapon round a pivot (`Turn`)
+    pub turn: Option<Turn>,
 }
+
+/// A cut's motor (M7, T10; Vagrancy's joint motor): the weapon and the hand
+/// on it are turned about `pivot` round `axis` (unit, the right-hand way
+/// the cut goes), their turn gathering by at most `gain` a tick (radians a
+/// tick, Q16, taken from by the weapon's heft and the arm's strength) up to
+/// `most` (or down to it, after the strike). `on` is where on the arc the
+/// hand keeps to at its present angle; `line` the blade's line there. The
+/// motor gives each point the speed of the turn, so the whole weapon swings
+/// together, and the sticks, pins, fences and blocks act on it as on any
+/// other movement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Turn {
+    pub pivot: V3,
+    pub axis: V3,
+    pub most: Fx,
+    pub gain: Fx,
+    pub on: V3,
+    pub line: V3,
+    /// a thrust's drive (R9.177): the weapon is pushed along `axis` (a
+    /// line, not a turn) at up to `most` metres a tick
+    pub push: bool,
+}
+
+/// How hard a cut's motor holds the hand to its arc and the blade to its
+/// line: this share of the distance a tick.
+pub const TURN_HOLD: Fx = ONE * 30 / 100;
+/// and at most this fast (3 m/s): the turn carries the weapon, these only
+/// keep it true, and a blade a block has stopped is not flung on by them.
+pub const TURN_FIX: Fx = ONE * 5 / 100;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Arm {
@@ -488,6 +519,9 @@ pub struct Arm {
     /// step, before other bodies' fences moved it: the line a guard holds,
     /// which a body walking into it is kept off (`motion::separate`)
     pub meant: (V3, V3),
+    /// M7 (T10): the travel the left button has gathered and the cut under
+    /// way (`swing.rs`)
+    pub swing: crate::swing::Swing,
 }
 
 /// `v` × `num` / `den`, in i64.
@@ -531,6 +565,7 @@ impl Arm {
             fences: Vec::new(),
             riding: false,
             meant: (pommel, tip),
+            swing: crate::swing::Swing::default(),
             joint_r: (
                 (ELBOW_MM as i64 * build.height as i64 * build.girth_pct as i64 / 170_000) as Fx,
                 (HAND_MM as i64 * build.height as i64 * build.girth_pct as i64 / 170_000) as Fx,
@@ -689,7 +724,10 @@ impl Arm {
                 }
             }
         }
-        self.integrate(&acc);
+        if let (true, Some(t)) = (g.in_hand, g.turn) {
+            self.motor(&t, g.strength[1] * heft / 100, &mut acc);
+        }
+        self.integrate(&acc, g.swing);
         if !self.in_hand {
             // the scabbard carries the weapon: no speed of its own
             let (pommel, tip) = g.sheath;
@@ -724,14 +762,76 @@ impl Arm {
         }
     }
 
+    /// A cut's motor (`Turn`): the turn about the pivot the tip has now,
+    /// gathered toward `most` by at most `gain` (times `pct`), and every
+    /// point on the weapon (and each hand pinned to it) given that turn's
+    /// speed, the hand held to its arc and the blade to its line besides.
+    /// The motor sets the speed these points are asked for in place of the
+    /// servos' (`acc` is replaced for them).
+    fn motor(&mut self, t: &Turn, pct: i32, acc: &mut [V3; N]) {
+        let tip = self.pts[TIP];
+        let r = tip.p.sub(t.pivot);
+        let rr = r.dot(r).max(1);
+        let now = if t.push {
+            tip.vel().dot(t.axis)
+        } else {
+            fx::div(r.cross(tip.vel()).dot(t.axis), rr)
+        };
+        let gain = (t.gain as i64 * pct as i64 / 100) as Fx;
+        // a heavy weapon comes round slower: its heft takes half its share
+        // from the turn's top speed
+        let most = (t.most as i64 * (100 + self.weapon.heft_pct) as i64 / 200) as Fx;
+        // turning the wrong way (the wind-up's swing back), the arm takes
+        // half of it out a tick and gathers twice as hard
+        let w = if now < 0 {
+            (now / 2 + gain * 2).min(most)
+        } else {
+            fx::approach(now, most, gain)
+        };
+        let grip = self.grip_point();
+        // back onto the arc, and the blade turned toward its line about the
+        // grip: the tip one way, the pommel the other
+        let onto = t.on.sub(grip).scale(TURN_HOLD).clamp_len(TURN_FIX);
+        let wpn = self.weapon;
+        let reach = (wpn.len - wpn.grip[1]).max(1);
+        let want_tip = grip.add(t.line.scale(reach));
+        let along = tip.p.sub(self.pts[POMMEL].p).norm();
+        let mut turn = want_tip.sub(tip.p).scale(TURN_HOLD);
+        turn = turn.sub(along.scale(turn.dot(along))).clamp_len(TURN_FIX);
+        for k in [HAND[0], HAND[1], POMMEL, TIP] {
+            let hand = k == HAND[0] || k == HAND[1];
+            if hand && !self.hold[if k == HAND[0] { 0 } else { 1 }] {
+                continue;
+            }
+            let p = self.pts[k].p;
+            let at = if k == TIP {
+                wpn.len
+            } else if k == POMMEL {
+                0
+            } else {
+                wpn.grip[if k == HAND[0] { 0 } else { 1 }]
+            };
+            let spin = mul_div(turn, (at - wpn.grip[1]) as i64, reach as i64);
+            let along = if t.push {
+                t.axis.scale(w)
+            } else {
+                t.axis.cross(p.sub(t.pivot)).scale(w)
+            };
+            let v = along.add(onto).add(spin);
+            acc[k] = v.sub(self.pts[k].vel()).add(v3(0, GRAVITY, 0));
+        }
+    }
+
     /// Velocity first (drag, the servos' change, gravity, the cap), then
     /// position.
-    fn integrate(&mut self, acc: &[V3; N]) {
+    fn integrate(&mut self, acc: &[V3; N], swing: bool) {
         let cap_sq = CAP as i64 * CAP as i64;
         for (k, pt) in self.pts.iter_mut().enumerate() {
             let mut v = pt.vel();
             // limbs are damped by their muscles as well as the air
-            let drag = if k == POMMEL || k == TIP {
+            // (in a committed swing the arm drives through: its muscles
+            // do not hold it back, T10)
+            let drag = if k == POMMEL || k == TIP || swing {
                 DRAG_PCT
             } else {
                 LIMB_DRAG_PCT
@@ -1157,12 +1257,15 @@ pub fn step(w: &mut World, input: &Input, foes: &[Input]) {
             f.health.fall(),
             w.ground(b.pos.x, b.pos.z),
         );
+        // M7 (P4): the weapon in the left hand once it has changed hands
+        let frame = crate::wounds::sided(f, frame);
         let near = fences_of(w, id, &caps, false);
         let f = player::parts_mut(w, id).1;
         f.sheath = sheath;
         f.tilt = tilt;
         f.arm.fences = near;
         f.arm.step(&frame, &goals);
+        crate::swing::trail(&mut f.arm); // M7 (R9.175)
         f.arm.meant = (f.arm.pts[POMMEL].p, f.arm.pts[TIP].p);
         caps[id] = crate::blade::body(player::fighter(w, id).kind, &player::pose_of(w, id));
     }
@@ -1177,7 +1280,34 @@ pub const FENCE_ROUNDS: usize = 16;
 /// looking; otherwise the target's swing eases to nothing.
 pub fn move_shell(w: &mut World, id: usize, inp: &Input) {
     let f = player::fighter(w, id);
-    if f.sheath == Sheath::Drawn && !f.mouse_looks && !f.health.down() {
+    if f.sheath != Sheath::Drawn || f.health.down() {
+        let f = player::parts_mut(w, id).1;
+        f.gait.lunge = fx::approach(f.gait.lunge, 0, crate::swing::LUNGE_STEP);
+        let a = &mut f.arm;
+        a.swing = crate::swing::Swing::default();
+        a.shell.swing = Shell::eased(a.shell.swing, (0, 0, 0));
+        return;
+    }
+    // M7 (T10): the left button gathers the mouse's travel into a cut, and
+    // a cut under way holds the shell still (`swing.rs`); looking, the
+    // mouse is the view's
+    let looks = f.mouse_looks;
+    let taken = if looks {
+        crate::swing::step(
+            w,
+            id,
+            &Input {
+                dx: 0,
+                dy: 0,
+                wheel: 0,
+                ..*inp
+            },
+        )
+    } else {
+        crate::swing::step(w, id, inp)
+    };
+    let f = player::fighter(w, id);
+    if !looks && !taken {
         // the player's hand moves at the reader's setting (M4's mouse
         // sensitivity, percent); a pilot's at its own
         let pct = if id == 0 { w.ui.settings.hand_pct } else { 100 };
@@ -1284,6 +1414,7 @@ mod tests {
             ride: None,
             grasp: false,
             target: Some(target),
+            turn: None,
         }
     }
 
@@ -1346,6 +1477,7 @@ mod tests {
             ride: None,
             grasp: false,
             target: None,
+            turn: None,
         };
         let f = frame();
         // energy as m·v² / 2 + m·g·h, in units² of a tick
@@ -1457,6 +1589,25 @@ mod tests {
             heavy_past > short_past,
             "past by {heavy_past} against {short_past}"
         );
+    }
+
+    /// A weapon's point lying on the ground sliding at 0.1 m a tick (6 554
+    /// units) along x, then along z: the air takes 3% (196 by integer
+    /// division), then the ground 30% of what is left (6 358 × 30 / 100 =
+    /// 1 907): 4 451 a tick after. (M7: R9.175; the fallen-orc test that
+    /// held this no longer slides its cleaver along x.)
+    #[test]
+    fn a_point_on_the_ground_loses_a_third_of_its_slide_a_tick() {
+        for along in [v3(6_554, 0, 0), v3(0, 0, 6_554)] {
+            let mut a = arm(Held::ShortSword);
+            let ground = a.frame.ground;
+            let at = v3(ONE, ground, ONE);
+            a.pts[TIP] = Point::at(at, 1);
+            a.pts[TIP].q = at.sub(along);
+            a.integrate(&[V3::ZERO; N], false);
+            let v = a.pts[TIP].vel();
+            assert_eq!((v.x, v.z), (along.x * 4_451 / 6_554, along.z * 4_451 / 6_554));
+        }
     }
 
     #[test]
@@ -1614,9 +1765,10 @@ mod tests {
         ]
     }
 
-    /// Each cut reads from the mouse's path, the tip followed through the
-    /// whole arm. Overhead: the mouse up 600 px, then down 900 px with the
-    /// button: the tip comes from over 2 m up and behind the feet down through
+    /// Without the left button the hand follows the mouse, and the blade's
+    /// line reads from its path (R3.35; M7 moved the cuts themselves to
+    /// `swing.rs`, and this test, which held the button, now moves the hand
+    /// plainly, R9.169). Overhead: the mouse up 600 px, then down 900 px: the tip comes from over 2 m up and behind the feet down through
     /// the space in front, more than 1.2 m, and keeps within 0.35 m of its
     /// line across. Side: the mouse right 450 px, then left 1 000 px: the
     /// tip crosses more than 1.3 m and keeps within 0.4 m of one height.
@@ -1624,7 +1776,7 @@ mod tests {
     /// goes), then out twelve (as far): the tip goes 0.25 m ahead or more,
     /// under 0.15 m across and under 0.25 m up or down.
     #[test]
-    fn an_overhead_a_side_cut_and_a_thrust_each_read_from_the_mouse_s_path() {
+    fn without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path() {
         let span = |v: &[V3], f: fn(&V3) -> i32| {
             let (lo, hi) = (v.iter().map(f).min().unwrap(), v.iter().map(f).max().unwrap());
             hi - lo
@@ -1633,8 +1785,8 @@ mod tests {
         let mut path = mouse(0, -60, 0, false, 10);
         path.extend(mouse(0, 0, 0, false, 30));
         let n = path.len();
-        path.extend(mouse(0, 150, 0, true, 6));
-        path.extend(mouse(0, 0, 0, true, 14));
+        path.extend(mouse(0, 150, 0, false, 6));
+        path.extend(mouse(0, 0, 0, false, 14));
         let tips = cut(&path);
         let (raised, chop) = (tips[n - 1], &tips[n..]);
         assert!(
@@ -1658,8 +1810,8 @@ mod tests {
         let mut path = mouse(45, 0, 0, false, 10);
         path.extend(mouse(0, 0, 0, false, 30));
         let n = path.len();
-        path.extend(mouse(-170, 0, 0, true, 6));
-        path.extend(mouse(0, 0, 0, true, 20));
+        path.extend(mouse(-170, 0, 0, false, 6));
+        path.extend(mouse(0, 0, 0, false, 20));
         let tips = cut(&path);
         let sweep = &tips[n - 1..];
         assert!(
@@ -1676,8 +1828,8 @@ mod tests {
         let mut path = mouse(0, 0, 10_000, false, 10);
         path.extend(mouse(0, 0, 0, false, 30));
         let n = path.len();
-        path.extend(mouse(0, 0, -10_000, true, 12));
-        path.extend(mouse(0, 0, 0, true, 10));
+        path.extend(mouse(0, 0, -10_000, false, 12));
+        path.extend(mouse(0, 0, 0, false, 10));
         let tips = cut(&path);
         let thrust = &tips[n - 1..];
         assert!(

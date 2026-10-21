@@ -832,3 +832,78 @@ body[data-screen="paused"] #overlay > .panel { display: contents; }
   .grid .slot .well img { width: 52px; height: 52px; }
   .info { min-height: 98px; margin-bottom: 20px; }
 }
+
+/* ------------------------------------------- M7 travel: the song screen */
+/* The flute's staff (Ocarina of Time's: five lines, the notes played sitting
+   on them, a wrong phrase fading away, the right one glowing) and the
+   traveller's list on the map. Places on the staff and the map come from the
+   core as percentages (travel.rs). */
+
+#song {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 55%, rgba(30, 20, 48, 0.12) 0%, rgba(22, 14, 36, 0.55) 85%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+#song.shown { opacity: 1; visibility: visible; transition: opacity 0.22s ease; }
+#song.shown * { pointer-events: auto; }
+#song.shown .card { animation: card-in 0.36s var(--ease-out); }
+.song-card { width: min(980px, 94vw); padding: 26px 36px 24px; display: flex; flex-direction: column; gap: 16px; }
+#song[data-phase="notes"] .song-card { width: min(760px, 94vw); background: linear-gradient(180deg, rgba(40, 30, 60, 0.95) 0%, rgba(28, 20, 44, 0.97) 100%); color: var(--paper); box-shadow: inset 0 0 0 2px rgba(242, 191, 85, 0.85), inset 0 0 0 6px rgba(28, 20, 44, 0.9), inset 0 0 0 7.5px rgba(242, 191, 85, 0.35), var(--shadow-card); }
+.song-heading { text-align: center; }
+.song-notes { display: flex; flex-direction: column; gap: 14px; }
+.song-notes[hidden], .song-pick[hidden], .song-known[hidden] { display: none; }
+.staff { position: relative; height: 190px; margin: 4px 10px; border-radius: 16px; background: rgba(251, 245, 233, 0.05); }
+.staff-line { position: absolute; left: 6%; right: 6%; height: 2px; margin-top: -1px; border-radius: 1px; background: rgba(242, 191, 85, 0.55); }
+.staff-notes { position: absolute; inset: 0; transition: opacity 0.7s ease, filter 0.3s ease; }
+.staff-note { position: absolute; width: 46px; height: 46px; transform: translate(-50%, -50%); animation: note-in 0.18s var(--ease-pop); filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
+@keyframes note-in { from { transform: translate(-50%, -50%) scale(0.4); opacity: 0; } }
+.staff[data-state="wrong"] .staff-notes { opacity: 0; }
+.staff[data-state="right"] .staff-notes { filter: drop-shadow(0 0 10px rgba(255, 226, 154, 0.95)); }
+.song-said { margin: 0; min-height: 1.4em; text-align: center; font-size: 19px; font-weight: 800; color: var(--gold); }
+.song-keys { display: flex; justify-content: center; gap: 18px; }
+.song-key { display: flex; align-items: center; gap: 6px; font-weight: 800; }
+.song-key kbd { min-width: 1.6em; padding: 2px 8px; border-radius: 8px; background: var(--paper); color: var(--ink); text-align: center; box-shadow: 0 2px 0 var(--paper-edge); }
+.note-icon { width: 30px; height: 30px; }
+.note-row { display: flex; gap: 6px; align-items: center; }
+.note-row[hidden] { display: none; }
+.song-known { display: flex; justify-content: center; align-items: center; gap: 12px; font-size: 15px; font-weight: 800; color: rgba(251, 245, 233, 0.8); }
+.song-known .note-icon { width: 24px; height: 24px; }
+.song-hint { margin: 0; text-align: center; font-size: 15px; font-weight: 700; opacity: 0.85; }
+#song .leave { min-width: 220px; }
+
+.song-pick { display: flex; flex-direction: column; gap: 12px; }
+.pick-heading { text-align: center; }
+.pick-body { display: grid; grid-template-columns: auto 300px; gap: 26px; align-items: start; }
+.pick-map { height: min(56vh, 520px); }
+.pick-mark { padding: 0; border: 0; background: none; cursor: pointer; font: inherit; color: var(--ink); }
+.pick-dot { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f4f8ff 0%, #c4d8ff 55%, #7d9ce0 100%); box-shadow: 0 0 0 2px var(--ink), 0 0 10px 3px rgba(196, 216, 255, 0.9); }
+.pick-mark.chosen .pick-dot { box-shadow: 0 0 0 3px var(--gold), 0 0 14px 5px rgba(255, 226, 154, 0.95); }
+.pick-mark.chosen .mark-label { background: var(--gold); }
+.pick-side { display: flex; flex-direction: column; gap: 10px; }
+.pick-coins { margin: 0; font-size: 17px; font-weight: 850; color: var(--gold-deep); }
+.pick-coins[hidden] { display: none; }
+.pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pick-button { width: 100%; display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 0; border-radius: 14px; background: rgba(43, 33, 64, 0.06); box-shadow: inset 0 0 0 1.5px rgba(201, 154, 78, 0.55); font: inherit; font-size: 16px; font-weight: 800; color: var(--ink); text-align: left; cursor: pointer; }
+.pick-row.chosen .pick-button { background: rgba(242, 191, 85, 0.3); box-shadow: inset 0 0 0 2.5px var(--gold-deep); }
+.pick-row.short .pick-price { color: var(--accent-deep); }
+.pick-price { color: var(--gold-deep); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pick-empty, .pick-note { margin: 0; font-weight: 750; }
+.pick-empty:empty, .pick-note:empty { display: none; }
+.pick-note { padding: 10px 14px; border-radius: 14px; background: rgba(217, 119, 74, 0.12); color: var(--accent-deep); }
+
+/* the song in the dialogue that teaches it, and on the Quest screen */
+.talk-song { margin: 6px 0 4px; gap: 8px; }
+.talk-song .note-icon { width: 38px; height: 38px; }
+.quest-songs .note-row { margin: 8px 0; }
+.quest-songs .song-name { font-weight: 850; }
+.quest-songs[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-note { animation: none; }
+  #song.shown .card { animation: none; }
+}

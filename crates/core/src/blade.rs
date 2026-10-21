@@ -59,6 +59,11 @@ pub struct Hit {
     pub by: u8,
     pub on: u8,
     pub part: Part,
+    /// M7 wounds: the capsule struck, by its index in `body` (0 head, 1
+    /// torso, 2–5 the arms, 6–9 the legs), and the blade's travel against
+    /// the body at the contact, metres a tick
+    pub seg: u8,
+    pub vel: V3,
     pub speed: Fx,
     pub at: V3,
 }
@@ -365,7 +370,8 @@ fn weapon_box(a: &Arm, pad: Fx) -> (V3, V3) {
 /// Whether a fighter's weapon meets anything: drawn, in hand, standing.
 fn armed(w: &World, id: usize) -> bool {
     let f = player::fighter(w, id);
-    f.arm.in_hand && !f.health.down()
+    // (M7 wounds: a weapon dropped from a lost hand is held by no hand)
+    f.arm.in_hand && !f.health.down() && (f.arm.hold[0] || f.arm.hold[1])
 }
 
 /// Step 4, after the arms: blade against blade, then blade against body.
@@ -446,9 +452,16 @@ fn set(list: &mut Vec<(u8, u8)>, k: (u8, u8), on: bool) {
     }
 }
 
-/// Two weapons' every point put back `k / s` of the way through the tick.
+/// Two weapons' every point put back `k / s` of the way through the tick,
+/// and each hand pinned to one with it (M7, T10: a cut's motor drives the
+/// hand as fast as the blade, and a hand left where the tick took it pulled
+/// a stopped blade on through its pin).
 fn rewind(a: &mut Arm, k: i64, s: i64) {
-    for i in [arm::POMMEL, arm::TIP] {
+    for i in [arm::POMMEL, arm::TIP, arm::HAND[0], arm::HAND[1]] {
+        let hand = i == arm::HAND[0] || i == arm::HAND[1];
+        if hand && !(a.in_hand && a.hold[if i == arm::HAND[0] { 0 } else { 1 }]) {
+            continue;
+        }
         let pt = &mut a.pts[i];
         pt.p = part_way(pt.q, pt.p, k, s);
     }
@@ -567,12 +580,8 @@ fn clash_pair(w: &mut World, i: usize, j: usize) {
 fn strike(w: &mut World, i: usize, j: usize, body: &[(Part, Swept, Fx)], blow: bool) {
     let own = i == j;
     let rails = rails_swept(&player::fighter(w, i).arm, own);
-    let parts: Vec<&(Part, Swept, Fx)> = body
-        .iter()
-        .enumerate()
-        .filter(|(n, _)| !own || TRUNK.contains(n))
-        .map(|(_, c)| c)
-        .collect();
+    let index: Vec<usize> = (0..body.len()).filter(|n| !own || TRUNK.contains(n)).collect();
+    let parts: Vec<&(Part, Swept, Fx)> = index.iter().map(|&n| &body[n]).collect();
     let pts: Vec<V3> = parts
         .iter()
         .flat_map(|(_, s, _)| [s.a0, s.b0, s.a1, s.b1])
@@ -627,6 +636,8 @@ fn strike(w: &mut World, i: usize, j: usize, body: &[(Part, Swept, Fx)], blow: b
             by: i as u8,
             on: j as u8,
             part,
+            seg: index[y] as u8,
+            vel: ve.sub(vb),
             speed,
             at: c.on_b,
         });
@@ -721,6 +732,22 @@ mod tests {
         }
         w.me.arm.shell.side = crate::fx::deg(70);
         w.me.arm.shell.pitch = crate::fx::deg(pitch);
+        for _ in 0..60 {
+            w.step(&Default::default());
+        }
+        w
+    }
+
+    /// The same duel at 160 cm, the orc's guard held out to its left (60°
+    /// left, 20° down; 30° before the middle level cut was raised, R9.178): its blade lies across the way a level cut comes in
+    /// from the player's right. (M7, T10: the orc's own guard, 12° left,
+    /// points its blade at the player, and a level cut now comes round it
+    /// to the body; R9.168.)
+    fn guarded() -> World {
+        let mut w = duel(160, 0, false);
+        let s = &mut w.foes[0].fighter.arm.shell;
+        s.side = crate::fx::deg(-60);
+        s.pitch = crate::fx::deg(-20);
         for _ in 0..60 {
             w.step(&Default::default());
         }
@@ -913,7 +940,7 @@ mod tests {
                 .filter(|s| s.pass == crate::render::Pass::Glow)
                 .count()
         };
-        let mut w = duel(160, 0, false);
+        let mut w = guarded();
         let before = glows(&w);
         let mut lit = None;
         for t in 0..30 {
@@ -989,6 +1016,8 @@ mod tests {
             by: 1,
             on: 0,
             part: Part::Head,
+            seg: 0,
+            vel: V3::ZERO,
             speed: fx::int(9),
             at: w.me.pose.head,
         });
@@ -1002,7 +1031,7 @@ mod tests {
 
     #[test]
     fn a_block_stops_a_swing_and_the_blades_do_not_pass_through() {
-        let mut w = duel(160, 0, false);
+        let mut w = guarded();
         let (mut met, mut before, mut normal) = (None, 0, None);
         let mut ran = 0;
         for t in 0..30 {
@@ -1071,7 +1100,8 @@ mod tests {
                     if own && !TRUNK.contains(&k) {
                         continue;
                     }
-                    if a.in_hand && !a.riding {
+                    // (M7: a weapon dropped from a lost hand is in no hand)
+                    if a.in_hand && !a.riding && (a.hold[0] || a.hold[1]) {
                         for r in arm::rails(a.weapon.item) {
                             let (x, y, _) = a.rail(r, own, false);
                             let (_, _, p, q) = closest(x, y, c.a, c.b);

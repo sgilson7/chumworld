@@ -313,6 +313,9 @@ fn blow(w: &mut World, t: &Flying, id: usize, speed: Fx, at: V3) {
         by: t.by,
         on: id as u8,
         part,
+        // M7 wounds: the head's capsule or the torso's, and the throw's travel
+        seg: if part == Part::Head { 0 } else { 1 },
+        vel: t.p.sub(t.prev),
         speed,
         at,
     });
