@@ -69,3 +69,5 @@ pub mod travel;
 pub mod wounds;
 // M7 roadside (T12)
 pub mod roadside;
+// M7 rumours (T17): who tells what, and the quest lines it starts
+pub mod rumours;

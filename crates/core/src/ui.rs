@@ -776,6 +776,11 @@ pub struct QuestView {
     pub song: Option<crate::travel::SongCard>,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub songs_heading: String,
+    /// M7 rumours (T17): the quest lines, open ones first, each with its
+    /// latest rumour; `lines_none` while none is open
+    pub lines_heading: String,
+    pub lines: Vec<crate::rumours::LineView>,
+    pub lines_none: String,
 }
 
 /// One screen of the ring.
@@ -1184,13 +1189,14 @@ pub(crate) fn map_pct(v: Fx) -> String {
 fn map_face(g: &Game, front: bool) -> Face {
     let (s, w) = (&g.strings, &g.world);
     let menus = menus();
-    let marks = crate::places::markers(w)
-        .into_iter()
+    let all = crate::places::markers(w);
+    let mut marks: Vec<Mark> = all
+        .iter()
         .filter(|(_, at)| {
             let (cx, cz) = Fog::cell_of(at.x, at.z);
             w.ui.fog.seen(cx, cz)
         })
-        .map(|(kind, at)| Mark {
+        .map(|&(kind, at)| Mark {
             kind: kind.into(),
             label: s.get(&format!("place_{kind}")),
             icon: if menus.place_icons.iter().any(|k| k == kind) {
@@ -1202,6 +1208,26 @@ fn map_face(g: &Game, front: bool) -> Face {
             top: map_pct(at.z),
         })
         .collect();
+    // M7 rumours (T17): a place a rumour marked shows as a question mark
+    // until the map round it is walked; then as the map's own mark, or as a
+    // plain mark where the map has none of its own (the crossroads)
+    for m in crate::rumours::marks(w) {
+        let own = all.iter().any(|(_, at)| at.x == m.at.x && at.z == m.at.z);
+        if !m.unseen && own {
+            continue;
+        }
+        marks.push(Mark {
+            kind: format!("rumour_{}", m.place),
+            label: s.get(&m.label),
+            icon: if m.unseen {
+                "data/icons/place_rumour.svg".into()
+            } else {
+                "data/icons/place.svg".into()
+            },
+            left: map_pct(m.at.x),
+            top: map_pct(m.at.z),
+        });
+    }
     let p = w.player.pos;
     // a heading turns left as it grows (camera::Aim); the map turns clockwise
     let turn = fx::TURN as i64;
@@ -1267,6 +1293,9 @@ fn quest_face(g: &Game, front: bool) -> Face {
             task: s.get(task(w)),
             song: crate::travel::known(w, s),
             songs_heading: s.get("songs_heading"),
+            lines_heading: s.get("lines_heading"),
+            lines: crate::rumours::lines(w, s),
+            lines_none: s.get("lines_none"),
         }),
     }
 }

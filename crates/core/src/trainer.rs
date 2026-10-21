@@ -246,7 +246,12 @@ pub fn talk(w: &mut World) {
         }
         Stage::Ready => crate::ui::say(w, "trainer", &["trainer_draw"]),
         Stage::Between(_) => crate::ui::say(w, "trainer", &["trainer_again"]),
-        _ => crate::ui::say(w, "trainer", &["trainer_done"]),
+        // M7 rumours (T17): once the practice is passed, a rumour a talk
+        // until there is none left, then the closing line
+        _ => {
+            let r = crate::rumours::after(w, "trainer").unwrap_or_else(|| "trainer_done".into());
+            crate::ui::say(w, "trainer", &[&r]);
+        }
     }
 }
 

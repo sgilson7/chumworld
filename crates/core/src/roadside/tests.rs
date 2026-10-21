@@ -480,7 +480,12 @@ fn a_villager_by_the_way_says_where_to_go() {
     assert_eq!(d.who, "villager");
     assert_eq!(
         d.lines,
-        vec!["roadside_north_1".to_string(), "roadside_north_2".to_string()]
+        // M7 rumours (T17): then the first rumour it knows
+        vec![
+            "roadside_north_1".to_string(),
+            "roadside_north_2".to_string(),
+            "rumour_hood".to_string()
+        ]
     );
     // every villager's lines are in the strings
     let strings = crate::page::parse_strings(include_str!("../../../../data/strings.json")).unwrap();

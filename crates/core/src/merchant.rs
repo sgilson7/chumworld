@@ -256,7 +256,11 @@ pub fn prompt_key(_w: &World) -> &'static str {
 /// E by the waiting cart: a greeting, then the shop (M4: the dialogue shows
 /// first, the shop the tick after it closes).
 pub fn talk(w: &mut World) {
-    crate::ui::say(w, "merchant", &["merchant_hello"]);
+    // M7 rumours (T17): a rumour after the greeting, while there is one
+    match crate::rumours::after(w, "merchant") {
+        Some(r) => crate::ui::say(w, "merchant", &["merchant_hello", &r]),
+        None => crate::ui::say(w, "merchant", &["merchant_hello"]),
+    }
     crate::ui::open_shop(w);
 }
 

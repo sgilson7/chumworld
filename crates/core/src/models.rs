@@ -105,10 +105,12 @@ pub enum Prop {
     Watchtower,
     Tor,
     LoneTree,
+    // M7 rumours (P11, T17): the woodpile each teller of rumours stands by
+    Logs,
 }
 
 impl Prop {
-    pub const ALL: [Prop; 21] = [
+    pub const ALL: [Prop; 22] = [
         Prop::House,
         Prop::Barn,
         Prop::Well,
@@ -130,6 +132,7 @@ impl Prop {
         Prop::Watchtower,
         Prop::Tor,
         Prop::LoneTree,
+        Prop::Logs,
     ];
 }
 

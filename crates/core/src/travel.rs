@@ -522,7 +522,11 @@ pub fn talk(w: &mut World) {
     } else {
         "traveller_hello"
     };
-    crate::ui::say(w, "traveller", &[line]);
+    // M7 rumours (T17): a rumour after the greeting, while there is one
+    match crate::rumours::after(w, "traveller") {
+        Some(r) => crate::ui::say(w, "traveller", &[line, &r]),
+        None => crate::ui::say(w, "traveller", &[line]),
+    }
     if !listed(w, true).is_empty() {
         w.travel.song = Some(Song::new(Phase::Pick { ride: true }));
     }

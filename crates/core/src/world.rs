@@ -118,6 +118,9 @@ pub struct World {
     pub wounds: crate::wounds::State,
     // M7 roadside (T12): the stops beside the ways out, the straggler
     pub roadside: crate::roadside::State,
+    // M7 rumours (T17): what has been heard, who has been met, the quest
+    // lines and the places marked (stable ids, for P10's save)
+    pub rumours: crate::rumours::State,
 }
 
 impl World {
@@ -163,6 +166,7 @@ impl World {
             boomerang: crate::boomerang::State::default(),
             travel: crate::travel::State::default(),     // M7 travel
             roadside: crate::roadside::State::default(), // M7 roadside
+            rumours: crate::rumours::State::default(),   // M7 rumours
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w
@@ -235,6 +239,8 @@ impl World {
         crate::story::step(self, input);
         // M7 travel: the waystones come near, the flute given, a journey
         crate::travel::step(self);
+        // M7 rumours: the quest lines move on as their items come to hand
+        crate::rumours::step(self);
         // 8. M2: the water
         crate::water::step(self);
         // M4: the map fills in round the player; the toast counts down
@@ -258,6 +264,8 @@ impl World {
         crate::orbs::draw(self, alpha, look, out);
         // M7 travel: the woken waystones' light, the traveller and the mule
         crate::travel::draw(self, alpha, look, out);
+        // M7 rumours: the people who tell rumours
+        crate::rumours::draw(self, alpha, look, out);
     }
 
     /// What never moves: the static groups, and the meshes they draw.
@@ -305,6 +313,7 @@ impl World {
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
             Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
+            Some(("rumours", rest)) => crate::rumours::act(self, rest, value),   // M7 rumours
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }
