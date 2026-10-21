@@ -109,6 +109,29 @@ async function main() {
   // M7 save: the browser's save and the save file (web/save.js)
   const save = makeSave();
 
+  // M7: the Equipment screen's figure, the player's own model, drawn on its
+  // own canvas from the core's figure frame when the core sends one
+  const shaders = { vertex, fragment, waterVertex, waterFragment, software: display.software };
+  const figureCanvas = menus.figureCanvas;
+  let figure = null;
+  let figureSize = "";
+  function drawFigure() {
+    const draws = game.figure_draws();
+    if (draws.length === 0) return;
+    if (!figure) {
+      figure = makeRenderer(figureCanvas, N, shaders, meshes, (id) => game.mesh(id));
+      if (!figure) return;
+      figure.setUniforms(game.uniforms(), game.figure_clear_color(), game.water_uniforms());
+    }
+    const size = `${figureCanvas.clientWidth} ${figureCanvas.clientHeight}`;
+    if (size !== figureSize) {
+      figureSize = size;
+      const [w, h] = game.figure_resize(figureCanvas.clientWidth, figureCanvas.clientHeight, window.devicePixelRatio || 1);
+      figure.resize(w, h);
+    }
+    figure.frame(game.figure_view(), game.figure_instances(), game.figure_draws(), game.water_frame());
+  }
+
   function panel(p) {
     const box = make("section", undefined, "panel");
     box.id = p.id;
@@ -230,6 +253,7 @@ async function main() {
       renderer.setStatic(game.static_values());
     }
     renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame());
+    drawFigure();
     if (game.ui_version() !== uiVersion) {
       uiVersion = game.ui_version();
       show(JSON.parse(game.ui()).ok);

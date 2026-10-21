@@ -69,7 +69,7 @@ impl Fig<'_> {
 
     /// The same, widened by the figure's girth.
     fn w(&self, v: i32) -> Fx {
-        self.s(v) * self.b.girth_pct / 100
+        (self.s(v) as i64 * self.b.girth_pct as i64 * crate::pose::BODY_GIRTH_PCT as i64 / 10_000) as Fx
     }
 
     fn c(&self, name: &str) -> Rgb {
@@ -945,7 +945,7 @@ fn speedster(f: &mut Fig, head: usize, hr: (i32, i32, i32), torso: (usize, V3, V
         );
         for side in [-1, 1] {
             let sweep = Affine::rot_y(side * fx::deg(8)).then(&Affine::rot_x(-fx::deg(70)));
-            f.head_part((side * 196, 60, 90), (8, 120, 54), &sweep, Mesh::Wedge, wing);
+            f.head_part((side * 196, 60, 90), (12, 120, 54), &sweep, Mesh::Wedge, wing);
         }
         // a stripe over the crown, front to back
         let hrv = hv(f, (hr.0 + 16, hr.1 + 16, hr.2 + 8));
@@ -988,7 +988,7 @@ fn speedster(f: &mut Fig, head: usize, hr: (i32, i32, i32), torso: (usize, V3, V
                 &f.at(heel),
                 V3::ZERO,
                 &Affine::rot_x(-fx::deg(60)),
-                v3(f.s(10), f.s(110), f.s(70)),
+                v3(f.s(20), f.s(110), f.s(70)),
             );
             f.m.add(Mesh::Wedge, fin, wing, f.ink);
         }

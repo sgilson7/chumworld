@@ -121,7 +121,7 @@ kbd { font-variant-numeric: tabular-nums; }
 .imbue-ring[data-state="on"] { --ring-fill: #ff9fd0; }
 .imbue-ring[data-state="on"] .dial { box-shadow: 0 0 0 2px #fff, 0 0 18px 4px rgba(255, 159, 208, 0.85); }
 .imbue-ring[data-state="ready"] .dial { box-shadow: 0 0 0 2px #fff, 0 0 12px 2px rgba(242, 191, 85, 0.75); }
-.ring-words { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.ring-words { display: flex; flex-direction: column; align-items: center; line-height: 1.25; gap: 1px; }
 .ring-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; }
 .ring-text { font-size: 14px; font-variant-numeric: tabular-nums; }
 
@@ -237,7 +237,8 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 /* ------------------------------------------------------------ the ring */
 
 #menu {
-  --W: min(1060px, 86vw);
+  /* M7: room each side for the turn buttons, so they never cover a card */
+  --W: min(1060px, 86vw, calc(100vw - 340px));
   --H: min(668px, 72vh);
   --R: calc(var(--W) * 0.7);
   --C: calc(var(--W) * 1.8);
@@ -433,7 +434,8 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .equip-hand { display: flex; flex-direction: column; align-items: center; }
 .hand-slots { display: flex; gap: 16px; }
 .equip-figure { position: relative; height: 100%; max-height: 430px; aspect-ratio: 360 / 430; justify-self: center; }
-.equip-figure .figure { position: absolute; left: 50%; top: 4%; height: 92%; transform: translateX(-50%); opacity: 0.95; }
+/* M7: the player's own model on its canvas, a soft lit stage */
+.equip-figure .figure { position: absolute; left: 50%; top: 1%; width: 64%; height: 98%; transform: translateX(-50%); border-radius: 46% 46% 22px 22px / 30% 30% 22px 22px; box-shadow: 0 0 0 2px rgba(201, 154, 78, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
 .equip-figure .slot { position: absolute; transform: translate(-50%, -50%); }
 .equip-figure .slot[data-place="head"] { left: 80%; top: 13%; }
 .equip-figure .slot[data-place="body"] { left: 18%; top: 36%; }
@@ -461,7 +463,13 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 }
 .parchment canvas { width: 100%; height: 100%; display: block; border-radius: 10px; }
 .mark, .you { position: absolute; transform: translate(-50%, -50%); }
-.mark { display: grid; justify-items: center; }
+/* M7: a mark stands on its place like a pin, its label over its icon and
+   a short stem down to the point, so the arrow at the player's point never
+   covers the icon or the name */
+.mark { display: flex; flex-direction: column-reverse; align-items: center; transform: translate(-50%, -100%); z-index: 1; }
+.mark::before { content: ""; width: 2px; height: 16px; border-radius: 1px; background: rgba(43, 33, 64, 0.6); }
+.mark .mark-label { margin: 0 0 2px; }
+.you { z-index: 2; }
 .mark img { width: 26px; height: 26px; filter: drop-shadow(0 1px 1px rgba(43, 33, 64, 0.35)); }
 .mark-label { margin-top: 2px; padding: 0 6px; border-radius: 6px; background: rgba(251, 245, 233, 0.85); font-size: 12px; font-weight: 800; white-space: nowrap; }
 .you-arrow {
@@ -529,6 +537,10 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
   transform: translateY(-50%);
   transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease;
 }
+/* M7: while the ring turns the side names fade, and come back naming the
+   new neighbours once it stops */
+.turn span { transition: opacity 0.16s ease; }
+#menu.turning .turn span { opacity: 0; }
 .turn-left { left: 26px; }
 .turn-right { right: 26px; }
 .turn:hover { transform: translateY(-50%) scale(1.05); }
@@ -561,6 +573,26 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .quick-row .quick.ready .well { transform: none; }
 .quick-row .quick.ready::after { display: none; }
 #menu:not([data-face="select"]) .menu-assign { opacity: 0.55; }
+/* M7: the quick keys answer the pointer and the keyboard, and the one
+   pointed at is described in a card over the foot */
+.quick-row .quick { cursor: default; border-radius: 50%; outline: none; }
+.quick-row .quick .well { transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease; }
+.quick-row .quick:hover .well, .quick-row .quick:focus-visible .well { transform: translateY(-3px) scale(1.08); box-shadow: inset 0 2px 5px rgba(43, 33, 64, 0.28), 0 0 0 3px #fff, 0 0 0 6px var(--sky); }
+#menu:not([data-face="select"]) .menu-assign:hover, #menu:not([data-face="select"]) .menu-assign:focus-within { opacity: 1; }
+/* while a quick key is described, the screen's own line steps aside */
+#menu:has(.quick-info:not([hidden])) .face.front .info { visibility: hidden; }
+.quick-info {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 14px);
+  transform: translateX(-50%);
+  width: min(560px, 86vw);
+  min-height: 0;
+  margin: 0;
+  background: rgba(251, 245, 233, 0.98);
+  box-shadow: 0 0 0 2px var(--rim), 0 10px 26px rgba(20, 12, 32, 0.4);
+  pointer-events: none;
+}
 .menu-close {
   display: flex;
   align-items: center;
@@ -691,6 +723,12 @@ body[data-screen="dialogue"] .hud-toast { opacity: 0; }
 .row-button:hover:not(:disabled), .leave:hover, .back:hover { filter: brightness(1.06); }
 .row-button:active:not(:disabled), .leave:active, .back:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--accent-deep); }
 .row-button:disabled { background: #cfc3ad; box-shadow: 0 3px 0 #b3a68e; color: rgba(43, 33, 64, 0.55); cursor: default; }
+/* M7: an item the merchant will not buy: listed, its price place saying
+   why, its button giving the refusal line */
+.shop-row.kept { background: rgba(43, 33, 64, 0.02); }
+.shop-row.kept .row-price { color: var(--ink-soft); font-weight: 700; font-style: italic; }
+.shop-row.kept .well img { opacity: 0.75; }
+.shop-row.kept .row-button { background: #cfc3ad; box-shadow: 0 3px 0 #b3a68e; color: rgba(43, 33, 64, 0.6); }
 .shop-empty { margin: 0; font-weight: 700; color: var(--ink-soft); }
 .shop-empty:empty, .shop-note:empty { display: none; }
 .shop-note { margin: 0; padding: 10px 16px; border-radius: 14px; background: rgba(217, 119, 74, 0.12); font-weight: 800; color: var(--accent-deep); }
@@ -813,6 +851,49 @@ body[data-screen="paused"] #overlay > .panel { display: contents; }
 #paused h2 { order: 4; }
 #paused table.controls { order: 5; }
 #paused-more table.controls { order: 6; }
+
+/* M7 (R9.86): the keys in two columns, each row a key cap and what it
+   does, so the title and the pause fit a 1280 x 720 window at the same size
+   of type; a key cap never wraps, and its words never touch the words
+   beside it. Both lists share one column layout, so their rows line up. */
+#title table.controls, #title-more table.controls, #paused table.controls, #paused-more table.controls {
+  display: block;
+  columns: 2;
+  column-gap: 30px;
+}
+#title table.controls tbody, #title-more table.controls tbody, #paused table.controls tbody, #paused-more table.controls tbody { display: contents; }
+#title table.controls tr, #title-more table.controls tr, #paused table.controls tr, #paused-more table.controls tr {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  margin-bottom: 7px;
+  break-inside: avoid;
+}
+#title table.controls td, #title-more table.controls td, #paused table.controls td, #paused-more table.controls td { width: auto; padding: 0; }
+#overlay kbd { white-space: nowrap; }
+#title table.controls, #title-more table.controls { width: min(720px, 84vw); box-sizing: border-box; padding: 12px 18px 5px; background: rgba(30, 20, 48, 0.5); backdrop-filter: blur(2px); }
+/* on the title the two lists read as one card over the world */
+#title table.controls { border-radius: 16px 16px 0 0; padding-top: 14px; }
+#title-more table.controls { border-radius: 0 0 16px 16px; padding-bottom: 8px; margin-top: 0; }
+
+/* the pause: the heading and its two buttons on the left, the keys on the
+   right, in one card */
+body[data-screen="paused"] #overlay {
+  display: grid;
+  width: min(1040px, 94vw);
+  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-areas: "head keysh" "resume keys" "set keys" ". keys" ". more";
+  column-gap: 34px;
+  align-items: start;
+}
+#paused h1 { grid-area: head; margin-bottom: 18px; }
+#paused > button { grid-area: resume; }
+#paused-more > button { grid-area: set; }
+#paused h2 { grid-area: keysh; margin: 10px 0 12px; }
+#paused table.controls { grid-area: keys; }
+#paused-more table.controls { grid-area: more; margin-top: 6px; }
 
 /* ----------------------------------------------------- reduced motion */
 

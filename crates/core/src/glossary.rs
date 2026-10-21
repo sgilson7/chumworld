@@ -109,6 +109,80 @@ pub fn parse(markdown: &str) -> Result<Vec<Entry>, GlossaryError> {
     Ok(entries)
 }
 
+/// Every term the glossary defines more than once, with the lines of its
+/// first and second heading (1-based), for the check's message (R6.13).
+pub fn duplicates(markdown: &str) -> Vec<(String, usize, usize)> {
+    let mut seen: Vec<(String, usize)> = Vec::new();
+    let mut out = Vec::new();
+    let mut in_comment = false;
+    for (k, raw) in markdown.lines().enumerate() {
+        let line = raw.trim();
+        if line.contains("<!--") && !line.contains("-->") {
+            in_comment = true;
+        }
+        if in_comment {
+            if line.contains("-->") {
+                in_comment = false;
+            }
+            continue;
+        }
+        if let Some(term) = line.strip_prefix("### ") {
+            let term = term.trim().to_string();
+            match seen.iter().find(|(t, _)| t.eq_ignore_ascii_case(&term)) {
+                Some((_, first)) => out.push((term, *first, k + 1)),
+                None => seen.push((term, k + 1)),
+            }
+        }
+    }
+    out
+}
+
+/// The glossary as the game loads it (M7, R6.13): a term defined twice keeps
+/// its first entry, and an entry with no definition is left out, so a slip
+/// in `GLOSSARY.md` costs a hover hint, not the game. The check
+/// (`parse`, in `cargo test` over `GLOSSARY.md`) still fails on either.
+pub fn load(markdown: &str) -> Vec<Entry> {
+    let mut text = without_comments(markdown);
+    loop {
+        match parse(&text) {
+            Ok(entries) => return entries,
+            Err(e) => {
+                let (GlossaryError::NoDefinition(term) | GlossaryError::Duplicate(term)) = &e;
+                let dup = matches!(e, GlossaryError::Duplicate(_));
+                text = drop_entry(&text, term, dup);
+            }
+        }
+    }
+}
+
+/// The text with one entry for `term` taken out: its last one when `last`,
+/// else its first.
+fn drop_entry(text: &str, term: &str, last: bool) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let heads: Vec<usize> = lines
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| {
+            l.trim()
+                .strip_prefix("### ")
+                .is_some_and(|t| t.trim().eq_ignore_ascii_case(term))
+        })
+        .map(|(k, _)| k)
+        .collect();
+    let Some(&at) = (if last { heads.last() } else { heads.first() }) else {
+        return String::new();
+    };
+    let end = (at + 1..lines.len())
+        .find(|k| lines[*k].trim().starts_with('#'))
+        .unwrap_or(lines.len());
+    lines[..at]
+        .iter()
+        .chain(&lines[end..])
+        .copied()
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,6 +208,24 @@ mod tests {
         let e = parse("### Spout\n\nNot: tap\n").unwrap_err();
         assert_eq!(e, GlossaryError::NoDefinition("Spout".into()));
         assert_eq!(e.message(), "The glossary entry \"Spout\" has no definition.");
+    }
+
+    /// R6.13: the game still loads a glossary with a term defined twice (the
+    /// first entry kept) or an entry left empty (left out); the check names
+    /// the duplicate and both its lines.
+    #[test]
+    fn a_term_defined_twice_still_loads_and_the_check_names_both_lines() {
+        let text = "# G\n\n### Spout\n\nA.\n\n### Line\n\nL.\n\n### spout\n\nB.\n\n### Empty\n\nNot: x\n";
+        assert!(parse(text).is_err());
+        let loaded = load(text);
+        let terms: Vec<&str> = loaded.iter().map(|e| e.term.as_str()).collect();
+        assert_eq!(terms, ["Spout", "Line"]);
+        assert_eq!(loaded[0].definition, "A.");
+        assert_eq!(duplicates(text), vec![("spout".to_string(), 3, 11)]);
+        assert!(
+            duplicates("### A\n\nx\n<!--\n### A\n-->\n").is_empty(),
+            "a comment does not count"
+        );
     }
 
     #[test]

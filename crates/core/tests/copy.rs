@@ -157,6 +157,17 @@ fn glossary_entries() -> Vec<glossary::Entry> {
     glossary::parse(&read("GLOSSARY.md")).unwrap_or_else(|e| panic!("GLOSSARY.md: {}", e.message()))
 }
 
+/// R6.13: each term is defined once. The game would still load (it keeps
+/// the first entry), so this is where a duplicate is caught.
+#[test]
+fn the_glossary_defines_each_term_once() {
+    let twice: Vec<String> = glossary::duplicates(&read("GLOSSARY.md"))
+        .into_iter()
+        .map(|(t, a, b)| format!("\"{t}\" is defined at line {a} and again at line {b}: keep one entry"))
+        .collect();
+    assert!(twice.is_empty(), "GLOSSARY.md:\n{}", twice.join("\n"));
+}
+
 #[test]
 fn every_glossary_entry_is_complete_and_states_no_bare_number() {
     let mut problems = Vec::new();
