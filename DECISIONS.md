@@ -41,3 +41,11 @@ The agent decided: three triage rows. T14, the sprint that builds to triple spee
 > you should also be able to talk to people to get rumors / start quest lines, so you should be able to talk to some people who point out the speedsters outfit, where to get the long sword, boomerang, imbue, etc
 
 The agent decided: triage row T17, built by a new part, "rumours" (`m7-rumours`), on main after the roadside part merged, because the roadside villagers already point the way and become the first rumour-tellers. "The long sword" is read as the sword the bandit leader carries, won in a duel (`data/items.json`: `sword`, route `leader_duel`). Quest lines join the Quest screen; P10's save is told so it can keep them. Journal entry `2026-10-20-t17`.
+
+## 2026-10-21
+
+> override the rule just this once and deploy live
+
+> you do the push
+
+The agent decided: main 7eb7d8e was pushed to GitHub Pages (gh-pages d1d4342) with `./scripts/check.sh` steps 1–8 passed and step 9, the browser check, still running. The waiver is for this deploy only: CW-14 (publish after `check.sh` passes) stands for every later one. The browser check's result is recorded when it finishes.
