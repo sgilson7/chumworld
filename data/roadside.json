@@ -1,0 +1,107 @@
+{
+  "_note": "T12 (M7 roadside, crates/core/src/roadside.rs): what stands beside the ways out of the village a player most likely runs out by. A side is a villager's flee line in data/story.json (the raid comes from the south, the villagers run north-west, north-east, north and west). Each stop is anchored by its distance from the village centre (radial, metres) on that side's path and an offset to the right of the path (metres, walking outward; negative is left): the path is the road, lane or trail from data/places.json that crosses the 250 m line within match_deg of the side's bearing, and the villager's flee line carried straight on where no road leaves that way. So the stops follow the roads the land part lays (T6) without being moved by hand. Names stay descriptive (CW-20).",
+  "match_deg": 30,
+  "path_to_m": 900,
+  "_keep_clear": "room left round a thing another part places: the travel part's waystone on the north lane (P6, T11)",
+  "keep_clear": [{ "at": [2000, 2540], "m": 20 }],
+  "footprints_m": {
+    "wreck": [3, 3],
+    "wreck_burnt": [3, 3],
+    "watchtower": [4, 12],
+    "tor": [8, 12],
+    "lone_tree": [4, 4]
+  },
+  "sides": [
+    {
+      "side": "north",
+      "villager": 2,
+      "stops": [
+        {
+          "id": "north_cart",
+          "kind": "cart",
+          "at_m": 335,
+          "off_m": -8,
+          "gives": [{ "coins": 6 }, { "item": "bandage" }]
+        },
+        { "id": "north_tree", "kind": "tree", "at_m": 440, "off_m": 16 },
+        {
+          "id": "north_villager",
+          "kind": "villager",
+          "at_m": 446,
+          "off_m": 6,
+          "says": ["roadside_north_1", "roadside_north_2"]
+        }
+      ]
+    },
+    {
+      "side": "north_west",
+      "villager": 0,
+      "stops": [
+        { "id": "north_west_tower", "kind": "tower", "at_m": 300, "off_m": 14 },
+        {
+          "id": "north_west_villager",
+          "kind": "villager",
+          "at_m": 470,
+          "off_m": -6,
+          "says": ["roadside_north_west_1", "roadside_north_west_2"]
+        },
+        {
+          "id": "north_west_cart",
+          "kind": "cart",
+          "at_m": 640,
+          "off_m": 9,
+          "gives": [{ "item": "rock", "count": 3 }, { "coins": 8 }]
+        }
+      ]
+    },
+    {
+      "side": "north_east",
+      "villager": 1,
+      "stops": [
+        { "id": "north_east_well", "kind": "well", "at_m": 310, "off_m": -10 },
+        {
+          "id": "north_east_cart",
+          "kind": "burning_cart",
+          "at_m": 445,
+          "off_m": 10,
+          "gives": [{ "item": "knife", "count": 2 }]
+        },
+        { "id": "north_east_orc", "kind": "straggler", "at_m": 450, "off_m": 6, "coins": 10 },
+        {
+          "id": "north_east_villager",
+          "kind": "villager",
+          "at_m": 620,
+          "off_m": -7,
+          "says": ["roadside_north_east_1", "roadside_north_east_2"]
+        }
+      ]
+    },
+    {
+      "side": "west",
+      "villager": 3,
+      "stops": [
+        {
+          "id": "west_rocks",
+          "kind": "rocks",
+          "at_m": 315,
+          "off_m": 10,
+          "gives": [{ "item": "rock", "count": 3 }]
+        },
+        {
+          "id": "west_cart",
+          "kind": "cart",
+          "at_m": 455,
+          "off_m": -8,
+          "gives": [{ "coins": 6 }, { "item": "rock", "count": 3 }]
+        },
+        {
+          "id": "west_villager",
+          "kind": "villager",
+          "at_m": 600,
+          "off_m": 6,
+          "says": ["roadside_west_1", "roadside_west_2"]
+        }
+      ]
+    }
+  ]
+}

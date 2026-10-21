@@ -67,3 +67,5 @@ pub mod swing;
 pub mod travel;
 // M7 polish (P4): hits read on the body
 pub mod wounds;
+// M7 roadside (T12)
+pub mod roadside;
