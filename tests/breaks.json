@@ -4954,5 +4954,26 @@
     "find": "    out.extend(crate::wanderers::beaten_keys(w));",
     "replace": "",
     "test": "a_beaten_encounter_stays_beaten_across_a_save_and_a_load"
+  },
+  {
+    "name": "M7 save (T16 hold): a staged world writes itself",
+    "file": "crates/core/src/save.rs",
+    "find": "    if w.save.staged {\n        return false;\n    }\n    put(w)",
+    "replace": "    put(w)",
+    "test": "a_game_set_up_from_the_address_never_saves_itself_and_leaves_the_browser_s_save_alone"
+  },
+  {
+    "name": "M7 save (T16 hold): a staged game reads the browser's save",
+    "file": "crates/core/src/save.rs",
+    "find": "            if g.saves.staged || value.trim().is_empty() {",
+    "replace": "            if value.trim().is_empty() {",
+    "test": "a_game_set_up_from_the_address_never_saves_itself_and_leaves_the_browser_s_save_alone"
+  },
+  {
+    "name": "M7 save (T16 hold): a rebuilt world loses the hold",
+    "file": "crates/core/src/game.rs",
+    "find": "                    self.world.save.staged = self.saves.staged;\n",
+    "replace": "",
+    "test": "a_game_set_up_from_the_address_never_saves_itself_and_leaves_the_browser_s_save_alone"
   }
 ]

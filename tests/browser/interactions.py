@@ -339,6 +339,10 @@ def menus(page, check, engine, base):
     page.evaluate(WAIT_FRAMES, [2, 0])
     probe = (page.get_attribute("body", "data-probe") or "").split()
     check(len(probe) == 2 and probe[0] == "0" and int(probe[1]) > 100, f"running and turning on the meadow, no grass, tree or rock within 25 m is ever left undrawn (most undrawn in a frame, chunks looked at: {probe})")
+    # M7 save (T16): that run, past the opening, crossed areas, but a game set
+    # up from the address never saves itself, so a test link leaves a
+    # reader's own save as it was and every page after this opens on Play
+    check(page.evaluate("() => Object.keys(localStorage).length") == 0, "a game set up from the address leaves no save in the browser")
 
     # M6: the leader's volley staged from the address (the core's
     # magic.leader, then magic.freeze:150: frozen 150 ticks into play), the

@@ -1216,6 +1216,10 @@ pub struct State {
     pub beaten: BTreeSet<String>,
     /// drops laid by stable key: the pickup's index and its key
     pub keyed: Vec<(usize, String)>,
+    /// set up from the address for a test (`save.staged`): the game never
+    /// saves itself or at a save point, so a test link leaves a reader's
+    /// own save as it was (T16); only the test act `save.now` writes
+    pub staged: bool,
 }
 
 /// Why a save may not be written now, as a string key.
@@ -1240,9 +1244,18 @@ pub fn refusal(w: &World) -> Option<&'static str> {
 }
 
 /// Writes a save of the world as it stands: its progress becomes the last
-/// save and the page is told to store it. A save the core would itself
-/// refuse (a world staged by test acts) is not written.
+/// save and the page is told to store it. A world set up from the address
+/// is not saved, and a save the core would itself refuse (a world staged by
+/// test acts) is not written.
 pub fn write(w: &mut World) -> bool {
+    if w.save.staged {
+        return false;
+    }
+    put(w)
+}
+
+/// `write` without the address's hold: the test act `save.now`.
+fn put(w: &mut World) -> bool {
     let p = progress(w);
     if read(&text(&p)).is_err() {
         return false;
@@ -1339,9 +1352,10 @@ pub fn fall(w: &mut World) -> bool {
     if read(&text(&p)).is_err() {
         p = last;
     }
-    let seq = w.save.seq;
+    let (seq, staged) = (w.save.seq, w.save.staged);
     *w = world(&p);
     w.save.seq = seq;
+    w.save.staged = staged;
     write(w);
     story::banner(w, "save_came_to");
     true
@@ -1370,6 +1384,9 @@ pub fn stamp(w: &World) -> (u32, bool) {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Shelf {
     pub stored: Option<Progress>,
+    /// the game was set up from the address for a test: the browser's save
+    /// is left unread and unwritten (`save.staged`, T16)
+    pub staged: bool,
     pub note: Option<String>,
     pub confirm: bool,
     pub export: u32,
@@ -1468,8 +1485,15 @@ pub fn panels(g: &Game, out: &mut Vec<Panel>) {
 pub fn act(g: &mut Game, name: &str, value: &str) -> Result<(), String> {
     let s = g.strings.clone();
     match name {
+        // the page: the address set this game up for a test (?go=, ?act=, a
+        // test duel). It keeps the reader's save out of it, both ways
+        "save.staged" => {
+            g.saves.staged = true;
+            g.saves.stored = None;
+            g.world.save.staged = true;
+        }
         "save.stored" => {
-            if value.trim().is_empty() {
+            if g.saves.staged || value.trim().is_empty() {
                 return Ok(());
             }
             match read(value) {
@@ -1538,7 +1562,7 @@ pub fn act(g: &mut Game, name: &str, value: &str) -> Result<(), String> {
                 return Err(s.get(r));
             }
             g.world.save.on = true;
-            if !write(&mut g.world) {
+            if !put(&mut g.world) {
                 return Err(s.get("save_refuse_staged"));
             }
         }
@@ -2306,6 +2330,41 @@ mod tests {
             .as_deref()
             .unwrap_or("")
             .contains("changed since it was written"));
+    }
+
+    #[test]
+    fn a_game_set_up_from_the_address_never_saves_itself_and_leaves_the_browser_s_save_alone() {
+        // in the world: no autosave after two minutes, and E at a post says why not
+        let mut w = saved();
+        w.save.staged = true;
+        let seq = w.save.seq;
+        idle(&mut w, spec().autosave_ticks + 1);
+        assert_eq!(w.save.seq, seq, "no autosave");
+        let k = points() - spec().posts.len();
+        let (foot, yaw) = foot(&w, k).unwrap();
+        w.player = crate::player::Body::new(foot.add(facing(yaw, 0).scale(ONE * 15 / 10)), 0);
+        use_point(&mut w, k);
+        assert_eq!(w.save.seq, seq, "no save at a post");
+        assert_eq!(
+            w.story.banner.as_ref().map(|b| b.key.as_str()),
+            Some("save_refuse_staged")
+        );
+        // the test act's own write still saves (`save.now`)
+        assert!(put(&mut w));
+        assert_eq!(w.save.seq, seq + 1);
+        // in the game: told first, the stored save is left unread, the title
+        // offers Play, and a world rebuilt keeps the hold from the next tick
+        let mut g = crate::game::tests::game();
+        g.act("save.staged", "").unwrap();
+        g.act("save.stored", &text(&some_progress())).unwrap();
+        assert!(g.saves.stored.is_none());
+        assert_eq!(crate::api::ui(&g).panels[0].actions[0].label, "Play");
+        g.act("screen.show", "play").unwrap();
+        g.world = story::opening(9);
+        assert!(!g.world.save.staged);
+        g.advance(0, 0, 0, 0, 0);
+        g.advance(100_000, 0, 0, 0, 0);
+        assert!(g.world.save.staged, "the hold is put back on a rebuilt world");
     }
 
     #[test]

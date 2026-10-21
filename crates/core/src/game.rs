@@ -251,6 +251,8 @@ impl Game {
                     } else {
                         Mouse::default()
                     };
+                    // M7 save: a world rebuilt (the dream) keeps the address's hold
+                    self.world.save.staged = self.saves.staged;
                     self.world.step(&Input::from_page(*b, m));
                     self.cues.extend(self.world.sound.cues.iter().copied()); // M7
                     self.play_ticks += 1;

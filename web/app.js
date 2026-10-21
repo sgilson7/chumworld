@@ -221,7 +221,12 @@ async function main() {
     if (ui && ui.capture && !input.engaged()) input.engage();
   });
 
-  // M7 save: the save this browser keeps, read back through the core
+  // M7 save: a game set up from the address for a test (a place, test acts,
+  // a test duel or setting) is told so first, and the core keeps the
+  // reader's own save out of it; otherwise the save this browser keeps is
+  // read back through the core
+  const testing = ["go", "act", "duel", "foe", "gap", "speedster", "sticks"].some((k) => new URLSearchParams(location.search).has(k));
+  if (testing) act("save.staged", "");
   act("save.stored", save.stored());
   if (lookSpeed) act("look.speed", lookSpeed);
   if (goTo) act("places.go", goTo);
