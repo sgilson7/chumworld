@@ -48,6 +48,8 @@ pub struct ScatterSpec {
     pub tuft_chunk_m: i32,
     pub tuft_cell_cm: i32,
     pub tuft_pct: i32,
+    pub road_m: [i32; 2],
+    pub road_chunk_m: i32,
     pub extent_m: [i32; 2],
     pub forest_cell_m: i32,
     pub forest_pct: i32,
@@ -81,7 +83,9 @@ pub const ROCK_INK: u8 = 5;
 pub const GRASS: u8 = 6;
 /// M7: chunky tufts of grass, to the middle distance (R9.44)
 pub const TUFT: u8 = 7;
-pub const PARTS: [u8; 8] = [WHOLE, WHOLE_INK, CONE, CLUSTER, ROCK, ROCK_INK, GRASS, TUFT];
+/// M7: the roads' surface, with its ruts, crown and soft edges (R9.46)
+pub const ROAD: u8 = 8;
+pub const PARTS: [u8; 9] = [WHOLE, WHOLE_INK, CONE, CLUSTER, ROCK, ROCK_INK, GRASS, TUFT, ROAD];
 
 /// Never: a distance past any the land reaches, metres.
 const NEVER: i32 = 1 << 20;
@@ -100,6 +104,7 @@ pub fn band(sp: &ScatterSpec, part: u8) -> [i32; 4] {
         ROCK | ROCK_INK => near(sp.rock_m),
         GRASS => near(sp.grass_m),
         TUFT => sp.tuft_m,
+        ROAD => near(sp.road_m),
         _ => [NEVER, NEVER, NEVER, NEVER],
     }
 }
@@ -112,7 +117,8 @@ pub fn band_slot(part: u8) -> usize {
         CLUSTER => 2,
         ROCK | ROCK_INK => 3,
         GRASS => 4,
-        _ => 5,
+        TUFT => 5,
+        _ => 6,
     }
 }
 
@@ -175,7 +181,7 @@ pub fn uniform_values(sp: &ScatterSpec) -> Vec<i32> {
         }
     }
     out.push(SINK);
-    out.extend([band_value(WHOLE), (BANDS as i32 / 2) * ONE]);
+    out.extend([band_value(WHOLE), 4 * ONE, 6 * ONE]);
     out
 }
 
@@ -184,7 +190,7 @@ pub const UNIFORMS: &[(&str, &str, usize)] = &[
     ("uBands", "uniformMatrix4fv", 16),
     ("uBands2", "uniformMatrix4fv", 16),
     ("uSink", "uniform1fv", 1),
-    ("uBandKey", "uniform2fv", 2),
+    ("uBandKey", "uniform3fv", 3),
 ];
 
 /// How deep grass and tufts sink as they fade (the second matrix's bands):
@@ -197,7 +203,7 @@ pub fn grown(part: u8) -> i64 {
     let m: i64 = match part {
         WHOLE | WHOLE_INK | CONE => 5,
         CLUSTER => 16,
-        ROCK | ROCK_INK => 4,
+        ROCK | ROCK_INK | ROAD => 4,
         _ => 1,
     };
     m * ONE as i64
@@ -544,6 +550,125 @@ fn nl_up(n: V3, k: Fx) -> V3 {
     local_normal(n, k)
 }
 
+/// A road's surface across, from verge to verge: each point's share of the
+/// half width out from the middle (in hundredths), how
+/// far it stands over the ground (mm), and what it is: 0 the verge (the
+/// ground's own colour), 1 the edge (half dirt, half ground), 2 dirt, 3 a
+/// rut (dark, and sunk), 4 the crown (dirt with a little grass).
+const ACROSS: [(i32, i32, u8); 11] = [
+    (-100, 40, 0),
+    (-80, 40, 1),
+    (-62, 40, 2),
+    (-50, 20, 3),
+    (-38, 40, 2),
+    (0, 40, 4),
+    (38, 40, 2),
+    (50, 20, 3),
+    (62, 40, 2),
+    (80, 40, 1),
+    (100, 40, 0),
+];
+
+/// The roads' surfaces in road chunk (i, j) (R9.46): a strip along each
+/// road, lane and trail a metre at a time, as wide as the ground is
+/// flattened level across under it, laid 4 cm over it (2 cm in the ruts),
+/// whose edge takes the ground's own colour so it is soft; two ruts where the wheels
+/// run, dark and sunk, a crown between them with a little grass in it.
+/// A strip's metre belongs to the chunk its start lies in, so the chunks
+/// meet with no gap and no overlap. None over the river: the bridge spans it.
+fn road_surface(land: &Land, i: i32, j: i32, b: &mut Bake) {
+    let side = side_of(&land.spec.scatter, ROAD) as i64;
+    let (x0, z0) = (i as i64 * side, j as i64 * side);
+    let inside = |p: (i64, i64)| p.0 >= x0 && p.0 < x0 + side && p.1 >= z0 && p.1 < z0 + side;
+    let (dirt, dark) = land.road_paint();
+    let o = ONE as i64;
+    let sc = land.scope(
+        (x0 - 8 * o) as Fx,
+        (z0 - 8 * o) as Fx,
+        (x0 + side + 8 * o) as Fx,
+        (z0 + side + 8 * o) as Fx,
+    );
+    for road in &land.layout.roads {
+        let half = road.half_cm as i64 * o / 100;
+        // the line as points a metre apart along it
+        let mut pts: Vec<(i64, i64)> = Vec::new();
+        for k in 0..road.line.len().saturating_sub(1) {
+            let (a, c) = (road.line[k], road.line[k + 1]);
+            let (dx, dz) = ((c[0] - a[0]) as i64, (c[1] - a[1]) as i64);
+            let len = crate::terrain::root((dx * dx + dz * dz) as u64) as i64;
+            for m in 0..len {
+                pts.push((
+                    a[0] as i64 * o + dx * o * m / len,
+                    a[1] as i64 * o + dz * o * m / len,
+                ));
+            }
+        }
+        if let Some(l) = road.line.last() {
+            pts.push((l[0] as i64 * o, l[1] as i64 * o));
+        }
+        // the way across at each point: square to the line two metres
+        // either side, so a bend turns the strip smoothly
+        let across = |k: usize| {
+            let (a, c) = (pts[k.saturating_sub(2)], pts[(k + 2).min(pts.len() - 1)]);
+            let d = v3((c.0 - a.0) as Fx, 0, (c.1 - a.1) as Fx).norm();
+            v3(-d.z, 0, d.x)
+        };
+        let row = |k: usize| -> Vec<(V3, Rgb)> {
+            let (cx, cz) = pts[k];
+            let side = across(k);
+            ACROSS
+                .iter()
+                .map(|&(share, lift_mm, what)| {
+                    let off = half * share as i64 / 100;
+                    let x = (cx + side.x as i64 * off / o) as Fx;
+                    let z = (cz + side.z as i64 * off / o) as Fx;
+                    let g = land.ground(x, z);
+                    let ground = land.colour_in(x, z, g, 0, 2 * ONE, &sc, land.near(x, z, &sc));
+                    let patch = crate::terrain::noise(x, z, 9, land.spec.seed ^ 0x5d5d);
+                    let soil = crate::look::mix(dirt, dark, ((patch + ONE as i64) * 3 / 10) as Fx);
+                    let c = match what {
+                        0 => ground,
+                        1 => crate::look::mix(ground, soil, ONE / 2),
+                        3 => crate::look::mix(soil, dark, ONE * 6 / 10),
+                        4 => crate::look::mix(soil, ground, ONE / 4),
+                        _ => soil,
+                    };
+                    (v3(x, g + lift_mm * ONE / 1000, z), c)
+                })
+                .collect()
+        };
+        for k in 0..pts.len().saturating_sub(1) {
+            if !inside(pts[k])
+                || land.over_river(pts[k].0, pts[k].1)
+                || land.over_river(pts[k + 1].0, pts[k + 1].1)
+            {
+                continue;
+            }
+            let (r0, r1) = (row(k), row(k + 1));
+            for q in 0..ACROSS.len() - 1 {
+                let (a, c0) = r0[q];
+                let (bq, c1) = r0[q + 1];
+                let (cq, c2) = r1[q + 1];
+                let (d, c3) = r1[q];
+                let mean = |cs: [Rgb; 3]| [0, 1, 2].map(|k| (cs[0][k] + cs[1][k] + cs[2][k]) / 3);
+                // facing up, counter-clockwise from above, whichever way the
+                // road runs: the turn from one edge to the next decides
+                for (p, cs) in [([a, bq, cq], [c0, c1, c2]), ([a, cq, d], [c0, c2, c3])] {
+                    let n = crate::terrain::facet_normal(p[0], p[1], p[2]);
+                    let (p, n) = if n.y < 0 {
+                        ([p[0], p[2], p[1]], n.neg())
+                    } else {
+                        (p, n)
+                    };
+                    let nl = local_normal(n, b.k);
+                    let lp = [b.local(p[0]), b.local(p[1]), b.local(p[2])];
+                    facet(&mut b.out, lp, nl, mean(cs));
+                }
+            }
+        }
+    }
+}
+
 /// A chunk's middle, at the height of the ground there, and the power of two
 /// its meshes' x and z are divided by.
 fn frame_of(land: &Land, x0: Fx, z0: Fx, side: Fx) -> (V3, Fx) {
@@ -783,6 +908,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                 }
             }
         }
+        ROAD => road_surface(land, i, j, &mut b),
         _ => {}
     }
     if b.out.is_empty() {
@@ -806,6 +932,7 @@ pub fn side_of(sp: &ScatterSpec, part: u8) -> Fx {
     let m = match part {
         GRASS => sp.grass_chunk_m,
         TUFT => sp.tuft_chunk_m,
+        ROAD => sp.road_chunk_m,
         _ => sp.chunk_m,
     };
     m * ONE
@@ -906,7 +1033,7 @@ mod tests {
     fn the_shader_fades_each_triangle_through_the_core_s_band() {
         let sp = &land().spec.scatter;
         let u = uniform_values(sp);
-        assert_eq!(u.len(), BANDS * 4 + 3);
+        assert_eq!(u.len(), BANDS * 4 + 4);
         // grass's band in slot 4: from −1 m (whole from the eye), 28 to 38 m
         assert_eq!(&u[16..20], &[-ONE, -ONE, int(28), int(38)]);
         assert_eq!(band_value(GRASS), 6 * ONE);
@@ -914,7 +1041,7 @@ mod tests {
         assert!(vert.contains("return go > 0.0 ? go - 1.0 : come;"));
         assert!(vert.contains("float f = k >= 0.0 ? band(length((w - uEye).xz), k) : iD.a;"));
         // the first band's value, 2, and four bands a matrix
-        assert_eq!(&u[BANDS * 4 + 1..], &[2 * ONE, 4 * ONE]);
+        assert_eq!(&u[BANDS * 4 + 1..], &[2 * ONE, 4 * ONE, 6 * ONE]);
         assert!(vert.contains("w.y -= (1.0 - (f >= 0.0 ? f : -f)) * uSink;"));
         // grass and tufts take the second matrix's slots, which sink
         assert!(band_slot(GRASS) >= 4 && band_slot(TUFT) >= 4 && band_slot(ROCK) < 4);

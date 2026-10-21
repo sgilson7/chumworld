@@ -2728,5 +2728,19 @@
     "find": "pub const GLANCE_PCT: i32 = 70;",
     "replace": "pub const GLANCE_PCT: i32 = 100;",
     "test": "a_rock_glances_off_a_wall_keeping_most_of_its_speed_along_it"
+  },
+  {
+    "name": "M7 land: roads follow the land's bumps, not a smoothed profile",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                h[k] = sum / count.max(1);",
+    "replace": "                h[k] = prev[k] + 0 * (sum / count.max(1));",
+    "test": "a_road_s_middle_never_rises_or_falls_more_than_its_grade"
+  },
+  {
+    "name": "M7 land: a lane meets the road with a step",
+    "file": "crates/core/src/terrain.rs",
+    "find": "                    raw[k] = self.road_level(o, t);\n                    pinned[k] = true;",
+    "replace": "                    let _ = (o, t);",
+    "test": "a_road_s_middle_never_rises_or_falls_more_than_its_grade"
   }
 ]

@@ -248,17 +248,29 @@ struct Seg {
     /// the bounding box, grown by the half width and the shoulder
     lo: (i64, i64),
     hi: (i64, i64),
+    /// M7: which road it is part of, and how far along that road it starts
+    /// and how long it is (Q16 metres): where on the road's smoothed
+    /// profile it lies (`Land::profiles`)
+    road: usize,
+    s0: i64,
+    len: i64,
 }
 
 impl Seg {
     /// The distance to the segment and its nearest point.
     fn nearest(&self, x: i64, z: i64) -> (i64, (i64, i64)) {
+        let (d, p, _) = self.nearest_t(x, z);
+        (d, p)
+    }
+
+    /// The same, and how far along it (Q16 share).
+    fn nearest_t(&self, x: i64, z: i64) -> (i64, (i64, i64), i64) {
         let (dx, dz) = (self.b.0 - self.a.0, self.b.1 - self.a.1);
         let l2 = ((dx >> 8) * (dx >> 8) + (dz >> 8) * (dz >> 8)).max(1);
         let dot = ((x - self.a.0) >> 8) * (dx >> 8) + ((z - self.a.1) >> 8) * (dz >> 8);
         let t = (dot * O / l2).clamp(0, O);
         let p = (self.a.0 + dx * t / O, self.a.1 + dz * t / O);
-        (hypot(x - p.0, z - p.1), p)
+        (hypot(x - p.0, z - p.1), p, t)
     }
 }
 
@@ -368,6 +380,9 @@ pub struct Land {
     plateaus: Vec<Plateau>,
     ponds: Vec<Pond>,
     fields: Vec<Field>,
+    /// M7: each road's height along it, a station every `PROFILE_STEP`,
+    /// smoothed (R9.46): what it is flattened to across
+    profiles: Vec<Vec<i64>>,
     /// a centre and a radius with no trees
     pub clearings: Vec<(V3, Fx)>,
     /// how far from the river's centreline its valley reaches, at the most
@@ -391,7 +406,13 @@ impl PartialEq for Land {
 impl Eq for Land {}
 
 /// The road's shoulder: how far past its edge it blends back to the land.
-const SHOULDER: i64 = 2 * O;
+const SHOULDER: i64 = 3 * O;
+/// A road's profile: a station this often along it, and the running mean's
+/// reach either way, in stations (M7, R9.46).
+const PROFILE_STEP: i64 = 2 * O;
+const PROFILE_REACH: usize = 8;
+/// A road's crown: its middle stands its half width over this over its edges.
+const CROWN: i64 = 40;
 /// How far the bank and its blend can reach past the water's edge, beyond
 /// which the river cannot change the land.
 const BANK_MAX: i64 = 30 * O;
@@ -450,6 +471,7 @@ impl Land {
             plateaus: Vec::new(),
             ponds: Vec::new(),
             fields: Vec::new(),
+            profiles: Vec::new(),
             clearings: Vec::new(),
             reach,
             zero: 0,
@@ -510,8 +532,9 @@ impl Land {
                 });
             }
         }
-        for r in &layout.roads {
+        for (ri, r) in layout.roads.iter().enumerate() {
             let half = r.half_cm as i64 * O / 100;
+            let mut s0 = 0;
             for k in 0..r.line.len().saturating_sub(1) {
                 let (a, b) = (
                     (m(r.line[k][0]), m(r.line[k][1])),
@@ -532,8 +555,17 @@ impl Land {
                     wet,
                     lo: (a.0.min(b.0) - g, a.1.min(b.1) - g),
                     hi: (a.0.max(b.0) + g, a.1.max(b.1) + g),
+                    road: ri,
+                    s0,
+                    len,
                 });
+                s0 += len;
             }
+        }
+        // each in turn, so a road that joins an earlier one meets it level
+        for ri in 0..layout.roads.len() {
+            let p = self.profile(ri);
+            self.profiles.push(p);
         }
         for f in &layout.fields {
             let yaw = fx::deg(f.yaw_deg);
@@ -809,6 +841,116 @@ impl Land {
         h
     }
 
+    /// Road `ri`'s height along it (R9.46): the land under its line (the
+    /// river's valley and the plateaus in it), a station every
+    /// `PROFILE_STEP`, smoothed by three passes of a running mean
+    /// `PROFILE_REACH` stations either way, so it rises and falls with the
+    /// land's swells but carries none of its small bumps and hollows; a
+    /// station over the river's banks (where the bridge spans) keeps the
+    /// land's own height and takes no part in its neighbours' means.
+    fn profile(&self, ri: usize) -> Vec<i64> {
+        let segs: Vec<&Seg> = self.roads.iter().filter(|s| s.road == ri).collect();
+        let total: i64 = segs.iter().map(|s| s.len).sum();
+        let n = (total / PROFILE_STEP) as usize + 2;
+        let all = self.scope_all();
+        let mut raw = Vec::with_capacity(n);
+        let mut wet = Vec::with_capacity(n);
+        for k in 0..n {
+            let at = (k as i64 * PROFILE_STEP).min(total);
+            let s = segs.iter().find(|s| at <= s.s0 + s.len).or(segs.last()).copied();
+            let Some(s) = s else {
+                raw.push(0);
+                wet.push(false);
+                continue;
+            };
+            let t = ((at - s.s0) * O / s.len.max(1)).clamp(0, O);
+            let (x, z) = (s.a.0 + (s.b.0 - s.a.0) * t / O, s.a.1 + (s.b.1 - s.a.1) * t / O);
+            raw.push(self.pre(x as Fx, z as Fx, &all));
+            wet.push(s.wet && self.over_river(x, z));
+        }
+        // an end that meets an earlier road is pinned to that road's level
+        let mut pinned = vec![false; n];
+        for k in [0, n - 1] {
+            let at = (k as i64 * PROFILE_STEP).min(total);
+            let Some(s) = segs.iter().find(|s| at <= s.s0 + s.len).or(segs.last()) else {
+                continue;
+            };
+            let t = ((at - s.s0) * O / s.len.max(1)).clamp(0, O);
+            let (x, z) = (s.a.0 + (s.b.0 - s.a.0) * t / O, s.a.1 + (s.b.1 - s.a.1) * t / O);
+            let earlier = self
+                .roads
+                .iter()
+                .filter(|o| o.road < ri)
+                .map(|o| (o.nearest_t(x, z), o))
+                .filter(|((d, _, _), o)| *d <= o.half + O)
+                .min_by_key(|((d, _, _), _)| *d);
+            if let Some(((_, _, t), o)) = earlier {
+                if !wet[k] {
+                    raw[k] = self.road_level(o, t);
+                    pinned[k] = true;
+                }
+            }
+        }
+        let mut h = raw.clone();
+        for _ in 0..3 {
+            let prev = h.clone();
+            for k in 0..n {
+                if wet[k] || pinned[k] {
+                    continue;
+                }
+                let (mut sum, mut count) = (0i64, 0i64);
+                for q in k.saturating_sub(PROFILE_REACH)..(k + PROFILE_REACH + 1).min(n) {
+                    if !wet[q] {
+                        sum += prev[q];
+                        count += 1;
+                    }
+                }
+                h[k] = sum / count.max(1);
+            }
+        }
+        // and eased onto the pin over the first `PROFILE_REACH` stations,
+        // so the two roads meet level and with no step
+        for (end, pin) in [(0usize, pinned[0]), (n - 1, pinned[n - 1])] {
+            if !pin {
+                continue;
+            }
+            for q in 1..PROFILE_REACH.min(n) {
+                let k = if end == 0 { q } else { n - 1 - q };
+                if wet[k] {
+                    break;
+                }
+                let t = sstep(0, PROFILE_REACH as i64 * O, q as i64 * O);
+                h[k] = lerp(h[end], h[k], t);
+            }
+        }
+        h
+    }
+
+    /// The roads' dirt and its darker patches and ruts.
+    pub fn road_paint(&self) -> (Rgb, Rgb) {
+        (self.paint.road, self.paint.road_dark)
+    }
+
+    /// Whether the road's line at (x, z) is over the river's water and
+    /// banks, where the bridge spans it and the road is not flattened.
+    pub fn over_river(&self, x: i64, z: i64) -> bool {
+        self.river
+            .near(x as Fx, z as Fx, self.reach)
+            .map(|n| (n.d as i64) < n.half as i64 + BANK_MAX / 2 + 3 * O)
+            .unwrap_or(false)
+    }
+
+    /// The smoothed height of segment `s`'s road `t` of the way along it.
+    fn road_level(&self, s: &Seg, t: i64) -> i64 {
+        let prof = &self.profiles[s.road];
+        let at = s.s0 + qmul(s.len, t);
+        let k = (at / PROFILE_STEP) as usize;
+        let f = at % PROFILE_STEP * O / PROFILE_STEP;
+        let a = prof.get(k).or(prof.last()).copied().unwrap_or(0);
+        let b = prof.get(k + 1).or(prof.last()).copied().unwrap_or(a);
+        lerp(a, b, f)
+    }
+
     /// Everything but the footprints.
     fn before_flats(&self, x: Fx, z: Fx, sc: &Scope, near: Option<Near>) -> i64 {
         let mut h = self.pre_near(x, z, sc, near);
@@ -818,7 +960,7 @@ impl Land {
             if xi < s.lo.0 || xi > s.hi.0 || zi < s.lo.1 || zi > s.hi.1 {
                 continue;
             }
-            let (d, p) = s.nearest(xi, zi);
+            let (d, p, t) = s.nearest_t(xi, zi);
             if d >= s.half + SHOULDER {
                 continue;
             }
@@ -832,7 +974,10 @@ impl Land {
             if over_river {
                 continue;
             }
-            let level = self.pre(p.0 as Fx, p.1 as Fx, sc);
+            // a gentle crown: the middle a fortieth of the half width over
+            // the edges, so rain would run off (R9.46)
+            let u = (d * O / s.half.max(1)).min(O);
+            let level = self.road_level(s, t) + qmul(s.half / CROWN, O - qmul(u, u));
             h = lerp(h, level, O - sstep(s.half, s.half + SHOULDER, d));
         }
         h
@@ -1082,6 +1227,10 @@ impl Land {
         // the roads, lanes and trails: dirt, patchy
         let (rd, rh) = self.road_distance(x, z, sc);
         if rh > 0 {
+            // on the finest level the road's own surface is drawn over it
+            // near (`scatter::ROAD`): the ground's dirt then stays inside
+            // the road's edges, so none shows past them in jagged facets
+            let rh = if level == 0 { rh - cell as Fx / 2 } else { rh };
             let cov = cover(rd as i64, rh as i64);
             if cov > 0 {
                 let patch = noise01(x, z, 11, seed ^ 0x5d5d);
@@ -1411,8 +1560,9 @@ pub(crate) mod tests {
         let l = land();
         let s = crate::world::START;
         assert_eq!(l.ground(s.x, s.z), 0);
-        // flat within its first radius, 90 m
-        for (dx, dz) in [(80, 0), (0, -80), (-60, 50)] {
+        // flat within its first radius, 90 m (beside the lane north, whose
+        // crown stands 4 cm over it since M7, R9.46)
+        for (dx, dz) in [(80, 0), (12, -80), (-60, 50)] {
             let (x, z) = (s.x + int(dx), s.z + int(dz));
             assert!(
                 l.height(x, z).abs() < ONE / 100,
@@ -1574,6 +1724,57 @@ pub(crate) mod tests {
                 "({dx}, {dz})"
             );
         }
+    }
+
+    /// R9.46: along the middle of every road and lane, a metre at a time,
+    /// the ground never rises or falls by more than 8 cm (an 8% grade), nor
+    /// along a trail by more than 30 cm (the trail up the trainer's hill
+    /// climbs about 25 m in 190 m, 13% on the mean); the bridge's span
+    /// over the river's banks is the bridge's, not the road's. Where the
+    /// lane meets the road at the crossroads the two meet level: no step of
+    /// a centimetre between the lane's last metre and the road.
+    #[test]
+    fn a_road_s_middle_never_rises_or_falls_more_than_its_grade() {
+        let l = land();
+        let mut checked = 0;
+        for r in &l.layout.roads {
+            let most = if r.kind == "trail" { 30 } else { 8 };
+            for k in 0..r.line.len() - 1 {
+                let (a, b) = (r.line[k], r.line[k + 1]);
+                let (dx, dz) = ((b[0] - a[0]) as i64, (b[1] - a[1]) as i64);
+                let len = root((dx * dx + dz * dz) as u64) as i64;
+                let mut prev: Option<Fx> = None;
+                for m in 0..=len {
+                    let x = (a[0] as i64 * O + dx * O * m / len) as Fx;
+                    let z = (a[1] as i64 * O + dz * O * m / len) as Fx;
+                    // the walkable square's roads; beyond it the road runs on
+                    // into the hills as scenery
+                    let inside = (0..=int(4000)).contains(&x) && (0..=int(4000)).contains(&z);
+                    if !inside || l.over_river(x as i64, z as i64) {
+                        prev = None;
+                        continue;
+                    }
+                    let h = l.ground(x, z);
+                    if let Some(p) = prev {
+                        assert!(
+                            ((h - p).abs() as i64) * 100 <= most * O,
+                            "the {} at ({}, {}): {} cm in a metre",
+                            r.kind,
+                            x / ONE,
+                            z / ONE,
+                            (h - p) * 100 / ONE
+                        );
+                        checked += 1;
+                    }
+                    prev = Some(h);
+                }
+            }
+        }
+        assert!(checked > 8_000, "{checked} metres");
+        // the lane meets the road at (2000, 2250): a metre down the lane
+        // and on the road there, within a centimetre
+        let (lane, road) = (l.ground(int(2000), int(2251)), l.ground(int(2000), int(2250)));
+        assert!((lane - road).abs() <= ONE / 100, "{lane} {road}");
     }
 
     #[test]

@@ -32,8 +32,9 @@ uniform mat4 uBands2;
 // as it fades, metres: it sinks rather than dithering, so a far band of grass
 // leaves no stipple to crawl as the view pans
 uniform float uSink;
-// the value that names the first band, and how many bands a matrix holds
-uniform vec2 uBandKey;
+// the value that names the first band, the first band that sinks, and the
+// first after them that dithers again
+uniform vec3 uBandKey;
 out vec3 vWorld;
 // the dither's fade for the whole triangle, taken from its last vertex
 flat out float vFade;
@@ -62,7 +63,7 @@ void main() {
   // below, the fade itself; the second matrix's bands sink
   float k = iD.a - uBandKey.x;
   float f = k >= 0.0 ? band(length((w - uEye).xz), k) : iD.a;
-  if (k >= uBandKey.y) {
+  if (k >= uBandKey.y && k < uBandKey.z) {
     w.y -= (1.0 - (f >= 0.0 ? f : -f)) * uSink;
     f = 1.0;
   }

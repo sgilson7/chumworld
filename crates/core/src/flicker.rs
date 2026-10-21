@@ -441,6 +441,16 @@ fn sweep(
             p[v] = mid2[1];
             let rest = (f.n[u] as i128 * p[u] as i128 + f.n[v] as i128 * p[v] as i128) >> 16;
             p[drop] = ((f.d as i128 - rest) * ONE as i128 / f.n[drop] as i128) as i64;
+            // M7: how far apart they are where they overlap: `p` lies in
+            // the first's plane; its height over the second's (two planes a
+            // hair off parallel and far from the origin can have offsets
+            // alike and still stand centimetres apart there, R9.46)
+            let over = ((g.n[0] as i128 * p[0] as i128
+                + g.n[1] as i128 * p[1] as i128
+                + g.n[2] as i128 * p[2] as i128)
+                >> 16) as i64
+                - g.d;
+            let gap = gap.max(over.abs());
             // planes apart: fighting only where a camera is too far off to
             // tell them apart, and short of the far plane
             if gap > PLANE_TOL {

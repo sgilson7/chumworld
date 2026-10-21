@@ -220,6 +220,11 @@
     "tuft_chunk_m": 24,
     "tuft_cell_cm": 130,
     "tuft_pct": 65,
+    "road_m": [
+      80,
+      110
+    ],
+    "road_chunk_m": 64,
     "extent_m": [
       -300,
       4300
