@@ -1349,6 +1349,7 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     }
     crate::merchant::draw(w, alpha, look, out);
     crate::camp::draw(w, alpha, look, out);
+    crate::forest::draw(w, alpha, look, out); // M7 forest (T19): the camp's flag and smoke
     crate::trainer::draw(w, look, out); // M7: the practice's mark
     crate::roadside::draw(w, alpha, look, out); // M7 roadside
 }

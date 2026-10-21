@@ -358,3 +358,18 @@ Waiting on the person: R9.58 (the land's, grass's, wind's, river's, roads' and m
 For the coordinator: R9.42 (M1's fence leaves a blade inside a body on other recordings; settle at 5 passes keeps the recorded duels), R9.46 (the coplanar scan now measures the gap where two faces overlap; P3 to review), R9.55 (frame cost on a loaded machine), R9.56 (the player's figure takes half the village's slow-pan bound).
 
 Check, 2026-10-20, after merging main at 88e45bd and then f1945f7 (save, sprint; the sprint run at 21 m/s keeps every chunk within 25 m whole, tested), roadside, swings, travel, wounds; conflicts in `lib.rs`, `world.rs`, `motion.rs`, `game.rs`, `tests/breaks.json` and the notes, both sides kept): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, the notebook's form); step 8 (the journal) fails on this part's new person row R9.58 and on rows the journal cites from other parts (R9.7, R9.13, R9.17, R9.18, R9.21); step 9, the browser check, is left to the coordinator's batch (the person's rule), which should include the new near-scatter probe check and the slow pans (the village's was 17 to 18 of 230 400 in Chromium on this branch). 508 tests by `./scripts/count-tests.sh` (17 ignored); `python3 scripts/break_tests.py "M7 land"`: 41 of 41 caught.
+
+## 2026-10-21: M7 polish, the forest (part P13, branch `m7-forest`, T19)
+
+The person: "the bandit camp is really hard to find in the woods right now without the waypoint, and the rest of the woods are completely barren."
+
+Built:
+- **The camp's flag and smoke (R9.441, R9.445).** A 38 m lashed flagpole in the camp (`Prop::Flagpole`), its cloth in five panels turning with the wind and rippling, still under `story.still`; seen from the trail's end over every tree as drawn (tested). A soft column of ten tall faceted puffs over the fire that fades in, widens and thins away (`smoke.rs`).
+- **Clearings (R9.442 to R9.444).** Four to six from the land's seed (this land has four), each with a stump and a log, clear of the camp, trails, places and each other; two hold a bandit each (wanderers' glade kinds, through inputs, saved as beaten), two hold resting deer. Wanderers keep 90 m off them.
+- **Animals (R9.446, R9.447).** Deer, rabbits and boar (`animals.rs`, `data/animals.json`), grazing, walking, resting and running from the player; capped at 12 near, parked far. None can be fought.
+- **Trees and floor (R9.440, R9.451, R9.453).** Broadleaves, birches and snags among the pines; logs, stumps, bushes, ferns and mushrooms; all fading per triangle. Every tree, stump, log and big rock is now solid to bodies in T18's swept steps, to things in flight and (trees) to the camera. Chunk builds cost no more than main's (5.6 ms).
+
+Waiting on the person: R9.445 and R9.456 (the cart's and the raid's smoke), R9.446 (a boar to fight), R9.452 (the forest's looks), R9.454 (the strings under "### M7 forest (P13)"), R9.457 (the flag's size). Ideas only from Long Time Comin' (`LICENSES.md`, R9.450).
+
+Check (2026-10-21, after merging main at 08a01f6): `cargo fmt --check`, `cargo clippy -D warnings` and `cargo test` pass; `python3 scripts/break_tests.py "forest:"` 29 of 29 caught (two missed on the first run, their tests strengthened). The browser check was not run (the coordinator batches it, R9.455). Screenshots in `shots/forest/` (not committed).
+

@@ -133,6 +133,8 @@ pub struct World {
     pub rumours: crate::rumours::State,
     // M7 (P9, T15): the encounters between the major areas, what is kept of each
     pub wanderers: crate::wanderers::State,
+    // M7 forest (P13, T19): the forest's herds of deer, rabbits and boar
+    pub animals: crate::animals::State,
 }
 
 impl World {
@@ -185,6 +187,7 @@ impl World {
             roadside: crate::roadside::State::default(),   // M7 roadside
             wanderers: crate::wanderers::State::new(seed), // M7 (P9)
             rumours: crate::rumours::State::default(),     // M7 rumours
+            animals: crate::animals::State::default(),     // M7 forest
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w.boom.blocks = std::rc::Rc::new(crate::boom::blocks(&w)); // M7
@@ -277,6 +280,8 @@ impl World {
         crate::rumours::step(self);
         // M7 (P9): the wanderers stand near the player, are parked away, are beaten
         crate::wanderers::step(self);
+        // M7 forest (P13): the forest's animals stand, graze, walk and run
+        crate::animals::step(self);
         // M7 save: the autosave, and a save that is due
         crate::save::step(self);
         // 8. M2: the water
@@ -308,6 +313,8 @@ impl World {
         crate::travel::draw(self, alpha, look, out);
         // M7 rumours: the people who tell rumours
         crate::rumours::draw(self, alpha, look, out);
+        // M7 forest (P13): the forest's animals
+        crate::animals::draw(self, alpha, look, out);
     }
 
     /// What never moves: the static groups, and the meshes they draw.

@@ -271,6 +271,37 @@ pub fn tree(it: &crate::scatter::Item) -> Vec<Solid> {
             },
         ],
         Thing::Rock => Vec::new(),
+        // M7 forest (T19): the forest's other trees, the sizes `scatter`
+        // draws them at (`scatter::forest_parts`); a log and a stump lie
+        // under the boom's reach
+        Thing::Broadleaf => vec![
+            Solid::Post {
+                at: at.sub(v3(0, ONE / 2, 0)),
+                r: s(ONE * 26 / 100),
+                y1: at.y + s(ONE * 2),
+            },
+            Solid::Ball {
+                c: at.add(v3(0, s(ONE * 36 / 10), 0)),
+                r: v3(s(ONE * 22 / 10), s(ONE * 155 / 100), s(ONE * 2)),
+            },
+        ],
+        Thing::Birch => vec![
+            Solid::Post {
+                at: at.sub(v3(0, ONE / 2, 0)),
+                r: s(ONE * 13 / 100),
+                y1: at.y + s(ONE * 43 / 10),
+            },
+            Solid::Ball {
+                c: at.add(v3(0, s(ONE * 47 / 10), 0)),
+                r: v3(s(ONE * 115 / 100), s(ONE * 165 / 100), s(ONE * 105 / 100)),
+            },
+        ],
+        Thing::Snag => vec![Solid::Post {
+            at: at.sub(v3(0, ONE / 2, 0)),
+            r: s(ONE * 24 / 100),
+            y1: at.y + s(ONE * 47 / 10),
+        }],
+        Thing::Log | Thing::Stump => Vec::new(),
     }
 }
 

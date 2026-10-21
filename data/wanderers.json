@@ -11,7 +11,9 @@
     "place_m": 80,
     "waystone_m": 100,
     "people_m": 100,
-    "beat_m": 60
+    "beat_m": 60,
+    "glade_m": 90,
+    "_glade_m": "M7 forest (T19): this far past the edge of each of the forest's clearings (data/places.json, forest.glades), whose own foes are the kinds on 'glade' below"
   },
   "live": {
     "_note": "while it runs: a foe this near the village centre, or the trainer, the traveller or the merchant's cart, stops fighting and goes back",
@@ -94,6 +96,10 @@
       "loop_m": [110, 30],
       "_loop_m": "a loop this far along the way either side of the slot and this far out to each side, crossing the way twice; where that comes too near the merchant's beat, the loop keeps to one side, from 70 m to 110 m out",
       "returns_after_s": 1200
+    },
+    {"name": "glade_orcs", "moves": "hold", "foes": ["orc", "orc"], "on": ["glade"], "_on": "M7 forest (T19): met in a forest clearing (terrain::Land::glades), one kind drawn by each clearing's own number; never along a way", "stand": [[-3, 2], [2, -2]], "_stand": "metres right and ahead of the clearing's centre", "per_foe": [{"coins": 4}], "cleared": [{"coins": 8}, {"item": "rock", "count": 3}, {"item": "bandage", "count": 1}], "mark": "clearing", "banner": "glade_cleared", "returns_after_s": 0},
+    {"name": "glade_bandit", "moves": "hold", "foes": ["bandit"], "on": ["glade"], "stand": [[1, 3]], "per_foe": [{"coins": 6}], "cleared": [{"coins": 6}, {"item": "rock", "count": 4}], "mark": "clearing", "banner": "glade_cleared", "returns_after_s": 0},
+    {"name": "glade_bandits", "moves": "hold", "foes": ["bandit", "bandit"], "on": ["glade"], "stand": [[-2, -3], [3, 1]], "per_foe": [{"coins": 5}], "cleared": [{"coins": 10}, {"item": "bandage", "count": 1}], "mark": "clearing", "banner": "glade_cleared", "returns_after_s": 0
     }
   ],
   "ways": [

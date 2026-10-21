@@ -85,3 +85,7 @@ pub mod roadside;
 pub mod rumours;
 // M7 polish (P8, T14): the sprint that builds to triple speed
 pub mod sprint;
+// M7 forest (P13, T19): the camp's flag and smoke, the forest's clearings, its animals
+pub mod animals;
+pub mod forest;
+pub mod smoke;

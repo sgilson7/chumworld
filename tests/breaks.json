@@ -4963,6 +4963,202 @@
     "test": "a_minor_mark_s_label_gives_way_to_a_higher_one_and_far_labels_all_show"
   },
   {
+    "name": "forest: the clearings come from the land's seed",
+    "file": "crates/core/src/terrain.rs",
+    "find": "Rng::new(((self.spec.seed as u64) << 20) ^ 0x0061_ade5)",
+    "replace": "Rng::new(0x0061_ade5)",
+    "test": "the_clearings_are_placed_from_the_seed_and_the_same_every_time"
+  },
+  {
+    "name": "forest: a clearing keeps off the trails",
+    "file": "crates/core/src/terrain.rs",
+    "find": "            && rd - rh >= m(g.way_m) + r\n",
+    "replace": "",
+    "test": "the_clearings_keep_clear_of_the_camp_the_trails_and_the_waystones"
+  },
+  {
+    "name": "forest: a clearing keeps off the camp",
+    "file": "crates/core/src/terrain.rs",
+    "find": "        deep && camp.is_none_or(|k| k.sub(c).len_xz() >= m(g.camp_m))",
+    "replace": "        deep",
+    "test": "the_clearings_keep_clear_of_the_camp_the_trails_and_the_waystones"
+  },
+  {
+    "name": "forest: a clearing keeps off the places and waystones",
+    "file": "crates/core/src/terrain.rs",
+    "find": "            && far_from_places\n",
+    "replace": "",
+    "test": "the_clearings_keep_clear_of_the_camp_the_trails_and_the_waystones"
+  },
+  {
+    "name": "forest: clearings keep apart",
+    "file": "crates/core/src/terrain.rs",
+    "find": "            && kept.iter().all(|o| o.centre.sub(c).len_xz() >= m(g.apart_m))\n",
+    "replace": "",
+    "test": "the_clearings_keep_clear_of_the_camp_the_trails_and_the_waystones"
+  },
+  {
+    "name": "forest: no wanderer comes near a clearing",
+    "file": "crates/core/src/wanderers.rs",
+    "find": ".all(|(c, r)| c.sub(p).len_xz() >= *r + m(k.glade_m))",
+    "replace": ".all(|(c, r)| c.sub(p).len_xz() >= *r + m(k.glade_m) || true)",
+    "test": "each_clearing_with_foes_holds_one_or_two_and_no_other_wanderer_comes_near"
+  },
+  {
+    "name": "forest: each clearing with foes holds them",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "    out.extend(glade_encounters(w));",
+    "replace": "",
+    "test": "each_clearing_with_foes_holds_one_or_two_and_no_other_wanderer_comes_near"
+  },
+  {
+    "name": "forest: a clearing's foe moves only through its record (CW-3)",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "            if let Some(i) = inputs.get_mut(mb.foe) {\n                *i = input;\n            }",
+    "replace": "            w.foes[mb.foe].body.pos.x += 1;\n            if let Some(i) = inputs.get_mut(mb.foe) {\n                *i = input;\n            }",
+    "test": "a_clearing_s_foes_move_only_through_their_input_records"
+  },
+  {
+    "name": "forest: a load reads a beaten clearing back",
+    "file": "crates/core/src/wanderers.rs",
+    "find": "    if w.wanderers.synced {\n        return;\n    }",
+    "replace": "    if w.wanderers.synced || true {\n        return;\n    }",
+    "test": "a_beaten_clearing_stays_beaten_across_a_save_and_a_load"
+  },
+  {
+    "name": "forest: a save names a clearing's foes beaten",
+    "file": "crates/core/src/save.rs",
+    "find": "    out.extend(crate::wanderers::beaten_keys(w));",
+    "replace": "",
+    "test": "a_beaten_clearing_stays_beaten_across_a_save_and_a_load"
+  },
+  {
+    "name": "forest: the flag's top over the canopy",
+    "file": "crates/core/src/models.rs",
+    "find": "pub const FLAGPOLE_TOP: Fx = fx::int(38);",
+    "replace": "pub const FLAGPOLE_TOP: Fx = fx::int(14);",
+    "test": "the_flag_s_top_stands_over_the_canopy_round_it"
+  },
+  {
+    "name": "forest: the flag seen from the trail's end",
+    "file": "crates/core/src/models.rs",
+    "find": "pub const FLAGPOLE_TOP: Fx = fx::int(38);",
+    "replace": "pub const FLAGPOLE_TOP: Fx = fx::int(26);",
+    "test": "the_flag_is_seen_from_the_trail_s_end"
+  },
+  {
+    "name": "forest: the flag turns with the wind",
+    "file": "crates/core/src/forest.rs",
+    "find": "    let mut yaw = fx::deg(f.rest_deg) + fx::mul(gust, fx::deg(f.swing_deg));",
+    "replace": "    let mut yaw = fx::deg(f.rest_deg) + 0 * gust;",
+    "test": "the_flag_waves_with_the_wind_and_holds_still_when_the_story_does"
+  },
+  {
+    "name": "forest: the flag holds still with the story",
+    "file": "crates/core/src/forest.rs",
+    "find": "    let (tick, alpha) = if w.story.still { (0, 0) } else { (w.tick, alpha) };",
+    "replace": "    let (tick, alpha) = (w.tick, alpha);",
+    "test": "the_flag_waves_with_the_wind_and_holds_still_when_the_story_does"
+  },
+  {
+    "name": "forest: the smoke thins as it climbs",
+    "file": "crates/core/src/smoke.rs",
+    "find": "    let share = fx::mul(share, ONE - s / 2);",
+    "replace": "",
+    "test": "the_camp_s_smoke_fades_in_thins_with_height_and_widens"
+  },
+  {
+    "name": "forest: a puff of smoke fades in",
+    "file": "crates/core/src/smoke.rs",
+    "find": "        fx::div(s, a.max(1))",
+    "replace": "        ONE + 0 * s",
+    "test": "the_camp_s_smoke_fades_in_thins_with_height_and_widens"
+  },
+  {
+    "name": "forest: the floor comes from the land's seed",
+    "file": "crates/core/src/scatter.rs",
+    "find": "            let mut r = cell_rng(land.spec.seed, salt, i * n + p, j * n + q);",
+    "replace": "            let mut r = cell_rng(0, salt, i * n + p, j * n + q);",
+    "test": "the_forest_holds_every_kind_of_tree_and_its_floor_is_the_seed_s"
+  },
+  {
+    "name": "forest: the bushes fade with the whole trees",
+    "file": "crates/core/src/scatter.rs",
+    "find": "        WHOLE | WHOLE_INK | FLOOR => near(sp.full_m),",
+    "replace": "        WHOLE | WHOLE_INK => near(sp.full_m),\n        FLOOR => near(sp.rock_m),",
+    "test": "the_forest_floor_fades_by_each_triangle_s_distance"
+  },
+  {
+    "name": "forest: the new trees stop a body",
+    "file": "crates/core/src/solid.rs",
+    "find": "                keep_round_all(&trunks, &mut at, &mut moved, RADIUS);",
+    "replace": "                let _ = &trunks;",
+    "test": "the_new_trees_stand_in_the_way_of_bodies_and_things_in_flight"
+  },
+  {
+    "name": "forest: the new trees stop a thing in flight",
+    "file": "crates/core/src/scatter.rs",
+    "find": "            out.extend(forest_parts(sp, it));",
+    "replace": "            let _ = forest_parts;",
+    "test": "the_new_trees_stand_in_the_way_of_bodies_and_things_in_flight"
+  },
+  {
+    "name": "forest: a snag stands in the camera's boom",
+    "file": "crates/core/src/boom.rs",
+    "find": "        Thing::Snag => vec![Solid::Post {\n            at: at.sub(v3(0, ONE / 2, 0)),\n            r: s(ONE * 24 / 100),\n            y1: at.y + s(ONE * 47 / 10),\n        }],",
+    "replace": "        Thing::Snag => Vec::new(),",
+    "test": "the_new_trees_stand_in_the_way_of_bodies_and_things_in_flight"
+  },
+  {
+    "name": "forest: a broadleaf's crowns are not one another",
+    "file": "crates/core/src/scatter.rs",
+    "find": "place(1250, 4600, 350, 3100, 2500, 2900)",
+    "replace": "place(0, 3600, 0, 5000, 3500, 4600)",
+    "test": "no_two_parts_of_the_forest_s_new_things_share_a_plane"
+  },
+  {
+    "name": "forest: a deer's belly is not its body",
+    "file": "crates/core/src/models/props.rs",
+    "find": "            add(&mut k, Mesh::Facet, p(0, 900, 60), (340, 290, 840), pale);",
+    "replace": "            add(&mut k, Mesh::Facet, p(0, 1000, 0), (430, 460, 1120), pale);",
+    "test": "no_two_parts_of_any_prop_share_a_plane"
+  },
+  {
+    "name": "forest: animals run from the player",
+    "file": "crates/core/src/animals.rs",
+    "find": "    if d < m(k.flee_m) {",
+    "replace": "    if d < 0 {",
+    "test": "an_animal_runs_from_the_player_and_settles_again"
+  },
+  {
+    "name": "forest: animals stay capped near the player",
+    "file": "crates/core/src/animals.rs",
+    "find": "        if count + h.count as usize > w.animals.most {",
+    "replace": "        if count > usize::MAX - 1 {",
+    "test": "only_so_many_animals_stand_near_the_player_and_far_ones_are_parked"
+  },
+  {
+    "name": "forest: far herds are parked",
+    "file": "crates/core/src/animals.rs",
+    "find": "            h.animals.clear();",
+    "replace": "",
+    "test": "only_so_many_animals_stand_near_the_player_and_far_ones_are_parked"
+  },
+  {
+    "name": "forest: a herd rests in each quiet clearing",
+    "file": "crates/core/src/animals.rs",
+    "find": "    for g in land.glades.iter().filter(|g| !g.foes) {",
+    "replace": "    for g in land.glades.iter().filter(|g| !g.foes && false) {",
+    "test": "the_herds_are_placed_from_the_land_s_seed_the_same_every_time"
+  },
+  {
+    "name": "forest: a recorded walk meets the animals and replays",
+    "file": "crates/core/src/animals.rs",
+    "find": "        stand(w, hi);",
+    "replace": "        let _ = hi;",
+    "test": "a_recorded_walk_among_the_animals_hashes_the_same_every_run"
+  },
+  {
     "name": "M7 sprint2: the cap stays at four times the run",
     "file": "crates/core/src/sprint.rs",
     "find": "pub const CAP: Fx = fx::int(10);",
@@ -5003,5 +5199,12 @@
     "find": "    let times = fx::div(speed(n, mult(sp), run, run), bare.max(1));",
     "replace": "    let times = fx::div(fx::mul(bare, mult(sp)) + 0 * run, bare.max(1));",
     "test": "the_hud_shows_the_build_as_a_bar_with_words"
+  },
+  {
+    "name": "forest: a sprint at ten times the run meets a trunk in its swept steps",
+    "file": "crates/core/src/solid.rs",
+    "find": "                keep_round_all(&trunks, &mut at, &mut moved, RADIUS);",
+    "replace": "                let _ = &trunks;",
+    "test": "a_body_sprinting_at_ten_times_the_run_does_not_pass_through_a_tree"
   }
 ]

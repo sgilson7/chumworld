@@ -105,6 +105,28 @@ pub struct ForestSpec {
     pub centre: [i32; 2],
     pub radii_m: [i32; 2],
     pub edge_m: i32,
+    /// M7 forest (T19): the clearings in it, placed from the land's seed
+    #[serde(default)]
+    pub glades: Option<GladeSpec>,
+}
+
+/// M7 forest (T19, `terrain::Land::glades`): how the forest's clearings
+/// are placed. Each is a centre drawn from the land's seed deep in the
+/// forest (`deep_pct` of the way in at least), `camp_m` from the camp's
+/// centre, `way_m` past the edge of every road and trail, `place_m` from
+/// every place's centre (a waystone, the hollow tree) and `apart_m` from
+/// each other; every `foes_every`th holds foes, the rest animals resting.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct GladeSpec {
+    pub count: [i32; 2],
+    pub radius_m: [i32; 2],
+    pub deep_pct: i32,
+    pub camp_m: i32,
+    pub way_m: i32,
+    pub place_m: i32,
+    pub apart_m: i32,
+    pub tries: i32,
+    pub foes_every: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -185,6 +207,8 @@ pub fn prop_kind(name: &str) -> Option<Prop> {
         "lone_tree" => Prop::LoneTree,
         // M7 rumours (T17)
         "logs" => Prop::Logs,
+        // M7 forest (T19)
+        "flagpole" => Prop::Flagpole,
         _ => return None,
     })
 }

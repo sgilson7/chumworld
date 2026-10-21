@@ -46,6 +46,12 @@ A weapon thrown from the free hand. It flies an arc up to {boomerang.reach} metr
 
 The key the bandit leader drops once the camp is cleared. It opens the chest at the camp.
 
+### Clearing
+
+An open space in the forest round the camp with a stump and a fallen log. Some hold one or two foes, the rest animals resting. A clearing with foes goes on the map once you have seen it.
+
+Not: grove, glen
+
 ### Coins
 
 What the merchant takes and pays. Bandits carry them.

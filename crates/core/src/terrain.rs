@@ -388,6 +388,9 @@ pub struct Land {
     profiles: Vec<Vec<i64>>,
     /// a centre and a radius with no trees
     pub clearings: Vec<(V3, Fx)>,
+    /// M7 forest (T19): the forest's own clearings, from the seed (also in
+    /// `clearings`, after the places')
+    pub glades: Vec<Glade>,
     /// how far from the river's centreline its valley reaches, at the most
     pub reach: Fx,
     /// the raw land's height at the village centre, taken off everywhere
@@ -395,6 +398,37 @@ pub struct Land {
     /// M7: what the map menu shows of each of its pixels, worked out the
     /// first time it is asked for (`Land::map`)
     map: std::cell::OnceCell<Vec<MapCell>>,
+}
+
+/// M7 forest (T19): one of the forest's clearings (`Land::place_glades`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Glade {
+    /// its centre, at height 0, and its radius
+    pub centre: V3,
+    pub r: Fx,
+    /// it holds foes (`wanderers`); otherwise animals resting (`animals`)
+    pub foes: bool,
+    /// a number drawn for it, which picks its foes or its animals
+    pub pick: u32,
+    /// a stump and a fallen log in it (`scatter::items`)
+    pub props: Vec<GladeProp>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GladeThing {
+    Stump,
+    Log,
+}
+
+/// A thing lying in a clearing, at (x, z) on the ground.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GladeProp {
+    pub thing: GladeThing,
+    pub x: Fx,
+    pub z: Fx,
+    /// percent of its model's size
+    pub size: i32,
+    pub yaw: i32,
 }
 
 /// What the map menu needs to know of one of its pixels (R9.48): the
@@ -493,6 +527,7 @@ impl Land {
             fields: Vec::new(),
             profiles: Vec::new(),
             clearings: Vec::new(),
+            glades: Vec::new(),
             reach,
             zero: 0,
             map: std::cell::OnceCell::new(),
@@ -624,6 +659,96 @@ impl Land {
                 });
             }
         }
+        // M7 forest (T19): the forest's clearings, last, so each is placed
+        // clear of every road, footprint and place laid out above
+        self.glades = self.place_glades();
+        for g in &self.glades {
+            self.clearings.push((g.centre, g.r));
+        }
+    }
+
+    /// M7 forest (T19): whether a clearing of radius `r` may be at `c`, the
+    /// clearings `kept` placed already: deep enough in the forest, out of
+    /// the water and off the river, far enough from the camp's centre,
+    /// past the edge of every road and trail, from every place's centre and
+    /// from each clearing kept (`places::GladeSpec`).
+    pub fn glade_ok(&self, g: &crate::places::GladeSpec, c: V3, r: Fx, kept: &[Glade]) -> bool {
+        let m = |v: i32| v * ONE;
+        let all = self.scope_all();
+        let (x, z) = (c.x, c.z);
+        let camp = self
+            .layout
+            .places
+            .iter()
+            .find(|p| p.kind == "camp")
+            .map(|p| metres(p.centre));
+        let far_from_places = self
+            .layout
+            .places
+            .iter()
+            .all(|p| metres(p.centre).sub(c).len_xz() >= m(g.place_m));
+        let deep = self.forest(x, z, &all) * 100 >= O * g.deep_pct as i64;
+        let (rd, rh) = self.road_distance(x, z, &all);
+        deep && camp.is_none_or(|k| k.sub(c).len_xz() >= m(g.camp_m))
+            && rd - rh >= m(g.way_m) + r
+            && far_from_places
+            && kept.iter().all(|o| o.centre.sub(c).len_xz() >= m(g.apart_m))
+            && !self.is_water(x, z)
+            && self.near(x, z, &all).is_none()
+    }
+
+    /// M7 forest (T19): the forest's clearings, drawn from the land's seed
+    /// (`places::GladeSpec`): a candidate centre anywhere in the forest's
+    /// box, kept when it is deep enough in, out of water, far enough from
+    /// the camp, every road and trail, every place and every clearing kept
+    /// before it; until the count drawn is reached or the tries run out.
+    /// Each has a stump and a fallen log; every `foes_every`th holds foes.
+    fn place_glades(&self) -> Vec<Glade> {
+        let Some(g) = self.layout.forest.glades.clone() else {
+            return Vec::new();
+        };
+        let m = |v: i32| v * ONE;
+        let f = &self.layout.forest;
+        let mut rng = crate::rng::Rng::new(((self.spec.seed as u64) << 20) ^ 0x0061_ade5);
+        let want = rng.between(g.count[0], g.count[1]).max(0) as usize;
+        let mut out: Vec<Glade> = Vec::new();
+        for _ in 0..g.tries.max(0) {
+            if out.len() >= want {
+                break;
+            }
+            let x = m(f.centre[0] - f.radii_m[0]) + rng.below((2 * m(f.radii_m[0])) as u32) as Fx;
+            let z = m(f.centre[1] - f.radii_m[1]) + rng.below((2 * m(f.radii_m[1])) as u32) as Fx;
+            let r = m(rng.between(g.radius_m[0], g.radius_m[1]));
+            let c = v3(x, 0, z);
+            if !self.glade_ok(&g, c, r, &out) {
+                continue;
+            }
+            let k = out.len();
+            // a stump and a fallen log, a third to two thirds of the way out
+            let mut props = Vec::new();
+            for (thing, size) in [
+                (GladeThing::Stump, rng.between(90, 130)),
+                (GladeThing::Log, rng.between(85, 120)),
+            ] {
+                let a = rng.below(fx::TURN as u32) as i32;
+                let d = fx::mul(r, ONE * rng.between(35, 65) / 100);
+                props.push(GladeProp {
+                    thing,
+                    x: x + fx::mul(fx::cos(a), d),
+                    z: z + fx::mul(fx::sin(a), d),
+                    size,
+                    yaw: rng.below(fx::TURN as u32) as i32,
+                });
+            }
+            out.push(Glade {
+                centre: c,
+                r,
+                foes: g.foes_every > 0 && k as i32 % g.foes_every == 0,
+                pick: rng.below(1 << 16),
+                props,
+            });
+        }
+        out
     }
 
     /// Every feature: for a single point.

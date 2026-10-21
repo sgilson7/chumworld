@@ -77,7 +77,7 @@ pub mod props_numbers {
 /// The parts each model is drawn from, for counting and testing.
 pub use figure::model as figure_model;
 pub use held::{model as held_model, pickup_model};
-pub use props::{donkey_model, model as prop_model};
+pub use props::{beast_model, donkey_model, model as prop_model};
 
 /// A thing that never moves, placed by M2 (`places.rs`, `scatter.rs`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -109,10 +109,28 @@ pub enum Prop {
     LoneTree,
     // M7 rumours (P11, T17): the woodpile each teller of rumours stands by
     Logs,
+    // M7 forest (P13, T19): the bandits' flag over their camp, its pole
+    Flagpole,
+}
+
+/// M7 forest (P13, T19): the flagpole's top over its foot (`props::flagpole`),
+/// above the forest's canopy round the camp (`forest` tests).
+pub const FLAGPOLE_TOP: Fx = fx::int(38);
+
+/// M7 forest (P13, T19): the animals of the forest (`animals.rs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Beast {
+    Deer,
+    Rabbit,
+    Boar,
+}
+
+impl Beast {
+    pub const ALL: [Beast; 3] = [Beast::Deer, Beast::Rabbit, Beast::Boar];
 }
 
 impl Prop {
-    pub const ALL: [Prop; 23] = [
+    pub const ALL: [Prop; 24] = [
         Prop::House,
         Prop::Barn,
         Prop::Well,
@@ -136,6 +154,7 @@ impl Prop {
         Prop::Tor,
         Prop::LoneTree,
         Prop::Logs,
+        Prop::Flagpole,
     ];
 }
 

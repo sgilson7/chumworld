@@ -363,6 +363,29 @@
       90,
       140
     ],
+    "forest": {
+      "_note": "M7 forest (T19, scatter::forest_kind, scatter::floor): of every hundred forest trees about kinds_pct broadleaves, birches and snags, the rest pines, the broadleaves and birches in stands a slow noise patch_m across draws; fallen logs and stumps on a log_cell_m grid; bushes drawn with the whole trees (to full_m), ferns and mushrooms with the grass (to grass_m). Colours are 0 to 255.",
+      "kinds_pct": [18, 14, 6],
+      "patch_m": 140,
+      "broadleaf": [[78, 130, 66], [92, 142, 70], [70, 118, 62]],
+      "birch": [[150, 190, 92], [168, 198, 102], [138, 180, 86]],
+      "birch_bark": [232, 226, 212],
+      "snag": [138, 126, 114],
+      "log_cell_m": 16,
+      "log_pct": 9,
+      "stump_pct": 8,
+      "bark": [120, 86, 60],
+      "moss": [104, 140, 70],
+      "bush_cell_m": 7,
+      "bush_pct": 28,
+      "bush": [[70, 120, 64], [82, 132, 70], [62, 110, 60]],
+      "fern_cell_cm": 210,
+      "fern_pct": 42,
+      "mushroom_pct": 9,
+      "fern": [[96, 150, 72], [108, 160, 80], [86, 140, 66]],
+      "mushroom": [[196, 70, 52], [214, 170, 112], [176, 126, 84]],
+      "stem": [236, 228, 210]
+    },
     "_grass_m": "M7 (R9.44): every blade, tuft, rock and tree fades by its own distance in the shader (scatter::band, the uniforms uBands and uBands2), not its chunk's, so nothing near pops: grass whole to 28 m and gone by 38; then the chunkier tufts, coming in from 20 to 28 m and gone from 62 to 78 m; then the meadow's colour. A 9 cm blade is 0.75 px wide at 36 m at 640 x 360, a 28 cm tuft a pixel at 78 m: none thinner than about 0.4 px, which blinks as the view pans (R4.25)"
   }
 }
