@@ -157,8 +157,8 @@ fn the_camp_s_smoke_fades_in_thins_with_height_and_widens() {
     assert!(s3 < ONE / 100);
     assert!(born.y < low.y && low.y < high.y);
     assert!(w0 < w1 && w1 < w2);
-    // 50% at its strongest, a quarter of the way up: 50% × (1 − 1/8)
-    assert_eq!(s1, fx::mul(ONE / 2, ONE - ONE / 8));
+    // 80% at its strongest, a quarter of the way up: 80% × (1 − 1/8)
+    assert_eq!(s1, fx::mul(ONE * 80 / 100, ONE - ONE / 8));
     let w = world();
     let mut out = Shapes::default();
     crate::smoke::column(sp, &w, foot, 0, &mut out);

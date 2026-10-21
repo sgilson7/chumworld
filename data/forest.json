@@ -1,26 +1,26 @@
 {
   "_note": "M7 forest (P13, T19, crates/core/src/forest.rs and smoke.rs): the bandits' flag over their camp and the smoke from its fire, both to help find the camp from the forest's edge and the trail's end. The pole is Prop::Flagpole (data/places.json's camp, models::FLAGPOLE_TOP high); the cloth hangs from its top in panels, each turned from the one before by the wind at the pole (wind.rs) and a ripple running out along it, a little shorter than the last. The smoke is a column of a few tall faceted puffs, each rising for life_ticks to rise_m over the fire, widening from width_cm[0] to width_cm[1], fading in over fade_in_pct of its life and thinning from thin_from_pct, glowing at most strength_pct, leaning drift_m with the wind at its top.",
   "flag": {
-    "length_mm": 8500,
-    "height_mm": [4400, 3000],
-    "panels": 5,
+    "length_mm": 14000,
+    "height_mm": [7000, 4600],
+    "panels": 6,
     "swing_deg": 35,
     "ripple_deg": 16,
     "rest_deg": 20,
-    "cloth": [184, 48, 42],
-    "stripe": [66, 44, 48]
+    "cloth": [238, 72, 34],
+    "stripe": [252, 196, 64]
   },
   "smoke": {
-    "puffs": 10,
+    "puffs": 14,
     "life_ticks": 900,
-    "rise_m": 60,
-    "drift_m": 9,
-    "width_cm": [220, 950],
+    "rise_m": 85,
+    "drift_m": 12,
+    "width_cm": [320, 1500],
     "tall_pct": 170,
-    "strength_pct": 50,
+    "strength_pct": 80,
     "fade_in_pct": 8,
-    "thin_from_pct": 45,
-    "dark": [120, 116, 118],
-    "light": [214, 212, 214]
+    "thin_from_pct": 60,
+    "dark": [200, 198, 200],
+    "light": [248, 248, 250]
   }
 }
