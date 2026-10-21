@@ -183,6 +183,7 @@ def run(page, check, engine):
     duel = page.evaluate(GRAB, [2, 0, False])
     check(duel["frames"][0]["hash"] == duel["frames"][1]["hash"], "a still duel draws the same frame twice: nothing jitters")
     menus(page, check, engine, base)
+    travel(page, check, engine, base)
 
 
 ITEMS = json.loads((ROOT / "data" / "items.json").read_text())
@@ -327,3 +328,51 @@ def menus(page, check, engine, base):
     spark = page.evaluate(GRAB, [2, 0, False])
     check(spark["frames"][0]["hash"] == spark["frames"][1]["hash"], "a frozen spark draws the same pixels on consecutive frames")
     check(page.inner_text("#message") == "", "the feel acts on the address are taken without an error")
+
+def travel(page, check, engine, base):
+    """M7 travel (T11): a woken waystone in view holds still frame to frame
+    and on a slow pan (CW-18), and the flute plays from Select Item: its
+    song screen opens, a note shows on the staff, Esc puts it away."""
+    # M2's view from the trainer's hill, with the hill's waystone (28 m west,
+    # in sight) woken. (By the village's waystone, the near grass and the
+    # horizon alone flip 42 pixels on this pan, the waystone's light 4 more:
+    # SECOND-ORDER.md R9.208.)
+    page.goto(base + "?pointer=free&look=25&go=352,1772,100,-1&act=travel.wake:hill&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    if page.get_attribute("body", "data-webgl") == "none":
+        return
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.evaluate(WAIT_FRAMES, [120, 2500])
+    still = page.evaluate(GRAB, [2, 0, False])
+    a, b = still["frames"]
+    check(a["colours"] > 20, f"the woken waystone's view is a picture ({a['colours']} colours sampled)")
+    check(a["hash"] == b["hash"], f"a woken waystone in view draws the same pixels on consecutive frames ({still['w']}x{still['h']})")
+    pan = page.evaluate(GRAB, [3, 1, True])
+    share = pan["flips"] / pan["pixels"]
+    check(share < 0.0001, f"a slow pan past a woken waystone shows no shimmer: {pan['flips']} of {pan['pixels']} pixels flipped and back ({share:.5%})")
+    print(f"  ({engine}: slow pan by the woken waystone, {pan['flips']} A-B-A pixels of {pan['pixels']})")
+    check(page.inner_text("#message") == "", "the travel acts on the address are taken without an error")
+
+    # the flute, from Select Item: its cell from data/items.json
+    page.goto(base + "?pointer=free&act=story.skip&act=travel.give&act=story.still:on")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.keyboard.press("Tab")
+    page.wait_for_selector("#menu.shown")
+    flute = next(i for i in ITEMS["items"] if i["id"] == "flute")
+    for _ in range(flute["grid"]):
+        page.keyboard.press("ArrowRight")
+    page.wait_for_selector("#menu .face-select .slot.chosen[data-item='flute']")
+    page.keyboard.press("Enter")
+    page.wait_for_selector("#song.shown", state="attached")
+    check(page.get_attribute("body", "data-screen") == "song", "Enter on the flute opens its song screen")
+    check(page.text_content("#song .song-heading") == STRINGS["flute_heading"], "the song screen is headed from data/strings.json")
+    page.keyboard.press("ArrowUp")
+    page.wait_for_selector("#song .staff-note", state="attached")
+    check(page.locator("#song .staff-note").count() == 1, "a note played shows on the staff")
+    page.keyboard.press("Escape")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    check(page.locator("#song.shown").count() == 0, "Esc puts the flute away")
+    check(page.inner_text("#message") == "", "no error message is shown after the flute")

@@ -179,6 +179,7 @@ pub fn model(kind: Prop) -> Model {
         Prop::Bed => bed(&mut k),
         Prop::Signpost => signpost(&mut k),
         Prop::HollowTree => hollow_tree(&mut k),
+        Prop::Waystone => waystone(&mut k),
     }
     k.m
 }
@@ -809,6 +810,75 @@ fn hollow_tree(k: &mut Kit) {
         k.up(Mesh::Cyl, (x, s / 2, z), (s / 3, s, s / 3), k.c("mushroom_stem"));
         k.up(Mesh::Facet, (x, s, z), (s, s * 6 / 10, s), k.c("mushroom"));
     }
+}
+
+// ---- M7 travel (P6, T11): the waystone ----------------------------------
+
+/// The marks carved in a waystone's front face (its local −z), as
+/// (mesh, centre, size, turn about z in degrees, laid flat to face −z):
+/// a ring for an eye, a bar under it, a bar across, and four chevrons. No
+/// two touch, so none shares a plane with another where they meet (CW-18).
+/// Each stands `PROP_GAP` proud of the face, which is at z = −190 mm.
+type Rune = (Mesh, (i32, i32, i32), (i32, i32, i32), i32, bool);
+
+const RUNES: [Rune; 8] = [
+    (Mesh::Tube, (0, 1640, -195), (300, 40, 300), 0, true),
+    (Mesh::Cube, (0, 1400, -195), (360, 60, 40), 0, false),
+    (Mesh::Cube, (0, 980, -195), (70, 640, 40), 0, false),
+    (Mesh::Cube, (-190, 1090, -195), (60, 280, 40), 35, false),
+    (Mesh::Cube, (190, 1090, -195), (60, 280, 40), -35, false),
+    (Mesh::Cube, (-190, 800, -195), (60, 280, 40), -35, false),
+    (Mesh::Cube, (190, 800, -195), (60, 280, 40), 35, false),
+    (Mesh::Cube, (0, 560, -195), (240, 60, 40), 0, false),
+];
+
+fn rune_turn(z_deg: i32, flat: bool) -> Affine {
+    let t = Affine::rot_z(deg(z_deg));
+    if flat {
+        t.then(&Affine::rot_x(fx::QUARTER_TURN))
+    } else {
+        t
+    }
+}
+
+/// A carved waystone, Protection of the Spheres' faceted rock: a slab on a
+/// bed of boulders, capped, its marks cut dark in the front. Front to −z;
+/// the player arrives in front of it, facing the way it faces.
+fn waystone(k: &mut Kit) {
+    let (pale, dark, rune) = (k.c("waystone"), k.c("waystone_dark"), k.c("waystone_rune"));
+    k.up(Mesh::Facet, (0, 60, 0), (1300, 400, 900), dark);
+    k.up(Mesh::Facet, (-640, 80, 300), (420, 250, 380), dark);
+    k.up(Mesh::Facet, (580, 70, -330), (360, 210, 320), k.c("moss"));
+    k.bx((0, 1100, 0), (760, 1900, 380), pale);
+    k.up(Mesh::Pyramid, (0, 2170, 0), (860, 300, 460), dark);
+    for (mesh, at, size, z, flat) in RUNES {
+        k.shape(mesh, at, size, rune_turn(z, flat), rune);
+    }
+}
+
+/// How much wider a glowing mark is drawn than the carved one under it,
+/// each side: it encloses the dark mark, so no face of one lies in a face
+/// of the other.
+pub const GLOW_GROW_MM: i32 = 15;
+
+/// A woken waystone's light, base at the origin as `waystone` is: each mark
+/// again, `GLOW_GROW_MM` wider every way and unlit in the glow colour, the
+/// eye with a soft halo. The travel module draws it over the baked stone.
+pub fn waystone_glow() -> Model {
+    let t = table();
+    let glow = t.c("waystone_glow");
+    let mut m = Model::default();
+    for (k, (mesh, at, size, z, flat)) in RUNES.into_iter().enumerate() {
+        let g = 2 * GLOW_GROW_MM;
+        let a = put_turned(
+            &Affine::IDENTITY,
+            v3(mm(at.0), mm(at.1), mm(at.2)),
+            &rune_turn(z, flat),
+            v3(mm(size.0 + g), mm(size.1 + g), mm(size.2 + g)),
+        );
+        m.add_glow(mesh, a, glow, if k == 0 { ONE / 2 } else { 0 });
+    }
+    m
 }
 
 /// The donkey, mid-stride at `step_phase` (an angle: a whole turn is one

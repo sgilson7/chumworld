@@ -78,7 +78,7 @@ pub const WIND_PCT: i32 = 80;
 pub const HIGH_FROM: i32 = deg(20);
 pub const LOW_FROM: i32 = -deg(30);
 pub const HIGH_PCT: i32 = 20;
-pub const MIDDLE_PCT: i32 = -25;
+pub const MIDDLE_PCT: i32 = -5;
 pub const LOW_PCT: i32 = -45;
 /// A chop or a rising cut falls this far (percent of the arm) toward the
 /// body's middle from the sword shoulder, so it comes down in front of the
@@ -88,7 +88,7 @@ pub const INWARD_PCT: i32 = 15;
 pub const ARC_PCT: i32 = 92;
 /// A thrust: drawn in to `CHAMBER_PCT` of the arm, then out to `OUT_PCT`,
 /// held `FOLLOW_TICKS`, along this pitch.
-pub const CHAMBER_PCT: i32 = 45;
+pub const CHAMBER_PCT: i32 = 30;
 pub const OUT_PCT: i32 = 97;
 pub const THRUST_PITCH: i32 = -deg(8);
 
@@ -166,6 +166,66 @@ pub struct Swing {
     /// cut ended (hundredths of a pixel; wheel units)
     pub gesture: (i32, i32, i32),
     pub cut: Option<Cut>,
+    /// the blade's trail (R9.175): mid-blade and tip each tick of a strike
+    /// and follow-through, the newest first, `trail_len` of them kept
+    pub trail: [(V3, V3); TRAIL],
+    pub trail_len: u8,
+}
+
+/// The trail keeps the last 7 ticks of a strike; once the cut is over it
+/// loses `TRAIL_FADE` a tick, so it is gone 4 ticks later.
+pub const TRAIL: usize = 7;
+pub const TRAIL_FADE: u8 = 2;
+/// The trail's brightness at its newest, falling to nothing at its oldest,
+/// and its thickness (a solid this thin, drawn added, so no face lies on
+/// another's and the order it is drawn in changes nothing, CW-18).
+pub const TRAIL_GLOW: Fx = ONE * 85 / 100;
+pub const TRAIL_THICK: Fx = ONE * 3 / 1000;
+
+/// Each fighter's trail after its arm has moved this tick: a striking
+/// blade adds where it now is, any other loses its oldest.
+pub fn trail(a: &mut crate::arm::Arm) {
+    let tip = a.pts[crate::arm::TIP].p;
+    let grip = a.grip_point();
+    let sw = &mut a.swing;
+    let striking = sw.cut.is_some_and(|c| c.phase != Phase::WindUp);
+    if striking {
+        sw.trail.rotate_right(1);
+        sw.trail[0] = (grip.lerp(tip, ONE / 2), tip);
+        sw.trail_len = (sw.trail_len + 1).min(TRAIL as u8);
+    } else {
+        sw.trail_len = sw.trail_len.saturating_sub(TRAIL_FADE);
+    }
+}
+
+/// Every fighter's trail, as thin glowing quads from one tick's blade to
+/// the next, brightest at the newest; nothing with the Swing cue off.
+pub fn draw_trails(w: &World, look: &Look, out: &mut Shapes) {
+    if !w.ui.settings.cue {
+        return;
+    }
+    let colour = rgb(look.palette.lamp);
+    for id in 0..player::count(w) {
+        let sw = &player::fighter(w, id).arm.swing;
+        let n = sw.trail_len as usize;
+        for k in 0..n.saturating_sub(1) {
+            let ((a, b), (c, d)) = (sw.trail[k], sw.trail[k + 1]);
+            let along = b.sub(a).add(d.sub(c)).scale(ONE / 2);
+            let sweep = c.sub(a).add(d.sub(b)).scale(ONE / 2);
+            if sweep.len() < ONE / 200 {
+                continue;
+            }
+            let thin = along.cross(sweep).norm().scale(TRAIL_THICK);
+            let at = crate::geom::Affine {
+                c0: along,
+                c1: sweep,
+                c2: thin,
+                t: a.add(b).add(c).add(d).scale(ONE / 4),
+            };
+            let strength = TRAIL_GLOW * (TRAIL - k) as i32 / TRAIL as i32;
+            out.glow(Mesh::Cube, at, colour, strength);
+        }
+    }
 }
 
 /// The cut a travel picks, if it is far enough: right and down positive,
@@ -308,7 +368,7 @@ pub fn aim(cut: &Cut, yaw: i32, shoulder: V3, arm: Fx) -> (V3, V3) {
         } else {
             OUT_PCT
         };
-        let line = facing(yaw + deg(4), THRUST_PITCH);
+        let line = thrust_line(yaw);
         return (shoulder.add(line.scale(arm * pct / 100)), line);
     }
     let (f, s) = plane(yaw, cut.travel);
@@ -324,8 +384,26 @@ pub fn aim(cut: &Cut, yaw: i32, shoulder: V3, arm: Fx) -> (V3, V3) {
 /// down through the follow-through (`arm::Turn`); none in the wind-up or a
 /// thrust, which the servos drive.
 pub fn turn(cut: &Cut, yaw: i32, shoulder: V3, arm: Fx, hand: V3) -> Option<crate::arm::Turn> {
-    if cut.phase == Phase::WindUp || cut.way == Way::Thrust {
+    if cut.phase == Phase::WindUp {
         return None;
+    }
+    if cut.way == Way::Thrust {
+        // a line from the sword shoulder, pushed along (R9.177)
+        let line = thrust_line(yaw);
+        let deep = hand.sub(shoulder).dot(line);
+        return Some(crate::arm::Turn {
+            pivot: shoulder,
+            axis: line,
+            most: if cut.phase == Phase::Strike {
+                THRUST_MOST
+            } else {
+                0
+            },
+            gain: THRUST_GAIN,
+            on: shoulder.add(line.scale(deep)),
+            line,
+            push: true,
+        });
     }
     let (f, s) = plane(yaw, cut.travel);
     let (p, r) = pivot(cut, yaw, shoulder, arm);
@@ -339,8 +417,23 @@ pub fn turn(cut: &Cut, yaw: i32, shoulder: V3, arm: Fx, hand: V3) -> Option<crat
         gain: TURN_GAIN,
         on: p.add(on_arc(f, s, now).scale(r)),
         line: on_arc(f, s, blade).add(V3::UP.scale(LIFT)).norm(),
+        push: false,
     })
 }
+
+/// A thrust's line: straight ahead of the sword shoulder, a little in and
+/// down.
+pub fn thrust_line(yaw: i32) -> V3 {
+    facing(yaw + deg(4), THRUST_PITCH)
+}
+
+/// A thrust's push: at most 0.26 m a tick (15.6 m/s), gathered by at most
+/// 0.08 m a tick each tick times heft and strength; and the body leans in
+/// after it by up to `LUNGE_LEAN`, eased by `LUNGE_STEP` a tick.
+pub const THRUST_MOST: Fx = ONE * 26 / 100;
+pub const THRUST_GAIN: Fx = ONE * 8 / 100;
+pub const LUNGE_LEAN: i32 = deg(14);
+pub const LUNGE_STEP: Fx = ONE / 5;
 
 /// The strike's turn: at most 0.18 radians a tick (10°, 11 rad/s: a short
 /// sword's tip at about 15 m/s), less for a heavy weapon (`arm::Arm::motor`),
@@ -422,8 +515,8 @@ pub fn step(w: &mut World, id: usize, inp: &Input) -> bool {
             }
             Phase::Strike if c.way == Way::Thrust => {
                 // out to the arm's length (or as far as it gets)
-                let (to, _) = aim(&c, yaw, shoulder, arm);
-                if hand.dist(to) < WIND_NEAR / 4 || c.t >= WIND_TICKS / 2 {
+                let deep = hand.sub(shoulder).dot(thrust_line(yaw));
+                if deep >= arm * OUT_PCT / 100 - WIND_NEAR / 4 || c.t >= WIND_TICKS / 2 {
                     c.phase = Phase::Follow;
                     c.t = 0;
                 }
@@ -487,7 +580,13 @@ pub fn step(w: &mut World, id: usize, inp: &Input) -> bool {
     } else {
         sw.gesture = (0, 0, 0);
     }
-    let a = &mut player::parts_mut(w, id).1.arm;
+    let f = player::parts_mut(w, id).1;
+    // a thrust's strike and follow-through lean the body in after it
+    let lunging = sw
+        .cut
+        .is_some_and(|c| c.way == Way::Thrust && c.phase != Phase::WindUp);
+    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { 0 }, LUNGE_STEP);
+    let a = &mut f.arm;
     a.swing = sw;
     if ended {
         // the hand's target on the shell is where the cut left the hand,
@@ -584,6 +683,7 @@ pub fn draw(w: &World, look: &Look, out: &mut Shapes) {
     c.band = band;
     let (start, end) = extent(way, band);
     let n = BEADS as i32;
+    let mut last: Option<V3> = None;
     for k in 0..BEADS {
         let (hand, line) = if way == Way::Thrust {
             c.phase = if k < BEADS / 2 {
@@ -601,21 +701,38 @@ pub fn draw(w: &World, look: &Look, out: &mut Shapes) {
             aim(&c, yaw, shoulder, arm)
         };
         let at = hand.add(line.scale(blade));
-        let r = if k + 1 == BEADS { BEAD_LAST } else { BEAD };
-        out.glow(
-            Mesh::Sphere,
-            crate::geom::Affine::translate(at).then(&crate::geom::Affine::scale(crate::geom::v3(r, r, r))),
-            colour,
-            CUE_GLOW,
-        );
+        if let Some(from) = last {
+            // a thin line along the tip's way (R9.176)
+            let d = at.sub(from);
+            if d.len() > 0 {
+                let a = crate::geom::Affine::translate(from.add(d.scale(ONE / 2)))
+                    .then(&crate::geom::Affine::looking(d.norm()))
+                    .then(&crate::geom::Affine::scale(crate::geom::v3(LINE, LINE, d.len())));
+                out.glow(Mesh::Cube, a, colour, CUE_GLOW);
+            }
+        }
+        if k + 1 == BEADS {
+            // and a bead where it ends: the way it goes
+            let r = BEAD_LAST;
+            out.glow(
+                Mesh::Sphere,
+                crate::geom::Affine::translate(at)
+                    .then(&crate::geom::Affine::scale(crate::geom::v3(r, r, r))),
+                colour,
+                CUE_GLOW,
+            );
+        }
+        last = Some(at);
     }
 }
 
-/// The cue's beads: how many, how big, how bright.
+/// The cue (R9.176): a line through `BEADS` points of the tip's way (so
+/// `BEADS` − 1 lengths of line and one bead, `BEADS` shapes), `LINE` thick,
+/// the end bead `BEAD_LAST` round, at `CUE_GLOW`.
 pub const BEADS: usize = 9;
-pub const BEAD: Fx = ONE * 18 / 1000;
-pub const BEAD_LAST: Fx = ONE * 32 / 1000;
-pub const CUE_GLOW: Fx = ONE * 2 / 5;
+pub const LINE: Fx = ONE * 14 / 1000;
+pub const BEAD_LAST: Fx = ONE * 45 / 1000;
+pub const CUE_GLOW: Fx = ONE * 7 / 10;
 
 #[cfg(test)]
 mod tests {
@@ -798,7 +915,7 @@ mod tests {
     }
 
     /// A level cut into a still orc's guard held across its way (60° to the
-    /// orc's left, 30° down, 160 cm off): the blades meet, the cut is over
+    /// orc's left, 20° down, 160 cm off): the blades meet, the cut is over
     /// the next tick (held still or not), and the first tick the world runs
     /// after the meeting the tip has lost more than half its speed.
     #[test]
@@ -809,7 +926,7 @@ mod tests {
         let ahead = facing(w.aim.yaw, 0).scale(ONE * 160 / 100);
         w.foes[0].body.pos = w.player.pos.add(ahead);
         w.foes[0].body.prev_pos = w.foes[0].body.pos;
-        player::act(&mut w, "guard", "-60,-30").unwrap();
+        player::act(&mut w, "guard", "-60,-20").unwrap();
         w.step(&Input {
             keys: DRAW,
             ..Default::default()
@@ -955,6 +1072,119 @@ mod tests {
                 assert!(!line(&w).shown);
             }
         }
+    }
+
+    /// The trail (R9.175): through a level cut's strike the blade's last 7
+    /// ticks are kept and drawn as glowing quads (6 between 7 places, fewer
+    /// where the blade barely moved); once the cut is over it loses 2 a tick,
+    /// so 7 → 5 (the tick the cut ends) → 3 → 1 → 0: by the fourth tick it is gone, and once the
+    /// arm has settled two ticks draw the same shapes. The same draw twice is the same list
+    /// in the same order. With the cue off, a cut draws no trail.
+    #[test]
+    fn a_cut_leaves_a_trail_that_fades_to_nothing() {
+        let look = crate::look::tests::look();
+        let glows = |w: &World| {
+            let mut out = Shapes::default();
+            w.draw(ONE, &look, &mut out);
+            out.list
+                .iter()
+                .filter(|s| s.pass == crate::render::Pass::Glow)
+                .count()
+        };
+        for on in [true, false] {
+            let mut w = ready(Held::ShortSword);
+            w.ui.settings.cue = on;
+            let before = glows(&w);
+            let (mut most, mut drawn) = (0, 0);
+            let mut t = 0;
+            while t < 90 && (t == 0 || w.me.arm.swing.cut.is_some()) {
+                w.step(&gesture(-6_000, 0, 0)(t));
+                most = most.max(w.me.arm.swing.trail_len);
+                // (the cue draws through the wind-up, not after it)
+                if w.me.arm.swing.cut.is_some_and(|c| c.phase != Phase::WindUp) {
+                    drawn = drawn.max(glows(&w) - before);
+                }
+                t += 1;
+            }
+            assert_eq!(most, TRAIL as u8, "the trail filled");
+            if !on {
+                assert_eq!(drawn, 0, "the cue off draws no trail");
+                continue;
+            }
+            assert!((3..=TRAIL - 1).contains(&drawn), "{drawn} quads at most");
+            // the tick the cut ended already took 2
+            assert_eq!(w.me.arm.swing.trail_len, 5);
+            let lens: Vec<u8> = (0..4)
+                .map(|_| {
+                    w.step(&Input::default());
+                    w.me.arm.swing.trail_len
+                })
+                .collect();
+            assert_eq!(lens, [3, 1, 0, 0]);
+            assert_eq!(glows(&w), before, "nothing of it is left");
+            let frame = |w: &World| {
+                let mut out = Shapes::default();
+                w.draw(ONE, &look, &mut out);
+                format!("{:?}", out.list)
+            };
+            // and once the arm has settled (R3.7), a still view draws the same
+            for _ in 0..120 {
+                w.step(&Input::default());
+            }
+            let a = frame(&w);
+            w.step(&Input::default());
+            assert_eq!(frame(&w), a, "a still view draws the same");
+        }
+    }
+
+    /// An orc's cut through its record leaves a trail too.
+    #[test]
+    fn a_foe_s_cut_leaves_a_trail() {
+        let mut w = World::new(3);
+        player::act(&mut w, "pilot", "still").unwrap();
+        player::act(&mut w, "spawn", "orc").unwrap();
+        player::act(&mut w, "gap", "260").unwrap();
+        for _ in 0..30 {
+            w.step(&Input::default());
+        }
+        player::act(&mut w, "cut", "level").unwrap();
+        let mut most = 0;
+        for _ in 0..60 {
+            w.step(&Input::default());
+            most = most.max(w.foes[0].fighter.arm.swing.trail_len);
+        }
+        assert_eq!(most, TRAIL as u8);
+    }
+
+    /// The thrust (R9.177): drawn in to 30% of the arm, then pushed out
+    /// along its line at up to 0.26 m a tick (15.6 m/s), the body leaning in
+    /// after it by up to 14°, which carries the sword shoulder 1.23 m up ×
+    /// sin 14° = 0.30 m forward. The short sword's tip tops 11 m/s, goes
+    /// 0.4 m or more ahead over the strike, the shoulder at least 0.25 m
+    /// forward at the lunge's deepest, and the lean is gone again (exactly
+    /// nothing) within a second.
+    #[test]
+    fn a_thrust_lunges_out_fast_and_far() {
+        let mut w = ready(Held::ShortSword);
+        let shoulder0 = w.me.arm.frame.shoulder[1];
+        let ahead = |w: &World| -w.me.arm.pts[arm::TIP].p.sub(w.player.pos).z;
+        let (mut top, mut start, mut far, mut lean) = (0, None, 0, 0);
+        for t in 0..60 {
+            w.step(&gesture(0, 0, -100)(t));
+            let c = w.me.arm.swing.cut;
+            if c.is_some_and(|c| c.phase != Phase::WindUp) {
+                top = top.max(player::mps(w.me.arm.pts[arm::TIP].vel().len()));
+                let a = ahead(&w);
+                start.get_or_insert(a);
+                far = far.max(a - start.unwrap());
+            }
+            lean = lean.max(shoulder0.z - w.me.arm.frame.shoulder[1].z);
+        }
+        assert!(top >= int(11), "tip {}", fx::decimal(top, 1));
+        assert!(far >= ONE * 4 / 10, "went {} ahead", fx::decimal(far, 2));
+        assert!(lean >= ONE / 4, "leaned {}", fx::decimal(lean, 2));
+        assert_eq!(w.me.gait.lunge, 0);
+        assert!(w.me.arm.swing.cut.is_none());
     }
 
     /// A still duel draws the same: the button held with the mouse still,

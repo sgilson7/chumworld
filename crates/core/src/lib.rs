@@ -66,3 +66,5 @@ pub mod boom;
 pub mod sound;
 // M7 (T10): how the mouse's path becomes a cut
 pub mod swing;
+// M7 travel (P6, T11)
+pub mod travel;

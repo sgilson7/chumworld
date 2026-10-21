@@ -332,11 +332,11 @@ fn the_dream_s_fade_is_heard_once() {
     assert_eq!(dreams, 1);
 }
 
-/// The draw, quicker (M7): X, and the blade starts to slide out 11 ticks
-/// later, heard then, and is out 18 ticks after the press (0.30 s, from
+/// The draw, quicker (M7): X, and the blade starts to slide out 12 ticks
+/// later, heard then, and is out 20 ticks after the press (0.33 s, from
 /// M1's 28).
 #[test]
-fn the_draw_is_heard_as_the_blade_slides_and_is_done_in_eighteen_ticks() {
+fn the_draw_is_heard_as_the_blade_slides_and_is_done_in_twenty_ticks() {
     let mut w = World::new(5);
     let mut heard_at = None;
     let mut drawn_at = None;
@@ -353,6 +353,6 @@ fn the_draw_is_heard_as_the_blade_slides_and_is_done_in_eighteen_ticks() {
             drawn_at = Some(t);
         }
     }
-    assert_eq!(heard_at, Some(12), "11 ticks after the tick X was pressed");
-    assert_eq!(drawn_at, Some(19), "18 ticks after it");
+    assert_eq!(heard_at, Some(13), "12 ticks after the tick X was pressed");
+    assert_eq!(drawn_at, Some(21), "20 ticks after it");
 }

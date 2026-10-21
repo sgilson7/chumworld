@@ -62,6 +62,8 @@ pub use figure::{rest_pose, Dress, BOOTS, GLOVES, HOOD, JACKET, SPEEDSTER_ALL, T
 pub use held::{grip_to_tip, kind_held, pickup, Pickup};
 pub use lineup::{act, draw, Lineup, Show};
 pub use props::{donkey, prop_radius, prop_shapes, DONKEY_TO_CART};
+// M7 travel: the woken waystone's glow, drawn over the baked waystone
+pub use props::waystone_glow;
 
 /// The parts each model is drawn from, for counting and testing.
 pub use figure::model as figure_model;
@@ -86,10 +88,12 @@ pub enum Prop {
     Bed,
     Signpost,
     HollowTree,
+    // M7 travel (P6, T11): the carved waystone at each travel point
+    Waystone,
 }
 
 impl Prop {
-    pub const ALL: [Prop; 15] = [
+    pub const ALL: [Prop; 16] = [
         Prop::House,
         Prop::Barn,
         Prop::Well,
@@ -105,6 +109,7 @@ impl Prop {
         Prop::Bed,
         Prop::Signpost,
         Prop::HollowTree,
+        Prop::Waystone,
     ];
 }
 

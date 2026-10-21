@@ -193,6 +193,22 @@ The slow and fast strokes give the same rows as the medium within a tick (any st
 | Which cuts the foes make, a still player, 30 s of an orc's tree | `a_pilot_s_level_cuts_and_chops_come_through_its_input_record` (a scratch count) | level cuts and chops both made, by the weights in `data/pilots.json` (R9.170) | 2026-10-20, P5 |
 | WebAssembly size | printed by `./scripts/build.sh` | 1 669 KB | 2026-10-20, P5 |
 
+## M7 travel (P6, T11)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Travel's own tick (five waystones' nearness, the gift's check, a journey), native release | `cargo test --release -p tool_core --test frame_probe -- --ignored --nocapture probe_travel_tick_cost` | 0.32 µs a tick with nothing reached (the worst case: five distances), 0.013 µs with every waystone woken; against the core's 2 ms (CW-11): negligible. A first version read the ground under each waystone every tick: 6.7 µs, so the nearness now reads the layout's centres | 2026-10-20, P6 |
+| Drawing the woken waystones' light and the traveller | same probe | 11.4 µs a frame, 30 shapes (two waystones in reach of the glow and the traveller from where the probe ends) | 2026-10-20, P6 |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 740 KB | 2026-10-20, P6 |
+
+### M7 swings, second pass (R9.175 to R9.178)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| The thrust, after R9.177 | `swing_probe` (`probe_swings_from_scripted_mouse`) | short sword: tip 12.7 m/s, 50 cm ahead over the strike, 16 ticks (was 5.6 m/s, 25 cm); sword 11.4 m/s, 55 cm; cleaver 10.1 m/s, 65 cm | 2026-10-20, P5 |
+| The level cut, middle plane at −5% (R9.178) | same | short sword 1° off level, 188°, 16.5 m/s; sword 1°, 190°, 18.5 m/s; cleaver 2°, 192°, 11.8 m/s | 2026-10-20, P5 |
+| The trail | `a_cut_leaves_a_trail_that_fades_to_nothing` | 7 places kept, 3 to 6 quads drawn in a strike; 5, 3, 1, 0 the ticks after the cut ends | 2026-10-20, P5 |
+
 ## M7 feel (task P1)
 
 Sound, the camera's boom, the burning houses, the staged practice, the spark, 2026-10-20, Apple M2 Max.

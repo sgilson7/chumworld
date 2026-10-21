@@ -30,6 +30,8 @@ pub enum Screen {
     Settings,
     Dialogue,
     Shop,
+    // M7 travel: the flute's song screen and the traveller's list (`travel.rs`)
+    Song,
 }
 
 impl Screen {
@@ -42,6 +44,7 @@ impl Screen {
             Screen::Settings => "settings",
             Screen::Dialogue => "dialogue",
             Screen::Shop => "shop",
+            Screen::Song => "song",
         }
     }
 }
@@ -194,6 +197,8 @@ impl Game {
                 let duel = crate::player::hud_stamp(&self.world);
                 // M5: the story's line, the prompt and the fade
                 let story = crate::story::stamp(&self.world);
+                // M7 travel: a waystone woken, a journey, a sound
+                let travel = crate::travel::stamp(&self.world);
                 for (k, b) in ticks.iter().enumerate() {
                     // M4: Tab and M open the menu ring before the tick runs
                     if let Some(face) = crate::ui::menu_pressed(&mut self.menu, *b) {
@@ -218,6 +223,7 @@ impl Game {
                 if hinted != self.hint_shown()
                     || duel != crate::player::hud_stamp(&self.world)
                     || story != crate::story::stamp(&self.world)
+                    || travel != crate::travel::stamp(&self.world)
                 {
                     self.ui_version += 1;
                 }
@@ -251,6 +257,14 @@ impl Game {
                         .map(|d| d.who.clone())
                         .unwrap_or_default();
                     self.cue("blip", crate::sound::voice_rate(&who));
+                }
+            }
+            // M7 travel: the world holds still while the flute plays; a
+            // judged phrase holds or fades by the frame's ticks
+            Screen::Song => {
+                self.pending.clear();
+                if crate::travel::song_ticks(&mut self.world, ticks.len() as u32) {
+                    self.ui_version += 1;
                 }
             }
             Screen::Title | Screen::Paused | Screen::Menu | Screen::Settings | Screen::Shop => {
@@ -397,6 +411,8 @@ impl Game {
             }
             // M4: the menus, settings, dialogue, the shop, and test acts
             n if crate::ui::owns(n) => crate::ui::act(self, name, value)?,
+            // M7 travel: the song screen, the waystones, the traveller
+            n if n.starts_with("travel.") => crate::travel::act(self, name, value)?,
             "display.software" => {
                 self.software = value == "true";
                 let (w, h) = self.css;
@@ -412,6 +428,7 @@ impl Game {
         let mut v = base_values();
         // M4: items, the speedster's armour, the imbue, the merchant
         v.extend(crate::ui::values());
+        v.extend(crate::travel::values()); // M7 travel
         v
     }
 }
