@@ -230,6 +230,10 @@ impl World {
         // 4. M1:
         crate::arm::step(self, input, &inputs);
         crate::blade::step(self);
+        // M7 (R9.24): a world held for a picture or a check hurts no one
+        if crate::story::holding(self) {
+            self.blades.hits.clear();
+        }
         crate::health::step(self);
         crate::feel::step(self); // M1:
                                  // 5. M1/M5: throwables, the boomerang

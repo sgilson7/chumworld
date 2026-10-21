@@ -579,6 +579,13 @@ pub fn arrive(w: &mut World) {
     }
 }
 
+/// M7 (R9.24): the world is held for a picture or a check (`story.still`,
+/// or a volley frozen by `magic.freeze`): no blow lands, no orb hurts, the
+/// camp's leader casts nothing.
+pub fn holding(w: &World) -> bool {
+    w.story.still || w.orbs.frozen
+}
+
 /// Whether the player is in the bed (lying, or getting up), where the
 /// opening put them.
 pub fn in_bed(w: &World) -> bool {

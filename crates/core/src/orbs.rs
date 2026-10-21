@@ -638,6 +638,10 @@ fn spark(w: &mut World, at: V3, size: Fx) {
 /// Orb `o` lands on fighter `id`: health by its kind (`TURNED_DAMAGE_PCT`
 /// of that turned), a stun weakening both arms.
 fn land_on(w: &mut World, o: &Orb, id: usize) {
+    // M7 (R9.24): a world held still hurts no one
+    if crate::story::holding(w) {
+        return;
+    }
     let k = o.kind();
     let dmg = if o.turned.is_some() {
         k.damage * TURNED_DAMAGE_PCT / 100

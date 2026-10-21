@@ -3470,5 +3470,40 @@
     "find": "    let alpha = if w.feel.frozen { 0 } else { alpha };\n",
     "replace": "",
     "test": "held_still_the_camera_does_not_move_between_ticks"
+  },
+  {
+    "name": "M7 feel: a held world's blows land",
+    "file": "crates/core/src/world.rs",
+    "find": "        if crate::story::holding(self) {\n            self.blades.hits.clear();\n        }\n",
+    "replace": "",
+    "test": "a_frozen_volley_hurts_no_one"
+  },
+  {
+    "name": "M7 feel: a held world's orbs hurt",
+    "file": "crates/core/src/orbs.rs",
+    "find": "    if crate::story::holding(w) {\n        return;\n    }\n",
+    "replace": "",
+    "test": "held_by_the_story_a_volley_hurts_no_one"
+  },
+  {
+    "name": "M7 feel: the leader casts while held",
+    "file": "crates/core/src/camp.rs",
+    "find": "    if story::holding(w) || !w.camp.alarm",
+    "replace": "    if !w.camp.alarm",
+    "test": "held_still_the_leader_casts_nothing"
+  },
+  {
+    "name": "M7 feel: the camp comes in all at once",
+    "file": "crates/core/src/camp.rs",
+    "find": "pub const JOIN_EVERY: u64 = 150;",
+    "replace": "pub const JOIN_EVERY: u64 = 0;",
+    "test": "the_camp_comes_in_a_beat_apart_and_no_more_than_two_press_at_once"
+  },
+  {
+    "name": "M7 feel: the whole camp presses at once",
+    "file": "crates/core/src/camp.rs",
+    "find": "pub const PRESS_MOST: usize = 2;",
+    "replace": "pub const PRESS_MOST: usize = 5;",
+    "test": "the_camp_comes_in_a_beat_apart_and_no_more_than_two_press_at_once"
   }
 ]

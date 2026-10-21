@@ -160,7 +160,7 @@ M5_VIEWS = ["m5-title", "m5-bed", "m5-wake", "m5-raid", "m5-fall", "m5-dream", "
 # M7 (task P1, feel): the opening's drama, the house's hand-over, the
 # camera's boom by a wall, the spark held still, the practice from its mark,
 # the scabbard from behind
-M7_VIEWS = ["m7-wake", "m7-door", "m7-fire", "m7-fade", "m7-wall", "m7-spark", "m7-spark-side", "m7-practice", "m7-scabbard", "m7-imbued"]
+M7_VIEWS = ["m7-wake", "m7-door", "m7-fire", "m7-fade", "m7-wall", "m7-corner", "m7-spark", "m7-spark-side", "m7-practice", "m7-scabbard", "m7-imbued"]
 # M2: view: the place (?go=), and extra address flags
 M2_VIEWS = {
     "village": ("1996,2838,18,-7", ""),
@@ -1090,6 +1090,13 @@ def m7_views(browser, base, out, views, logs):
         page = open_page("&go=1992,2842,0,-8&act=story.skip")
         wait_frames(page, 60)
         shot(page, "m7-wall")
+        page.close()
+    if "m7-corner" in views:
+        # just off a house's north-west corner, facing away from it: the
+        # boom comes in past the corner, clear of both walls
+        page = open_page("&go=1988,2842,45,-8&act=story.skip")
+        wait_frames(page, 60)
+        shot(page, "m7-corner")
         page.close()
     if any(v in views for v in ("m7-spark", "m7-spark-side")):
         # the orc's guard set across the player's (duel.guard), both drawn;

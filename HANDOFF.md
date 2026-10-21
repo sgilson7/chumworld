@@ -193,6 +193,8 @@ Built:
 - **The fade** eases in going dark and out lifting; the story's line drifts in (R9.15).
 - `tools/shoot.py` has ten M7 views (`m7-*`); the browser check sees the sound set up after Play, a burning house held still, and a frozen spark.
 
+- **QA's findings** (R9.105): a held world (`story.still`, `magic.freeze`) hurts no one and the leader casts nothing while held (R9.24); the camp comes in a member every 2.5 s after the alarm, at most two pressing (R9.25); the camera in a village corner is the boom's, confirmed (R9.26).
+
 Not built here, moved by the coordinator: the hit flash (P4), the imbued guard's framing (P5).
 
 For other tasks: R9.6 (P5: M1's fence fails for draw timings near the one chosen), R9.13 (P3: the house's door is shut and walked through), R9.16 (P3: the HUD and the fade hidden off the play screen), R9.19 (P2: the step's surface should read P2's road rule), R9.20 (a scatter chunk's trees cost 5 to 6 ms to build).
