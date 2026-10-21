@@ -1002,7 +1002,6 @@ pub const HANG_CLEAR_CM: i32 = 750;
 fn dress(r: &RoomSpec, look: &Look, g: &mut Group) {
     let d = &r.decor;
     let mut rng = crate::rng::Rng::new(d.seed);
-    let c = centre(r);
     let (hx, hz) = (r.size_cm[0] / 2, r.size_cm[1] / 2);
     let ink = look.ink();
     let root = rgb(r.colours.root);
