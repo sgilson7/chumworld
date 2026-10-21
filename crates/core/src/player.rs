@@ -52,9 +52,7 @@ pub const FOE_RANGE: Fx = fx::int(40);
 pub const REACH_TICKS: u8 = 12;
 pub const PULL_TICKS: u8 = 8;
 pub const DRAW_TICKS: u8 = REACH_TICKS + PULL_TICKS;
-/// M7: 22 (from 18): with the scabbard angled further back the point needs
-/// longer to come round to its mouth without the tip jumping (R9.7).
-pub const ALIGN_TICKS: u8 = 22;
+pub const ALIGN_TICKS: u8 = 18;
 pub const SLIDE_TICKS: u8 = 12;
 pub const SHEATHE_TICKS: u8 = ALIGN_TICKS + SLIDE_TICKS;
 pub const TILT_STEP: Fx = ONE / 10;
@@ -96,9 +94,7 @@ pub const STAGGER_WEAK_PCT: i32 = 50;
 /// left and back: the hilt toward the sword shoulder, so the pull ends
 /// within the arm's reach, 0.43 m from the shoulder for the short sword).
 const SHEATH_AT: (i32, i32, i32) = (-18, 96, 10);
-/// M7: down 28° and back (from M1's 40°), so from the camera behind the
-/// scabbard points more toward the eye and reads shorter beside the leg.
-const SHEATH_DIR: (i32, i32, i32) = (-6, -47, -88);
+const SHEATH_DIR: (i32, i32, i32) = (-6, -64, -77);
 /// Where the hanger meets the belt, above the mouth.
 const BELT_AT: (i32, i32, i32) = (-17, 104, 6);
 const DRAW_DIR: (i32, i32, i32) = (-61, -66, -44);

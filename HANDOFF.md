@@ -168,7 +168,7 @@ Built:
 - **The player's house** hands over by the ordered dither over 24 ticks, a tick at a time (R9.11).
 - **The opening**: two houses burning either side of the view from the door (flames, embers, smoke), a seventh orc in sight, a villager running past, the view lifting as you get up (R9.8, R9.9).
 - **The practice** from a circle of light 8 m in front of the trainer, in steps: one orb, three, the pattern (R9.12).
-- **The duel**: the spark burns 20 ticks with a white-hot core; the draw takes 20 ticks (0.33 s); the scabbard hangs at 28° (R9.6, R9.7, R9.14). Test acts `feel.freeze_spark`, `feel.stage_spark`, `trainer.mark` (R9.10).
+- **The duel**: the spark burns 20 ticks with a white-hot core; the draw takes 20 ticks (0.33 s); the scabbard angled back was tried and put back, since it read barely shorter and shimmered (R9.6, R9.7, R9.14). Test acts `feel.freeze_spark`, `feel.stage_spark`, `trainer.mark` (R9.10).
 - **The fade** eases in going dark and out lifting; the story's line drifts in (R9.15).
 - `tools/shoot.py` has ten M7 views (`m7-*`); the browser check sees the sound set up after Play, a burning house held still, and a frozen spark.
 
