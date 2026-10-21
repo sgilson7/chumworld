@@ -148,8 +148,7 @@ pub fn band(sp: &ScatterSpec, part: u8) -> [i32; 4] {
     let near = |go: [i32; 2]| [-1, -1, go[0], go[1]];
     let between = |come: [i32; 2], go: [i32; 2]| [come[0], come[1], go[0], go[1]];
     match part {
-        WHOLE | WHOLE_INK => near(sp.full_m),
-        FLOOR => near(sp.rock_m),
+        WHOLE | WHOLE_INK | FLOOR => near(sp.full_m),
         CONE => between(sp.full_m, sp.cone_m),
         CLUSTER => between(sp.cone_m, sp.cluster_m),
         ROCK | ROCK_INK => near(sp.rock_m),
