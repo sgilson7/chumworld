@@ -2711,8 +2711,8 @@
   {
     "name": "M7 land: a cone's sides upright",
     "file": "crates/core/src/obstacles.rs",
-    "find": "                out.push(([c * 894 / 1000, ONE as i64 * 447 / 1000, s * 894 / 1000], ONE as i64 * 2236 / 10_000));",
-    "replace": "                out.push(([c, 0, s], ONE as i64 / 2));",
+    "find": "                    [c * 894 / 1000, ONE as i64 * 447 / 1000, s * 894 / 1000],\n                    ONE as i64 * 2236 / 10_000,",
+    "replace": "                    [c, 0, s],\n                    ONE as i64 / 2,",
     "test": "a_cone_is_narrow_at_its_top_and_wide_at_its_foot"
   },
   {
@@ -2767,8 +2767,8 @@
   {
     "name": "M7 land: boulders by the bridge",
     "file": "crates/core/src/water.rs",
-    "find": "            if others.iter().any(|r| (r.s - st.s).abs() < clear) || fords.iter().any(|&f| (f - st.s).abs() < clear) {",
-    "replace": "            if fords.iter().any(|&f| (f - st.s).abs() < clear) && others.is_empty() {",
+    "find": "            if others.iter().any(|r| (r.s - st.s).abs() < clear)\n",
+    "replace": "            if others.is_empty()\n",
     "test": "the_south_ford_is_knee_deep_and_the_boulders_keep_clear"
   },
   {
@@ -2809,8 +2809,8 @@
   {
     "name": "M7 land: indexed facets not told apart",
     "file": "crates/core/src/scatter.rs",
-    "find": "    out.push(ONE * 3 / 2);",
-    "replace": "    out.push(ONE * 5 / 2);",
+    "find": "    out.extend([ONE * 3 / 2, ONE * 7 / 2, 2 * ONE]);",
+    "replace": "    out.extend([ONE * 5 / 2, ONE * 7 / 2, 2 * ONE]);",
     "test": "the_shader_fades_each_triangle_through_the_core_s_band"
   },
   {
