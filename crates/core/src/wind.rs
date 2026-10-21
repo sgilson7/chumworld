@@ -321,8 +321,9 @@ mod tests {
     #[test]
     fn the_frame_s_phases_carry_the_origin() {
         let s = Spec::shipped();
-        let mut st = State::default();
-        st.phase = [12_345_678, 2_000_000_000, 3_000_000_000, 777];
+        let st = State {
+            phase: [12_345_678, 2_000_000_000, 3_000_000_000, 777],
+        };
         let o = crate::geom::v3(int(1792), 0, int(2560));
         let f = frame_values(&s, &st, o);
         let core = gust(&s, &st, o.x, o.z) as i64;
