@@ -149,6 +149,9 @@ VIEWS = ["loading", "title", "standing", "turn", "run", "paused"]
 DUEL_VIEWS = ["sheathed", "drawn", "swing", "block", "hit", "rock", "orc", "slide"]
 D2_VIEWS = ["d2-guard", "d2-overhead", "d2-block", "d2-hit", "d2-close", "d2-sheathed", "d2-fallen", "d2-group"]
 M6_VIEWS = ["magic-fan", "magic-ring", "magic-wave", "magic-spiral", "magic-lineup", "magic-imbued", "magic-cooling", "magic-turn", "magic-practice", "magic-defend", "magic-guard"]
+# M7 P4 (wounds): a flash, a spray, a forearm off, a hop, the leader one-handed,
+# a bandit running, splats, the player one-armed, the dream's wake
+W_VIEWS = ["w-flash", "w-spray", "w-forearm", "w-hop", "w-crawl", "w-leader", "w-bandit", "w-splats", "w-player", "w-dream"]
 M4_VIEWS = ["hud", "menu_select", "menu_turn", "menu_map", "menu_quest", "menu_equipment", "dialogue", "shop", "settings", "pause_menu"]
 TEST_ACTS = "&act=test.give_all&act=test.hud&act=test.explore"
 # M5: the opening, the merchant, the camp, the trainer, the boomerang, a pickup
@@ -764,6 +767,131 @@ def d2_views(browser, base, out, views, logs):
         page.close()
 
 
+def w_page(browser, base, logs, flags, draw=True):
+    """The game with test flags and the page's `act` exposed, Play pressed,
+    and (with `draw`) the sword drawn."""
+    page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+    page.on("console", lambda m: logs.append(f"{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+    page.on("pageerror", lambda e: logs.append(f"pageerror: {e}"))
+    page.route("**/app.js*", expose_act)
+    page.goto(base + "/index.html?pointer=free&" + flags, wait_until="commit")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+    frames(page, 20)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    frames(page, 60)
+    if draw:
+        page.keyboard.press("KeyX")
+        frames(page, 60)
+    return page
+
+
+def w_act(page, name, value):
+    page.evaluate("([n, v]) => window.__act(n, v)", [name, value])
+
+
+def w_views(browser, base, out, views, logs):
+    """The wounds' views (W_VIEWS), each from a fresh page."""
+    if "w-flash" in views:
+        page = w_page(browser, base, logs, "duel=orc&foe=still&gap=230&act=duel.guard:-30,-20")
+        w_act(page, "wounds.blood", "off")
+        w_act(page, "wounds.cut", "upper_arm_l,9")
+        frames(page, 2)
+        page.screenshot(path=str(out / "w-flash.png"))
+        frames(page, 30)
+        page.screenshot(path=str(out / "w-flash-after.png"))
+        page.close()
+    if "w-spray" in views:
+        page = w_page(browser, base, logs, "duel=orc&foe=still&gap=230")
+        w_act(page, "wounds.cut", "torso,16")
+        frames(page, 5)
+        page.screenshot(path=str(out / "w-spray.png"))
+        burst(page, out, "w-spray", 3)
+        page.close()
+    if "w-forearm" in views:
+        page = w_page(browser, base, logs, "duel=orc&foe=still&gap=260")
+        w_act(page, "wounds.take_off", "forearm_r")
+        frames(page, 6)
+        page.screenshot(path=str(out / "w-forearm-cut.png"))
+        frames(page, 300)
+        page.screenshot(path=str(out / "w-forearm.png"))
+        page.close()
+    if "w-hop" in views:
+        page = w_page(browser, base, logs, "duel=orc&gap=700")
+        w_act(page, "wounds.take_off", "shin_l")
+        frames(page, 150)
+        burst(page, out, "w-hop", 4)
+        frames(page, 9)
+        page.screenshot(path=str(out / "w-hop.png"))
+        page.close()
+    if "w-crawl" in views:
+        page = w_page(browser, base, logs, "duel=orc&gap=600")
+        w_act(page, "wounds.take_off", "thigh_l")
+        w_act(page, "wounds.take_off", "thigh_r")
+        frames(page, 200)
+        page.screenshot(path=str(out / "w-crawl.png"))
+        page.close()
+    if "w-leader" in views:
+        page = w_page(browser, base, logs, "duel=leader&gap=500")
+        w_act(page, "wounds.take_off", "forearm_r")
+        frames(page, 40)
+        page.screenshot(path=str(out / "w-leader-dropped.png"))
+        frames(page, 420)
+        page.screenshot(path=str(out / "w-leader.png"))
+        burst(page, out, "w-leader", 3)
+        page.close()
+    if "w-bandit" in views:
+        page = w_page(browser, base, logs, "duel=bandit&gap=400")
+        w_act(page, "wounds.take_off", "forearm_r")
+        frames(page, 70)
+        page.screenshot(path=str(out / "w-bandit.png"))
+        page.close()
+    if "w-splats" in views:
+        page = w_page(browser, base, logs, "duel=orc&foe=still&gap=300")
+        for k in range(8):
+            w_act(page, "wounds.cut", "torso,15" if k % 2 else "upper_arm_r,14")
+            frames(page, 12)
+        w_act(page, "duel.health", "0")
+        frames(page, 300)
+        pitch(page, 0)
+        page.mouse.move(960, 540)
+        page.mouse.down(button="right")
+        move(page, 0, 10, 20)
+        page.mouse.up(button="right")
+        frames(page, 10)
+        page.screenshot(path=str(out / "w-splats.png"))
+        page.close()
+    if "w-player" in views:
+        page = w_page(browser, base, logs, "duel=orc&foe=still&gap=300")
+        w_act(page, "wounds.left_hand_me", "")
+        frames(page, 120)
+        page.screenshot(path=str(out / "w-player.png"))
+        page.mouse.move(960, 540)
+        page.mouse.down(button="right")
+        move(page, 25, 0, 30)
+        page.mouse.up(button="right")
+        frames(page, 10)
+        page.screenshot(path=str(out / "w-player-side.png"))
+        page.close()
+    if "w-dream" in views:
+        page = browser.new_page(viewport=SIZE, device_scale_factor=1)
+        page.route("**/app.js*", expose_act)
+        page.goto(base + "/index.html?pointer=free", wait_until="commit")
+        page.wait_for_selector("body[data-ready='true']", state="attached", timeout=30000)
+        frames(page, 20)
+        page.click("#title button")
+        page.wait_for_selector("body[data-screen='play']", state="attached")
+        frames(page, 200)
+        w_act(page, "wounds.take_off_me", "thigh_l")
+        w_act(page, "wounds.take_off_me", "forearm_r")
+        frames(page, 30)
+        page.screenshot(path=str(out / "w-dream-before.png"))
+        w_act(page, "wounds.take_off_me", "head")
+        frames(page, 420)
+        page.screenshot(path=str(out / "w-dream.png"))
+        page.close()
+
+
 def m5_views(browser, base, out, views, logs):
     """M5's views: each a fresh page at the URL a reader can open, with the
     flags the core takes (`?go=`, `?act=`), driven by keys and the mouse."""
@@ -1007,7 +1135,7 @@ def main(argv):
     out = pathlib.Path(argv[0])
     out.mkdir(parents=True, exist_ok=True)
     views = [a for a in argv[1:] if not a.startswith("--")] or VIEWS + DUEL_VIEWS + D2_VIEWS + M4_VIEWS + list(M2_VIEWS) + M5_VIEWS
-    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in M7_VIEWS]
+    unknown = [v for v in views if v not in VIEWS and v not in MODEL_VIEWS and v not in DUEL_VIEWS and v not in D2_VIEWS and v not in M4_VIEWS and v not in M2_VIEWS and v not in M5_VIEWS and v not in M6_VIEWS and v not in M7_VIEWS and v not in W_VIEWS]
     if unknown:
         sys.exit(f"no view named {', '.join(unknown)}")
     soft = "--soft" in argv
@@ -1103,6 +1231,8 @@ def main(argv):
             m5_views(browser, base, out, views, logs)
         if any(v in M7_VIEWS for v in views):
             m7_views(browser, base, out, views, logs)
+        if any(v in W_VIEWS for v in views):
+            w_views(browser, base, out, views, logs)
         browser.close()
     server.shutdown()
     for name in views:

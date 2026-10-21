@@ -209,6 +209,17 @@ The slow and fast strokes give the same rows as the medium within a tick (any st
 | The level cut, middle plane at −5% (R9.178) | same | short sword 1° off level, 188°, 16.5 m/s; sword 1°, 190°, 18.5 m/s; cleaver 2°, 192°, 11.8 m/s | 2026-10-20, P5 |
 | The trail | `a_cut_leaves_a_trail_that_fades_to_nothing` | 7 places kept, 3 to 6 quads drawn in a strike; 5, 3, 1, 0 the ticks after the cut ends | 2026-10-20, P5 |
 
+## M7 wounds (task P4)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| The raid's tick (8 fighters), native release, unchanged by wounds when no one is cut | `cargo test --release -p tool_core --test frame_probe probe_raid -- --ignored --nocapture` (`probe_raid_tick_cost`) | 0.63 ms mean, 0.98 to 1.40 ms worst over 600 ticks (two runs) | 2026-10-20, P4 |
+| The same raid with wounds: every foe cut on the torso at 14 m/s every 20 ticks, a part taken off every foe every 60, so blood stays at its caps | same command (`probe_raid_wounds_cost`) | tick 0.81 ms mean, 1.32 to 2.05 ms worst (two runs; one run on a loaded machine saw 14.7 ms once and 0.82 ms mean); drawing what moves (`World::draw`) 0.34 ms mean, 0.56 to 0.70 ms worst; at most 160 drops, 60 marks, 12 pieces, 1 287 shapes. Against the core's 2 ms a tick (CW-11): within it on the mean | 2026-10-20, P4 |
+| Drawing pieces from a model built every frame (the first version) | same probe | draw 1.89 ms mean, 18.9 ms worst with 19 pieces: each piece now keeps its own parts from the cut, and the labels are worked out once a kind | 2026-10-20, P4 |
+| How long a cut forearm takes to lie still | `a_part_taken_off_falls_and_comes_to_rest_exactly_within_its_bound` (a scratch print of the tick) | 46 ticks; bound 300 | 2026-10-20, P4 |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 768 KB (M6: 1 531 KB) | 2026-10-20, P4 |
+| Flicker: a frozen view after a part is taken off (the stump, the piece, the dropped cleaver, blood on the ground) | `tests/browser/interactions.py` (`?duel=orc&foe=still&act=wounds.take_off:forearm_r&act=wounds.cut:torso,14&act=wounds.freeze:420`) | see the check's result in `HANDOFF.md` | 2026-10-20, P4 |
+
 ## M7 feel (task P1)
 
 Sound, the camera's boom, the burning houses, the staged practice, the spark, 2026-10-20, Apple M2 Max.

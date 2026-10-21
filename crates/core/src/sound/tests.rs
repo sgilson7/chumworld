@@ -104,6 +104,8 @@ fn a_blow_that_lands_is_heard_once() {
         by: 1,
         on: 0,
         part: crate::blade::Part::Torso,
+        seg: 1,
+        vel: v3(ONE / 6, 0, 0),
         speed: fx::int(9),
         at: v3(fx::int(2000), ONE, fx::int(2800)),
     };

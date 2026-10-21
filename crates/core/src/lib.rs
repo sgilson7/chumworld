@@ -68,3 +68,5 @@ pub mod sound;
 pub mod swing;
 // M7 travel (P6, T11)
 pub mod travel;
+// M7 polish (P4): hits read on the body
+pub mod wounds;

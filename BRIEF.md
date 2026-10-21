@@ -35,6 +35,7 @@ Draft conditions, to be settled with the person through the journal's questions 
 - The game's name, and the names of the village, places and characters (agent-generated lists are worklist rows).
 - Which items and armour pieces exist beyond the MVP, and how each is acquired.
 - Whether the game keeps a save between visits (D17 forbids browser storage unless this brief allows it).
+  Answered 2026-10-20 (T16), in the person's words: "add areas to save your game to browser / to a save file json so you stop reviving in the village, the game should auto save as well in the browser". The game keeps one save in the browser, saved at save points and automatically, and can write and read the same save as a JSON file. The save holds game progress only, nothing about the person.
 - The look, from Protection of the Spheres; whether a picture matches it is the person's judgement.
 - Any third-party asset, sound or likeness.
 
