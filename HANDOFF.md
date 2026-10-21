@@ -227,6 +227,8 @@ Built (`crates/core/src/save.rs`, `data/save.json`, `web/save.js`, `web/save.css
 Rows: R9.310 to R9.321 in `SECOND-ORDER.md`, strings under "### M7 save (P10)" at its foot. Tests: 14 in `save.rs`, 3 in `one_save.rs`, and the browser check's `save` section. 17 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "M7 save"`).
 
 Waiting on the person: R9.311 (what a fall costs), R9.312 (the save points and the post's look, `shots/save/`), R9.321 (the strings).
+
+Checks (after merging main at ca463be): `./scripts/check.sh` steps 1 to 8 run by hand; 1 to 7 pass, 8 (journal) fails only on R9.311, R9.312 and R9.321, which the journal is to name. `python3 scripts/break_tests.py "M7 save"`: 17 of 17 caught. Step 9, the browser check with its new `save` section, is left to the coordinator's batched run (R9.323).
 ## 2026-10-20: M7 polish, menus, shop, models, flicker audit and a playthrough (task P3, qa)
 
 Built:
