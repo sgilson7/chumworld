@@ -265,6 +265,8 @@ Built (`crates/core/src/rumours.rs`, `data/rumours.json`):
 
 Rows: R9.340 to R9.359; strings under "### M7 rumours (P11)" in `SECOND-ORDER.md`. Tests: 12 in `rumours/tests.rs`; 19 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "T17 rumours"`).
 
+Check (after merging main at da5ffa3): steps 1 to 8 of `./scripts/check.sh` pass but for the journal check, which fails only on this part's three person rows (R9.343, R9.353, R9.355) until the journal names them; step 9, the browser check, was left to the coordinator's batch. `python3 scripts/break_tests.py "T17 rumours"`: 19 of 19 caught.
+
 Waiting on the person: R9.343 (the three new people, where they stand, the woodpile), R9.353 (no rumours for rocks, knives and bandages), R9.355 (the strings).
 
 For the coordinator: R9.344 (P10 saves `rumours::State`), R9.349 (the Quest glossary entry is out of date), R9.350 (files touched, three other parts' tests updated), R9.354 (not measured), R9.357 and R9.359 (browser check not run here; a page error in the new Quest card was found by screenshot and fixed, so the batch should open Quest with a line open).
