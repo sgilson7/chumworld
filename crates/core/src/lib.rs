@@ -61,6 +61,8 @@ pub mod trainer;
 // stubs: M6 Magic
 pub mod imbue;
 pub mod orbs;
+// M7 polish
+pub mod stage;
 // M7 (T10): how the mouse's path becomes a cut
 pub mod swing;
 // M7 travel (P6, T11)
@@ -69,5 +71,7 @@ pub mod travel;
 pub mod wounds;
 // M7 polish (P9, T15): foes met between the major areas
 pub mod wanderers;
+// M7 save (P10, T16): saves, save points, the autosave
+pub mod save;
 // M7 roadside (T12)
 pub mod roadside;

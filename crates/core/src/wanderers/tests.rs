@@ -7,6 +7,8 @@ use crate::pose::Held;
 /// A world past the opening, its encounters placed, the player at `p`.
 fn free_world(seed: u64) -> World {
     let mut w = World::new(seed);
+    // as the opening sets it (`story::begin`): the save names this seed
+    w.story.seed = seed;
     w.story.phase = Phase::Free;
     w.story.crossed = Some(crate::world::START);
     ensure(&mut w);
@@ -648,4 +650,56 @@ fn a_dream_keeps_the_placing_and_starts_the_records_again() {
     assert_eq!(w.wanderers.list, list);
     assert!(!w.wanderers.records[0].beaten);
     assert_eq!(w.wanderers.records.len(), list.len());
+}
+
+/// T16: a beaten encounter stays beaten across a save and a load (the
+/// save's text, read back), and a held site seen keeps its mark; what it
+/// left is not laid again.
+#[test]
+fn a_beaten_encounter_stays_beaten_across_a_save_and_a_load() {
+    let mut w = free_world(2);
+    let site = w
+        .wanderers
+        .list
+        .iter()
+        .find(|e| e.moves == Moves::Hold)
+        .cloned()
+        .unwrap();
+    let p = off(&w, &site, 25);
+    put(&mut w, p);
+    idle(&mut w, 2);
+    for f in &mut w.foes {
+        f.fighter.health.hp = 0;
+    }
+    idle(&mut w, 2);
+    assert!(w.wanderers.records[site.id as usize].beaten);
+    let laid = w.story.pickups.len();
+    let text = crate::save::text(&crate::save::progress(&w));
+    assert!(text.contains(&foe_key(site.id, 0)), "the save names it");
+    let back = crate::save::read(&text).expect("the save reads back");
+    let mut l = crate::save::world(&back);
+    assert_eq!(l.wanderers.seed, 2);
+    put(&mut l, p);
+    idle(&mut l, 3);
+    let r = l.wanderers.records[site.id as usize];
+    assert!(r.beaten && r.rewarded, "still beaten: {r:?}");
+    assert!(r.seen, "its mark kept");
+    assert!(
+        !l.wanderers.standing.iter().any(|s| s.enc == site.id as usize),
+        "it does not stand"
+    );
+    let again = l
+        .story
+        .pickups
+        .iter()
+        .filter(|p| !p.taken && p.at.sub(site.anchor).len_xz() < int(3))
+        .count();
+    assert_eq!(again, 0, "its reward is not laid again ({laid} before)");
+    // and the keys are the save's to know
+    assert!(crate::save::known_foe(&foe_key(site.id, 1)));
+    assert!(crate::save::known_taken(&crate::save::drop_key(
+        &site_key(site.id),
+        0
+    )));
+    assert!(!crate::save::known_foe("wanderer.x.1") && !crate::save::known_foe("wanderer.3.9"));
 }

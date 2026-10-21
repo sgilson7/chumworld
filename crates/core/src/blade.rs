@@ -858,6 +858,60 @@ mod tests {
         assert!(p.sub(q).dot(across) > 0, "the blade went through to the far side");
     }
 
+    /// R3.50: one blow a contact. A blade swept into a body takes one blow;
+    /// pressed on along the body, through it, it takes no second; drawn
+    /// more than `COME_AWAY` off and brought in again, it takes a new one.
+    /// The strikes are called on the blade and a still body by hand, so the
+    /// fences and the hit-stop that keep a resting blade at the skin in play
+    /// cannot hide the rule.
+    #[test]
+    fn a_blade_pressed_along_a_body_takes_no_second_blow() {
+        let mut w = duel(160, 0, true);
+        let orc = w.foes[0].fighter.pose;
+        let body = capsules(Kind::Orc, &orc, &orc);
+        let across = crate::geom::right_of(w.foes[0].body.facing);
+        let toward = w.player.pos.sub(w.foes[0].body.pos);
+        let toward = v3(toward.x, 0, toward.z).norm();
+        let len = w.me.arm.weapon.len;
+        // the blade across the torso at a height (a share of pelvis to chest)
+        // and a side offset, from `prev` to `now`
+        let place = |w: &mut World, from: (Fx, Fx), to: (Fx, Fx)| {
+            let a = &mut w.me.arm;
+            for ((up, side), prev) in [(from, true), (to, false)] {
+                let at = orc.pelvis.lerp(orc.chest, up).add(across.scale(side));
+                let (pommel, tip) = (at.add(toward.scale(len / 2)), at.sub(toward.scale(len / 2)));
+                if prev {
+                    a.pts[arm::POMMEL].q = pommel;
+                    a.pts[arm::TIP].q = tip;
+                } else {
+                    a.pts[arm::POMMEL].p = pommel;
+                    a.pts[arm::TIP].p = tip;
+                }
+            }
+        };
+        let blows = |w: &World| w.blades.hits.iter().filter(|h| h.on == 1).count();
+        w.blades.touching.clear();
+        w.blades.hits.clear();
+        // in from 30 cm to the left, through the spine: the first blow
+        place(&mut w, (ONE / 2, ONE * 3 / 10), (ONE / 2, -ONE * 3 / 10));
+        strike(&mut w, 0, 1, &body, true);
+        assert_eq!(blows(&w), 1, "the first contact is a blow");
+        // pressed on along the body, 15 cm up and through it: no second
+        w.blades.hits.clear();
+        place(&mut w, (ONE / 2, 0), (ONE * 3 / 4, -ONE * 3 / 10));
+        strike(&mut w, 0, 1, &body, true);
+        assert_eq!(blows(&w), 0, "pressed along the body, no second blow");
+        // away, past COME_AWAY (90 cm to the left, clear of the arms too),
+        // then in again
+        place(&mut w, (ONE * 3 / 4, -ONE * 3 / 10), (ONE * 3 / 4, ONE * 9 / 10));
+        strike(&mut w, 0, 1, &body, true);
+        assert_eq!(blows(&w), 0, "drawn away is no blow");
+        assert!(!w.blades.touching.contains(&(0, 1)), "it has come away");
+        place(&mut w, (ONE * 3 / 4, ONE * 9 / 10), (ONE * 3 / 4, -ONE * 3 / 10));
+        strike(&mut w, 0, 1, &body, true);
+        assert_eq!(blows(&w), 1, "a new contact is a new blow");
+    }
+
     /// The staged cut (R3.36) lands hard. Worked by hand from the speed it
     /// lands at: the world holds still 2 ticks and one more for each 4 m/s
     /// over 5 (at most 4), the bodies and arms not moving a unit; the view

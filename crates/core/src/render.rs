@@ -248,6 +248,54 @@ impl Shapes {
     }
 }
 
+/// M7 (R9.91): a thin thing (a blade, a wing, a board) seen edge-on is kept
+/// at least this wide for each metre it is from the eye: 1.6 mm, a pixel
+/// and a half at 1080 lines with the 60° view, so a blade edge-on at 20 m
+/// does not vanish and come back as it turns.
+pub const KEEP_VISIBLE_PER_M: Fx = ONE * 16 / 10_000;
+/// A shape counts as thin when its thinnest side is under a quarter of its
+/// longest (a third for an outline, whose sides the ink has grown) and its
+/// longest is at least this: smaller things (an eye, a stud) are left alone.
+pub const KEEP_VISIBLE_LONGEST: Fx = ONE * 12 / 100;
+
+/// Widens each thin lit shape, and its outline, to `KEEP_VISIBLE_PER_M` of
+/// its distance from `eye` across its thinnest side (R9.91). An outline is
+/// kept half again as wide as the least a solid is widened to, so the ink's
+/// rim stays round a widened blade and no two faces meet.
+pub fn keep_visible(shapes: &mut [Shape], eye: V3) {
+    for s in shapes.iter_mut() {
+        let ink = match s.pass {
+            Pass::Solid | Pass::Dither => false,
+            Pass::Ink => true,
+            _ => continue,
+        };
+        let a = &mut s.at;
+        let lens = [a.c0.len(), a.c1.len(), a.c2.len()];
+        let longest = lens.into_iter().max().unwrap_or(0);
+        let (k, thin) = lens
+            .iter()
+            .copied()
+            .enumerate()
+            .min_by_key(|(_, l)| *l)
+            .unwrap_or((0, 0));
+        let share = if ink { 3 } else { 4 };
+        if longest < KEEP_VISIBLE_LONGEST || thin == 0 || thin * share >= longest {
+            continue;
+        }
+        let least = fx::mul(a.t.dist(eye), KEEP_VISIBLE_PER_M);
+        let least = if ink { least * 3 / 2 } else { least };
+        if thin >= least {
+            continue;
+        }
+        let col = match k {
+            0 => &mut a.c0,
+            1 => &mut a.c1,
+            _ => &mut a.c2,
+        };
+        *col = col.scale(fx::div(least, thin));
+    }
+}
+
 /// The same shape grown by the ink's width on every side.
 pub fn inflate(a: &Affine) -> Affine {
     let lens = [a.c0.len(), a.c1.len(), a.c2.len()];
@@ -622,6 +670,70 @@ mod tests {
             fwd: facing(0, 0),
             fov: deg(60),
         }
+    }
+
+    /// M7 (R9.91): a blade 0.8 m long, 46 mm wide and 9 mm thick, inked,
+    /// 20 m from the eye: kept 20 × 104 = 2 080 units thick (KEEP_VISIBLE_PER_M
+    /// is 65 536 × 16 / 10 000 = 104 units a metre; 31.7 mm), its outline
+    /// 3 120; at 2 m it is left as it was; so are a box and a small stud.
+    #[test]
+    fn a_thin_blade_far_off_keeps_a_width_and_its_outline_stays_wider() {
+        let eye = v3(0, 0, 0);
+        let blade = |at: Fx| {
+            let mut s = Shapes::default();
+            let a = Affine::translate(v3(0, 0, -at)).then(&Affine::scale(v3(
+                ONE * 46 / 1000,
+                ONE * 8 / 10,
+                ONE * 9 / 1000,
+            )));
+            s.inked(Mesh::Cube, a, [ONE; 3], [0; 3]);
+            s
+        };
+        let mut far = blade(int(20));
+        let ink_before = far.list[1].at.c2.len();
+        keep_visible(&mut far.list, eye);
+        // to within the two units a rescale rounds away
+        assert!(
+            (far.list[0].at.c2.len() - 2080).abs() <= 2,
+            "{}",
+            far.list[0].at.c2.len()
+        );
+        assert!(
+            (far.list[1].at.c2.len() - 3120).abs() <= 2,
+            "{}",
+            far.list[1].at.c2.len()
+        );
+        assert!(ink_before < 3120);
+        assert_eq!(
+            far.list[0].at.c0,
+            blade(int(20)).list[0].at.c0,
+            "only its thin side"
+        );
+        let mut near = blade(int(2));
+        keep_visible(&mut near.list, eye);
+        assert_eq!(near, blade(int(2)));
+        let mut others = Shapes::default();
+        others.solid(
+            Mesh::Cube,
+            Affine::translate(v3(0, 0, -int(30))).then(&Affine::scale(v3(ONE, ONE, ONE / 2))),
+            [ONE; 3],
+            0,
+        );
+        others.solid(
+            Mesh::Cube,
+            Affine::translate(v3(0, 0, -int(30))).then(&Affine::scale(v3(ONE / 10, ONE / 10, ONE / 200))),
+            [ONE; 3],
+            0,
+        );
+        others.glow(
+            Mesh::Dot,
+            Affine::translate(v3(0, 0, -int(30))).then(&Affine::scale(v3(ONE, ONE, ONE / 200))),
+            [ONE; 3],
+            ONE,
+        );
+        let before = others.clone();
+        keep_visible(&mut others.list, eye);
+        assert_eq!(others, before, "a box, a small stud and a glow are left alone");
     }
 
     #[test]

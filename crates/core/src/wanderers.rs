@@ -406,6 +406,8 @@ pub struct State {
     pub free: Vec<usize>,
     /// the cap on foes standing near the player (`most_near`)
     pub most: usize,
+    /// the save this world came from has been read into `records` (`sync`)
+    pub synced: bool,
 }
 
 impl State {
@@ -418,6 +420,7 @@ impl State {
             standing: Vec::new(),
             free: Vec::new(),
             most: spec().most_near,
+            synced: false,
         }
     }
 }
@@ -1051,6 +1054,7 @@ pub fn step(w: &mut World) {
         return;
     }
     ensure(w);
+    sync(w);
     tend(w);
     seen(w);
     park(w);
@@ -1084,7 +1088,8 @@ fn tend(w: &mut World) {
             for (j, r) in k.per_foe.iter().enumerate() {
                 if let Some(g) = r.gift() {
                     let turn = fx::deg(90 + 60 * j as i32);
-                    story::drop(w, g, at.add(facing(yaw + turn, 0).scale(ONE * 8 / 10)));
+                    let key = crate::save::drop_key(&foe_key(enc.id, mb.slot), j);
+                    crate::save::drop(w, &key, g, at.add(facing(yaw + turn, 0).scale(ONE * 8 / 10)));
                 }
             }
             w.wanderers.standing[li].members[mi].dropped = true;
@@ -1104,7 +1109,8 @@ fn tend(w: &mut World) {
                 };
                 for (j, g) in k.cleared.iter().filter_map(Reward::gift).enumerate() {
                     let turn = fx::deg(40 + 75 * j as i32);
-                    story::drop(w, g, at.add(facing(turn, 0).scale(ONE * 14 / 10)));
+                    let key = crate::save::drop_key(&site_key(enc.id), j);
+                    crate::save::drop(w, &key, g, at.add(facing(turn, 0).scale(ONE * 14 / 10)));
                 }
                 if enc.moves == Moves::Hold {
                     story::banner(w, "wanderer_cleared");
@@ -1562,6 +1568,105 @@ pub fn scene(w: &World, look: &Look, meshes: &mut MeshTable, out: &mut Vec<Group
             models::prop(*p, *at, *yaw, look, meshes, &mut g);
         }
         out.push(g);
+    }
+}
+
+// ---- the save (P10, T16) -------------------------------------------------------
+
+/// A wanderer's stable key: its encounter's id and its place in the
+/// encounter (`wanderer.<id>.<slot>`), named in the save's `beaten`.
+pub fn foe_key(id: u16, slot: usize) -> String {
+    format!("wanderer.{id}.{slot}")
+}
+
+/// An encounter's key, for what it leaves when beaten
+/// (`drop.wanderer.<id>.<n>`, `save::drop_key`).
+pub fn site_key(id: u16) -> String {
+    format!("wanderer.{id}")
+}
+
+/// The whole numbers after `prefix`, each under `most`.
+fn numbers_after(key: &str, prefix: &str, most: u32) -> Option<Vec<u32>> {
+    let rest = key.strip_prefix(prefix)?;
+    rest.split('.')
+        .map(|t| t.parse::<u32>().ok().filter(|&n| n < most && t == n.to_string()))
+        .collect()
+}
+
+/// A key the save may name as beaten: `wanderer.<id>.<slot>`. The list
+/// comes from the seed, so any id under 256 and slot under 8 is known.
+pub fn known_key(key: &str) -> bool {
+    numbers_after(key, "wanderer.", 256).is_some_and(|n| n.len() == 2 && n[1] < 8)
+}
+
+/// A drop's key: `drop.wanderer.<id>.<n>` (what a beaten site leaves) or
+/// `drop.wanderer.<id>.<slot>.<n>` (what one foe carried).
+pub fn known_drop(key: &str) -> bool {
+    numbers_after(key, "drop.wanderer.", 256)
+        .is_some_and(|n| (2..=3).contains(&n.len()) && n[1..].iter().all(|&v| v < 8))
+}
+
+/// Each wanderer down, by key (`save::beaten_in`).
+pub fn beaten_keys(w: &World) -> Vec<String> {
+    let sp = spec();
+    let mut out = Vec::new();
+    for (e, r) in w.wanderers.list.iter().zip(&w.wanderers.records) {
+        for slot in 0..sp.kinds[e.kind].foes.len() {
+            if r.fallen & (1 << slot) != 0 {
+                out.push(foe_key(e.id, slot));
+            }
+        }
+    }
+    out
+}
+
+/// Once, the save this world came from read into the records: a wanderer
+/// it names as beaten is down, and an encounter all of whose foes are is
+/// beaten, its reward already left (CW-6: nothing comes twice).
+fn sync(w: &mut World) {
+    if w.wanderers.synced {
+        return;
+    }
+    w.wanderers.synced = true;
+    let sp = spec();
+    for i in 0..w.wanderers.list.len() {
+        let e = &w.wanderers.list[i];
+        let n = sp.kinds[e.kind].foes.len();
+        let mut fallen = 0u8;
+        for slot in 0..n {
+            if crate::save::beaten(w, &foe_key(e.id, slot)) {
+                fallen |= 1 << slot;
+            }
+        }
+        let r = &mut w.wanderers.records[i];
+        r.fallen |= fallen;
+        if r.fallen == all(n) {
+            r.beaten = true;
+            r.rewarded = true;
+        }
+    }
+}
+
+/// The save's part for the held sites seen: `seen.<id>`.
+pub fn seen_known(id: &str) -> bool {
+    numbers_after(id, "seen.", 256).is_some_and(|n| n.len() == 1)
+}
+
+pub fn seen_ids(w: &World) -> std::collections::BTreeSet<String> {
+    w.wanderers
+        .records
+        .iter()
+        .filter(|r| r.seen)
+        .map(|r| format!("seen.{}", r.id))
+        .collect()
+}
+
+pub fn seen_apply(w: &mut World, ids: &std::collections::BTreeSet<String>) {
+    ensure(w);
+    for r in &mut w.wanderers.records {
+        if ids.contains(&format!("seen.{}", r.id)) {
+            r.seen = true;
+        }
     }
 }
 

@@ -259,7 +259,7 @@ fn walls(w: &World, home: Option<Home>) -> Vec<Wall> {
 /// smaller than the ground flattened for it.
 fn small(prop: Prop, mut wall: Wall) -> Wall {
     let shrink = match prop {
-        Prop::Signpost | Prop::Scarecrow => ONE * 38 / 100,
+        Prop::Signpost | Prop::Scarecrow | Prop::SavePost => ONE * 38 / 100,
         Prop::Well => ONE * 15 / 100,
         Prop::Campfire => ONE * 25 / 100,
         Prop::Chest => ONE * 5 / 100,

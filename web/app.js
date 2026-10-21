@@ -12,6 +12,7 @@ import init, { Game, numbers } from "./pkg/tool_shim.js";
 import { makeRenderer } from "./gl.js";
 import { makeInput } from "./input.js";
 import { makeMenus } from "./menus/menus.js";
+import { makeSave } from "./save.js";
 
 const el = (id) => document.getElementById(id);
 const make = (tag, text, className) => {
@@ -105,6 +106,31 @@ async function main() {
 
   // M4: the HUD, the menu ring, dialogue, the shop and settings (web/menus/)
   const menus = makeMenus(el("menus"), { act, pixels: () => game.map_pixels(), keys });
+  // M7 save: the browser's save and the save file (web/save.js)
+  const save = makeSave();
+
+  // M7: the Equipment screen's figure, the player's own model, drawn on its
+  // own canvas from the core's figure frame when the core sends one
+  const shaders = { vertex, fragment, waterVertex, waterFragment, software: display.software };
+  const figureCanvas = menus.figureCanvas;
+  let figure = null;
+  let figureSize = "";
+  function drawFigure() {
+    const draws = game.figure_draws();
+    if (draws.length === 0) return;
+    if (!figure) {
+      figure = makeRenderer(figureCanvas, N, shaders, meshes, (id) => game.mesh(id));
+      if (!figure) return;
+      figure.setUniforms(game.uniforms(), game.figure_clear_color(), game.water_uniforms());
+    }
+    const size = `${figureCanvas.clientWidth} ${figureCanvas.clientHeight}`;
+    if (size !== figureSize) {
+      figureSize = size;
+      const [w, h] = game.figure_resize(figureCanvas.clientWidth, figureCanvas.clientHeight, window.devicePixelRatio || 1);
+      figure.resize(w, h);
+    }
+    figure.frame(game.figure_view(), game.figure_instances(), game.figure_draws(), game.water_frame());
+  }
 
   function panel(p) {
     const box = make("section", undefined, "panel");
@@ -120,7 +146,9 @@ async function main() {
         // the browser grants the pointer only inside a click
         if (a.engage) input.engage();
         button.blur();
-        act(a.name, a.value);
+        // M7 save: a button that asks for a file sends the file's text
+        if (ui && ui.save && a.name === ui.save.file_action) save.pick((text) => act(a.name, text));
+        else act(a.name, a.value);
       });
       box.append(button);
     });
@@ -159,6 +187,7 @@ async function main() {
     document.querySelectorAll("#overlay h1, #overlay h2, #overlay td span").forEach(mark);
     if (!u.capture) input.release();
     menus.show(u);
+    save.show(u.save, () => game.save_text());
     // a screen of buttons opens with its first one focused, for the keyboard
     const first = el("overlay").querySelector("button");
     if (changed && first) first.focus({ preventScroll: true });
@@ -185,6 +214,8 @@ async function main() {
     if (ui && ui.capture && !input.engaged()) input.engage();
   });
 
+  // M7 save: the save this browser keeps, read back through the core
+  act("save.stored", save.stored());
   if (lookSpeed) act("look.speed", lookSpeed);
   if (goTo) act("places.go", goTo);
   // a test duel and test settings from the address, each through the core's
@@ -222,6 +253,7 @@ async function main() {
       renderer.setStatic(game.static_values());
     }
     renderer.frame(game.view(), game.instances(), game.draws(), game.water_frame());
+    drawFigure();
     if (game.ui_version() !== uiVersion) {
       uiVersion = game.ui_version();
       show(JSON.parse(game.ui()).ok);

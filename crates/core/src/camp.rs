@@ -135,6 +135,14 @@ fn spawn(w: &mut World) {
             yaw_of(fire.sub(p))
         };
         let foe = story::sheathed_foe(w, kind, look, p, yaw);
+        // M7 save: one beaten in the save this world came from lies down
+        let key = crate::save::camp_keys()
+            .get(w.camp.members.len())
+            .cloned()
+            .unwrap_or_default();
+        if crate::save::beaten(w, &key) {
+            crate::save::lay_down(w, foe);
+        }
         w.camp.members.push(Member {
             foe,
             role,
@@ -264,22 +272,47 @@ fn drops(w: &mut World) {
         let at = foe.body.pos;
         let yaw = foe.body.facing;
         let beside = |d: Fx, turn: i32| at.add(crate::geom::facing(yaw + turn, 0).scale(d));
+        // M7 save: each drop by its stable key (`save::drop_key`), never
+        // laid again once taken
+        let key = crate::save::camp_keys().get(k).cloned().unwrap_or_default();
+        let slot = |s: usize| crate::save::drop_key(&key, s);
         match m.role {
             Role::Lookout => {
-                story::drop(w, Gift::Item(Item::Gloves, 1), beside(ONE * 8 / 10, deg(90)));
-                story::drop(w, Gift::Coins(sp.bandit_coins), beside(ONE * 8 / 10, -deg(90)));
+                save_drop(
+                    w,
+                    &slot(0),
+                    Gift::Item(Item::Gloves, 1),
+                    beside(ONE * 8 / 10, deg(90)),
+                );
+                save_drop(
+                    w,
+                    &slot(1),
+                    Gift::Coins(sp.bandit_coins),
+                    beside(ONE * 8 / 10, -deg(90)),
+                );
             }
             Role::Bandit => {
-                story::drop(w, Gift::Coins(sp.bandit_coins), beside(ONE * 8 / 10, deg(90)));
-                story::drop(
+                save_drop(
                     w,
+                    &slot(0),
+                    Gift::Coins(sp.bandit_coins),
+                    beside(ONE * 8 / 10, deg(90)),
+                );
+                save_drop(
+                    w,
+                    &slot(1),
                     Gift::Item(Item::Knife, sp.bandit_knives),
                     beside(ONE * 8 / 10, -deg(90)),
                 );
             }
             Role::Leader => {
-                story::drop(w, Gift::Item(Item::Sword, 1), beside(ONE, deg(90)));
-                story::drop(w, Gift::Coins(sp.leader_coins), beside(ONE * 8 / 10, -deg(90)));
+                save_drop(w, &slot(0), Gift::Item(Item::Sword, 1), beside(ONE, deg(90)));
+                save_drop(
+                    w,
+                    &slot(1),
+                    Gift::Coins(sp.leader_coins),
+                    beside(ONE * 8 / 10, -deg(90)),
+                );
             }
         }
         w.camp.members[k].dropped = true;
@@ -294,9 +327,21 @@ fn drops(w: &mut World) {
         let at = leader(w)
             .map(|id| player::body(w, id).pos)
             .unwrap_or_else(|| centre(w));
-        story::drop(w, Gift::Item(Item::ChestKey, 1), at.add(v3(0, 0, ONE * 7 / 10)));
-        story::banner(w, "story_camp_cleared");
+        save_drop(
+            w,
+            crate::save::KEY_DROP,
+            Gift::Item(Item::ChestKey, 1),
+            at.add(v3(0, 0, ONE * 7 / 10)),
+        );
+        // M7 save: cleared in the save this world came from, it is not said again
+        if !crate::save::was_cleared(w) {
+            story::banner(w, "story_camp_cleared");
+        }
     }
+}
+
+fn save_drop(w: &mut World, key: &str, gift: Gift, at: V3) {
+    crate::save::drop(w, key, gift, at);
 }
 
 /// How far the player is from opening the chest, near it.
@@ -325,6 +370,22 @@ pub fn open_chest(w: &mut World) {
 }
 
 /// The chest, its lid shut or swinging open about its back edge.
+/// M7 (R7.13, R9.90): the speedster pieces fighter `id` (a foe's number
+/// plus one, as `player::fighter`) is drawn wearing: the lookout wears the
+/// gloves until it drops them.
+pub fn worn(w: &World, id: usize) -> u8 {
+    let wears = w
+        .camp
+        .members
+        .iter()
+        .any(|m| m.role == Role::Lookout && m.foe + 1 == id && !m.dropped);
+    if wears {
+        models::GLOVES
+    } else {
+        0
+    }
+}
+
 pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     let Some(c) = chest(w) else {
         return;
@@ -462,6 +523,29 @@ mod tests {
             .filter(|p| p.gift == Gift::Item(Item::ChestKey, 1))
             .count();
         assert_eq!(keys, 1);
+    }
+
+    /// M7 (R7.13): the lookout is drawn in the speedster's gloves (the
+    /// piece's colour on its hands) until it falls and they lie on the
+    /// ground; no other foe wears them.
+    #[test]
+    fn the_lookout_wears_the_gloves_until_it_drops_them() {
+        let mut w = at_camp();
+        let look_id = w.camp.members[0].foe + 1;
+        let bandit_id = w.camp.members[1].foe + 1;
+        assert_eq!((worn(&w, look_id), worn(&w, bandit_id)), (models::GLOVES, 0));
+        let gloved = |w: &World| {
+            let mut out = Shapes::default();
+            crate::player::draw(w, 0, &crate::look::tests::look(), &mut out);
+            let speed = models::table().c("speed_base");
+            out.list.iter().filter(|s| s.rgb == speed).count()
+        };
+        // two hands in the piece's colour (the player wears nothing)
+        assert_eq!(gloved(&w), 2);
+        w.foes[look_id - 1].fighter.health.hp = 0;
+        w.step(&Input::default());
+        assert_eq!(worn(&w, look_id), 0);
+        assert_eq!(gloved(&w), 0, "dropped, not worn");
     }
 
     #[test]

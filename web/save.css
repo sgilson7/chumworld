@@ -1,0 +1,35 @@
+/* M7 save (P10, T16): the title's and the pause's save buttons and line,
+   and the small Saved mark over the game. The panels are laid into the
+   title's column and the pause's card as the settings panel is
+   (menus/menus.css): their parts take an order among the others. */
+#title-save > button {
+  order: 2;
+  width: 300px;
+  margin: 0 0 14px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 4px 0 var(--paper-edge), 0 8px 18px rgba(20, 12, 32, 0.3);
+}
+#title-save > button[data-action="save.new_yes"] { background: var(--accent); color: #fffaf0; box-shadow: 0 4px 0 var(--accent-deep), 0 8px 18px rgba(182, 90, 51, 0.35); }
+#title-save > p {
+  order: 2;
+  width: 300px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(251, 245, 233, 0.92);
+  color: var(--ink);
+  font-weight: 650;
+}
+#paused-save > button { order: 3; margin-top: 12px; background: var(--paper); color: var(--ink); box-shadow: 0 0 0 2px var(--paper-edge), 0 4px 0 var(--paper-edge); }
+#paused-save > p { order: 3; margin: 12px 0 0; font-weight: 650; }
+/* the Saved mark: small, in the bottom right corner, clear of the quick
+   keys (top right), the coins (bottom left) and the lines in the middle */
+#hud-saved {
+  position: fixed;
+  bottom: 5vh;
+  right: 28px;
+  font-size: 14px;
+  padding: 6px 14px;
+  transition: opacity 0.4s ease;
+}

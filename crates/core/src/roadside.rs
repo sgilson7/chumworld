@@ -721,7 +721,9 @@ pub fn begin(w: &mut World) {
                 at.z - fx::mul(lx, sn) + fx::mul(lz, cs),
             );
             if let Some(gift) = gift(g) {
-                story::drop(w, gift, p);
+                // M7 save: by stable key, so a load knows them taken
+                let key = crate::save::drop_key(&crate::save::roadside_key(&s.id), n);
+                crate::save::drop(w, &key, gift, p);
             }
         }
     }
@@ -816,6 +818,10 @@ pub fn step(w: &mut World) {
             home.y = solid::surface(w, at.x, at.z);
             let yaw = s.yaw();
             let foe = story::sheathed_foe(w, Figure::Orc, Figure::Orc, home, yaw);
+            // M7 save: beaten in the save this world came from, it lies down
+            if crate::save::beaten(w, &crate::save::roadside_key(&s.id)) {
+                crate::save::lay_down(w, foe);
+            }
             w.roadside.straggler = Some(Straggler {
                 foe,
                 stop: k,
@@ -837,7 +843,10 @@ pub fn step(w: &mut World) {
                 .add(crate::geom::facing(f.body.facing + deg(90), 0).scale(ONE * 8 / 10));
             let coins = w.roadside.stops[s.stop].0.spec().coins;
             if coins > 0 {
-                story::drop(w, Gift::Coins(coins), at);
+                // M7 save: by stable key, never laid again once taken
+                let key =
+                    crate::save::drop_key(&crate::save::roadside_key(&w.roadside.stops[s.stop].0.id), 0);
+                crate::save::drop(w, &key, Gift::Coins(coins), at);
             }
             if let Some(t) = &mut w.roadside.straggler {
                 t.dropped = true;
