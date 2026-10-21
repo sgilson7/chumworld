@@ -139,6 +139,11 @@ pub struct State {
     pub chunks: std::rc::Rc<Vec<Chunk>>,
     /// every building, tent and fence, worked out once (`blocks`)
     pub blocks: std::rc::Rc<Vec<Solid>>,
+    /// M7 (P2, R9.59): how far the eye has risen over a short boom, this
+    /// tick and last, eased toward what is clear (`RISE_STEP` a tick), so
+    /// stepping out from under an eave or past a wall does not throw it up
+    pub rise: Fx,
+    pub prev_rise: Fx,
 }
 
 /// The highest point of a prop's model over its foot.
@@ -426,28 +431,43 @@ pub fn head(feet: V3) -> V3 {
 /// the look `fwd` is returned with it, the same as given when the eye has
 /// not risen.
 pub fn clip(w: &World, alpha: Fx, feet: V3, pivot: V3, eye: V3, fwd: V3) -> (V3, V3) {
+    let eased = w.boom.set.then(|| fx::lerp(w.boom.prev_rise, w.boom.rise, alpha));
+    let (at, look, _) = place(w, alpha, feet, pivot, eye, fwd, eased);
+    (at, look)
+}
+
+/// How far the eye rises at most in a tick (M7, R9.59): 10 cm, so the
+/// view never jumps up; it comes down at once where it must to stay clear.
+pub const RISE_STEP: Fx = ONE / 10;
+
+/// The eye, its look and how far it could rise: `clip`'s work, the rise
+/// held to `eased` when given (and never above what is clear).
+fn place(w: &World, alpha: Fx, feet: V3, pivot: V3, eye: V3, fwd: V3, eased: Option<Fx>) -> (V3, V3, Fx) {
     let from = head(feet);
     let all = solids(w, from);
     let side = reach(&all, from, pivot, HARD);
-    if side < ONE {
-        return (from.lerp(pivot, side), fwd);
-    }
-    let hard = reach(&all, pivot, eye, HARD);
-    let eased = if w.boom.set {
-        fx::lerp(w.boom.prev, w.boom.len, alpha)
+    let at = if side < ONE {
+        // a wall at the shoulder: the eye between the head and the pivot
+        from.lerp(pivot, side)
     } else {
-        ONE
+        let hard = reach(&all, pivot, eye, HARD);
+        let len = if w.boom.set {
+            fx::lerp(w.boom.prev, w.boom.len, alpha)
+        } else {
+            ONE
+        };
+        pivot.lerp(eye, hard.min(len))
     };
-    let at = pivot.lerp(eye, hard.min(eased));
     let near = at.sub(from).len();
     if near >= SHORT {
-        return (at, fwd);
+        return (at, fwd, 0);
     }
     let want = fx::mul(SHORT - near, RISE_PER).min(RISE_MOST);
     let top = at.add(v3(0, want, 0));
-    let up = fx::mul(want, reach(&all, at, top, HARD));
+    let clear = fx::mul(want, reach(&all, at, top, HARD));
+    let up = eased.map_or(clear, |e| e.min(clear));
     if up <= 0 {
-        return (at, fwd);
+        return (at, fwd, clear);
     }
     let raised = at.add(v3(0, up, 0));
     // the look eases from the given one to the focus as the eye rises
@@ -455,7 +475,7 @@ pub fn clip(w: &World, alpha: Fx, feet: V3, pivot: V3, eye: V3, fwd: V3) -> (V3,
     let focus = from.add(flat.scale(FOCUS)).sub(v3(0, FOCUS_DOWN, 0));
     let k = fx::div(up * 3, RISE_MOST).min(ONE);
     let toward = focus.sub(raised).norm();
-    (raised, fwd.lerp(toward, k).norm())
+    (raised, fwd.lerp(toward, k).norm(), clear)
 }
 
 /// The eye rises once the boom is shorter than this, by this share of the
@@ -516,10 +536,20 @@ pub fn step(w: &mut World) {
     };
     b.set = true;
     b.eye = pivot.lerp(cam.eye, b.len);
-    // the house: cut while the player is at it or the eye is in it
+    // the rise, eased toward what this tick's eye would take
+    let (_, _, target) = place(w, ONE, p, pivot, cam.eye, cam.fwd, None);
+    let b = &mut w.boom;
+    b.prev_rise = b.rise;
+    b.rise = fx::approach(b.rise, target, RISE_STEP);
+    // the house: cut while the player is at it or the eye is in it, or
+    // the boom's full reach is (M7, R9.59: walking out at 3 m/s the player
+    // left before the boom grew back, and the growing boom took the eye in
+    // again, so the roof came back and went again)
+    let full = cam.eye;
     let cut = w.solid.home.is_some_and(|h| {
         h.wall.holds(p.x, p.z, crate::story::CUT_NEAR + solid::RADIUS)
             || h.wall.holds(w.boom.eye.x, w.boom.eye.z, EYE_NEAR)
+            || h.wall.holds(full.x, full.z, EYE_NEAR)
     });
     let b = &mut w.boom;
     b.prev_cut = b.cut;

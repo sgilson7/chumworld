@@ -1018,9 +1018,16 @@ mod tests {
         let run = |rec: &[Input]| {
             let mut w = World::new(8);
             player::act(&mut w, "spawn", "orc").unwrap();
+            w.me.health = crate::health::Health::new(100_000);
             let mut cuts = 0;
             for i in rec {
                 w.step(i);
+                // a player who cuts on: the orc took the player's head at
+                // tick 330 once the walk was faster (M7, R9.59), ending the
+                // cuts the test counts; made whole again at once (as R9.139)
+                if w.me.health.limbs.lost != 0 || w.me.health.down() {
+                    w.me.health = crate::health::Health::new(100_000);
+                }
                 cuts += w.me.arm.swing.cut.is_some_and(|c| c.age == 0) as u32;
             }
             (w.hash(), cuts)

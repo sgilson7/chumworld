@@ -169,8 +169,12 @@ fn passing_a_corner_the_eye_comes_in_and_out_smoothly() {
     let mut last: Option<V3> = None;
     let mut most = 0;
     let (mut least, mut after) = (ONE, 0);
-    for t in 0..420 {
-        let keys = if t < 150 {
+    // M7 (R9.59): as far a walk as M1's 2.2 m/s made, at the 3 m/s walk:
+    // 110 ticks back (to half a metre off the wall, as before; 150 at 3 m/s
+    // pressed the body into the wall at a slant, sliding it along) and 198
+    // aside
+    for t in 0..308 {
+        let keys = if t < 110 {
             crate::input::BACK
         } else {
             crate::input::RIGHT
@@ -192,6 +196,59 @@ fn passing_a_corner_the_eye_comes_in_and_out_smoothly() {
     assert!(most < ONE * 14 / 100, "the eye jumped {most}");
     assert!(least < ONE / 2, "the boom came in by the wall: {least}");
     assert_eq!(after, ONE, "and out again past the corner");
+}
+
+/// M7 (R9.59): backed hard into a house's long wall and slid along it
+/// past its corner at the 3 m/s walk, the eye never rises by more than its
+/// eased 10 cm a tick (under 3 cm a quarter tick, and some): stepping out
+/// from under the eaves it comes up, not jumps up.
+#[test]
+fn the_eye_rises_eased_stepping_out_from_under_the_eaves() {
+    let mut w = crate::story::opening(1);
+    crate::story::step_aside(&mut w);
+    let h = places::prop_spots(&w, Prop::House)[2];
+    let frame = Wall {
+        x: 0,
+        z: 0,
+        hx: 0,
+        hz: 0,
+        yaw: h.yaw,
+    };
+    let (sx, sz) = frame.world_dir(0, -(fx::int(5) / 2 + fx::int(6)));
+    let mut p = v3(h.at.x + sx, 0, h.at.z + sz);
+    p.y = w.ground(p.x, p.z);
+    let away = crate::geom::yaw_of(v3(p.x - h.at.x, 0, p.z - h.at.z));
+    w.player = Body::new(p, away);
+    w.me = crate::player::Fighter::new(
+        crate::pose::Kind::Player,
+        crate::pose::Held::ShortSword,
+        0,
+        p,
+        away,
+        false,
+    );
+    w.aim.yaw = away;
+    let mut last: Option<V3> = None;
+    let mut most = 0;
+    for t in 0..420 {
+        let keys = if t < 150 {
+            crate::input::BACK
+        } else {
+            crate::input::RIGHT
+        };
+        w.step(&Input {
+            keys,
+            ..Input::default()
+        });
+        for k in 0..4 {
+            let eye = w.camera(ONE * k / 4, Mouse::default(), BACK).eye;
+            if let Some(l) = last {
+                most = most.max(eye.y - l.y);
+            }
+            last = Some(eye);
+        }
+    }
+    assert!(most < ONE * 5 / 100, "the eye rose {most} in a quarter tick");
 }
 
 /// The roof's hand-over: walking in at the door, the cut counts up a tick at

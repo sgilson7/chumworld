@@ -249,7 +249,8 @@ impl World {
         }
         crate::health::step(self);
         crate::feel::step(self); // M1:
-                                 // 5. M1/M5: throwables, the boomerang
+        crate::blade::settle(self); // M7: after the blow's stagger (R9.42)
+                                    // 5. M1/M5: throwables, the boomerang
         crate::throwables::step(self, input, &inputs);
         crate::boomerang::step(self, input);
         // M7 (P4): blood flies and lands, parts taken off fall and rest

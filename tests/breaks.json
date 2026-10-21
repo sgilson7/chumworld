@@ -4653,5 +4653,26 @@
     "find": "pub const PRESS_MOST: usize = 2;",
     "replace": "pub const PRESS_MOST: usize = 5;",
     "test": "the_camp_comes_in_a_beat_apart_and_no_more_than_two_press_at_once"
+  },
+  {
+    "name": "M7 land: the blades settle before the blow's stagger",
+    "file": "crates/core/src/world.rs",
+    "find": "        crate::blade::settle(self); // M7: after the blow's stagger (R9.42)\n",
+    "replace": "",
+    "test": "no_blade_or_hand_sits_inside_a_body_over_a_recorded_duel"
+  },
+  {
+    "name": "M7 land: the eye's rise comes back at once",
+    "file": "crates/core/src/boom.rs",
+    "find": "    b.rise = fx::approach(b.rise, target, RISE_STEP);",
+    "replace": "    b.rise = target;",
+    "test": "the_eye_rises_eased_stepping_out_from_under_the_eaves"
+  },
+  {
+    "name": "M7 land: the roof forgets the boom's full reach",
+    "file": "crates/core/src/boom.rs",
+    "find": "            || h.wall.holds(full.x, full.z, EYE_NEAR)\n",
+    "replace": "            || (full.x == i32::MIN && h.wall.holds(full.x, full.z, EYE_NEAR))\n",
+    "test": "the_house_fades_out_and_in_a_tick_at_a_time"
   }
 ]

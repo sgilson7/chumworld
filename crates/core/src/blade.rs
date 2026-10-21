@@ -421,28 +421,52 @@ pub fn step(w: &mut World) {
             strike(w, i, j, body, blow);
         }
     }
-    // every arm has moved: each keeps out of the others where they now are
+    // every arm has moved; each keeps out of the others where they now are
+    // in `settle`, called after the blow's stagger (M7, R9.42)
+}
+
+/// Every arm kept out of the bodies where they now are: the blades' last
+/// word, called after M1's feel (M7, R9.42: a blow's stagger leans the
+/// struck body back at once, and settled before it, a blade resting on that
+/// body was left inside its leaning trunk).
+pub fn settle(w: &mut World) {
+    let n = player::count(w);
+    // M7 (R9.42): in rounds, each arm against the others as the round
+    // before left them: an arm settled first is settled again against a body
+    // whose own settle moved its trunk or arm into it afterwards (the order
+    // was the leak, not the passes)
     let mut caps = arm::all_capsules(w);
-    for id in 0..n {
-        let near = arm::fences_of(w, id, &caps, true);
-        // with no other body near, the arm's own step has settled it
-        if near.iter().all(|f| f.own) {
-            continue;
+    for round in 0..SETTLE_ROUNDS {
+        let mut moved = false;
+        for id in 0..n {
+            let near = arm::fences_of(w, id, &caps, true);
+            // with no other body near, the arm's own step has settled it
+            if near.iter().all(|f| f.own) {
+                continue;
+            }
+            let before = player::fighter(w, id).arm.pts;
+            let a = &mut player::parts_mut(w, id).1.arm;
+            a.fences = near;
+            for _ in 0..SETTLE_PASSES {
+                a.relax();
+            }
+            moved |= round == 0 || player::fighter(w, id).arm.pts != before;
+            caps[id] = body(player::fighter(w, id).kind, &player::pose_of(w, id));
         }
-        let a = &mut player::parts_mut(w, id).1.arm;
-        a.fences = near;
-        for _ in 0..SETTLE_PASSES {
-            a.relax();
+        if !moved {
+            break;
         }
-        caps[id] = body(player::fighter(w, id).kind, &player::pose_of(w, id));
     }
 }
 
+/// How many rounds the settle takes at the most (M7, R9.42), stopping
+/// early once a round moves no arm.
+pub const SETTLE_ROUNDS: usize = 2;
+
 /// Relaxation passes each arm takes at the end of the blades' step, against
-/// the bodies as every arm has left them (M7: 5, was 2; with two a weapon
-/// was left 1.5 mm inside a torso on a recorded duel once the walk was
-/// faster, SECOND-ORDER.md R9.42).
-pub const SETTLE_PASSES: usize = 5;
+/// the bodies as every arm has left them (M1's 2; M7 settles in rounds
+/// instead, `SETTLE_ROUNDS`, R9.42).
+pub const SETTLE_PASSES: usize = 2;
 
 fn set(list: &mut Vec<(u8, u8)>, k: (u8, u8), on: bool) {
     list.retain(|&x| x != k);
