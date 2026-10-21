@@ -5301,8 +5301,8 @@
   {
     "name": "dungeon (T21): the bulb throws from anywhere",
     "file": "crates/core/src/dungeon.rs",
-    "find": "    let near = bulb(w).sub(w.player.pos).len_xz() <= cm(o.bulb.range_cm) && !w.story.opening();",
-    "replace": "    let near = !w.story.opening();",
+    "find": "    let near = bulb(w).sub(w.player.pos).len_xz() <= cm(o.bulb.range_cm)\n        && !w.story.opening()",
+    "replace": "    let near = !w.story.opening()",
     "test": "the_bulb_throws_only_while_the_player_is_near_and_the_door_is_shut"
   },
   {

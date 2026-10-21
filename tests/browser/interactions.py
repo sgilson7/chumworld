@@ -395,6 +395,10 @@ AUDIT = [
     # west from the hill the river's water is in view: the A-B-A bound
     ("the horizon", "go=352,1772,282,-1&act=story.still:on", "aba", "check"),
     ("the merchant's cart", "act=merchant.beside&act=merchant.stop&act=story.still:on", "identical", "check"),
+    # T21: inside the great tree's hub, from its entrance (roots hanging)
+    ("the dungeon's hub", "act=story.skip&act=dungeon.go:entrance&act=story.still:on", "identical", "check"),
+    # T21: before the great tree's door, its sockets and the roots' bulb
+    ("the great tree", "go=2550,868,0,4&act=story.skip&act=story.still:on", "identical", "check"),
 ]
 
 

@@ -678,7 +678,10 @@ fn roots(w: &mut World) {
     if w.dungeon.open {
         return;
     }
-    let near = bulb(w).sub(w.player.pos).len_xz() <= cm(o.bulb.range_cm) && !w.story.opening();
+    // a world held for a view or a check throws nothing (R9.24)
+    let near = bulb(w).sub(w.player.pos).len_xz() <= cm(o.bulb.range_cm)
+        && !w.story.opening()
+        && !crate::story::holding(w);
     if near {
         w.dungeon.bulb += 1;
         if w.dungeon.bulb % o.bulb.every == 1 {
