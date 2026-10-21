@@ -132,3 +132,9 @@ Changed numbers and others' code, each with a row: `SWING_ACCEL`, `SWING_TIP_ACC
 Check (2026-10-20, after merging main at fa69349): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, notebook form); step 8 (the journal) fails only because R9.174 has status *person* and the journal, which P5 does not edit, does not name it yet; step 9, the browser check run on its own on the same build, passes in Chromium, Firefox and WebKit. Tests: 359 by `./scripts/count-tests.sh` (12 ignored). Breaks: `python3 scripts/break_tests.py M7` 18 of 18 caught; `M1 M6` 143 of 144 before the ground-drag repair, which is now caught. Screenshots in `shots/m7swings/` (not committed).
 
 Waiting on the person: R9.174 (the strings under "### M7 swings (P5)" at the foot of `SECOND-ORDER.md`). Open for play: R9.163, R9.164 (blows land harder; P4's damage unchanged), R9.170 (the pilots' cut weights), R9.171 (the thrust is slow), R9.172.
+
+## 2026-10-20: M7 polish, swings, second pass (task P5, branch `m7-swings`)
+
+The coordinator's three fixes after the first pass (merged at 11b55e6, merged back here first): a blade trail for every fighter's cut, fading to nothing 4 ticks after it (R9.175, on the Swing cue setting); the cue as a clear thin line and an end bead (R9.176); the thrust pushed along its line at up to 15.6 m/s with the body leaning in 14° (R9.177: 12.7 m/s, 50 cm, was 5.6 m/s, 25 cm); and the middle level cut raised to shoulder height so it shows beside the head (R9.178). Open for play: R9.179 (the trail is pale on grass; the thrust still points away from the camera). Screenshots in `shots/m7swings2/` (not committed); before is `shots/m7swings/`.
+
+Check: CHECK_LINE

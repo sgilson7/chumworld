@@ -258,7 +258,7 @@ Holding the left button while you move the mouse. The way the mouse goes picks t
 
 ### Swing cue
 
-A setting: while the left button is held, a faint line of beads shows where the sword's point will run, and the cut's name shows below the middle of the view.
+A setting: while the left button is held, a thin glowing line shows where the sword's point will run, ending in a bead, and the cut's name shows below the middle of the view. Each blade in a cut leaves a short glowing trail while the setting is on.
 
 ### Sword
 

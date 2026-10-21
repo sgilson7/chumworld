@@ -733,7 +733,7 @@ mod tests {
     }
 
     /// The same duel at 160 cm, the orc's guard held out to its left (60°
-    /// left, 30° down): its blade lies across the way a level cut comes in
+    /// left, 20° down; 30° before the middle level cut was raised, R9.178): its blade lies across the way a level cut comes in
     /// from the player's right. (M7, T10: the orc's own guard, 12° left,
     /// points its blade at the player, and a level cut now comes round it
     /// to the body; R9.168.)
@@ -741,7 +741,7 @@ mod tests {
         let mut w = duel(160, 0, false);
         let s = &mut w.foes[0].fighter.arm.shell;
         s.side = crate::fx::deg(-60);
-        s.pitch = crate::fx::deg(-30);
+        s.pitch = crate::fx::deg(-20);
         for _ in 0..60 {
             w.step(&Default::default());
         }
