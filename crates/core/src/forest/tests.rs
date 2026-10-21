@@ -454,3 +454,83 @@ fn no_two_parts_of_the_forest_s_new_things_share_a_plane() {
     }
     assert!(bad.is_empty(), "{} fights:\n{}", bad.len(), bad.join("\n"));
 }
+
+/// T18 with T19: a body sprinting at ten times the run (76 450 units a
+/// tick, 1.17 m) straight at a pine, a broadleaf, a birch, a snag or a
+/// stump, from eight starts 15 cm apart, never sinks into the bark: every
+/// tick its middle stays `RADIUS` off the trunk, and the line it moved
+/// along never crosses the trunk itself (the swept steps of `solid::step`
+/// meet the trunk too).
+#[test]
+fn a_body_sprinting_at_ten_times_the_run_does_not_pass_through_a_tree() {
+    let l = land();
+    let mut found: Vec<scatter::Item> = Vec::new();
+    for (i, j) in [(22, 6), (23, 7), (24, 8), (25, 7), (26, 9), (22, 9), (27, 6)] {
+        for t in scatter::items(&l, i, j) {
+            if t.thing != Thing::Rock
+                && t.thing != Thing::Log
+                && !found.iter().any(|f| f.thing == t.thing)
+                && things_round(&l, t.at, int(9)).len() == 1
+            {
+                found.push(t);
+            }
+        }
+    }
+    assert!(
+        found.len() >= 4,
+        "{:?}",
+        found.iter().map(|t| t.thing).collect::<Vec<_>>()
+    );
+    let base = {
+        let mut w = world();
+        w.story.phase = crate::story::Phase::Free;
+        w
+    };
+    let seg = |a: V3, b: V3, c: V3| {
+        let d = b.sub(a);
+        let dd = (d.x as i64 * d.x as i64 + d.z as i64 * d.z as i64).max(1);
+        let q = c.sub(a);
+        let t = ((q.x as i64 * d.x as i64 + q.z as i64 * d.z as i64) * 1024 / dd).clamp(0, 1024);
+        let p = v3(
+            a.x + (d.x as i64 * t / 1024) as Fx,
+            0,
+            a.z + (d.z as i64 * t / 1024) as Fx,
+        );
+        p.sub(v3(c.x, 0, c.z)).len_xz()
+    };
+    for t in &found {
+        let r = crate::obstacles::trunk_circles(t)[0].1;
+        for phase in 0..8 {
+            let mut w = base.clone();
+            w.motion.forced_pieces = Some(5);
+            let back = r + crate::solid::RADIUS + int(6) + phase * ONE * 15 / 100;
+            let at = t.at.sub(v3(back, 0, 0));
+            let yaw = fx::deg(-90);
+            w.aim.yaw = yaw;
+            w.player = crate::player::Body::new(v3(at.x, w.ground(at.x, at.z), at.z), yaw);
+            w.player.vel = crate::geom::facing(yaw, 0).scale(76_450);
+            w.player.prev_vel = w.player.vel;
+            crate::sprint::act(&mut w, "set", "480").unwrap();
+            for tick in 0..12 {
+                let from = w.player.pos;
+                w.step(&Input {
+                    keys: FORWARD,
+                    ..Input::default()
+                });
+                let to = w.player.pos;
+                let off = to.sub(t.at).len_xz();
+                assert!(
+                    off >= r + crate::solid::RADIUS - ONE / 50,
+                    "{:?}, start {phase}, tick {tick}: {} cm from its middle",
+                    t.thing,
+                    off * 100 / ONE
+                );
+                assert!(
+                    seg(from, to, t.at) >= r,
+                    "{:?}, start {phase}, tick {tick}: through the trunk",
+                    t.thing
+                );
+            }
+        }
+    }
+}

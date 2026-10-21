@@ -308,7 +308,9 @@ Built (`crates/core/src/sprint.rs`, its tests in `sprint/tests.rs`):
 
 Touched outside P8's own files, each a hook or an added entry: `motion.rs` (`Gait::sprint`; three hook lines, R9.260), `world.rs` (the act route; the camera's pull and widening), `ui.rs` (`HudView::sprint`), `api.rs` (a controls row), `game.rs` (glossary values), `page.rs`, `data/strings.json`, `GLOSSARY.md`, `web/menus/menus.js` and `.css` (the bar), `tests/breaks.json`, `tools/shoot.py`, `crates/core/tests/frame_probe.rs`.
 
-Waiting on the person: R9.261 (the key, the numbers, the opening's hold, and the strings under "### M7 sprint (P8)" at the foot of `SECOND-ORDER.md`).
+- **T18 (sprint2)**: the person's numbers replace the build's above: 4 s, then 4 s to 5 times the run; the speedster's pieces multiply it, to 10 times the bare run (70 m/s) with five, the cap (R9.420). Bodies meet walls in steps of at most 0.25 m, so nothing passes through at speed (R9.422); the land at 35 and 70 m/s (R9.423).
+
+Waiting on the person: R9.421 (the stop from 70 m/s is 80 to 90 m). R9.261 is answered by T18 (R9.420).
 
 Open: R9.257 (pop-in and grass reach at speed, for P2), R9.258 (the gait at speed reads stiff), R9.260 (the merge with P2).
 

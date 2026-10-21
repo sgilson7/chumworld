@@ -457,3 +457,108 @@ fn probe_sprint_frame_cost() {
         assert!(mean < 16.0, "a frame costs the core more than the whole budget");
     }
 }
+
+/// M7 forest (P13, T19): a frame in the forest (walking past the trees,
+/// the floor, the animals and a clearing), and what a forest chunk costs
+/// to work out and build, part by part (R9.20, R9.423: builds hitch at
+/// speed), native release.
+#[test]
+#[ignore]
+fn probe_forest_frame_cost() {
+    let mut g = game();
+    // beside the first herd in the forest, walking slowly past it
+    let home = tool_core::animals::place(&g.world.land)[0].home;
+    g.act(
+        "places.go",
+        &format!("{},{},90,0", home.x / 65_536 + 30, home.z / 65_536),
+    )
+    .unwrap();
+    g.act("screen.show", "play").unwrap();
+    // the story's world past the opening, so the animals stand
+    g.world.story.phase = tool_core::story::Phase::Free;
+    g.world.story.crossed = Some(g.world.player.pos);
+    g.world.story.still = false;
+    let mut now = 0i64;
+    for _ in 0..120 {
+        now += FRAME_US;
+        g.advance(now, 0, 0, 0, 0);
+    }
+    let frames = 1200;
+    let (mut worst, mut slow) = (0.0f64, 0);
+    let t = Instant::now();
+    for _ in 0..frames {
+        now += FRAME_US;
+        let f = Instant::now();
+        g.advance(now, 1, 30, 0, 0);
+        let ms = f.elapsed().as_secs_f64() * 1000.0;
+        worst = worst.max(ms);
+        slow += (ms > 8.0) as u32;
+    }
+    let mean = t.elapsed().as_secs_f64() * 1000.0 / frames as f64;
+    let animals: usize = g.world.animals.herds.iter().map(|h| h.animals.len()).sum();
+    let near = g
+        .world
+        .animals
+        .herds
+        .iter()
+        .map(|h| h.home.sub(g.world.player.pos).len_xz() / 65_536)
+        .min();
+    println!(
+        "phase {:?} still {} nearest herd {near:?} m",
+        g.world.story.phase, g.world.story.still
+    );
+    println!("forest walk: {mean:.3} ms mean, {worst:.3} ms worst, {slow} frames over 8 ms; {animals} animals standing");
+    let land = g.world.land.clone();
+    let chunks = [
+        (22, 6),
+        (23, 7),
+        (24, 8),
+        (25, 7),
+        (26, 9),
+        (22, 9),
+        (27, 6),
+        (21, 8),
+    ];
+    let time = |f: &mut dyn FnMut()| {
+        let t = Instant::now();
+        f();
+        t.elapsed().as_secs_f64() * 1000.0 / chunks.len() as f64
+    };
+    let items_ms = time(&mut || {
+        for &(i, j) in &chunks {
+            std::hint::black_box(tool_core::scatter::items(&land, i, j));
+        }
+    });
+    let things: Vec<_> = chunks
+        .iter()
+        .map(|&(i, j)| tool_core::scatter::items(&land, i, j))
+        .collect();
+    for part in [
+        tool_core::scatter::WHOLE,
+        tool_core::scatter::ROCK,
+        tool_core::scatter::FLOOR,
+    ] {
+        let ms = time(&mut || {
+            for (k, &(i, j)) in chunks.iter().enumerate() {
+                std::hint::black_box(tool_core::scatter::build(&land, part, i, j, &things[k], [0; 3]));
+            }
+        });
+        println!("part {part}: {ms:.2} ms a 128 m chunk");
+    }
+    let fern = {
+        let t = Instant::now();
+        for k in 0..32 {
+            std::hint::black_box(tool_core::scatter::build(
+                &land,
+                tool_core::scatter::FERN,
+                170 + k % 8,
+                50 + k / 8,
+                &[],
+                [0; 3],
+            ));
+        }
+        t.elapsed().as_secs_f64() * 1000.0 / 32.0
+    };
+    println!("items: {items_ms:.2} ms a chunk; ferns {fern:.2} ms an 18 m chunk");
+    assert!(mean < 16.0);
+}

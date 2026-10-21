@@ -1046,15 +1046,15 @@ fn forest_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
         Thing::Broadleaf => {
             let leaf = rgb(f.broadleaf[it.tone % f.broadleaf.len().max(1)]);
             out.push((Mesh::Cyl, place(0, 900, 0, 520, 2300, 520), rgb(sp.trunk)));
-            out.push((Mesh::Blob, place(0, 3600, 0, 4400, 3100, 4000), leaf));
+            out.push((Mesh::Octa, place(0, 3600, 0, 5000, 3500, 4600), leaf));
             out.push((
-                Mesh::Blob,
-                place(1150, 4500, 300, 2700, 2200, 2500),
+                Mesh::Octa,
+                place(1250, 4600, 350, 3100, 2500, 2900),
                 shade(leaf, 108),
             ));
             out.push((
-                Mesh::Blob,
-                place(-1050, 4150, -600, 2500, 1900, 2300),
+                Mesh::Octa,
+                place(-1150, 4200, -650, 2900, 2200, 2600),
                 shade(leaf, 93),
             ));
         }
@@ -1062,13 +1062,10 @@ fn forest_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
             let leaf = rgb(f.birch[it.tone % f.birch.len().max(1)]);
             let pale = rgb(f.birch_bark);
             out.push((Mesh::Cyl, place(0, 2050, 0, 260, 4600, 260), pale));
-            // a dark knot band low on the trunk, wider than the trunk
-            out.push((Mesh::Cyl, place(0, 1300, 0, 330, 140, 330), shade(pale, 45)));
-            out.push((Mesh::Cyl, place(0, 2600, 0, 320, 110, 320), shade(pale, 50)));
-            out.push((Mesh::Blob, place(0, 4700, 0, 2300, 3300, 2100), leaf));
+            out.push((Mesh::Octa, place(0, 4750, 0, 2700, 3800, 2500), leaf));
             out.push((
-                Mesh::Blob,
-                place(200, 6250, -150, 1500, 2100, 1450),
+                Mesh::Octa,
+                place(200, 6350, -150, 1800, 2500, 1700),
                 shade(leaf, 110),
             ));
         }
@@ -1085,7 +1082,7 @@ fn forest_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
                 let a = pt(0, y, 0);
                 let b = pt(dx * len * 8 / 10, y + len * 6 / 10, dz * len / 2);
                 out.push((
-                    Mesh::Cyl,
+                    Mesh::Cube,
                     crate::models::bar(a, b, (mm(130), mm(130)), side),
                     shade(grey, 96),
                 ));
@@ -1096,7 +1093,7 @@ fn forest_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
             let a = pt(-1800, 210, 0);
             let b = pt(1800, 210, 0);
             out.push((Mesh::Cyl, crate::models::bar(a, b, (mm(500), mm(500)), up), bark));
-            out.push((Mesh::Blob, place(-300, 420, 40, 2000, 220, 380), rgb(f.moss)));
+            out.push((Mesh::Octa, place(-300, 420, 40, 2000, 220, 380), rgb(f.moss)));
             let c = pt(900, 300, 0);
             let d = pt(1150, 650, -350);
             out.push((
@@ -1113,7 +1110,7 @@ fn forest_parts(sp: &ScatterSpec, it: &Item) -> Vec<(Mesh, Affine, Rgb)> {
                 let p0 = at.add(turn.apply_dir(v3(fx::mul(c, mm(250)), mm(260), fx::mul(sn, mm(250)))));
                 let p1 = at.add(turn.apply_dir(v3(fx::mul(c, mm(720)), mm(-40), fx::mul(sn, mm(720)))));
                 out.push((
-                    Mesh::Cyl,
+                    Mesh::Cube,
                     crate::models::bar(p0, p1, (mm(170), mm(170)), up),
                     shade(bark, 92),
                 ));
@@ -1313,7 +1310,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                         let head = Affine::translate(at.add(v3(0, tall + w / 5, 0)))
                             .then(&Affine::rot_y(a))
                             .then(&Affine::scale(v3(w, w * 6 / 10, w)));
-                        b.shape(Mesh::Blob, &head, cap);
+                        b.shape(Mesh::Octa, &head, cap);
                     }
                     continue;
                 }
@@ -1346,7 +1343,7 @@ pub fn build(land: &Land, part: u8, i: i32, j: i32, items: &[Item], ink: Rgb) ->
                     let at = Affine::translate(foot.add(turn.apply_dir(v3(s(dx), s(38 + 8 * k), s(dz)))))
                         .then(&turn)
                         .then(&Affine::scale(v3(w, w * 72 / 100, w * 92 / 100)));
-                    b.shape(Mesh::Blob, &at, shade(c, 100 + 6 * k));
+                    b.shape(Mesh::Octa, &at, shade(c, 100 + 6 * k));
                 }
             }
         }
