@@ -5318,5 +5318,33 @@
     "find": "    w.dungeon.open = ids.contains(\"open\");",
     "replace": "    let _ = ids;",
     "test": "the_tree_s_door_opened_stays_open_through_a_save_and_a_load"
+  },
+  {
+    "name": "critters (T21): ants crawl through pillars",
+    "file": "crates/core/src/critters.rs",
+    "find": "            if floor - c.y <= ONE / 20 && (next.x - c.x).abs() < hx && (next.z - c.z).abs() < hz {",
+    "replace": "            if (next.x - c.x).abs() < hx && (next.z - c.z).abs() < hz {",
+    "test": "an_ant_crawling_to_the_player_never_crawls_through_a_pillar"
+  },
+  {
+    "name": "critters (T21): an ant nips every tick",
+    "file": "crates/core/src/critters.rs",
+    "find": "            a.wait = BITE_EVERY;",
+    "replace": "            a.wait = 0;",
+    "test": "an_ant_crawls_to_a_player_on_its_floor_and_nips_every_fifty_ticks"
+  },
+  {
+    "name": "critters (T21): a resting blade kills",
+    "file": "crates/core/src/critters.rs",
+    "find": "    moved >= KILL_MOVE && to_segment(e.a1, e.b1, body) <= KILL_GAP",
+    "replace": "    let _ = moved;\n    to_segment(e.a1, e.b1, body) <= KILL_GAP",
+    "test": "a_blade_swung_through_an_ant_kills_it_and_a_still_one_does_not"
+  },
+  {
+    "name": "critters (T21): ants stay dead",
+    "file": "crates/core/src/critters.rs",
+    "find": "        a.dead = false;",
+    "replace": "",
+    "test": "coming_back_into_the_room_brings_its_ants_back"
   }
 ]

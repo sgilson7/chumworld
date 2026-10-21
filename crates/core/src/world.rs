@@ -124,6 +124,8 @@ pub struct World {
     pub travel: crate::travel::State,
     // T21 (phase A): a door's fade under way (`dungeon.rs`)
     pub dungeon: crate::dungeon::State,
+    // T21: the ants on the dungeon's floors (`critters.rs`)
+    pub critters: crate::critters::State,
     // M7 (P4): blood in flight and on the ground, parts taken off, the cues
     pub wounds: crate::wounds::State,
     // M7 save (T16): the last save, the save point, the autosave's watch
@@ -186,6 +188,7 @@ impl World {
             sound: crate::sound::State::default(), // M7
             boom: crate::boom::State::default(),
             dungeon: crate::dungeon::State::default(),
+            critters: crate::critters::State::default(),
             travel: crate::travel::State::default(),       // M7 travel
             roadside: crate::roadside::State::default(),   // M7 roadside
             wanderers: crate::wanderers::State::new(seed), // M7 (P9)
@@ -283,7 +286,8 @@ impl World {
         crate::travel::step(self);
         // T21: a door's fade and move; the healing springs
         crate::dungeon::step(self);
-        // M7 rumours: the quest lines move on as their items come to hand
+        crate::critters::step(self); // T21: the floors' ants
+                                     // M7 rumours: the quest lines move on as their items come to hand
         crate::rumours::step(self);
         // M7 (P9): the wanderers stand near the player, are parked away, are beaten
         crate::wanderers::step(self);
@@ -324,6 +328,7 @@ impl World {
         crate::animals::draw(self, alpha, look, out);
         // T21: the great tree's door, sockets and bulb
         crate::dungeon::draw(self, alpha, look, out);
+        crate::critters::draw(self, alpha, look, out); // T21
     }
 
     /// What never moves: the static groups, and the meshes they draw.

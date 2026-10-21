@@ -128,6 +128,9 @@ pub struct RoomSpec {
     pub doors: Vec<DoorSpec>,
     pub fountains: Vec<FountainSpec>,
     pub springs: Vec<SpringSpec>,
+    /// where the floor's ants hatch (`critters.rs`)
+    #[serde(default)]
+    pub ants: Vec<[i32; 2]>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -525,6 +528,10 @@ pub fn step(w: &mut World) {
         if t.ticks == sp.dark_ticks {
             let d = doors(w)[t.to].clone();
             put_at(w, &d);
+            // the room's ants are back, whatever happened to them before
+            if let Some(room) = d.room {
+                crate::critters::reset(w, room);
+            }
         }
         if t.ticks >= sp.dark_ticks + sp.hold_ticks {
             w.story.veil = false;

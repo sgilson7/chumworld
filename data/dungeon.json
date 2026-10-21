@@ -37,7 +37,9 @@
         { "id": "centre", "wall": "n", "along_cm": 0, "top_cm": 300, "to": { "closed": "dungeon_door_locked" } }
       ],
       "fountains": [{ "id": "great_tree", "at_cm": [-110, 820], "top_cm": 300 }],
-      "springs": [{ "at_cm": [0, 250], "top_cm": 300, "radius_cm": 90 }]
+      "springs": [{ "at_cm": [0, 250], "top_cm": 300, "radius_cm": 90 }],
+      "ants": [[-600, -700], [600, -700], [-1000, 600], [1000, 500]],
+      "_ants": "where the floor's ants hatch (cm), on the floor between the pillars (critters.rs)"
     }
   ],
   "door_reach_cm": 170,
