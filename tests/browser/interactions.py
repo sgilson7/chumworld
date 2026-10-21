@@ -80,6 +80,18 @@ GRAB = """([count, px, keep]) => new Promise((done) => {
 })"""
 
 
+# `frames` display frames of `px` mouse movement each: a turn as a reader makes it.
+TURN = """([px, frames]) => new Promise((done) => {
+    let n = 0;
+    const step = () => {
+        window.dispatchEvent(new MouseEvent('mousemove', {movementX: px, movementY: 0}));
+        n += 1;
+        if (n >= frames) done(n); else requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+})"""
+
+
 def run(page, check, engine):
     base = page.url.split("?")[0]
     # the look speed a reader can set from the address: a quarter, so the slow
@@ -112,7 +124,8 @@ def run(page, check, engine):
     sprint_row = [c.inner_text() for c in rows.nth(2).locator("td").all()]
     check(sprint_row == [STRINGS["key_sprint"], STRINGS["control_sprint"]], f"a tap of Shift sprints, as the controls table says: {sprint_row}")
     term = page.get_attribute("#title td span[data-term='Run']", "title") or ""
-    check("5 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
+    # 7 m/s: the person asked for faster movement (SECOND-ORDER.md R9.40)
+    check("7 metres a second" in term, f"hovering Run shows its definition with the core's number: {term!r}")
     check(page.locator("#view").is_visible(), "the canvas is shown")
 
     check(page.get_attribute("body", "data-sound") is None, "no sound is set up before the reader presses anything")
@@ -307,6 +320,25 @@ def menus(page, check, engine, base):
     check(share < 0.0001, f"a slow pan over the terrain to the horizon shows no shimmer: {pan['flips']} of {pan['pixels']} pixels flipped and back ({share:.5%})")
     print(f"  ({engine}: slow pan from the hill, {pan['flips']} A-B-A pixels of {pan['pixels']})")
     check(page.inner_text("#message") == "", "no error message is shown on the hill")
+
+    # M7 (R9.44): nothing near pops. Running across the meadow and turning a
+    # whole turn, every frame draws every grass, tree and rock chunk within
+    # 25 m of the player: the core's probe (?act=lod.probe) counts, each
+    # frame, the chunks there left undrawn, and keeps the most
+    page.goto(base + "?pointer=free&go=1500,2650,80,-3&act=story.skip&act=lod.probe")
+    page.wait_for_selector("body[data-ready='true']", state="attached", timeout=60000)
+    page.click("#title button")
+    page.wait_for_selector("body[data-screen='play']", state="attached")
+    page.evaluate(WAIT_FRAMES, [60, 1000])
+    page.keyboard.down("ShiftLeft")
+    page.keyboard.down("KeyW")
+    page.evaluate(WAIT_FRAMES, [180, 3000])
+    page.evaluate(TURN, [24, 150])
+    page.keyboard.up("KeyW")
+    page.keyboard.up("ShiftLeft")
+    page.evaluate(WAIT_FRAMES, [2, 0])
+    probe = (page.get_attribute("body", "data-probe") or "").split()
+    check(len(probe) == 2 and probe[0] == "0" and int(probe[1]) > 100, f"running and turning on the meadow, no grass, tree or rock within 25 m is ever left undrawn (most undrawn in a frame, chunks looked at: {probe})")
 
     # M6: the leader's volley staged from the address (the core's
     # magic.leader, then magic.freeze:150: frozen 150 ticks into play), the

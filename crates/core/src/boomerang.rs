@@ -62,6 +62,9 @@ pub struct Flight {
     /// bodies struck this throw (fighter ids), and whether the cart was
     pub struck: Vec<u8>,
     pub cart: bool,
+    /// M7: the tick and the place it knocked against a wall or a tree, if it
+    /// did: from there it comes straight back to the hand (R9.45)
+    pub knocked: Option<(u32, V3)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -126,6 +129,7 @@ pub fn step(w: &mut World, input: &Input) {
                 prev: from,
                 struck: Vec::new(),
                 cart: false,
+                knocked: None,
             });
             // it leaves the hand this tick; tick 1 of its flight is the next
             return;
@@ -140,7 +144,31 @@ pub fn step(w: &mut World, input: &Input) {
     let share = (fl.t as i64 * ONE as i64 / n as i64) as Fx;
     let eased = fx::mul(share, share);
     let base = fl.from.lerp(hand(w), eased);
-    fl.p = base.add(offset(fl.t, fl.yaw));
+    fl.p = match fl.knocked {
+        // knocked back: straight home over the ticks left, easing in
+        Some((tk, at)) => {
+            let left = (n - tk).max(1);
+            let s = ((fl.t - tk) as i64 * ONE as i64 / left as i64) as Fx;
+            at.lerp(hand(w), fx::mul(s, s))
+        }
+        None => base.add(offset(fl.t, fl.yaw)),
+    };
+    // M7: a wall, a tree or a rock knocks it back
+    if fl.knocked.is_none() {
+        if let Some(h) = w.obstacles.first(w, fl.prev, fl.p, ONE * 15 / 100) {
+            let at = fl.prev.lerp(fl.p, h.share as Fx).add(h.normal.scale(ONE / 1000));
+            fl.p = at;
+            fl.knocked = Some((fl.t, at));
+            let speed = player::mps(fl.p.sub(fl.prev).len());
+            w.throwables.knocks.push(Impact {
+                item: Held::Boomerang,
+                by: 0,
+                at,
+                speed,
+                struck: Struck::Scenery,
+            });
+        }
+    }
     strike(w, &mut fl);
     if fl.t >= n {
         w.boomerang.caught += 1;

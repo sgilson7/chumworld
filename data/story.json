@@ -27,8 +27,8 @@
     { "item": "rock", "count": 3, "place": "crossroads", "at_cm": [700, 900] },
     { "item": "rock", "count": 3, "place": "bridge", "at_cm": [2100, 700] },
     { "item": "jacket", "place": "scarecrow", "at_cm": [0, -150] },
-    { "item": "trousers", "place": "hollow_tree", "at_cm": [50, -160] },
-    { "item": "boots", "place": "shrine", "at_cm": [0, 240] }
+    { "item": "trousers", "place": "hollow_tree", "at_cm": [0, -350] },
+    { "item": "boots", "place": "shrine", "at_cm": [0, 320] }
   ],
   "merchant": {
     "_note": "The cart's beat along the road (places.json's road, west to east): it turns at these two distances east (x, metres), and starts at the third, heading west.",

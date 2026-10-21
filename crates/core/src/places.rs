@@ -363,6 +363,14 @@ pub fn roads(w: &World) -> Vec<Way> {
     w.land.layout.roads.iter().map(|r| way(w, r)).collect()
 }
 
+/// Whether (x, z) is on a road, lane or trail: within its half width of
+/// its line (what `motion` speeds a body up on, R9.41).
+pub fn on_road(w: &World, x: Fx, z: Fx) -> bool {
+    let sc = w.land.scope(x - ONE, z - ONE, x + ONE, z + ONE);
+    let (d, half) = w.land.road_distance(x, z, &sc);
+    half > 0 && d <= half
+}
+
 /// The merchant's road (M5 walks the cart along it), west to east.
 pub fn road(w: &World) -> Way {
     w.land

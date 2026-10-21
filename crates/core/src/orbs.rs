@@ -721,6 +721,10 @@ fn fly(w: &mut World, o: &mut Orb, edge: Option<&Swept>, bodies: &[(bool, Vec<Sw
             consider(share, Meets::Ground);
         }
     }
+    // M7: a house's wall, a tent, a tree stops it as the ground does (R8.13)
+    if let Some(h) = w.obstacles.first(w, o.prev, o.pos, r) {
+        consider(h.share, Meets::Ground);
+    }
     let ground = w.ground(o.pos.x, o.pos.z);
     if o.pos.y <= ground + r / 2 {
         let drop = (o.prev.y - o.pos.y).max(1) as i64;

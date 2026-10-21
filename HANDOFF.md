@@ -296,3 +296,23 @@ Check (2026-10-20, after merging main at ca463be and later): `./scripts/check.sh
 
 Waiting on the person: R9.17 (the sounds and the mix: `shots/m7feel/sound-mix.wav`), R9.18 (the strings under "### M7 feel" at the foot of `SECOND-ORDER.md`).
 
+## 2026-10-20: M7 polish, the land (task P2, branch `m7-land`; T8, T12, T13)
+
+Built:
+- **Faster movement (T8, R9.40).** Walk 3 m/s, run 7 (speedster 7 to 14 m/s, CW-8 pinned again by hand); footwork drawn stays 2.2 m/s.
+- **Roads out of the village (T8, T12, R9.41).** West-north-west to the merchant's road by the bridge (and on up the trainer's trail), north-east to the trail's end for the forest; 18% faster on any road, eased over half a second. Each road's profile smoothed and pinned where roads meet, a crown, a 3 m shoulder, and near, the road's own surface with ruts, a grassy crown and soft edges (R9.46).
+- **Nothing near pops (T8, R9.44).** Every blade, tuft, rock and tree fades by its own distance in the shader through bands the core sends; grass whole to 28 m, then tufts to 62 to 78 m, then the meadow's clumps to 200 to 260 m (T13, R9.53), then grass shading on the ground itself; grass sinks as it fades. A probe and a browser check: no chunk within 25 m ever undrawn while running and turning. QA's pop-in probe: 0 pops in all six walks.
+- **Wind (T13, R9.54).** Four travelling waves after the fishing game's water, phases wrapping a tick, bending every blade and rolling sheen and shadow over the field; held still with `story.still`.
+- **The river (R9.47).** Meanders at three scales held at the bridge and the islet, banks varying with gravel bars inside the bends, about twenty boulders the flow goes round, reeds, a stony bed, a second knee-deep ford.
+- **The map (R9.48).** The land's own colours where walked, forest dotted, relief in flat steps, contours, shore, roads, roofs.
+- **Things in flight meet the world (R9.45).** Every prop's parts, the hollow player's house, trees and rocks; rocks glance off, knives stick, the boomerang knocks back, orbs stop; the cart's box turns with it.
+- **Far forest (R9.49), camp floor (R9.51), resources (R9.52):** a skyline of crowns; the clearing blended; every detail mesh handed over indexed (121 MB of buffers for 2.37 M triangles, against 256 MB unindexed).
+- QA's items: the trousers and boots moved clear of their props (a test that every pickup can be reached from every side); the camp's stuck spots did not reproduce in a plain world (the player walks out of both at 3 m/s every way); the bed's slow pan now passes (Firefox 35, WebKit 45 of 921 600, bound 92); the camp's does not (98 and 100): about 25 of those pixels are on the player's figure, about 20 on the bandits and the lookout, the rest tents' poles and tree tips, so the camp stays "measure" in QA's audit (R9.56).
+
+Not fixed: M3's roof trim did not reproduce at 35 m (R9.50).
+
+Waiting on the person: R9.58 (the land's, grass's, wind's, river's, roads' and map's looks are mine).
+
+For the coordinator: R9.42 (M1's fence leaves a blade inside a body on other recordings; settle at 5 passes keeps the recorded duels), R9.46 (the coplanar scan now measures the gap where two faces overlap; P3 to review), R9.55 (frame cost on a loaded machine), R9.56 (the player's figure takes half the village's slow-pan bound).
+
+Check, 2026-10-20, after merging main at 88e45bd and then f1945f7 (save, sprint; the sprint run at 21 m/s keeps every chunk within 25 m whole, tested), roadside, swings, travel, wounds; conflicts in `lib.rs`, `world.rs`, `motion.rs`, `game.rs`, `tests/breaks.json` and the notes, both sides kept): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, the notebook's form); step 8 (the journal) fails on this part's new person row R9.58 and on rows the journal cites from other parts (R9.7, R9.13, R9.17, R9.18, R9.21); step 9, the browser check, is left to the coordinator's batch (the person's rule), which should include the new near-scatter probe check and the slow pans (the village's was 17 to 18 of 230 400 in Chromium on this branch). 508 tests by `./scripts/count-tests.sh` (17 ignored); `python3 scripts/break_tests.py "M7 land"`: 41 of 41 caught.
