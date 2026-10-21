@@ -120,6 +120,8 @@ pub struct World {
     pub travel: crate::travel::State,
     // M7 (P4): blood in flight and on the ground, parts taken off, the cues
     pub wounds: crate::wounds::State,
+    // M7 roadside (T12): the stops beside the ways out, the straggler
+    pub roadside: crate::roadside::State,
 }
 
 impl World {
@@ -165,7 +167,8 @@ impl World {
             boomerang: crate::boomerang::State::default(),
             obstacles: std::rc::Rc::default(),
             wind: crate::wind::State::default(),
-            travel: crate::travel::State::default(), // M7 travel
+            travel: crate::travel::State::default(),     // M7 travel
+            roadside: crate::roadside::State::default(), // M7 roadside
         };
         w.solid = std::rc::Rc::new(crate::solid::Map::build(&w));
         w.obstacles = std::rc::Rc::new(crate::obstacles::Map::build(&w));
@@ -309,6 +312,7 @@ impl World {
             Some(("merchant", rest)) => crate::merchant::act(self, rest, value),
             Some(("magic", rest)) => crate::orbs::act(self, rest, value), // M6
             Some(("wounds", rest)) => crate::wounds::act(self, rest, value), // M7 (P4)
+            Some(("roadside", rest)) => crate::roadside::act(self, rest, value), // M7 roadside
             _ => Err(format!("Unknown action \"{name}\".")),
         }
     }
