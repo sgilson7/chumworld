@@ -153,3 +153,9 @@ Check (2026-10-20, after merging main at f289b59, which touched only `DECISIONS.
 Waiting on the person: R9.190 (the flute's route: the trainer's gift), R9.193 (the song's notes), R9.194 (where the waystones stand, and their look), R9.195 (the traveller: place, look, prices), R9.207 (the strings).
 
 For the coordinator: R9.200 (the files P6 added entries to: `places::markers` for P2, `web/menus/` for P3, `models` for M3's owner), R9.202 (sound events for P1), R9.205 (four stale `field.rs` rows in `tests/breaks.json`).
+
+## 2026-10-20: M7 polish, swings, second pass (task P5, branch `m7-swings`)
+
+The coordinator's three fixes after the first pass (merged at 11b55e6, merged back here first): a blade trail for every fighter's cut, fading to nothing 4 ticks after it (R9.175, on the Swing cue setting); the cue as a clear thin line and an end bead (R9.176); the thrust pushed along its line at up to 15.6 m/s with the body leaning in 14° (R9.177: 12.7 m/s, 50 cm, was 5.6 m/s, 25 cm); and the middle level cut raised to shoulder height so it shows beside the head (R9.178). Open for play: R9.179 (the trail is pale on grass; the thrust still points away from the camera). Screenshots in `shots/m7swings2/` (not committed); before is `shots/m7swings/`.
+
+Check (2026-10-20, after merging main at 11b55e6): `./scripts/check.sh` steps 1 to 7 pass; step 8 (the journal) fails only because the journal cites rows R9.190, R9.193 to R9.196, R9.206 and R9.207, which other parts' branches hold and this branch does not; step 9, the browser check run on its own, passes in Chromium, Firefox and WebKit. 362 tests by `./scripts/count-tests.sh` (12 ignored); `python3 scripts/break_tests.py M7` 25 of 25 caught.

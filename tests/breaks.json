@@ -2973,5 +2973,54 @@
     "find": "      \"mechanic\": \"songs\",",
     "replace": "      \"mechanic\": \"arc_return\",",
     "test": "the_flute_has_one_route_and_one_mechanic_of_its_own"
+  },
+  {
+    "name": "M7b swing: a strike leaves a trail",
+    "file": "crates/core/src/swing.rs",
+    "find": "        sw.trail_len = (sw.trail_len + 1).min(TRAIL as u8);",
+    "replace": "        sw.trail_len = (sw.trail_len + 1).min(2);",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b swing: the trail fades to nothing",
+    "file": "crates/core/src/swing.rs",
+    "find": "        sw.trail_len = sw.trail_len.saturating_sub(TRAIL_FADE);",
+    "replace": "        sw.trail_len = sw.trail_len.saturating_sub(TRAIL_FADE).max(sw.trail_len.min(1));",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b swing: the cue off draws no trail",
+    "file": "crates/core/src/swing.rs",
+    "find": "    if !w.ui.settings.cue {\n        return;\n    }\n    let colour = rgb(look.palette.lamp);\n    for id in 0..player::count(w) {",
+    "replace": "    if false {\n        return;\n    }\n    let colour = rgb(look.palette.lamp);\n    for id in 0..player::count(w) {",
+    "test": "a_cut_leaves_a_trail_that_fades_to_nothing"
+  },
+  {
+    "name": "M7b arm: every fighter's blade keeps its trail",
+    "file": "crates/core/src/arm.rs",
+    "find": "        crate::swing::trail(&mut f.arm); // M7 (R9.175)",
+    "replace": "        if id == 0 { crate::swing::trail(&mut f.arm); } // M7 (R9.175)",
+    "test": "a_foe_s_cut_leaves_a_trail"
+  },
+  {
+    "name": "M7b swing: a thrust is pushed fast",
+    "file": "crates/core/src/swing.rs",
+    "find": "pub const THRUST_MOST: Fx = ONE * 26 / 100;",
+    "replace": "pub const THRUST_MOST: Fx = ONE * 8 / 100;",
+    "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
+    "name": "M7b player: a thrust leans the body in",
+    "file": "crates/core/src/player.rs",
+    "find": "    let tilt = tilt.then(&tip(b.facing, -fx::mul(crate::swing::LUNGE_LEAN, g.lunge)));",
+    "replace": "    let tilt = tilt.then(&tip(b.facing, -fx::mul(0, g.lunge)));",
+    "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
+    "name": "M7b swing: the lunge eases out",
+    "file": "crates/core/src/swing.rs",
+    "find": "    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { 0 }, LUNGE_STEP);",
+    "replace": "    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { ONE / 2 }, LUNGE_STEP);",
+    "test": "a_thrust_lunges_out_fast_and_far"
   }
 ]

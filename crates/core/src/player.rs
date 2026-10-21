@@ -471,6 +471,8 @@ fn leaning(b: &Body, build: &Build, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
     };
     let shaken = STAGGER_LEAN * g.stagger as i32 / crate::feel::STAGGER_TICKS as i32;
     let tilt = tip(crate::geom::yaw_of(b.vel), by).then(&tip(crate::geom::yaw_of(g.stagger_way), -shaken));
+    // M7 (R9.177): a thrust leans the body in after its point
+    let tilt = tilt.then(&tip(b.facing, -fx::mul(crate::swing::LUNGE_LEAN, g.lunge)));
     let feet = b.pos;
     move |p: V3| feet.add(tilt.apply_dir(base(p).sub(feet)))
 }
@@ -867,6 +869,7 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     }
     // M7 (T10): the cut the mouse would pick, as a line of beads
     crate::swing::draw(w, look, out);
+    crate::swing::draw_trails(w, look, out); // and every blade's trail (R9.175)
     if w.sticks {
         sticks(w, alpha, look, out);
     }
