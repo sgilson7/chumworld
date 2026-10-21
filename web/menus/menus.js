@@ -49,6 +49,8 @@ function icon(img, src, alt) {
 export function makeMenus(root, { act, pixels, keys }) {
   let hints = [];
   let current = null;
+  const figureCanvas = make("canvas", "figure");
+  figureCanvas.setAttribute("aria-hidden", "true");
 
   // A label whose text is a glossary term shows the definition on hover.
   function term(node) {
@@ -217,8 +219,10 @@ export function makeMenus(root, { act, pixels, keys }) {
   footing.bars = [bar("speed"), bar("footing")];
   footing.append(...footing.bars);
   const vitals = make("div", "hud-vitals");
+  // M7 (T14): the sprint's build, while sprinting
+  const sprint = bar("sprint");
   const vitalBars = make("div", "hud-bars");
-  vitalBars.append(health, footing);
+  vitalBars.append(health, footing, sprint);
   vitals.append(imbue, vitalBars);
   const foeBox = make("div", "hud-foe");
   foeBox.append(foe);
@@ -250,6 +254,7 @@ export function makeMenus(root, { act, pixels, keys }) {
     }
     footing.hidden = h.footing.length === 0;
     footing.bars.forEach((b, i) => setBar(b, h.footing[i]));
+    setBar(sprint, h.sprint);
     h.quick.forEach((q, i) => setQuick(hudQuick[i], q));
     setCount(coins, h.coins);
     flag(toast, "shown", h.toast.shown);
@@ -287,9 +292,42 @@ export function makeMenus(root, { act, pixels, keys }) {
   close.key = make("kbd");
   close.label = make("span");
   close.append(close.key, close.label);
-  foot.append(assign, close);
+  // M7: a quick key pointed at or focused is described over the keys
+  const quickInfo = info();
+  quickInfo.classList.add("quick-info");
+  menuQuick.forEach((q, i) => {
+    q.tabIndex = 0;
+    q.setAttribute("role", "button");
+    const on = () => act("menu.hover_quick", String(i));
+    const off = () => act("menu.hover_quick", "");
+    q.addEventListener("mouseenter", on);
+    q.addEventListener("focus", on);
+    q.addEventListener("mouseleave", off);
+    q.addEventListener("blur", off);
+  });
+  foot.append(assign, close, quickInfo);
   menu.append(backdrop, stage, turnLeft, turnRight, foot);
   const faces = new Map();
+
+  // M7: the names on the turn buttons change when the ring has finished
+  // turning, not as it starts (they fade out while it turns), so they name
+  // the screens beside the one in front.
+  let shownTurn = null;
+  let pendingNames = null;
+  function setNames(m) {
+    text(turnLeft.key, m.left.key);
+    text(turnLeft.label, m.left.text);
+    text(turnRight.key, m.right.key);
+    text(turnRight.label, m.right.text);
+  }
+  function settle() {
+    if (pendingNames) setNames(pendingNames);
+    pendingNames = null;
+    flag(menu, "turning", false);
+  }
+  ring.addEventListener("transitionend", (e) => {
+    if (e.target === ring && e.propertyName === "transform") settle();
+  });
 
   function faceShell(f) {
     const face = make("section", `face face-${f.id}`);
@@ -318,8 +356,9 @@ export function makeMenus(root, { act, pixels, keys }) {
       face.handHeading = make("h3");
       const handSlots = make("div", "hand-slots");
       const figure = make("div", "equip-figure");
-      face.figure = make("img", "figure");
-      face.figure.alt = "";
+      // M7: the player's own model, drawn by app.js on this canvas from the
+      // core's figure frame (crates/core/src/stage.rs)
+      face.figure = figureCanvas;
       figure.append(face.figure);
       face.slots = f.slots.map((s) => {
         const node = slot(face);
@@ -400,7 +439,7 @@ export function makeMenus(root, { act, pixels, keys }) {
     },
     equipment(face, f) {
       text(face.handHeading, f.hand_heading);
-      icon(face.figure, f.figure, "");
+      face.figure.hidden = !f.stage;
       f.slots.forEach((s, i) => setSlot(face.slots[i], s));
       text(face.setHead, f.set.heading);
       icon(face.setIcon, f.set.icon, "");
@@ -503,16 +542,27 @@ export function makeMenus(root, { act, pixels, keys }) {
     turnLeft.action = m.left.action;
     turnRight.action = m.right.action;
     close.action = m.close.action;
-    text(turnLeft.key, m.left.key);
-    text(turnLeft.label, m.left.text);
-    text(turnRight.key, m.right.key);
-    text(turnRight.label, m.right.text);
+    const turning = !opening && shownTurn !== null && shownTurn !== m.turn;
+    shownTurn = m.turn;
+    if (turning && getComputedStyle(ring).transitionDuration !== "0s") {
+      pendingNames = m;
+      flag(menu, "turning", true);
+    } else if (!menu.classList.contains("turning")) {
+      setNames(m);
+    } else {
+      pendingNames = m;
+    }
     text(close.key, m.close.key);
     text(close.label, m.close.text);
     text(assign.label, m.assign);
     m.quick.forEach((q, i) => setQuick(menuQuick[i], q));
+    quickInfo.hidden = !m.quick_info;
+    if (m.quick_info) setInfo(quickInfo, m.quick_info);
+    menuQuick.forEach((q) => q.setAttribute("aria-label", q.title || q.dataset.key));
     flag(menu, "shown", true);
     if (opening) {
+      settle();
+      setNames(m);
       // the ring appears already turned; only later turns are eased
       ring.getBoundingClientRect();
       requestAnimationFrame(() => ring.classList.remove("still"));
@@ -612,6 +662,7 @@ export function makeMenus(root, { act, pixels, keys }) {
     text(li.price, r.price);
     text(li.button, r.action.label);
     li.button.disabled = !r.action.enabled;
+    flag(li, "kept", r.kept);
     li.button.setAttribute("aria-label", `${r.action.label}: ${r.item.name}, ${r.price}`);
     term(li.name);
   }
@@ -701,6 +752,7 @@ export function makeMenus(root, { act, pixels, keys }) {
   const song = makeSong(root, { act, pixels });
 
   return {
+    figureCanvas,
     show(u) {
       hints = u.hints;
       current = u;

@@ -64,11 +64,17 @@ pub mod orbs;
 // M7 Polish
 pub mod obstacles;
 pub mod wind;
+// M7 polish
+pub mod stage;
 // M7 (T10): how the mouse's path becomes a cut
 pub mod swing;
 // M7 travel (P6, T11)
 pub mod travel;
 // M7 polish (P4): hits read on the body
 pub mod wounds;
+// M7 save (P10, T16): saves, save points, the autosave
+pub mod save;
 // M7 roadside (T12)
 pub mod roadside;
+// M7 polish (P8, T14): the sprint that builds to triple speed
+pub mod sprint;

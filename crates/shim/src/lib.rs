@@ -120,6 +120,32 @@ impl Game {
         self.inner.detail.uploads()
     }
 
+    /// M7: the Equipment screen's figure canvas: CSS size and pixel ratio
+    /// in, drawing-buffer size out.
+    pub fn figure_resize(&mut self, css_w: f64, css_h: f64, dpr: f64) -> Vec<i32> {
+        self.inner
+            .figure_resize(css_w as i32, css_h as i32, (dpr * 100.0) as i32)
+            .to_vec()
+    }
+
+    /// M7: the figure's frame: the view, its instances and its draws (none
+    /// unless the Equipment screen is in front).
+    pub fn figure_view(&self) -> Vec<f32> {
+        floats(self.inner.figure.view.clone())
+    }
+
+    pub fn figure_instances(&self) -> Vec<f32> {
+        floats(self.inner.figure.instances.clone())
+    }
+
+    pub fn figure_draws(&self) -> Vec<u32> {
+        self.inner.figure.draws.clone()
+    }
+
+    pub fn figure_clear_color(&self) -> Vec<f32> {
+        floats(tool_core::stage::clear_color())
+    }
+
     /// M4: the map menu's image, RGBA bytes, row by row.
     pub fn map_pixels(&self) -> Vec<u8> {
         api::map_pixels(&self.inner)
@@ -128,6 +154,12 @@ impl Game {
     /// The view model, as JSON.
     pub fn ui(&self) -> String {
         api::ok(&api::ui(&self.inner))
+    }
+
+    /// M7 save: the last save's text, for web/save.js to store or offer as
+    /// a download (empty before the first save).
+    pub fn save_text(&self) -> String {
+        tool_core::save::text_of(&self.inner.world)
     }
 
     pub fn ui_version(&self) -> u32 {

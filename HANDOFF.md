@@ -211,6 +211,69 @@ For the coordinator:
 - R9.230: the west side has nothing past 601 m.
 
 
+## 2026-10-20: M7 save (part P10, branch `m7-save`, T16)
+
+The person: "add areas to save your game to browser / to a save file json so you stop reviving in the village, the game should auto save as well in the browser".
+
+Built (`crates/core/src/save.rs`, `data/save.json`, `web/save.js`, `web/save.css`):
+- **What a save holds** (R9.310, R9.317): progress, decided in the core. The seed, the inventory and equipment, coins, quick keys, the merchant's stock, the quest flags, woken and reached waystones, `taken` and `beaten` by stable key, `parts` (each part's own ids), the save point, the settings, the walked map and the ticks played, under format `chumworld-save`, version 1, with a checksum over the content. Nothing about the person.
+- **Reading** (R9.316): every field is checked (type, range, known id, stack, CW-6 route, the flags against each other, the checksum). A refused stored save means a new game and a line; a refused file leaves the game as it was, with a line. Never half-loaded.
+- **Where a part adds its state** (R9.314): a beaten foe or encounter adds its keys to `save::known_foe` and stands down with `save::beaten`/`save::lay_down`; a drop goes through `save::drop` with a key in `save::known_taken`; anything else (P11's rumours heard, quest steps, revealed marks) is one `save::Part` in `save::PARTS`. No version bump either way. Main's roadside (T12) is saved this way: carts searched (`parts.roadside`), the straggler beaten, the tor's rocks and the straggler's coins taken.
+- **Save points** (R9.312): each woken waystone and two lantern posts (the crossroads, the camp trail's foot), on the map. E saves with "Saved.".
+- **Autosave** (R9.315): when the opening ends, when a waystone is first woken, when the quest moves on, on entering or leaving a major area, and every two minutes outside a duel. Never mid-duel or mid-dialogue. A small Saved mark shows each one.
+- **A fall after the opening** (R9.311): you come to at your last save point, keeping everything; foes beaten since the save stand again. The dream loop is unchanged.
+- **The page**: `web/save.js` is the only file that names storage (one key, `chumworld.save`, every access in try/catch). Title: Continue (with a save), New game (asks first), Load save file. Pause: Download save, Load save file. `crates/core/tests/one_save.rs` replaces `no_storage.rs`.
+
+Rows: R9.310 to R9.321 in `SECOND-ORDER.md`, strings under "### M7 save (P10)" at its foot. Tests: 14 in `save.rs`, 3 in `one_save.rs`, and the browser check's `save` section. 17 rows in `tests/breaks.json` (`python3 scripts/break_tests.py "M7 save"`).
+
+Waiting on the person: R9.311 (what a fall costs), R9.312 (the save points and the post's look, `shots/save/`), R9.321 (the strings).
+
+Checks (after merging main at ca463be): `./scripts/check.sh` steps 1 to 8 run by hand; 1 to 7 pass, 8 (journal) fails only on R9.311, R9.312 and R9.321, which the journal is to name. `python3 scripts/break_tests.py "M7 save"`: 17 of 17 caught. Step 9, the browser check with its new `save` section, is left to the coordinator's batched run (R9.323).
+## 2026-10-20: M7 polish, menus, shop, models, flicker audit and a playthrough (task P3, qa)
+
+Built:
+- **Menus.** The Equipment screen draws the player's own model, lit, dressed in what is worn and holding the sword in hand, turning once in 16 s on a canvas of its own (`stage.rs`, R9.82). The ring's side names change when the turn ends (R9.83). Map marks stand as pins clear of the arrow (R9.85). Quick keys in the ring are described on hover and focus (R9.99). The title and the pause are laid out to fit 1280 × 720, with the keys in two columns and the pause as one card; the ring leaves room for its turn buttons (R9.86).
+- **Shop and items.** The merchant does not buy key items, the sword in hand, worn pieces or quest items. Each is listed with the reason and a refusal line. Only what the merchant sold goes back on the cart (R9.80, CW-6). The purse holds 999 coins, and coins never go below none (R9.81). A bandage's key now heals (R9.84; it did nothing before).
+- **Models.** The trainer carries its own sword (R9.89). The lookout wears the gloves until it drops them (R9.90, R7.13). The cart's wheels roll (R9.96, R5.14). Thin things keep a width edge-on (R9.91). Pickups float, bob and turn over a ring of light; the jacket and the trousers stand up, and the wings are thicker (R9.87). Bodies are drawn 8% broader (R9.88; the capsules are unchanged, open). The flicker scan's window is the worst step short of its far plane (R9.95, R5.2).
+- **Earlier milestones' open rows.** R2.19 (value hash, R9.92), R6.13 (a glossary slip no longer stops the game, and the check names it; R9.93), R3.50 (tested, R9.94).
+- **Checks and tools.**
+  - `tests/browser/layout.py` checks every screen at three sizes for words and focus. Chromium, on its software renderer, checks 1280 × 720 only.
+  - The browser check's flicker audit stages a still view and a slow pan at the bed, the village street, the bridge, the river, the camp, the hut, the horizon and the merchant's cart. It also covers the menus open (the figure's canvas included) and dialogue open (R9.98).
+  - `crates/core/tests/popin_probe.rs` counts near pop-in (R9.97).
+  - `tools/m7qa_shots.py` takes the screenshots.
+  - `tools/playthrough.py` plays the published flow by keyboard and mouse (R9.102).
+
+Check, 2026-10-20, after merging main at f86779b (swings, travel, triage T12 and T13):
+- `./scripts/check.sh` steps 1 to 7 pass: format, lint, 411 core tests by `./scripts/count-tests.sh` (14 probes ignored), the release build, the import audit, art, and the notebook's form.
+- Step 8 (the journal) fails only on this task's person rows R9.100, R9.101 and R9.104, which the journal does not yet name.
+- Step 9, the browser check run on its own in Chromium, Firefox and WebKit, failed once: the river's slow pan in Firefox, 100 of 921 600 pixels, with the water moving under the pan. That pan is now measured, not asserted (R9.98). The flicker audit was then rerun in Firefox and passed. The rest of that run passed in all three engines.
+- Breaks: `python3 scripts/break_tests.py` over this task's rows, 45 of 45 caught.
+- Under the other agents' load, a full three-engine browser check took about 45 minutes, most of it in Chromium's software renderer.
+- Screenshots are in `shots/m7qa/` (not committed).
+
+Waiting on the person: R9.104 (the hood cannot be bought the first time the cart is met), R9.100 (item names capitalised inside a line: a lower-case form, or keep them) and R9.101 (the strings this task wrote, under "### M7 (P3, qa)" at the foot of `SECOND-ORDER.md`).
+
+## 2026-10-20: M7 sprint (part P8, branch `m7-sprint`, T14)
+
+The person: "you should be able to set yourself to sprinting, and if you've been sprinting for 5seconds you start to go faster and faster until you are running at triple speed".
+
+Built (`crates/core/src/sprint.rs`, its tests in `sprint/tests.rs`):
+- **The key**: a tap of Shift while moving sets a sprint on; another tap ends it. Holding Shift still runs. A tap is a short press (at most 0.2 s) after a quiet spell, counted once Shift stays up 0.1 s, so the orcs' and villagers' running never sprints (R9.250). The controls panel says "Shift, tapped · Sprint on or off, while moving".
+- **The build**: 5 s at the run speed, then a smoothstep over 4 s to 3 times it, as a multiplier on `motion::RUN` and the road (15 m/s now, 21 m/s once P2's 7 m/s run lands; R9.251). The speedster's pieces add 20% of the run each on top, capped at 4 times the bare run (R9.252).
+- **What ends it**: a tap, a stop, the sword drawn or a foe held on, a blow, a dodge-step, a hard turn (over 100°), falling or a leg off.
+- **Feel**: steering falls from 10° a tick at the run to 2° at the top; a stop at speed skids at 30 m/s² (3.5 m from 15 m/s); uphill the build gives way; ice unchanged (R9.253). The camera pulls back up to 0.8 m and the view widens up to 6°, eased; a still view is unchanged (R9.254). No speed streaks.
+- **The opening**: the build does not count until the boundary is crossed, so the escape takes as long as running (R9.255).
+- **HUD**: a Sprint bar with words ("Builds in 3 s", "2.4 × run speed") under health, a chevron fill; glossary entry Sprint.
+- Test acts `sprint.set` (ticks) and `sprint.off` (R9.259); five views `s-*` in `tools/shoot.py`; a cost probe `probe_sprint_frame_cost`.
+
+Touched outside P8's own files, each a hook or an added entry: `motion.rs` (`Gait::sprint`; three hook lines, R9.260), `world.rs` (the act route; the camera's pull and widening), `ui.rs` (`HudView::sprint`), `api.rs` (a controls row), `game.rs` (glossary values), `page.rs`, `data/strings.json`, `GLOSSARY.md`, `web/menus/menus.js` and `.css` (the bar), `tests/breaks.json`, `tools/shoot.py`, `crates/core/tests/frame_probe.rs`.
+
+Waiting on the person: R9.261 (the key, the numbers, the opening's hold, and the strings under "### M7 sprint (P8)" at the foot of `SECOND-ORDER.md`).
+
+Open: R9.257 (pop-in and grass reach at speed, for P2), R9.258 (the gait at speed reads stiff), R9.260 (the merge with P2).
+
+Check, 2026-10-20, after merging main at 88e45bd (roadside T12, triage T17; conflicts in `lib.rs`, `world.rs`, `tools/shoot.py`, `tests/breaks.json` and the notes, both sides kept): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests: 427 core tests, the release build, the import audit, art, the notebook's form). Step 8 (the journal) fails on this part's person row R9.261 and on R9.97 to R9.105, which the journal cites from a branch not yet on main. Step 9 was not run here, by the person's rule (the coordinator's batched check): a first run before that rule failed one real check, the title's controls count (13, now 14 with the tap of Shift), which `tests/browser/interactions.py` now expects, with a check of the new row; that change is unverified in a browser. Breaks: `python3 scripts/break_tests.py "M7 sprint"`, 24 of 24 caught (one missed on the first run, its test then held Shift up long enough to count). Screenshots in `shots/sprint/` (not committed).
+
 ## 2026-10-20: M7 polish, the land (task P2, branch `m7-land`; T8, T12, T13)
 
 Built:
@@ -230,4 +293,4 @@ Waiting on the person: R9.58 (the land's, grass's, wind's, river's, roads' and m
 
 For the coordinator: R9.42 (M1's fence leaves a blade inside a body on other recordings; settle at 5 passes keeps the recorded duels), R9.46 (the coplanar scan now measures the gap where two faces overlap; P3 to review), R9.55 (frame cost on a loaded machine), R9.56 (the player's figure takes half the village's slow-pan bound).
 
-Check, 2026-10-20, after merging main at 88e45bd (roadside, swings, travel, wounds; conflicts in `lib.rs`, `world.rs`, `motion.rs`, `game.rs`, `tests/breaks.json` and the notes, both sides kept): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, the notebook's form); step 8 (the journal) fails on this part's new person row R9.58 and on rows other parts' branches hold (R9.97 to R9.105, R9.311 to R9.322); step 9, the browser check, is left to the coordinator's batch (the person's rule), which should include the new near-scatter probe check and the slow pans (the village's was 17 to 18 of 230 400 in Chromium on this branch). Counts from `./scripts/count-tests.sh`.
+Check, 2026-10-20, after merging main at 88e45bd and then f1945f7 (save, sprint; the sprint run at 21 m/s keeps every chunk within 25 m whole, tested), roadside, swings, travel, wounds; conflicts in `lib.rs`, `world.rs`, `motion.rs`, `game.rs`, `tests/breaks.json` and the notes, both sides kept): `./scripts/check.sh` steps 1 to 7 pass (format, lint, tests, release build, import audit, art, the notebook's form); step 8 (the journal) fails on this part's new person row R9.58 and on rows the journal cites from other parts (R9.7, R9.13, R9.17, R9.18, R9.21); step 9, the browser check, is left to the coordinator's batch (the person's rule), which should include the new near-scatter probe check and the slow pans (the village's was 17 to 18 of 230 400 in Chromium on this branch). 508 tests by `./scripts/count-tests.sh` (17 ignored); `python3 scripts/break_tests.py "M7 land"`: 41 of 41 caught.

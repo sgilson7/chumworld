@@ -283,8 +283,37 @@ impl Pickup {
 /// glow over it so it reads from afar, and its shadow. M5 draws these where
 /// the pieces are hidden and takes them away when picked up.
 pub fn pickup(item: Pickup, at: V3, yaw: i32, look: &Look, out: &mut Shapes) {
-    let place = Affine::translate(at).then(&Affine::rot_y(yaw));
+    pickup_at(item, at, yaw, 0, look, out);
+}
+
+/// M7 (R9.87): a pickup floats as Zelda's do, so it reads as something to
+/// take: it hangs `FLOAT_MM` over the ground, bobs `BOB_MM` up and down
+/// every `BOB_TICKS`, turns round once every `SPIN_TICKS`, and a soft ring
+/// of light lies on the ground under it. `phase` is ticks (Q16), the world's
+/// clock modulo `PHASE_TICKS` plus the frame's share of a tick.
+pub const FLOAT_MM: i32 = 120;
+pub const BOB_MM: i32 = 60;
+pub const BOB_TICKS: i32 = 120;
+pub const SPIN_TICKS: i32 = 240;
+/// both repeat over this many ticks
+pub const PHASE_TICKS: i32 = 240;
+
+/// How far up a floating pickup is at `phase` (Q16 ticks), and how far it
+/// has turned: (1 − cos) / 2 of the bob, and a share of a whole turn.
+pub fn float(phase: Fx) -> (Fx, i32) {
+    let bob_turn = (phase as i64 * fx::TURN as i64 / (BOB_TICKS as i64 * ONE as i64)) as i32;
+    let up = mm(FLOAT_MM) + fx::mul(mm(BOB_MM), (ONE - fx::cos(bob_turn)) / 2);
+    let spin = (phase as i64 * fx::TURN as i64 / (SPIN_TICKS as i64 * ONE as i64)) as i32;
+    (up, fx::wrap(spin))
+}
+
+/// A pickup floating at `phase` (`float`), with its glow, its ring of light
+/// and its shadow.
+pub fn pickup_at(item: Pickup, at: V3, yaw: i32, phase: Fx, look: &Look, out: &mut Shapes) {
+    let (up, spin) = float(phase);
+    let place = Affine::translate(at.add(v3(0, up, 0))).then(&Affine::rot_y(fx::wrap(yaw + spin)));
     pickup_model(item).placed(&place).emit(look.ink(), out);
+    ring(at, item == Pickup::ChestKey, out);
     let glow = table().c(if item == Pickup::ChestKey {
         "brass"
     } else {
@@ -302,6 +331,18 @@ pub fn pickup(item: Pickup, at: V3, yaw: i32, look: &Look, out: &mut Shapes) {
         rgb(look.palette.shadow),
         ONE * 2 / 3,
     );
+}
+
+/// The soft ring of light under a floating pickup: a torus laid flat a
+/// little over the ground (`RING_LIFT`, clear of the ground's depth steps
+/// out to where a pickup is drawn), added to what is under it.
+pub const RING_LIFT: Fx = ONE * 3 / 100;
+pub fn ring(at: V3, key: bool, out: &mut Shapes) {
+    let c = table().c(if key { "brass" } else { "speed_stripe" });
+    let flat = Affine::translate(at.add(v3(0, RING_LIFT, 0)))
+        .then(&Affine::rot_x(fx::QUARTER_TURN))
+        .then(&Affine::scale(v3(mm(680), mm(680), mm(40))));
+    out.glow(Mesh::Torus, flat, c, ONE / 4);
 }
 
 /// The model of a pickup lying with its base at the origin, its front to −z.
@@ -344,37 +385,83 @@ pub fn pickup_model(item: Pickup) -> Model {
                         &o,
                         v3(side * mm(150), mm(70), mm(70)),
                         &sweep,
-                        v3(mm(10), mm(130), mm(60)),
+                        v3(mm(22), mm(130), mm(60)),
                     ),
                     wing,
                     ink,
                 );
             }
         }
+        // M7 (R9.87): the jacket stands up as a jacket, not a folded slab:
+        // a body, a yoke, two sleeves with cuffs, a collar and the stripe
         Pickup::Jacket => {
-            m.add(
-                Mesh::Cube,
-                put(&o, v3(0, mm(40), 0), v3(mm(380), mm(80), mm(300))),
+            let k = m.add(
+                Mesh::Facet,
+                put(&o, v3(0, mm(230), 0), v3(mm(340), mm(380), mm(210))),
                 base,
                 ink,
             );
-            // a stripe across, its top a centimetre proud of the jacket's
-            for (x, turn) in [(-mm(90), 30), (0, -30), (mm(90), 30)] {
-                let a = put_turned(
-                    &o,
-                    v3(x, mm(80), 0),
-                    &Affine::rot_y(fx::deg(turn)),
-                    v3(mm(130), 2 * DECAL_LIFT, mm(40)),
-                );
-                m.add(Mesh::Cube, a, stripe, 0);
-            }
-            let collar = put_turned(
-                &o,
-                v3(0, mm(95), mm(120)),
-                &Affine::rot_z(fx::QUARTER_TURN),
-                v3(mm(70), mm(320), mm(70)),
+            m.add(
+                Mesh::Facet,
+                put(&o, v3(0, mm(390), mm(6)), v3(mm(420), mm(150), mm(222))),
+                base,
+                ink,
             );
-            m.add(Mesh::Cyl, collar, stripe, ink);
+            for x in [-1, 1] {
+                let (a, b) = (v3(x * mm(190), mm(400), 0), v3(x * mm(260), mm(150), 0));
+                m.add(Mesh::Cyl, bar(a, b, (mm(118), mm(118)), v3(0, 0, ONE)), base, ink);
+                let (c0, c1) = (a.lerp(b, ONE * 78 / 100), a.lerp(b, ONE * 94 / 100));
+                m.add(
+                    Mesh::Cyl,
+                    bar(c0, c1, (mm(140), mm(140)), v3(0, 0, ONE)),
+                    stripe,
+                    ink,
+                );
+            }
+            m.add(
+                Mesh::Tube,
+                put(&o, v3(0, mm(468), 0), v3(mm(200), mm(56), mm(150))),
+                stripe,
+                ink,
+            );
+            let r = v3(mm(170), mm(190), mm(105));
+            let f = Affine::translate(v3(0, mm(230), 0));
+            decal(
+                &mut m,
+                k,
+                &f,
+                r,
+                v3(0, 0, -ONE),
+                v3(mm(60), mm(220), mm(30)),
+                DECAL_LIFT,
+                stripe,
+            );
+        }
+        // the trousers stand up too: hips, the waistband, two legs, cuffs
+        Pickup::Trousers => {
+            m.add(
+                Mesh::Facet,
+                put(&o, v3(0, mm(420), 0), v3(mm(300), mm(170), mm(190))),
+                base,
+                ink,
+            );
+            m.add(
+                Mesh::Cyl,
+                put(&o, v3(0, mm(498), 0), v3(mm(290), mm(60), mm(180))),
+                stripe,
+                ink,
+            );
+            for x in [-1, 1] {
+                let (a, b) = (v3(x * mm(80), mm(420), 0), v3(x * mm(92), mm(30), 0));
+                m.add(Mesh::Cyl, bar(a, b, (mm(132), mm(132)), v3(ONE, 0, 0)), base, ink);
+                let (c0, c1) = (a.lerp(b, ONE * 80 / 100), a.lerp(b, ONE * 93 / 100));
+                m.add(
+                    Mesh::Cyl,
+                    bar(c0, c1, (mm(154), mm(154)), v3(ONE, 0, 0)),
+                    stripe,
+                    ink,
+                );
+            }
         }
         Pickup::Gloves => {
             for (x, turn) in [(-mm(80), 20), (mm(90), -15)] {
@@ -392,22 +479,6 @@ pub fn pickup_model(item: Pickup) -> Model {
                     v3(mm(100), mm(50), mm(84)),
                 );
                 m.add(Mesh::Cyl, cuff, stripe, ink);
-            }
-        }
-        Pickup::Trousers => {
-            m.add(
-                Mesh::Cube,
-                put(&o, v3(0, mm(45), 0), v3(mm(320), mm(90), mm(360))),
-                base,
-                ink,
-            );
-            for x in [-mm(110), mm(110)] {
-                m.add(
-                    Mesh::Cube,
-                    put(&o, v3(x, mm(90), 0), v3(mm(36), 2 * DECAL_LIFT, mm(330))),
-                    stripe,
-                    0,
-                );
             }
         }
         Pickup::Boots => {
@@ -440,7 +511,7 @@ pub fn pickup_model(item: Pickup) -> Model {
                     &o,
                     v3(x + x / 2, mm(170), mm(80)),
                     &Affine::rot_x(-fx::deg(60)),
-                    v3(mm(10), mm(120), mm(70)),
+                    v3(mm(22), mm(120), mm(70)),
                 );
                 m.add(Mesh::Wedge, fin, wing, ink);
             }

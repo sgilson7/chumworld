@@ -305,6 +305,17 @@ impl Seen {
         DEPTH_STEPS * render::layered_depth_step(d.clamp(0, i32::MAX as i64) as Fx) as i64
     }
 
+    /// M7 (R5.2): the widest gap the depth buffer cannot tell apart anywhere
+    /// out to `far`. The step is not monotonic across the two layers (the
+    /// near layer's at 128 m is wider than the far layer's out to about
+    /// 1 km), so this is the worse of the near layer's at its farthest and
+    /// the step at `far` itself.
+    pub fn window(far: i64) -> i64 {
+        let far = far.clamp(0, i32::MAX as i64);
+        let near = Seen::apart(far.min(render::NEAR_LAYER_FAR as i64));
+        near.max(Seen::apart(far))
+    }
+
     /// The nearest a camera comes to `p`.
     fn reach(&self, p: P3) -> i64 {
         self.eyes
@@ -328,7 +339,7 @@ pub fn fights(insts: &[Inst], table: &MeshTable, seen: &Seen) -> Vec<Fight> {
     let window = if seen.eyes.is_empty() {
         PLANE_TOL
     } else {
-        PLANE_TOL.max(Seen::apart(seen.far as i64))
+        PLANE_TOL.max(Seen::window(seen.far as i64))
     };
     let all = faces(insts, table);
     let boxes: Vec<usize> = (0..insts.len()).filter(|&k| closed(&insts[k])).collect();
@@ -622,6 +633,38 @@ mod tests {
             ..near
         };
         assert_eq!(fights(&pair, &MeshTable::default(), &far).len(), 1);
+    }
+
+    /// R5.2: two squares 5 mm apart seen from 100 m up, the scene drawn to
+    /// 300 m. At 100 m the near layer cannot tell 5 mm apart (its step there
+    /// times DEPTH_STEPS is over 5 mm), so they fight; the step at 300 m (the
+    /// far layer's, finer) must not hide the pair from the scan.
+    #[test]
+    fn the_scan_looks_as_wide_as_the_worst_depth_step_short_of_its_far_plane() {
+        assert!(
+            Seen::apart(int(100) as i64) > (ONE / 200) as i64,
+            "the premise: 5 mm is too near at 100 m"
+        );
+        assert!(
+            Seen::apart(int(300) as i64) < (ONE / 200) as i64,
+            "and not too near at 300 m"
+        );
+        let sq = |y: i32, c: Rgb| Inst {
+            mesh: Mesh::Square.into(),
+            at: Affine::translate(v3(0, y, 0)).then(&Affine::scale(v3(int(50), ONE, int(50)))),
+            rgb: c,
+            value: 0,
+            pass: Pass::Solid,
+        };
+        let pair = [sq(0, [ONE, 0, 0]), sq(ONE / 200, [0, ONE, 0])];
+        let seen = Seen {
+            bottom: i32::MIN,
+            eyes: vec![v3(0, int(100), 0)],
+            far: int(300),
+        };
+        assert_eq!(fights(&pair, &MeshTable::default(), &seen).len(), 1);
+        assert_eq!(Seen::window(int(300) as i64), Seen::apart(int(128) as i64));
+        assert_eq!(Seen::window(int(50) as i64), Seen::apart(int(50) as i64));
     }
 
     #[test]

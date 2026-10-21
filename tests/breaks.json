@@ -1456,32 +1456,11 @@
     "test": "a_blade_swung_into_a_body_stops_there_and_takes_health_by_its_speed"
   },
   {
-    "name": "M1b player: a cut passes through the front",
-    "file": "crates/core/src/player.rs",
-    "find": "    if now.dot(want) >= 0 {",
-    "replace": "    if true {",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
-  },
-  {
     "name": "M1b arm: a sweep lays the blade flat",
     "file": "crates/core/src/arm.rs",
     "find": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT).max(ramp(shell.swing.0.abs(), 0, SWING_FLAT));",
     "replace": "    let flat = ramp(shell.side.abs(), 0, SIDE_FLAT);",
     "test": "the_blade_points_up_at_the_guard_flat_to_the_side_up_and_back_raised_and_along_a_thrust"
-  },
-  {
-    "name": "M1b arm: raised high, the blade stands up and back",
-    "file": "crates/core/src/arm.rs",
-    "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
-    "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
-  },
-  {
-    "name": "M1b arm: a moving reach holds the thrust's line",
-    "file": "crates/core/src/arm.rs",
-    "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
-    "replace": "        .max(0);",
-    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
   },
   {
     "name": "M1b arm: the high guard is high and to the left",
@@ -1657,13 +1636,6 @@
     "find": "        g.hold = [false, false];\n    }",
     "replace": "    }",
     "test": "a_fighter_at_no_health_falls_drops_its_weapon_and_lies_still"
-  },
-  {
-    "name": "M1b arm: a point on the ground drags to rest",
-    "file": "crates/core/src/arm.rs",
-    "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
-    "replace": "                v.x -= v.x * 0 / 100;",
-    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
   },
   {
     "name": "M1b player: a staggered body leans back along the blow",
@@ -2877,6 +2849,349 @@
     "test": "the_blades_and_the_ground_sum_the_same_wind_and_agree_where_grass_is"
   },
   {
+    "name": "M7 shop: the sword in hand is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.weapon == Some(i) {\n        Some(NoSale::InHand)",
+    "replace": "    } else if false {\n        Some(NoSale::InHand)",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a worn piece is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.worn.contains(&Some(i)) {\n        Some(NoSale::Worn)",
+    "replace": "    } else if false {\n        Some(NoSale::Worn)",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a quest item is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if !d.start && !d.routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "    } else if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: the chest key is sold",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if d.keep || d.kind == items::Kind::Key {",
+    "replace": "    } else if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a sold short sword goes on the cart",
+    "file": "crates/core/src/ui.rs",
+    "find": "if i.def().stack == 1 && i.def().routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "if i.def().stack == 1 {",
+    "test": "the_shop_sells_at_value_and_buys_at_half"
+  },
+  {
+    "name": "M7 shop: a sold hood stays off the cart",
+    "file": "crates/core/src/ui.rs",
+    "find": "if i.def().stack == 1 && i.def().routes.iter().any(|r| r == \"merchant\") {",
+    "replace": "if false {",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a sale passes the purse",
+    "file": "crates/core/src/ui.rs",
+    "find": "    } else if inv.coins + sale_price(i) > inventory::PURSE {",
+    "replace": "    } else if false {",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: coins added past the purse",
+    "file": "crates/core/src/inventory.rs",
+    "find": "let got = n.min(PURSE.saturating_sub(self.coins));",
+    "replace": "let got = n;",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: spending more than is carried",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if self.coins < n {\n            return false;\n        }\n        self.coins -= n;",
+    "replace": "        self.coins = self.coins.wrapping_sub(n);",
+    "test": "coins_and_stacks_hold_to_their_bounds_in_the_shop"
+  },
+  {
+    "name": "M7 shop: a kept row is not marked",
+    "file": "crates/core/src/ui.rs",
+    "find": "                kept: why.is_some(),",
+    "replace": "                kept: false,",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 shop: a kept row shows a price",
+    "file": "crates/core/src/ui.rs",
+    "find": "                    Some(n) => no_sale_word(s, n),",
+    "replace": "                    Some(_) => price(sale_price(i)),",
+    "test": "the_merchant_refuses_key_items_the_sword_in_hand_worn_pieces_and_quest_items"
+  },
+  {
+    "name": "M7 figure: the figure does not turn",
+    "file": "crates/core/src/stage.rs",
+    "find": "    let spun = (ticks as i64 % per_turn) * fx::TURN as i64 / per_turn;",
+    "replace": "    let spun = 0i64;",
+    "test": "the_figure_turns_once_every_sixteen_seconds_from_a_quarter_view"
+  },
+  {
+    "name": "M7 figure: the figure shows on every screen of the ring",
+    "file": "crates/core/src/stage.rs",
+    "find": "    g.screen == Screen::Menu && g.menu.face() == crate::ui::EQUIPMENT",
+    "replace": "    g.screen == Screen::Menu",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: no sword in hand",
+    "file": "crates/core/src/stage.rs",
+    "find": "    if held != Held::Nothing {",
+    "replace": "    if false {",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: undressed",
+    "file": "crates/core/src/stage.rs",
+    "find": "        worn: crate::items::speedster_mask(w),",
+    "replace": "        worn: 0,",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: the ring's open time stands still",
+    "file": "crates/core/src/game.rs",
+    "find": "                self.menu.open_ticks = self.menu.open_ticks.wrapping_add(ticks.len() as u32);",
+    "replace": "",
+    "test": "the_equipment_screen_draws_the_dressed_player_and_no_other_screen_does"
+  },
+  {
+    "name": "M7 figure: the camera too close",
+    "file": "data/menus.json",
+    "find": "\"eye_mm\": [0, 1250, 5700]",
+    "replace": "\"eye_mm\": [0, 1250, 2500]",
+    "test": "the_stage_s_camera_frames_the_whole_figure"
+  },
+  {
+    "name": "M7 quick: a key described before it is pointed at",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let k = g.menu.quick_hover?;",
+    "replace": "    let k = g.menu.quick_hover.or(Some(0))?;",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 quick: the bandage described as readied",
+    "file": "crates/core/src/ui.rs",
+    "find": "    let how = if i == Item::Bandage {\n        \"quick_use\"",
+    "replace": "    let how = if false {\n        \"quick_use\"",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 quick: the pointed key kept when the ring reopens",
+    "file": "crates/core/src/ui.rs",
+    "find": "    g.menu.quick_hover = None;\n    g.menu.open_ticks = 0;",
+    "replace": "    g.menu.open_ticks = 0;",
+    "test": "pointing_at_a_quick_key_in_the_ring_describes_its_item"
+  },
+  {
+    "name": "M7 bandage: health past the most",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    h.hp = (h.hp + Item::Bandage.def().heals).min(h.most);",
+    "replace": "    h.hp += Item::Bandage.def().heals;",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 bandage: its key readies it",
+    "file": "crates/core/src/inventory.rs",
+    "find": "        if pressed && inv.quick[k] == Some(Item::Bandage) {",
+    "replace": "        if false {",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 bandage: used unhurt",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if h.hp >= h.most {",
+    "replace": "    if false {",
+    "test": "a_bandage_s_key_gives_back_forty_health_held_to_the_most"
+  },
+  {
+    "name": "M7 hash: field names hashed",
+    "file": "crates/core/src/world.rs",
+    "find": "            let named = j + 1 < b.len() && b[j] == b':' && b[j + 1] == b' ';",
+    "replace": "            let named = false;",
+    "test": "the_world_s_hash_reads_its_values_not_its_field_names"
+  },
+  {
+    "name": "M7 hash: names hashed by their first letter only",
+    "file": "crates/core/src/world.rs",
+    "find": "            for &c in &b[i..j] {\n                put(c);\n            }",
+    "replace": "            put(b[i]);",
+    "test": "the_world_s_hash_reads_its_values_not_its_field_names"
+  },
+  {
+    "name": "M7 glossary: a duplicate stops the game loading",
+    "file": "crates/core/src/game.rs",
+    "find": "        let glossary = crate::glossary::load(glossary_md);",
+    "replace": "        let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;",
+    "test": "a_glossary_with_a_term_defined_twice_still_starts_the_game"
+  },
+  {
+    "name": "M7 glossary: the load keeps the last of a duplicate",
+    "file": "crates/core/src/glossary.rs",
+    "find": "                text = drop_entry(&text, term, dup);",
+    "replace": "                text = drop_entry(&text, term, !dup);",
+    "test": "a_term_defined_twice_still_loads_and_the_check_names_both_lines"
+  },
+  {
+    "name": "M7 glossary: the check misses a duplicate in GLOSSARY.md",
+    "file": "GLOSSARY.md",
+    "find": "### Walk\n",
+    "replace": "### Walk\n\nTwice.\n\n### walk\n",
+    "test": "the_glossary_defines_each_term_once"
+  },
+  {
+    "name": "M7 glossary: duplicates found ignoring case",
+    "file": "crates/core/src/glossary.rs",
+    "find": "            match seen.iter().find(|(t, _)| t.eq_ignore_ascii_case(&term)) {",
+    "replace": "            match seen.iter().find(|(t, _)| *t == term) {",
+    "test": "a_term_defined_twice_still_loads_and_the_check_names_both_lines"
+  },
+  {
+    "name": "M7 blade (R3.50): one blow a contact",
+    "file": "crates/core/src/blade.rs",
+    "find": "    if w.blades.touching.contains(&key) {",
+    "replace": "    if false {",
+    "test": "a_blade_pressed_along_a_body_takes_no_second_blow"
+  },
+  {
+    "name": "M7 blade (R3.50): a blade never comes away",
+    "file": "crates/core/src/blade.rs",
+    "find": "                pa.dist(pb) <= *re + *r + COME_AWAY",
+    "replace": "                pa.dist(pb) <= *re + *r + COME_AWAY * 100",
+    "test": "a_blade_pressed_along_a_body_takes_no_second_blow"
+  },
+  {
+    "name": "M7 models: the scan's window is the far plane's step (R5.2)",
+    "file": "crates/core/src/flicker.rs",
+    "find": "        PLANE_TOL.max(Seen::window(seen.far as i64))",
+    "replace": "        PLANE_TOL.max(Seen::apart(seen.far as i64))",
+    "test": "the_scan_looks_as_wide_as_the_worst_depth_step_short_of_its_far_plane"
+  },
+  {
+    "name": "M7 models: the trainer keeps the bandit's short sword",
+    "file": "crates/core/src/trainer.rs",
+    "find": "    foe.fighter = crate::player::Fighter::new(Kind::Trainer, crate::pose::Held::Sword, 0, at, yaw, false);",
+    "replace": "    foe.fighter.held = crate::pose::Held::Sword;\n    foe.fighter.kind = Kind::Trainer;",
+    "test": "the_trainer_carries_the_sword_at_the_sword_s_length"
+  },
+  {
+    "name": "M7 models: no foe wears the gloves",
+    "file": "crates/core/src/player.rs",
+    "find": "            _ => crate::camp::worn(w, id),",
+    "replace": "            _ => 0,",
+    "test": "the_lookout_wears_the_gloves_until_it_drops_them"
+  },
+  {
+    "name": "M7 models: the lookout keeps the gloves on after dropping them",
+    "file": "crates/core/src/camp.rs",
+    "find": "        .any(|m| m.role == Role::Lookout && m.foe + 1 == id && !m.dropped);",
+    "replace": "        .any(|m| m.role == Role::Lookout && m.foe + 1 == id);",
+    "test": "the_lookout_wears_the_gloves_until_it_drops_them"
+  },
+  {
+    "name": "M7 models: the cart's wheels do not roll",
+    "file": "crates/core/src/merchant.rs",
+    "find": "            .wrapping_add((SPEED as i64 * fx::TURN as i64 / WHEEL_ROUND as i64) as i32);",
+    "replace": "            .wrapping_add(0);",
+    "test": "the_cart_s_wheels_roll_as_far_as_the_cart_goes"
+  },
+  {
+    "name": "M7 models: the cart's spokes roll backwards",
+    "file": "crates/core/src/models/props.rs",
+    "find": "            let turn = Affine::rot_x(fx::TURN * s / 12 - roll);",
+    "replace": "            let turn = Affine::rot_x(fx::TURN * s / 12 + roll);",
+    "test": "the_cart_s_wheels_roll_as_far_as_the_cart_goes"
+  },
+  {
+    "name": "M7 models: thin things are not kept visible",
+    "file": "crates/core/src/render.rs",
+    "find": "        if thin >= least {",
+    "replace": "        if true {",
+    "test": "a_thin_blade_far_off_keeps_a_width_and_its_outline_stays_wider"
+  },
+  {
+    "name": "M7 models: a widened outline no wider than its solid",
+    "file": "crates/core/src/render.rs",
+    "find": "        let least = if ink { least * 3 / 2 } else { least };",
+    "replace": "        let least = if ink { least } else { least };",
+    "test": "a_thin_blade_far_off_keeps_a_width_and_its_outline_stays_wider"
+  },
+  {
+    "name": "M7 models: a pickup does not bob",
+    "file": "crates/core/src/models/held.rs",
+    "find": "    let up = mm(FLOAT_MM) + fx::mul(mm(BOB_MM), (ONE - fx::cos(bob_turn)) / 2);",
+    "replace": "    let up = mm(FLOAT_MM) + 0 * bob_turn;",
+    "test": "a_pickup_floats_bobs_and_turns_over_a_ring_of_light"
+  },
+  {
+    "name": "M7 models: a pickup has no ring of light",
+    "file": "crates/core/src/models/held.rs",
+    "find": "    ring(at, item == Pickup::ChestKey, out);",
+    "replace": "",
+    "test": "a_pickup_floats_bobs_and_turns_over_a_ring_of_light"
+  },
+  {
+    "name": "M7 models: pickups move while the story is held still",
+    "file": "crates/core/src/story.rs",
+    "find": "    let phase = if w.story.still {\n        0\n    } else {",
+    "replace": "    let phase = if false {\n        0\n    } else {",
+    "test": "pickups_turn_with_the_clock_and_hold_still_for_a_picture"
+  },
+  {
+    "name": "M7 models: bodies drawn at their old girth",
+    "file": "crates/core/src/models/figure.rs",
+    "find": "crate::pose::BODY_GIRTH_PCT as i64 / 10_000) as Fx",
+    "replace": "100 / 10_000) as Fx",
+    "test": "bodies_are_drawn_eight_percent_broader_and_no_taller"
+  },
+  {
+    "name": "M7 quick: a rock taken goes on no key",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if got > 0 && i.def().quick && inv.key_of(i).is_none() {",
+    "replace": "    if false {",
+    "test": "a_quick_item_taken_goes_on_the_first_free_key"
+  },
+  {
+    "name": "M7 quick: an item taken twice goes on two keys",
+    "file": "crates/core/src/inventory.rs",
+    "find": "    if got > 0 && i.def().quick && inv.key_of(i).is_none() {",
+    "replace": "    if got > 0 && i.def().quick {",
+    "test": "a_quick_item_taken_goes_on_the_first_free_key"
+  },
+  {
+    "name": "M1b player: a cut passes through the front",
+    "file": "crates/core/src/player.rs",
+    "find": "    if now.dot(want) >= 0 {",
+    "replace": "    if true {",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: raised high, the blade stands up and back",
+    "file": "crates/core/src/arm.rs",
+    "find": "(shell.pitch - HIGH_FROM).max(0) * OVER_PCT / 100;",
+    "replace": "(shell.pitch - HIGH_FROM).max(0) * 0 / 100;",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a moving reach holds the thrust's line",
+    "file": "crates/core/src/arm.rs",
+    "find": "        .max(ramp(shell.swing.2.abs(), 0, THRUST_FLAT));",
+    "replace": "        .max(0);",
+    "test": "without_the_button_the_guard_s_blade_reads_from_the_mouse_s_path"
+  },
+  {
+    "name": "M1b arm: a point on the ground drags to rest",
+    "file": "crates/core/src/arm.rs",
+    "find": "                v.x -= v.x * GROUND_DRAG_PCT / 100;",
+    "replace": "                v.x -= v.x * 0 / 100;",
+    "test": "a_point_on_the_ground_loses_a_third_of_its_slide_a_tick"
+  },
+  {
     "name": "M7 swing: a level cut's plane is level",
     "file": "crates/core/src/swing.rs",
     "find": "    let start = r.scale(-fx::cos(travel)).add(u.scale(-fx::sin(travel)));",
@@ -3785,5 +4100,292 @@
     "find": "\"place\": \"shrine\", \"at_cm\": [0, 320]",
     "replace": "\"place\": \"shrine\", \"at_cm\": [0, 240]",
     "test": "every_pickup_can_be_reached_from_every_side"
+  },
+  {
+    "name": "M7 save: a load gives back the coins",
+    "file": "crates/core/src/save.rs",
+    "find": "inv.coins = p.coins;",
+    "replace": "inv.coins = 0;",
+    "test": "a_save_round_trips_to_the_same_progress_and_the_same_world"
+  },
+  {
+    "name": "M7 save: a load gives back the roadside's searched carts",
+    "file": "crates/core/src/save.rs",
+    "find": "*s = true;",
+    "replace": "*s = false;",
+    "test": "a_save_round_trips_to_the_same_progress_and_the_same_world"
+  },
+  {
+    "name": "M7 save: a checksum mismatch is refused",
+    "file": "crates/core/src/save.rs",
+    "find": "if sum != checksum(&game.to_string()) {",
+    "replace": "if false {",
+    "test": "a_save_changed_by_hand_fails_its_checksum"
+  },
+  {
+    "name": "M7 save: a number out of range is refused",
+    "file": "crates/core/src/save.rs",
+    "find": ".filter(|n| *n <= most)",
+    "replace": ".filter(|_| true)",
+    "test": "each_bad_field_is_refused_by_name"
+  },
+  {
+    "name": "M7 save: an item without its route is refused (CW-6)",
+    "file": "crates/core/src/save.rs",
+    "find": "if has(i) && !route_ok(i) {",
+    "replace": "if false {",
+    "test": "nothing_is_held_without_the_route_that_gives_it"
+  },
+  {
+    "name": "M7 save: no save during the opening",
+    "file": "crates/core/src/save.rs",
+    "find": "if w.story.phase != Phase::Free {",
+    "replace": "if false {",
+    "test": "no_save_is_written_during_the_opening"
+  },
+  {
+    "name": "M7 save: no autosave mid-duel",
+    "file": "crates/core/src/save.rs",
+    "find": "if crate::travel::danger(w) {",
+    "replace": "if false {",
+    "test": "the_autosave_never_fires_mid_duel_or_mid_dialogue"
+  },
+  {
+    "name": "M7 save: no autosave mid-dialogue",
+    "file": "crates/core/src/save.rs",
+    "find": "if w.ui.dialogue.is_some() || w.ui.shop_open {",
+    "replace": "if w.ui.shop_open {",
+    "test": "the_autosave_never_fires_mid_duel_or_mid_dialogue"
+  },
+  {
+    "name": "M7 save: two minutes of play save the game",
+    "file": "crates/core/src/save.rs",
+    "find": "if w.save.since >= spec().autosave_ticks {",
+    "replace": "if false {",
+    "test": "two_minutes_of_play_save_the_game_and_walking_into_an_area_does_too"
+  },
+  {
+    "name": "M7 save: a post is a save point",
+    "file": "crates/core/src/save.rs",
+    "find": "k >= n ||",
+    "replace": "k < n &&",
+    "test": "e_at_a_post_saves_there_with_a_line"
+  },
+  {
+    "name": "M7 save: a fall after the opening returns to the last save point",
+    "file": "crates/core/src/story.rs",
+    "find": "if crate::save::fall(w) {",
+    "replace": "if false {",
+    "test": "a_fall_after_the_opening_returns_to_the_last_save_point_with_everything_kept"
+  },
+  {
+    "name": "M7 save: a taken drop never lies again",
+    "file": "crates/core/src/save.rs",
+    "find": "if w.save.taken.contains(key) || w.save.keyed.iter().any(|(_, k)| k == key) {",
+    "replace": "if false {",
+    "test": "a_drop_taken_once_never_lies_again"
+  },
+  {
+    "name": "M7 save: the save holds only the documented fields",
+    "file": "crates/core/src/save.rs",
+    "find": "\"phase\": \"free\",",
+    "replace": "\"phase\": \"free\", \"device\": \"desktop\",",
+    "test": "the_save_holds_nothing_but_the_documented_fields"
+  },
+  {
+    "name": "M7 save: a stored save offers Continue",
+    "file": "crates/core/src/save.rs",
+    "find": "save.continue\", \"continue\"",
+    "replace": "save.continue\", \"play\"",
+    "test": "a_stored_save_continues_and_a_bad_one_starts_a_new_game_with_a_line"
+  },
+  {
+    "name": "M7 save: a new game over a save asks first",
+    "file": "crates/core/src/save.rs",
+    "find": "g.saves.confirm = true;",
+    "replace": "g.show(Screen::Play);",
+    "test": "a_new_game_over_a_save_asks_first_and_then_forgets_it"
+  },
+  {
+    "name": "M7 save: only web/save.js names browser storage",
+    "file": "web/app.js",
+    "find": "import { makeSave } from \"./save.js\";",
+    "replace": "import { makeSave } from \"./save.js\";\nconst kept = window.localStorage;",
+    "test": "only_the_save_module_names_browser_storage"
+  },
+  {
+    "name": "M7 save: web/save.js keeps one key",
+    "file": "web/save.js",
+    "find": "s.removeItem(KEY);",
+    "replace": "s.removeItem(\"chumworld.other\");",
+    "test": "the_save_module_keeps_exactly_one_key"
+  },
+  {
+    "name": "M7 sprint: a held run counts as a tap",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            s.tapping = s.quiet && s.down <= TAP_MOST;",
+    "replace": "            s.tapping = s.quiet;",
+    "test": "a_tap_of_shift_while_moving_sets_a_sprint_and_another_ends_it"
+  },
+  {
+    "name": "M7 sprint: the orcs' running taps a sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        if s.tapping && s.up >= SETTLE {",
+    "replace": "        if s.tapping {",
+    "test": "the_orcs_running_never_sprints"
+  },
+  {
+    "name": "M7 sprint: the build starts before 5 s",
+    "file": "crates/core/src/sprint.rs",
+    "find": "pub const BUILD_AFTER: u32 = 300;",
+    "replace": "pub const BUILD_AFTER: u32 = 240;",
+    "test": "five_seconds_of_sprint_go_at_the_run_speed_then_it_builds"
+  },
+  {
+    "name": "M7 sprint: the top is twice the run",
+    "file": "crates/core/src/sprint.rs",
+    "find": "pub const TOP: Fx = fx::int(3);",
+    "replace": "pub const TOP: Fx = fx::int(2);",
+    "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
+  },
+  {
+    "name": "M7 sprint: a stop does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        } else if !k.moving {\n            End::Stop",
+    "replace": "        } else if false {\n            End::Stop",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: pressing X does not end it in the world",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            drawn: f.drawn() || f.pressed(&inp, input::DRAW),",
+    "replace": "            drawn: f.drawn(),",
+    "test": "in_the_world_a_sprint_ends_at_the_draw_and_at_a_stop"
+  },
+  {
+    "name": "M7 sprint: health lost does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let hit = k.stagger || k.hp < s.hp;",
+    "replace": "    let hit = k.stagger;",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: a dodge-step does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": "        } else if k.dodge {",
+    "replace": "        } else if false {",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: a hard turn does not end it",
+    "file": "crates/core/src/sprint.rs",
+    "find": ".abs() > HARD_TURN {",
+    "replace": ".abs() > HARD_TURN * 2 {",
+    "test": "a_stop_a_draw_a_blow_a_dodge_a_hold_on_or_a_hard_turn_ends_a_sprint"
+  },
+  {
+    "name": "M7 sprint: the build jumps to the top",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    fx::mul(fx::mul(t, t), 3 * ONE - 2 * t)",
+    "replace": "    if t > 0 { ONE } else { 0 }",
+    "test": "the_build_never_jumps_from_one_tick_to_the_next"
+  },
+  {
+    "name": "M7 sprint: a stop at speed does not skid",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let out = if was - now > SKID {",
+    "replace": "    let out = if false {",
+    "test": "a_stop_from_the_top_skids_and_a_plain_run_stops_as_before"
+  },
+  {
+    "name": "M7 sprint: the speedster's share multiplies the sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    let sprint = fx::mul(bare, mult) + pieces;",
+    "replace": "    let sprint = fx::mul(bare + pieces, mult);",
+    "test": "speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds"
+  },
+  {
+    "name": "M7 sprint: no cap on a sprint",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    road.min(fx::mul(bare, CAP))",
+    "replace": "    road",
+    "test": "speedster_pieces_add_to_the_run_not_the_sprint_and_the_cap_holds"
+  },
+  {
+    "name": "M7 sprint: the turn rate stays as at a run",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    TURN_AT_RUN - fx::mul(TURN_AT_RUN - TURN_AT_TOP, past)",
+    "replace": "    TURN_AT_RUN",
+    "test": "the_turn_rate_falls_with_speed"
+  },
+  {
+    "name": "M7 sprint: the heading turns at once",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            s.heading = fx::wrap(s.heading + fx::wrap(k.goal - s.heading).clamp(-rate, rate));",
+    "replace": "            s.heading = k.goal;",
+    "test": "the_turn_rate_falls_with_speed"
+  },
+  {
+    "name": "M7 sprint: a climb does not slow the build",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    (ONE - fx::div(grade, STEEP)).clamp(0, ONE)",
+    "replace": "    ONE",
+    "test": "uphill_the_build_gives_way"
+  },
+  {
+    "name": "M7 sprint: the build counts in the opening",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            if !k.opening {",
+    "replace": "            if true {",
+    "test": "the_opening_holds_a_sprint_at_the_run_speed"
+  },
+  {
+    "name": "M7 sprint: the view does not widen",
+    "file": "crates/core/src/world.rs",
+    "find": "        cam.fov += widen;\n",
+    "replace": "",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the camera does not pull back",
+    "file": "crates/core/src/world.rs",
+    "find": "aim, back + pull, |x, z|",
+    "replace": "aim, back + pull * 0, |x, z|",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the view snaps rather than eases",
+    "file": "crates/core/src/sprint.rs",
+    "find": "    s.view = fx::approach(s.view, goal, VIEW_EASE);",
+    "replace": "    s.view = goal;",
+    "test": "the_camera_pulls_back_and_widens_with_the_build_and_a_still_view_is_unchanged"
+  },
+  {
+    "name": "M7 sprint: the HUD shows no sprint",
+    "file": "crates/core/src/ui.rs",
+    "find": "        sprint: crate::sprint::bar(s, w),",
+    "replace": "        sprint: None,",
+    "test": "the_hud_shows_the_build_as_a_bar_with_words"
+  },
+  {
+    "name": "M7 sprint: a tap never sets a sprint (the replay sees none)",
+    "file": "crates/core/src/sprint.rs",
+    "find": "            tap = true;",
+    "replace": "            tap = false;",
+    "test": "the_same_seed_and_inputs_give_the_same_world_with_a_sprint"
+  },
+  {
+    "name": "M7 sprint: the controls panel leaves out the tap",
+    "file": "crates/core/src/api.rs",
+    "find": "            row(\"key_sprint\", \"control_sprint\"), // M7 (T14)\n",
+    "replace": "",
+    "test": "the_controls_name_the_tap_and_the_glossary_gives_the_numbers"
+  },
+  {
+    "name": "M7 sprint: the sprint's want is not used",
+    "file": "crates/core/src/motion.rs",
+    "find": "    want = crate::sprint::want(f, input, want, n);\n",
+    "replace": "",
+    "test": "at_the_top_a_sprint_runs_three_times_the_run_speed"
   }
 ]

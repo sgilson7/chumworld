@@ -109,13 +109,22 @@ pub struct Game {
     /// it: the most chunks within 25 m left undrawn in a frame, and the
     /// chunks looked at in all (`lod::Detail::near_missing`)
     pub probe: Option<[u32; 2]>,
+    /// M7 save: the browser's save read at the start, the save's line, the
+    /// new game's confirm step, and the downloads and forgets asked for
+    pub saves: crate::save::Shelf,
+    /// M7: the Equipment screen's figure, its frame and its canvas's aspect
+    /// (`stage.rs`)
+    pub figure: Frame,
+    pub figure_aspect: Fx,
 }
 
 impl Game {
     /// A game from the strings, the glossary, the look and the page's seed.
     pub fn new(strings_json: &str, glossary_md: &str, look_json: &str, seed: u32) -> Result<Game, String> {
         let strings = crate::page::parse_strings(strings_json).map_err(|e| e.message())?;
-        let glossary = crate::glossary::parse(glossary_md).map_err(|e| e.message())?;
+        // M7 (R6.13): a slip in the glossary costs a hover hint, not the game;
+        // the check (`cargo test`) fails on it
+        let glossary = crate::glossary::load(glossary_md);
         let look = Look::parse(look_json)?;
         // M5: the game opens in bed, during the raid
         let world = crate::story::opening(seed as u64);
@@ -151,6 +160,9 @@ impl Game {
             ui_version: 1,
             menu: crate::ui::Menu::default(),
             probe: None,
+            saves: crate::save::Shelf::default(),
+            figure: Frame::default(),
+            figure_aspect: ONE,
         };
         g.draw();
         Ok(g)
@@ -179,6 +191,21 @@ impl Game {
         [self.pixels.0, self.pixels.1]
     }
 
+    /// M7: the figure canvas's CSS size and the pixel ratio (percent) in, its
+    /// drawing buffer's size out, at the main view's density.
+    pub fn figure_resize(&mut self, css_w: i32, css_h: i32, dpr_pct: i32) -> [i32; 2] {
+        let (w, h) = (css_w.max(1), css_h.max(1));
+        let dpr = dpr_pct.clamp(25, 400);
+        let scale = if self.software {
+            dpr * SOFTWARE_SCALE_PCT / 100
+        } else {
+            dpr
+        };
+        self.figure_aspect = fx::ratio(w, h);
+        self.draw();
+        [(w * scale / 100).max(1), (h * scale / 100).max(1)]
+    }
+
     /// One display frame: the page's clock in microseconds, the held action
     /// bits, and the mouse and wheel movement in hundredths of a CSS pixel.
     pub fn advance(&mut self, now_us: i64, bits: u32, dx: i32, dy: i32, wheel: i32) {
@@ -197,6 +224,8 @@ impl Game {
                 let travel = crate::travel::stamp(&self.world);
                 // M7 (P4): the line for taking up a dropped weapon
                 let wound = crate::wounds::stamp(&self.world);
+                // M7 save: a save written, the Saved mark
+                let saved = crate::save::stamp(&self.world);
                 for (k, b) in ticks.iter().enumerate() {
                     // M4: Tab and M open the menu ring before the tick runs
                     if let Some(face) = crate::ui::menu_pressed(&mut self.menu, *b) {
@@ -222,6 +251,7 @@ impl Game {
                     || story != crate::story::stamp(&self.world)
                     || travel != crate::travel::stamp(&self.world)
                     || wound != crate::wounds::stamp(&self.world)
+                    || saved != crate::save::stamp(&self.world)
                 {
                     self.ui_version += 1;
                 }
@@ -244,6 +274,12 @@ impl Game {
                     self.ui_version += 1;
                 }
             }
+            // M7: the Equipment screen's figure turns while the world holds
+            Screen::Menu => {
+                self.menu.open_ticks = self.menu.open_ticks.wrapping_add(ticks.len() as u32);
+                self.pending.clear();
+                self.clock.rest();
+            }
             // M7 travel: the world holds still while the flute plays; a
             // judged phrase holds or fades by the frame's ticks
             Screen::Song => {
@@ -252,7 +288,7 @@ impl Game {
                     self.ui_version += 1;
                 }
             }
-            Screen::Title | Screen::Paused | Screen::Menu | Screen::Settings | Screen::Shop => {
+            Screen::Title | Screen::Paused | Screen::Settings | Screen::Shop => {
                 // the world holds still; time passing while paused is
                 // forgotten, so resuming runs no catch-up ticks
                 self.pending.clear();
@@ -319,6 +355,8 @@ impl Game {
         let mut moving = Shapes::default();
         moving.sky(cam.eye);
         self.world.draw(self.alpha, &self.look, &mut moving);
+        // M7 (R9.91): blades and other thin things edge-on keep a width
+        render::keep_visible(&mut moving.list, cam.eye);
         // M2: the terrain and scatter round the eye, by detail level
         self.detail.frame(&self.world, &self.look, cam.eye, &mut moving);
         // M7: the near-scatter probe (`lod.probe`)
@@ -335,6 +373,7 @@ impl Game {
         self.scene_frame =
             crate::wind::frame_values(crate::wind::spec(), &self.world.wind, self.scene.origin);
         self.frame = Frame::build(&self.scene, &moving, &cam, self.aspect);
+        self.figure = crate::stage::frame(self, self.figure_aspect);
     }
 
     pub(crate) fn show(&mut self, s: Screen) {
@@ -390,6 +429,8 @@ impl Game {
             "lod.probe" => self.probe = Some([0, 0]),
             // M7 travel: the song screen, the waystones, the traveller
             n if n.starts_with("travel.") => crate::travel::act(self, name, value)?,
+            // M7 save: continue, a new game, a file loaded, a download
+            n if n.starts_with("save.") => crate::save::act(self, name, value)?,
             "display.software" => {
                 self.software = value == "true";
                 let (w, h) = self.css;
@@ -406,6 +447,8 @@ impl Game {
         // M4: items, the speedster's armour, the imbue, the merchant
         v.extend(crate::ui::values());
         v.extend(crate::travel::values()); // M7 travel
+        v.extend(crate::save::values()); // M7 save
+        v.extend(crate::sprint::values()); // M7 (T14)
         v
     }
 }
@@ -434,6 +477,26 @@ pub(crate) mod tests {
         .expect("the game starts from the repository's data");
         g.resize(1920, 1080, 100);
         g
+    }
+
+    /// R6.13: a term defined twice in the glossary does not stop the game
+    /// loading; its first definition is the one shown on hover.
+    #[test]
+    fn a_glossary_with_a_term_defined_twice_still_starts_the_game() {
+        let twice = format!(
+            "{}\n### Walk\n\nA second entry.\n",
+            include_str!("../../../GLOSSARY.md")
+        );
+        let g = Game::new(
+            include_str!("../../../data/strings.json"),
+            &twice,
+            include_str!("../../../data/look.json"),
+            42,
+        )
+        .expect("the game starts with a glossary slip");
+        let walk: Vec<&Entry> = g.glossary.iter().filter(|e| e.term == "Walk").collect();
+        assert_eq!(walk.len(), 1);
+        assert_ne!(walk[0].definition, "A second entry.");
     }
 
     /// The time of the last frame.

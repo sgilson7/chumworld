@@ -13,7 +13,8 @@
     "signpost": [1, 1],
     "hollow_tree": [3, 3],
     "bed": [1, 2],
-    "waystone": [1, 1]
+    "waystone": [1, 1],
+    "save_post": [1, 1]
   },
   "flatten": {
     "_note": "How a footprint meets the ground round it: flat this far past its edge, then blending back to the land over the falloff.",
@@ -140,6 +141,20 @@
       "kind": "trail_end",
       "centre": [2870, 1888],
       "props": [{ "prop": "signpost", "at": [5, 4], "yaw_deg": 30 }]
+    },
+    {
+      "kind": "save_crossroads",
+      "_": "M7 save (P10, T16): a lantern post east of the lane at the crossroads, across from the traveller, facing west onto the lane",
+      "centre": [2007, 2245],
+      "clearing_m": 3,
+      "props": [{ "prop": "save_post", "at": [0, 0], "yaw_deg": 90 }]
+    },
+    {
+      "kind": "save_trail",
+      "_": "M7 save (P10, T16): a lantern post where the trail to the bandit camp leaves the road, beside the trail's signpost, facing back down the road toward the crossroads",
+      "centre": [2864, 1883],
+      "clearing_m": 3,
+      "props": [{ "prop": "save_post", "at": [0, 0], "yaw_deg": 110 }]
     }
   ],
   "fields": [

@@ -301,6 +301,8 @@ pub enum Use {
     Waystone(usize),
     /// M7 travel: the traveller at the crossroads
     Traveller,
+    /// M7 save: a save point (a woken waystone or a post), by its number
+    SavePoint(usize),
     /// M7 roadside: a cart to search, the well, a villager by the way
     Roadside(usize),
 }
@@ -922,6 +924,8 @@ pub fn boundary(w: &mut World) {
     let before = w.player.prev_pos.sub(c).len_xz();
     w.story.phase = Phase::Free;
     w.story.crossed = Some(w.player.pos);
+    // M7 save: the game saves itself from here on
+    crate::save::crossed(w);
     for r in &mut w.story.raid {
         if r.mode == Mode::Chase {
             r.mode = Mode::Back;
@@ -935,6 +939,10 @@ pub fn boundary(w: &mut World) {
 /// After the opening, down: the player comes to where they left the
 /// village, whole, their things kept; the world goes on.
 fn come_to(w: &mut World) {
+    // M7 save (T16): to the last save point, if there was a save
+    if crate::save::fall(w) {
+        return;
+    }
     let at = w.story.crossed.unwrap_or_else(|| centre(w));
     let mut at = at;
     at.y = solid::surface(w, at.x, at.z);
@@ -1084,6 +1092,10 @@ pub fn nearest_use(w: &World) -> Option<(Use, Fx)> {
     if let Some(d) = crate::travel::talk_reach(w) {
         offer(Use::Traveller, d);
     }
+    // M7 save
+    if let Some((k, d)) = crate::save::reach(w) {
+        offer(Use::SavePoint(k), d);
+    }
     if let Some((k, d)) = crate::roadside::reach(w) {
         offer(Use::Roadside(k), d);
     }
@@ -1102,7 +1114,13 @@ fn act_on(w: &mut World, u: Use) {
                     }
                 }
                 Gift::Coins(n) => {
-                    w.inventory.coins += n;
+                    // M7: the purse holds `inventory::PURSE`; coins that do
+                    // not fit stay where they lie
+                    if w.inventory.coins + n > crate::inventory::PURSE {
+                        banner(w, "story_purse_full");
+                        return;
+                    }
+                    w.inventory.add_coins(n);
                     banner(w, "story_coins");
                 }
             }
@@ -1126,6 +1144,7 @@ fn act_on(w: &mut World, u: Use) {
         Use::Chest => crate::camp::open_chest(w),
         Use::Waystone(k) => crate::travel::use_waystone(w, k), // M7 travel
         Use::Traveller => crate::travel::talk(w),
+        Use::SavePoint(k) => crate::save::use_point(w, k), // M7 save
         Use::Roadside(k) => crate::roadside::use_stop(w, k),
     }
 }
@@ -1212,6 +1231,7 @@ pub fn prompt(w: &World, s: &Strings) -> Option<String> {
         Use::Chest => s.get("does_open_chest"),
         Use::Waystone(_) => s.get("does_wake_waystone"), // M7 travel
         Use::Traveller => s.get("does_talk_traveller"),
+        Use::SavePoint(_) => s.get("does_save"), // M7 save
         Use::Roadside(k) => s.get(crate::roadside::prompt_key(w, k)),
     };
     Some(crate::api::fill(
@@ -1246,9 +1266,16 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
             draw_villager(w, v, alpha, look, out);
         }
     }
+    // M7: pickups float, bob and turn on the world's clock, held for a
+    // still picture (`story.still`)
+    let phase = if w.story.still {
+        0
+    } else {
+        (w.tick % models::PHASE_TICKS as u64) as Fx * ONE + alpha
+    };
     for p in &w.story.pickups {
         if !p.taken {
-            draw_pickup(p, look, out);
+            draw_pickup(p, phase, look, out);
         }
     }
     crate::merchant::draw(w, alpha, look, out);
@@ -1366,7 +1393,7 @@ pub fn walking_pose(
     p
 }
 
-fn draw_pickup(p: &Pickup, look: &Look, out: &mut Shapes) {
+fn draw_pickup(p: &Pickup, phase: Fx, look: &Look, out: &mut Shapes) {
     use crate::models::Pickup as P;
     let ink = look.ink();
     let lay = |out: &mut Shapes, held: Held, len: Fx| {
@@ -1376,12 +1403,12 @@ fn draw_pickup(p: &Pickup, look: &Look, out: &mut Shapes) {
     };
     match p.gift {
         Gift::Item(i, n) => match i {
-            Item::Hood => models::pickup(P::Hood, p.at, p.yaw, look, out),
-            Item::Jacket => models::pickup(P::Jacket, p.at, p.yaw, look, out),
-            Item::Gloves => models::pickup(P::Gloves, p.at, p.yaw, look, out),
-            Item::Trousers => models::pickup(P::Trousers, p.at, p.yaw, look, out),
-            Item::Boots => models::pickup(P::Boots, p.at, p.yaw, look, out),
-            Item::ChestKey => models::pickup(P::ChestKey, p.at, p.yaw, look, out),
+            Item::Hood => models::pickup_at(P::Hood, p.at, p.yaw, phase, look, out),
+            Item::Jacket => models::pickup_at(P::Jacket, p.at, p.yaw, phase, look, out),
+            Item::Gloves => models::pickup_at(P::Gloves, p.at, p.yaw, phase, look, out),
+            Item::Trousers => models::pickup_at(P::Trousers, p.at, p.yaw, phase, look, out),
+            Item::Boots => models::pickup_at(P::Boots, p.at, p.yaw, phase, look, out),
+            Item::ChestKey => models::pickup_at(P::ChestKey, p.at, p.yaw, phase, look, out),
             Item::Rock => {
                 for k in 0..n.min(3) as i32 {
                     let d = right_of(p.yaw + k * deg(120)).scale(ONE * 12 / 100);
@@ -1408,8 +1435,11 @@ fn draw_pickup(p: &Pickup, look: &Look, out: &mut Shapes) {
                 out.inked(Mesh::Cyl, at, models::table().c("traveller_staff"), ink);
             }
             Item::Bandage => {
-                let at = Affine::translate(p.at.add(v3(0, ONE * 6 / 100, 0)))
-                    .then(&Affine::rot_y(p.yaw))
+                // M7: floating and turning, over its ring of light
+                let (up, spin) = models::float(phase);
+                models::ring(p.at, false, out);
+                let at = Affine::translate(p.at.add(v3(0, ONE * 6 / 100 + up, 0)))
+                    .then(&Affine::rot_y(fx::wrap(p.yaw + spin)))
                     .then(&Affine::rot_z(fx::QUARTER_TURN))
                     .then(&Affine::scale(v3(ONE * 12 / 100, ONE * 16 / 100, ONE * 12 / 100)));
                 out.inked(Mesh::Cyl, at, models::table().c("pillow"), ink);
@@ -1417,18 +1447,22 @@ fn draw_pickup(p: &Pickup, look: &Look, out: &mut Shapes) {
         },
         Gift::Coins(_) => {
             let gold = models::table().c("brass");
+            // M7: the stack floats and turns over its ring of light
+            let (up, spin) = models::float(phase);
+            models::ring(p.at, true, out);
+            let turn = Affine::rot_y(spin);
             for k in 0..3 {
-                let at = Affine::translate(p.at.add(v3(
+                let at = Affine::translate(p.at.add(v3(0, up, 0)).add(turn.apply(v3(
                     (k - 1) * ONE * 3 / 100,
                     ONE / 100 + k * ONE * 2 / 100,
                     0,
-                )))
+                ))))
                 .then(&Affine::scale(v3(ONE * 9 / 100, ONE * 2 / 100, ONE * 9 / 100)));
                 out.inked(Mesh::Cyl, at, gold, ink);
             }
             out.glow(
                 Mesh::Dot,
-                Affine::translate(p.at.add(v3(0, ONE / 10, 0))).then(&Affine::scale(v3(
+                Affine::translate(p.at.add(v3(0, ONE / 10 + up, 0))).then(&Affine::scale(v3(
                     ONE * 4 / 10,
                     ONE / 4,
                     ONE * 4 / 10,
@@ -1481,6 +1515,44 @@ mod tests {
         for _ in 0..n {
             w.step(&Input::default());
         }
+    }
+
+    /// M7: pickups float and turn with the world's clock, and hold still
+    /// with the story held still for a picture (`story.still`).
+    #[test]
+    fn pickups_turn_with_the_clock_and_hold_still_for_a_picture() {
+        let mut w = opening(5);
+        step_aside(&mut w);
+        assert!(
+            w.story.pickups.iter().any(|p| !p.taken),
+            "pickups lie in the world"
+        );
+        let look = crate::look::tests::look();
+        let drawn = |w: &World| {
+            let mut out = Shapes::default();
+            for p in w.story.pickups.iter().filter(|p| !p.taken) {
+                let phase = (w.tick % models::PHASE_TICKS as u64) as Fx * ONE;
+                draw_pickup(p, if w.story.still { 0 } else { phase }, &look, &mut out);
+            }
+            out
+        };
+        let mut a = Shapes::default();
+        draw(&w, 0, &look, &mut a);
+        w.tick += 30;
+        let mut b = Shapes::default();
+        draw(&w, 0, &look, &mut b);
+        assert_ne!(a, b, "a second's half on, the pickups have moved");
+        assert_eq!(
+            b.list.iter().filter(|s| drawn(&w).list.contains(s)).count(),
+            drawn(&w).len()
+        );
+        w.story.still = true;
+        let mut c = Shapes::default();
+        draw(&w, 0, &look, &mut c);
+        w.tick += 30;
+        let mut d = Shapes::default();
+        draw(&w, 0, &look, &mut d);
+        assert_eq!(c, d, "held still, nothing moves");
     }
 
     /// The world after a dream, with what only a dream changes put back:

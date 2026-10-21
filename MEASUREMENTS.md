@@ -220,6 +220,21 @@ The slow and fast strokes give the same rows as the medium within a tick (any st
 | WebAssembly size | printed by `./scripts/build.sh` | 1 768 KB (M6: 1 531 KB) | 2026-10-20, P4 |
 | Flicker: a frozen view after a part is taken off (the stump, the piece, the dropped cleaver, blood on the ground) | `tests/browser/interactions.py` (`?duel=orc&foe=still&act=wounds.take_off:forearm_r&act=wounds.cut:torso,14&act=wounds.freeze:420`) | see the check's result in `HANDOFF.md` | 2026-10-20, P4 |
 
+## M7 polish, menus, shop, models and the flicker audit (task P3, qa)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| Near pop-in (T8), before P2's fix: frames of 480 in which a lit shape within 25 m, in view in both frames, appears or disappears without a dither hand-over; the story held still | `cargo test --release -p tool_core --test popin_probe -- --ignored --nocapture` | the village: walking straight 2, running 4, a whole turn on the spot 0; the meadow: 2, 4, 0; the camp's edge: 2, 4, 0. Every pop is a whole grass chunk coming in 6 to 9 m ahead (one instance, a mesh the detail levels built); nothing near goes (R9.97) | 2026-10-20, P3 |
+| What the Equipment figure costs | the browser check's figure canvas; `stage::frame` | one more WebGL context, drawn only while the ring is open at Equipment (the world behind holds still); its canvas about 230 × 430 CSS pixels; the static meshes uploaded to it once | 2026-10-20, P3 |
+| The screens' layout at 1280 × 720, 1920 × 1080 and 2560 × 1440 (words off the window, cut, hidden or overlapping; key caps over words; the keyboard's focus ring) | `.venv/bin/python tools/m7qa_shots.py shots/m7qa/sizes` (Chromium on Metal); the browser check's `menus_m7` | before: 251 findings (title and pause off the window at 1280 × 720, "Mouse, sword drawn" over its label, the imbue ring's words touching, the turn button over the Equipment set panel); after: 0 in Chromium, Firefox and WebKit | 2026-10-20, P3 |
+
+## M7 sprint (P8, T14)
+
+| What | Command | Result | When |
+| --- | --- | --- | --- |
+| A frame while sprinting against one while running: 25 s of frames on the plains west of the village (1500, 2650), the same gentle turn, the core's ticks, camera, detail levels streaming the land, and draw list, native release | `cargo test --release -p tool_core --test frame_probe probe_sprint -- --ignored --nocapture` (`probe_sprint_frame_cost`) | running (Shift held): 2.031 ms mean, 3.711 ms worst, no frame over 8 ms, 116 m covered, 1 static-array rebuild; sprinting (Shift tapped, the build after 9 s): 2.100 ms mean, 3.878 ms worst, no frame over 8 ms, 282 m covered at 14.5 m/s at the end, 2 rebuilds. The sprint's own step (one `Sprint` a fighter, two ground reads) costs within the run-to-run noise; the extra is the land streaming past faster | 2026-10-20, P8, on a heavily loaded machine |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 909 KB | 2026-10-20, P8 |
+| Draw distance and pop-in at speed | `tools/shoot.py shots/sprint s-standing s-two s-top s-hud s-skid` (by eye) | at 15 m/s the near grass thins to dither a few metres ahead and pops in as it passes; forest-edge trees arrive late. Left to P2 (R9.257) | 2026-10-20, P8 |
 ## M7 land (task P2, T8, T12, T13)
 
 Measured on this Mac while other agents loaded it (load average 35 to 45 during these runs, up to 270 earlier), so the timings are high side and noisy.

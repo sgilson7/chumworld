@@ -18,7 +18,7 @@
 use crate::fx::{self, deg, Fx, ONE};
 use crate::geom::{facing, v3, yaw_of, Affine, V3};
 use crate::look::{rgb, Look};
-use crate::models::{self, Prop, DONKEY_TO_CART};
+use crate::models::{self, DONKEY_TO_CART};
 use crate::pose::{Held, Kind, Pose};
 use crate::render::Shapes;
 use crate::solid;
@@ -42,6 +42,9 @@ pub const BOX_UP: Fx = ONE * 140 / 100;
 pub const TALK_FROM: Fx = ONE * 36 / 10;
 /// The donkey takes a stride (a whole turn of its step) every this far.
 pub const STRIDE: Fx = ONE * 12 / 10;
+/// M7 (R5.14): the cart's wheels go round once every this far: M3's wheel
+/// is 1.15 m across, so 1.15 m × π = 3.613 m.
+pub const WHEEL_ROUND: Fx = ONE * 3613 / 1000;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct State {
@@ -70,6 +73,9 @@ pub struct State {
     pub prop: Option<usize>,
     /// hits so far (for tests and the shop's greeting)
     pub hits: u32,
+    /// M7: how far round the wheels have rolled, an angle, this tick and last
+    pub wheel: i32,
+    pub prev_wheel: i32,
 }
 
 impl State {
@@ -192,6 +198,7 @@ pub fn step(w: &mut World) {
     m.prev_at = m.at;
     m.prev_yaw = m.yaw;
     m.prev_pitch = m.pitch;
+    m.prev_wheel = m.wheel;
     if w.story.still {
         // held for a picture: nothing moves
     } else if m.wait > 0 {
@@ -205,6 +212,10 @@ pub fn step(w: &mut World) {
     } else {
         let end = length(m);
         m.s += m.dir * SPEED;
+        // the wheels roll with the ground the cart covers
+        m.wheel = m
+            .wheel
+            .wrapping_add((SPEED as i64 * fx::TURN as i64 / WHEEL_ROUND as i64) as i32);
         m.step = m
             .step
             .wrapping_add((SPEED as i64 * fx::TURN as i64 / STRIDE as i64) as i32);
@@ -297,9 +308,9 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
     let place = Affine::translate(at)
         .then(&Affine::rot_y(yaw))
         .then(&Affine::rot_x(pitch));
-    models::prop_model(Prop::Cart)
-        .placed(&place)
-        .emit(look.ink(), out);
+    // M7 (R5.14): the wheels turned as far as the cart has rolled
+    let wheel = fx::lerp_angle(m.prev_wheel, m.wheel, alpha);
+    models::cart_model(wheel).placed(&place).emit(look.ink(), out);
     out.shadow(
         at.add(v3(0, crate::player::SHADOW_LIFT, 0)),
         ONE * 26 / 10,
@@ -377,6 +388,49 @@ mod tests {
             speed: ONE * 15,
             struck: Struck::Prop(k as u16),
         });
+    }
+
+    /// M7 (R5.14): the wheels roll with the road the cart covers. A tick's
+    /// walk is SPEED = 65 536 × 14 / 10 / 60 = 1 529 units; a round is
+    /// 65 536 × 3 613 / 1 000 = 236 781 units; so 1 529 × 65 536 / 236 781 =
+    /// 423 angle units a tick, 25 380 over 60 ticks. Stopped by a hit, they
+    /// stand still.
+    #[test]
+    fn the_cart_s_wheels_roll_as_far_as_the_cart_goes() {
+        let mut w = world();
+        // clear of the beat's ends, so it walks straight on
+        w.merchant.s = length(&w.merchant) / 2;
+        w.merchant.turning = 0;
+        let w0 = w.merchant.wheel;
+        for _ in 0..60 {
+            step(&mut w);
+        }
+        assert_eq!(w.merchant.wheel.wrapping_sub(w0), 25_380);
+        assert_eq!(w.merchant.wheel.wrapping_sub(w.merchant.prev_wheel), 423);
+        w.merchant.wait = 100;
+        let held = w.merchant.wheel;
+        step(&mut w);
+        assert_eq!(w.merchant.wheel, held, "waiting, the wheels stand");
+        // the drawn spokes turn with it: spoke 0 stands up at 0 and lies
+        // along the cart, its top forward (−z), a quarter round on
+        let spoke = |m: &crate::models::Model| {
+            m.parts
+                .iter()
+                .find(|p| p.mesh == crate::prim::Mesh::Cube && p.at.c1.len() > ONE * 9 / 10)
+                .map(|p| p.at.c1)
+                .unwrap()
+        };
+        let up = spoke(&crate::models::cart_model(0));
+        assert!(up.y > ONE * 99 / 100 && up.z.abs() < ONE / 100, "{up:?}");
+        let along = spoke(&crate::models::cart_model(fx::QUARTER_TURN));
+        assert!(
+            along.z < -ONE * 99 / 100 && along.y.abs() < ONE / 100,
+            "{along:?}"
+        );
+        assert_eq!(
+            crate::models::cart_model(0),
+            crate::models::prop_model(crate::models::Prop::Cart)
+        );
     }
 
     #[test]
@@ -471,7 +525,7 @@ mod tests {
     #[test]
     fn over_the_bridge_the_cart_rides_on_the_deck() {
         let mut w = world();
-        let bridge = crate::places::prop_spots(&w, Prop::Bridge)[0];
+        let bridge = crate::places::prop_spots(&w, crate::models::Prop::Bridge)[0];
         let s = w
             .merchant
             .path

@@ -175,11 +175,12 @@ pub fn model(kind: Prop) -> Model {
         Prop::Shrine => shrine(&mut k),
         Prop::Hut => hut(&mut k),
         Prop::Bridge => bridge(&mut k),
-        Prop::Cart => cart(&mut k),
+        Prop::Cart => cart(&mut k, 0),
         Prop::Bed => bed(&mut k),
         Prop::Signpost => signpost(&mut k),
         Prop::HollowTree => hollow_tree(&mut k),
         Prop::Waystone => waystone(&mut k),
+        Prop::SavePost => save_post(&mut k),
         Prop::Wreck => wreck(&mut k, false),
         Prop::WreckBurnt => wreck(&mut k, true),
         Prop::Watchtower => watchtower(&mut k),
@@ -684,7 +685,16 @@ fn bridge(k: &mut Kit) {
     }
 }
 
-fn cart(k: &mut Kit) {
+/// M7 (R5.14): the cart with its wheels rolled `roll` round (an angle;
+/// forward, toward −z, is positive), for the moving cart. `model(Cart)` is
+/// this at 0.
+pub fn cart_model(roll: i32) -> Model {
+    let mut k = Kit::new();
+    cart(&mut k, roll);
+    k.m
+}
+
+fn cart(k: &mut Kit, roll: i32) {
     let (wood, dark, iron, cloth, stripe) = (
         k.c("cart_wood"),
         k.c("wood_dark"),
@@ -700,13 +710,15 @@ fn cart(k: &mut Kit) {
         k.bx((0, 925, z * 1180), (1420, 450, 80), wood);
     }
     // the wheels: rim, spokes and hub, on an axle
-    let axle = Affine::rot_z(fx::QUARTER_TURN);
+    // rolling forward the top of a wheel goes toward −z: a turn about −x
+    let rolled = Affine::rot_x(-roll);
+    let axle = rolled.then(&Affine::rot_z(fx::QUARTER_TURN));
     k.shape(Mesh::Cyl, (0, 575, 300), (100, 1860, 100), axle, iron);
     for x in [-830, 830] {
         k.shape(Mesh::Tube, (x, 575, 300), (1150, 100, 1150), axle, dark);
         k.shape(Mesh::Cyl, (x, 575, 300), (240, 170, 240), axle, iron);
         for s in 0..6 {
-            let turn = Affine::rot_x(fx::TURN * s / 12);
+            let turn = Affine::rot_x(fx::TURN * s / 12 - roll);
             k.shape(Mesh::Cube, (x, 575, 300), (60, 1000, 50), turn, wood);
         }
     }
@@ -859,6 +871,23 @@ fn waystone(k: &mut Kit) {
     for (mesh, at, size, z, flat) in RUNES {
         k.shape(mesh, at, size, rune_turn(z, flat), rune);
     }
+}
+
+// ---- M7 save (P10, T16): the lantern post ------------------------------
+
+/// A save point's post: a timber post on a stone, an arm reaching forward
+/// (to −z), and a lit lantern hanging from it. No two parts share a plane:
+/// each part that meets another runs into it (CW-18).
+fn save_post(k: &mut Kit) {
+    let (wood, iron) = (k.c("wood"), k.c("iron"));
+    k.up(Mesh::Facet, (0, 60, 0), (520, 200, 520), k.c("stone"));
+    k.bx((0, 1150, 0), (150, 2300, 150), wood);
+    k.up(Mesh::Pyramid, (0, 2360, 0), (210, 160, 210), wood);
+    k.bx((0, 2050, -260), (100, 110, 520), wood);
+    k.bx((0, 1925, -440), (30, 160, 30), iron);
+    k.up(Mesh::Pyramid, (0, 1830, -440), (220, 110, 220), iron);
+    k.bx((0, 1500, -440), (200, 50, 200), iron);
+    k.glow(Mesh::Cyl, (0, 1650, -440), (150, 280, 150), k.c("flame"), ONE / 3);
 }
 
 /// How much wider a glowing mark is drawn than the carved one under it,

@@ -1187,22 +1187,25 @@ mod tests {
         let l = &w.land;
         let sp = &l.spec.scatter;
         let r = int(25) as i64;
+        // (x, z, heading, metres a second): and once at a sprint's top
+        // speed, 21 m/s (sprint.rs, three times the run)
         let places = [
-            (2000, 2790, 0),
-            (1500, 2650, 80),
-            (2860, 1900, 340),
-            (640, 2300, 270),
-            (3213, 1010, 200),
+            (2000, 2790, 0, 7),
+            (1500, 2650, 80, 7),
+            (2860, 1900, 340, 7),
+            (640, 2300, 270, 7),
+            (3213, 1010, 200, 7),
+            (1500, 2600, 100, 21),
         ];
         let mut tufts_seen = 0;
         let mut things_seen = 0;
-        for (x, z, yaw) in places {
+        for (x, z, yaw, mps) in places {
             let mut d = Detail::new(&l.spec.lod, 100);
             let mut feet = v3(int(x), 0, int(z));
             let mut facing = fx::deg(yaw);
             for t in 0..(120 + 120) {
                 if t < 120 {
-                    feet = feet.add(crate::geom::facing(facing, 0).scale(ONE * 7 / 60));
+                    feet = feet.add(crate::geom::facing(facing, 0).scale(ONE * mps / 60));
                 } else {
                     facing = fx::wrap(facing + fx::TURN / 120);
                 }

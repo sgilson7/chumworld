@@ -1,0 +1,33 @@
+{
+  "_note": "M7 save (P10, T16): what a save is and when the game writes one. crates/core/src/save.rs reads this file, compiled in: these are rules, not presentation. A save holds progress, not a snapshot of the world: the seed, the inventory, the quest flags, the woken waystones, what was taken and who was beaten by stable key, the save point, the settings, the walked map and the ticks played. Loading rebuilds the world from the seed and applies them. Ticks are 1/60 s.",
+  "format": "chumworld-save",
+  "version": 1,
+  "_version": "a save of another format or version is refused; a key added to 'beaten' or 'taken' by a later part needs no new version, as a save without it has it absent",
+  "posts": [
+    { "id": "crossroads", "place": "save_crossroads" },
+    { "id": "trail", "place": "save_trail" }
+  ],
+  "_posts": "the save points besides the five waystones: a lantern post at the crossroads by the traveller, and one where the trail to the bandit camp leaves the road. The trainer's hut already has the hill's waystone fifteen metres from its door (SECOND-ORDER.md R9.313)",
+  "use_cm": 180,
+  "_use_cm": "E saves at a post from this far past its footprint's edge (as a waystone's wake_cm)",
+  "arrive_cm": 300,
+  "_arrive_cm": "loading, or coming to after a fall, the player stands this far in front of a post, facing the way it faces; at a waystone, travel.json's arrive_cm",
+  "areas": [
+    { "place": "village", "radius_m": 250 },
+    { "place": "camp", "radius_m": 140 },
+    { "place": "hut", "radius_m": 60 },
+    { "place": "bridge", "radius_m": 60 },
+    { "place": "shrine", "radius_m": 50 },
+    { "place": "crossroads", "radius_m": 40 }
+  ],
+  "_areas": "the major areas: walking into or out of one saves the game in the browser (the village's radius is the opening's boundary)",
+  "autosave_ticks": 7200,
+  "_autosave_ticks": "two minutes of play outside a duel since the last save, then the game saves itself",
+  "mark_ticks": 150,
+  "_mark_ticks": "the small Saved mark shows this long after each save",
+  "coins_most": 99999,
+  "playtime_most": 18934560000,
+  "_playtime_most": "ten years of ticks: a larger count is refused as a hand edit",
+  "text_most": 65536,
+  "_text_most": "a save's text is about 6 kB; a longer text is refused unread"
+}

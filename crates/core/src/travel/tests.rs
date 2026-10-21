@@ -420,7 +420,8 @@ fn e_wakes_a_waystone_and_its_mark_appears_on_the_map() {
         .unwrap();
     frames(&mut g, 2, 0, 0);
     // the seven places and (M7 roadside, T12) the roadside's marks after them
-    let roadside = crate::roadside::marks(&g.world).len();
+    // (M7 save, T16: and the save points' posts)
+    let roadside = crate::roadside::marks(&g.world).len() + crate::save::marks(&g.world).len();
     assert_eq!(crate::places::markers(&g.world).len(), 7 + roadside);
     assert!(matches!(
         crate::story::nearest_use(&g.world),

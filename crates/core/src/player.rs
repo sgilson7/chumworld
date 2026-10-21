@@ -848,7 +848,8 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
         let worn = match (id, w.motion.forced_pieces) {
             (0, Some(n)) => (1u8 << n.min(crate::motion::PIECES)) - 1,
             (0, None) => crate::items::speedster_mask(w),
-            _ => 0,
+            // M7: the lookout wears the gloves until it drops them (R7.13)
+            _ => crate::camp::worn(w, id),
         };
         let dress = crate::models::Dress { worn, variant: 0 };
         // M7 (P4): through wounds, which draw what is still on the body
