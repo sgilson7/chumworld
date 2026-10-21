@@ -235,3 +235,22 @@ The slow and fast strokes give the same rows as the medium within a tick (any st
 | A frame while sprinting against one while running: 25 s of frames on the plains west of the village (1500, 2650), the same gentle turn, the core's ticks, camera, detail levels streaming the land, and draw list, native release | `cargo test --release -p tool_core --test frame_probe probe_sprint -- --ignored --nocapture` (`probe_sprint_frame_cost`) | running (Shift held): 2.031 ms mean, 3.711 ms worst, no frame over 8 ms, 116 m covered, 1 static-array rebuild; sprinting (Shift tapped, the build after 9 s): 2.100 ms mean, 3.878 ms worst, no frame over 8 ms, 282 m covered at 14.5 m/s at the end, 2 rebuilds. The sprint's own step (one `Sprint` a fighter, two ground reads) costs within the run-to-run noise; the extra is the land streaming past faster | 2026-10-20, P8, on a heavily loaded machine |
 | WebAssembly size | printed by `./scripts/build.sh` | 1 909 KB | 2026-10-20, P8 |
 | Draw distance and pop-in at speed | `tools/shoot.py shots/sprint s-standing s-two s-top s-hud s-skid` (by eye) | at 15 m/s the near grass thins to dither a few metres ahead and pops in as it passes; forest-edge trees arrive late. Left to P2 (R9.257) | 2026-10-20, P8 |
+
+## M7 feel (task P1)
+
+Sound, the camera's boom, the burning houses, the staged practice, the spark, 2026-10-20, Apple M2 Max.
+
+| What | Command | Result |
+| --- | --- | --- |
+| Frames in the raid, waking with two houses burning and sound on, Chromium on Metal, 1920 × 1080 | `shots/m7feel/tools/feel_measure.py` (shoot.py's `frame_times` and `CALLBACK_TIMES`, not committed) | 60.0 fps; frame intervals median 16.7 ms, 95th percentile 16.8, worst 16.8; the page's frame callback median 3.5 ms, 95th 4.5, worst 5.3 |
+| Running west out of the door, sound on | same | 60.0 fps; callback median 3.2 ms, 95th 4.2, worst 5.1 |
+| A test duel, drawn, sound on | same | 60.0 fps; callback median 2.4 ms, 95th 2.8, worst 3.3 |
+| The world's places as M2 measured them, with M7 merged | `tools/shoot.py OUT standing --measure` | 60.0 fps everywhere; village standing callback median 3.9 ms (worst 5.8), plains running 3.3 (5.3), horizon turning 3.6 (4.6) |
+| The core's tick in the raid, 1 200 ticks walking then running west, native release | `cargo test --release -p tool_core --test sound_probe probe_feel -- --ignored --nocapture` | 0.66 to 0.95 ms mean a tick across runs (the same run with sound and the boom left out of the tick: 0.42 ms); sound's listening 0.001 ms a tick, the boom 0.08 to 0.13 ms; the boom's worst tick 6.5 ms, when it builds a scatter chunk's trees (one tick in about 128 m walked, R9.20); the worst tick 43 ms, a dream's wake (17 ms rebuilding the opening, `probe_opening_build_cost`) and the near chunks built at once, under the dark veil |
+| Making every voice | `probe_the_mix` | 29 voices, 688 400 samples (31 s at 22 050 a second), 26 to 29 ms natively, once, on the reader's first click |
+| The mix, offline | `probe_the_mix` (writes `shots/m7feel/sound-mix.wav`) | 31 s: the opening, the run west, a duel, then Esc. Peak 0.38 (−8.5 dBFS) before the limiter, 0 of 682 620 samples over full scale; loudness by second −33 to −36 dBFS RMS in the opening (wind and fire, steps, shouts), −25 to −29 in the duel; nothing within half a second of Esc. Started: 131 steps on grass, 25 on the house's floor, 6 shouts, 11 hits, 9 swishes, 1 clash, 1 draw, 1 tick |
+| Moving shapes on the opening's first frame | `probe_feel_tick_cost` | 1 553 with both houses burning (each fire 9 tongues of two cones, a glow, 6 embers of two shapes, 9 smoke puffs: 54 shapes) |
+| WebAssembly size | printed by `./scripts/build.sh` | 1 820 KB (from 1 531 KB at M6b; with M5 merged in between) |
+| Flicker: the village green's slow pan | `tests/browser/interactions.py` | 23 of 230 400 pixels in Chromium (as at M5, R7.9), after the smoke was made opaque and round (dithered or faceted smoke made it 25, R9.9) |
+
+Not measured: the voices' making in WebAssembly (only natively), and the page's own audio cost (Web Audio runs off the page's thread).

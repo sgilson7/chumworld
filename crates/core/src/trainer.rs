@@ -5,6 +5,15 @@
 //! trainer, who makes you practice it with them". The practice, step by
 //! step:
 //!
+//! M7 (task P1): the practice is staged at a distance and taught in steps.
+//! After the talk the trainer points to a mark on the ground `mark_m` (8 m)
+//! in front of them (`mark`), drawn as a bright ring while the practice
+//! lasts; the trainer begins once the player stands on it with the sword
+//! drawn, looking toward them, so the orbs are seen coming. The first volley is one orb
+//! (`Pattern::PracticeOne`), the next three (`PracticeFew`), then the
+//! practice pattern itself (`Practice`); a step is passed once an orb of it
+//! is turned, each with its line, and repeated otherwise.
+//!
 //! 1. E by the trainer: three lines (who they are, what the imbue does,
 //!    "draw your sword"). From here the trainer lends the imbue: the blade
 //!    is imbued while the practice lasts (`lending`, which
@@ -23,7 +32,7 @@
 //! side: no one holds on them, and they hold on no one.
 
 use crate::fx::{self, Fx, ONE};
-use crate::geom::yaw_of;
+use crate::geom::{yaw_of, V3};
 use crate::input::Input;
 use crate::orbs::{self, Pattern};
 use crate::pilot::Control;
@@ -75,6 +84,8 @@ pub struct State {
     pub taught: u32,
     /// test-only: orbs counted as turned without M6's orbs (`trainer.credit`)
     pub credited: u32,
+    /// M7: the practice's step: one orb, a few, the volley
+    pub step: u8,
 }
 
 impl Default for State {
@@ -86,6 +97,7 @@ impl Default for State {
             volleys: 0,
             taught: 0,
             credited: 0,
+            step: 0,
         }
     }
 }
@@ -184,7 +196,10 @@ fn practice(w: &mut World, id: usize) {
     match stage {
         Stage::Waiting | Stage::Done => {}
         Stage::Ready => {
-            if w.me.sheath == Sheath::Drawn {
+            if w.me.sheath == Sheath::Drawn && ready_on_mark(w) {
+                if w.trainer.step == 0 && w.trainer.volleys == 0 {
+                    crate::ui::say(w, "trainer", &["trainer_one"]);
+                }
                 cast(w, id);
             }
         }
@@ -192,9 +207,19 @@ fn practice(w: &mut World, id: usize) {
             if turned(w) >= TO_PASS {
                 pass(w);
             } else if (t >= VOLLEY_LEAST && !orbs::flying(w, id)) || t >= VOLLEY_MOST {
-                w.trainer.turned += orbs::deflected(w, id);
+                let got = orbs::deflected(w, id);
+                w.trainer.turned += got;
                 w.trainer.stage = Stage::Between(0);
-                crate::ui::say(w, "trainer", &["trainer_again"]);
+                // M7: a step passed on one orb turned, the next step's line
+                let line = match (got > 0, w.trainer.step) {
+                    (true, 0) => "trainer_few",
+                    (true, 1) => "trainer_volley",
+                    _ => "trainer_again",
+                };
+                if got > 0 {
+                    w.trainer.step = (w.trainer.step + 1).min(STEPS - 1);
+                }
+                crate::ui::say(w, "trainer", &[line]);
             } else {
                 w.trainer.stage = Stage::Volley(t + 1);
             }
@@ -211,10 +236,82 @@ fn practice(w: &mut World, id: usize) {
     }
 }
 
+/// M7: the practice's steps: one orb, then three, then the practice pattern.
+pub const STEPS: u8 = 3;
+
 fn cast(w: &mut World, id: usize) {
     w.trainer.volleys += 1;
     w.trainer.stage = Stage::Volley(0);
-    orbs::cast(w, id, Pattern::Practice);
+    let pattern = match w.trainer.step {
+        0 => Pattern::PracticeOne,
+        1 => Pattern::PracticeFew,
+        _ => Pattern::Practice,
+    };
+    orbs::cast(w, id, pattern);
+}
+
+/// M7: the mark the player stands on for the practice, in front of the
+/// trainer, on the ground.
+pub fn mark(w: &World) -> Option<V3> {
+    let id = id(w)?;
+    let t = player::body(w, id);
+    let sp = &story::spec().trainer;
+    let mut p = t
+        .pos
+        .add(crate::geom::facing(t.facing, 0).scale(fx::int(sp.mark_m)));
+    p.y = crate::solid::surface(w, p.x, p.z);
+    Some(p)
+}
+
+/// M7: whether the player stands on the mark looking toward the trainer
+/// (within `FACING` either way), so the orbs are seen coming.
+pub fn ready_on_mark(w: &World) -> bool {
+    let Some(t) = id(w).map(|k| player::body(w, k).pos) else {
+        return false;
+    };
+    let off = fx::wrap(yaw_of(t.sub(w.player.pos)).wrapping_sub(w.aim.yaw));
+    on_mark(w) && off.abs() <= FACING
+}
+
+/// M7: the view must be turned toward the trainer this nearly.
+pub const FACING: i32 = fx::deg(50);
+
+/// M7: whether the player stands on the mark.
+pub fn on_mark(w: &World) -> bool {
+    let r = story::spec().trainer.mark_r_cm * ONE / 100;
+    mark(w).is_some_and(|m| m.sub(w.player.pos).len_xz() <= r)
+}
+
+/// M7: the mark, a bright ring on the ground with a glow, while the
+/// practice waits for the player or runs.
+pub fn draw(w: &World, look: &crate::look::Look, out: &mut crate::render::Shapes) {
+    if !lending(w) {
+        return;
+    }
+    let Some(m) = mark(w) else {
+        return;
+    };
+    let sp = &story::spec().trainer;
+    let r = sp.mark_r_cm * ONE / 100;
+    let rgb = [
+        sp.mark[0] * ONE / 255,
+        sp.mark[1] * ONE / 255,
+        sp.mark[2] * ONE / 255,
+    ];
+    let lift = ONE * 3 / 100;
+    let ring = crate::geom::Affine::translate(m.add(crate::geom::v3(0, lift, 0))).then(
+        &crate::geom::Affine::scale(crate::geom::v3(2 * r, ONE * 4 / 100, 2 * r)),
+    );
+    out.solid(crate::prim::Mesh::Tube, ring, rgb, ONE);
+    out.outline(crate::prim::Mesh::Tube, &ring, look.ink(), ONE);
+    out.glow(
+        crate::prim::Mesh::Dot,
+        crate::geom::Affine::translate(m.add(crate::geom::v3(0, ONE / 10, 0))).then(
+            &crate::geom::Affine::scale(crate::geom::v3(3 * r, ONE / 2, 3 * r)),
+        ),
+        rgb,
+        ONE / 4,
+    );
 }
 
 fn pass(w: &mut World) {
@@ -247,9 +344,14 @@ pub fn prompt_key(_w: &World) -> &'static str {
 pub fn talk(w: &mut World) {
     match w.trainer.stage {
         Stage::Waiting if w.trainer.taught == 0 => {
-            crate::ui::say(w, "trainer", &["trainer_1", "trainer_2", "trainer_3"]);
+            crate::ui::say(
+                w,
+                "trainer",
+                &["trainer_1", "trainer_2", "trainer_3", "trainer_mark"],
+            );
             w.trainer.stage = Stage::Ready;
         }
+        Stage::Ready if !on_mark(w) => crate::ui::say(w, "trainer", &["trainer_mark"]),
         Stage::Ready => crate::ui::say(w, "trainer", &["trainer_draw"]),
         Stage::Between(_) => crate::ui::say(w, "trainer", &["trainer_again"]),
         _ => crate::ui::say(w, "trainer", &["trainer_done"]),
@@ -266,6 +368,19 @@ pub fn act(w: &mut World, name: &str, value: &str) -> Result<(), String> {
                 .parse()
                 .map_err(|_| format!("Orbs to count are a whole number, not \"{value}\"."))?;
             w.trainer.credited += n;
+            Ok(())
+        }
+        // M7, test-only: the player stood on the practice's mark, looking
+        // toward the trainer, for a view of the practice
+        "mark" => {
+            let m = mark(w).ok_or_else(|| "The trainer is not standing yet.".to_string())?;
+            let t = player::body(w, id(w).unwrap_or(0)).pos;
+            let yaw = yaw_of(t.sub(m));
+            let held = w.me.held;
+            w.player = crate::player::Body::new(m, yaw);
+            w.me = crate::player::Fighter::new(Kind::Player, held, 0, m, yaw, false);
+            w.aim.yaw = yaw;
+            w.aim.pitch = -fx::deg(8);
             Ok(())
         }
         _ => Err(format!("Unknown action \"trainer.{name}\".")),
@@ -292,6 +407,17 @@ mod tests {
         w.player = crate::player::Body::new(p, 0);
         w.me = crate::player::Fighter::new(Kind::Player, crate::pose::Held::ShortSword, 0, p, 0, false);
         w
+    }
+
+    /// M7: the player put on the practice's mark, facing the trainer.
+    fn onto_mark(w: &mut World) {
+        let m = mark(w).expect("the trainer stands");
+        let t = player::body(w, id(w).unwrap()).pos;
+        let yaw = yaw_of(t.sub(m));
+        let held = w.me.held;
+        w.player = crate::player::Body::new(m, yaw);
+        w.me = crate::player::Fighter::new(Kind::Player, held, 0, m, yaw, false);
+        w.aim.yaw = yaw;
     }
 
     fn press(w: &mut World, keys: u32) {
@@ -343,6 +469,13 @@ mod tests {
         for _ in 0..crate::player::DRAW_TICKS {
             w.step(&Input::default());
         }
+        // M7: drawn by the trainer, the practice waits for the mark
+        assert_eq!(w.trainer.stage, Stage::Ready);
+        onto_mark(&mut w);
+        press(&mut w, input::DRAW);
+        for _ in 0..crate::player::DRAW_TICKS + 2 {
+            w.step(&Input::default());
+        }
         assert!(
             matches!(w.trainer.stage, Stage::Volley(_)),
             "{:?}",
@@ -357,6 +490,7 @@ mod tests {
     fn the_practice_passes_on_orbs_the_lent_imbue_turns() {
         let mut w = by_trainer();
         press(&mut w, input::USE);
+        onto_mark(&mut w);
         press(&mut w, input::DRAW);
         let mut t = 0;
         while !crate::imbue::learned(&w) {
@@ -374,6 +508,7 @@ mod tests {
     fn the_practice_cannot_pass_without_the_deflections_and_learn_is_called_once() {
         let mut w = by_trainer();
         press(&mut w, input::USE);
+        onto_mark(&mut w);
         press(&mut w, input::DRAW);
         for _ in 0..crate::player::DRAW_TICKS {
             w.step(&Input::default());
@@ -416,5 +551,67 @@ mod tests {
         press(&mut w, input::USE);
         w.step(&Input::default());
         assert_eq!(w.trainer.taught, 1);
+    }
+
+    /// M7: the mark stands 8 m in front of the trainer, and the practice
+    /// is staged there: talked to from 2 m, the player is not on it.
+    #[test]
+    fn the_practice_s_mark_is_eight_metres_in_front_of_the_trainer() {
+        let w = by_trainer();
+        let t = player::body(&w, id(&w).unwrap());
+        let m = mark(&w).unwrap();
+        let d = m.sub(t.pos).len_xz();
+        assert!((d - fx::int(8)).abs() <= 8, "{d}");
+        let ahead = crate::geom::facing(t.facing, 0).dot(m.sub(t.pos).norm());
+        assert!(ahead > ONE * 99 / 100, "in front: {ahead}");
+        assert!(!on_mark(&w));
+    }
+
+    /// M7: an ordinary player passes the practice within a minute (3,600
+    /// ticks): E by the trainer, walk to the mark (turning the view toward
+    /// it and holding W), turn to face the trainer, X, and then hold the
+    /// guard, closing each dialogue as it opens (Space). The steps come in
+    /// order: one orb, then three, then the pattern.
+    #[test]
+    fn an_ordinary_player_passes_the_practice_within_a_minute() {
+        let mut w = by_trainer();
+        press(&mut w, input::USE);
+        let mut steps = vec![w.trainer.step];
+        let mut t = 0u32;
+        let mut drew = false;
+        while !crate::imbue::learned(&w) {
+            t += 1;
+            assert!(
+                t <= 3600,
+                "not passed in a minute: {} turned, step {}",
+                turned(&w),
+                w.trainer.step
+            );
+            // a dialogue opened: Space closes it
+            w.ui.dialogue = None;
+            let m = mark(&w).unwrap();
+            let me = w.player.pos;
+            let mut keys = 0;
+            if !on_mark(&w) || m.sub(me).len_xz() > ONE / 2 && !drew {
+                w.aim.yaw = yaw_of(m.sub(me));
+                keys = input::FORWARD;
+            } else {
+                let tr = player::body(&w, id(&w).unwrap()).pos;
+                w.aim.yaw = yaw_of(tr.sub(me));
+                if !drew && w.me.sheath == Sheath::Sheathed {
+                    keys = input::DRAW;
+                    drew = true;
+                }
+            }
+            w.step(&Input {
+                keys,
+                ..Input::default()
+            });
+            if *steps.last().unwrap() != w.trainer.step {
+                steps.push(w.trainer.step);
+            }
+        }
+        assert_eq!(steps, vec![0, 1, 2], "one orb, then three, then the pattern");
+        assert!(w.trainer.volleys >= 3);
     }
 }

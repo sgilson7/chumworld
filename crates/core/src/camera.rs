@@ -92,11 +92,17 @@ pub fn view(feet: V3, look: Aim, ground: impl Fn(Fx, Fx) -> Fx) -> Camera {
     view_from(feet, look, BACK, ground)
 }
 
+/// The pivot the camera turns round: `ABOVE` the head and `RIGHT` of it
+/// (M7: the boom runs back from here, `boom.rs`).
+pub fn pivot(feet: V3, look: Aim) -> V3 {
+    let head = feet.add(v3(0, HEAD, 0));
+    head.add(v3(0, ABOVE, 0)).add(right_of(look.yaw).scale(RIGHT))
+}
+
 /// The same, `back` from the pivot instead of `BACK`: the title screen's wide
 /// view, and the ease from it into play.
 pub fn view_from(feet: V3, look: Aim, back: Fx, ground: impl Fn(Fx, Fx) -> Fx) -> Camera {
-    let head = feet.add(v3(0, HEAD, 0));
-    let pivot = head.add(v3(0, ABOVE, 0)).add(right_of(look.yaw).scale(RIGHT));
+    let pivot = pivot(feet, look);
     let fwd = facing(look.yaw, look.pitch);
     let mut eye = pivot.sub(fwd.scale(back));
     eye.y = eye.y.max(ground(eye.x, eye.z) + MIN_EYE_HEIGHT);
