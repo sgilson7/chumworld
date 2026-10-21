@@ -150,6 +150,7 @@
   "look_speed": "Look speed",
   "mouse_sensitivity": "Mouse sensitivity",
   "invert_y": "Invert Y",
+  "blood": "Blood",
   "volume": "Volume",
   "on": "On",
   "off": "Off",
@@ -258,5 +259,6 @@
   "trainer_flute_1": "One more thing. Take this flute. It carried me about these lands when I was young.",
   "trainer_flute_2": "Learn this song. Play it, and the flute takes you to a waystone you have woken.",
   "trainer_flute_3": "The waystones sleep until you touch one. There is one beside my hut: press E by it.",
-  "quest_flute": "Press E by the waystone beside the trainer's hut to wake it. The travel song on the flute takes you back to a waystone you have woken."
+  "quest_flute": "Press E by the waystone beside the trainer's hut to wake it. The travel song on the flute takes you back to a waystone you have woken.",
+  "wound_take_up": "X · Take up your sword in your other hand"
 }

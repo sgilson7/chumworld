@@ -165,6 +165,8 @@ pub struct Settings {
     pub volume_pct: i32,
     /// M7 (T10): the swing cue, the cut the mouse would pick (`swing::cue`)
     pub cue: bool,
+    /// M7 (P4): blood is shown (on by default; `wounds.rs`)
+    pub blood: bool,
 }
 
 /// Test-only HUD values (`test.hud`), so a screenshot can show the bars
@@ -209,6 +211,7 @@ impl Default for State {
                 hand_pct: 100,
                 volume_pct: 80,
                 cue: true,
+                blood: true,
             },
             demo: None,
         }
@@ -1601,6 +1604,20 @@ fn settings_view(g: &Game) -> SettingsView {
                 next: (!set.cue).to_string(),
                 on: set.cue,
             },
+            // M7 (P4): blood on or off
+            Control {
+                id: "blood".into(),
+                label: s.get("blood"),
+                kind: "switch".into(),
+                value: set.blood as i32,
+                min: 0,
+                max: 1,
+                step: 1,
+                text: s.get(if set.blood { "on" } else { "off" }),
+                name: "settings.blood".into(),
+                next: (!set.blood).to_string(),
+                on: set.blood,
+            },
         ],
         note: s.get("settings_note"),
         back: action(s, "settings.back", "", "back", false),
@@ -1677,6 +1694,8 @@ pub fn act(g: &mut Game, name: &str, value: &str) -> Result<(), String> {
                 other => return Err(format!("The swing cue is true or false, not \"{other}\".")),
             }
         }
+        // M7 (P4)
+        "settings.blood" => g.act("wounds.blood", value)?,
         "settings.invert" => {
             g.world.ui.settings.invert_y = match value.trim() {
                 "true" => true,
@@ -2310,7 +2329,8 @@ mod tests {
                 "Mouse sensitivity",
                 "Invert Y",
                 "Volume",
-                "Swing cue"
+                "Swing cue",
+                "Blood"
             ]
         );
         g.act("settings.volume", "35").unwrap();

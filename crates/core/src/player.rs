@@ -434,8 +434,9 @@ fn local(b: &Body, build: &Build, fall: Fx) -> impl Fn(V3) -> V3 {
     let turn = Affine::rot_y(b.facing).then(&Affine::rot_x(fx::mul(fall, deg(90))));
     let feet = b.pos;
     let mm = |v: i32| (v as i64 * build.height as i64 / 1700) as Fx;
-    let back = fx::mul(mm(LIE_BACK_MM) * build.girth_pct / 100, fall);
-    let head = fx::mul(mm(crate::blade::HEAD_MM), fall);
+    // (M7: a fall below 0 lies on the front, raised the same)
+    let back = fx::mul(mm(LIE_BACK_MM) * build.girth_pct / 100, fall.abs());
+    let head = fx::mul(mm(crate::blade::HEAD_MM), fall.abs());
     let (hips, neck, crown) = (build.hip_y, build.shoulder_y, build.height - build.head / 2);
     move |p: V3| {
         let lift = if p.y <= hips {
@@ -462,7 +463,12 @@ const LIE_BACK_MM: i32 = 122;
 /// staggered (`Gait::stagger`), the head knocked back along the blow by up
 /// to `STAGGER_LEAN`, easing off as the stagger wears off.
 fn leaning(b: &Body, build: &Build, g: &Gait, fall: Fx) -> impl Fn(V3) -> V3 {
-    let base = local(b, build, fall);
+    // M7 (P4): bent at the hips to take up a weapon (`Gait::stoop`), and
+    // lifted off the ground in a hop (`Gait::lift`)
+    let unbent = local(b, build, fall);
+    let bend = crate::wounds::bend(build.hip_y, g.stoop);
+    let hop = v3(0, g.lift, 0);
+    let base = move |p: V3| unbent(bend(p)).add(hop);
     let by = (SLIDE_LEAN as i64 * g.slide.min(fx::int(5)) as i64 / fx::int(5) as i64) as i32;
     let tip = |way: i32, by: i32| {
         Affine::rot_y(way)
@@ -583,7 +589,7 @@ pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
     let hip = [-1, 1].map(|s| place(v3(s * build.hip_x, build.hip_y - bob, 0)));
     let flat = crate::motion::feet(b, &f.gait, &build, b.pos);
     // a fallen body's feet stay where they were; standing, the gait's
-    let foot = if fall > 0 {
+    let foot = if fall != 0 {
         [-1, 1].map(|s| place(v3(s * build.hip_x, ONE / 20, 0)))
     } else {
         flat
@@ -591,7 +597,7 @@ pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
     let fwd = facing(b.facing, 0);
     let knee = [0, 1].map(|s| crate::motion::knee(hip[s], foot[s], build.thigh, build.shin, fwd));
     let a = &f.arm;
-    Pose {
+    let mut pose = Pose {
         pelvis,
         chest: place(v3(0, build.shoulder_y - ONE / 10, 0)),
         head: place(v3(0, build.height - build.head / 2, 0)),
@@ -604,7 +610,10 @@ pub fn pose_from(b: &Body, f: &Fighter) -> Pose {
         foot,
         grip: a.grip_point(),
         tip: a.pts[arm::TIP].p,
-    }
+    };
+    // M7 (P4): the wounds' changes to the joints (lost parts folded away)
+    crate::wounds::shape_pose(b, f, &mut pose);
+    pose
 }
 
 /// The joints of fighter `id` this tick.
@@ -791,7 +800,8 @@ pub fn goals(w: &World, id: usize, input: &Input) -> (Sheath, Fx, Goals) {
         g.ride = None;
         g.hold = [false, false];
     }
-    (sheath, tilt, g)
+    // M7 (P4): a lost arm, a dropped weapon, taking it up, a crawl
+    crate::wounds::goals(w, id, (sheath, tilt, g))
 }
 
 /// The line the blade's servo turns it toward this tick: the line asked
@@ -841,7 +851,8 @@ pub fn draw(w: &World, alpha: Fx, look: &Look, out: &mut Shapes) {
             _ => 0,
         };
         let dress = crate::models::Dress { worn, variant: 0 };
-        crate::models::figure_dressed(f.kind, &p, dress, look, out);
+        // M7 (P4): through wounds, which draw what is still on the body
+        crate::wounds::figure(w, id, &p, dress, look, out);
         if f.held != Held::Nothing && !w.sticks {
             crate::models::held(f.held, p.grip, p.tip, look, out);
         }

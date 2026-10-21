@@ -187,6 +187,8 @@ impl Game {
                 let story = crate::story::stamp(&self.world);
                 // M7 travel: a waystone woken, a journey, a sound
                 let travel = crate::travel::stamp(&self.world);
+                // M7 (P4): the line for taking up a dropped weapon
+                let wound = crate::wounds::stamp(&self.world);
                 for (k, b) in ticks.iter().enumerate() {
                     // M4: Tab and M open the menu ring before the tick runs
                     if let Some(face) = crate::ui::menu_pressed(&mut self.menu, *b) {
@@ -211,6 +213,7 @@ impl Game {
                     || duel != crate::player::hud_stamp(&self.world)
                     || story != crate::story::stamp(&self.world)
                     || travel != crate::travel::stamp(&self.world)
+                    || wound != crate::wounds::stamp(&self.world)
                 {
                     self.ui_version += 1;
                 }

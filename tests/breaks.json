@@ -3022,5 +3022,222 @@
     "find": "    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { 0 }, LUNGE_STEP);",
     "replace": "    f.gait.lunge = fx::approach(f.gait.lunge, if lunging { ONE } else { ONE / 2 }, LUNGE_STEP);",
     "test": "a_thrust_lunges_out_fast_and_far"
+  },
+  {
+    "name": "M7 wounds: a blow's damage is kept on its part",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        l.dmg[s] += taken;",
+    "replace": "        l.dmg[s] += taken / 2;",
+    "test": "a_cut_on_a_forearm_sets_its_damage_and_flashes_only_that_part"
+  },
+  {
+    "name": "M7 wounds: the flash never reaches nothing",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            l.flash[s] = l.flash[s].saturating_sub(1);",
+    "replace": "            l.flash[s] = l.flash[s].saturating_sub(1).max(l.flash[s].min(1));",
+    "test": "the_flash_is_red_on_the_part_weaker_on_the_body_and_exactly_nothing_after_its_ticks"
+  },
+  {
+    "name": "M7 wounds: the whole body flashes as hard as the part",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                let k = fx::mul(amount(s), sp.flash_pct * ONE / 100)",
+    "replace": "                let k = fx::mul(body, sp.flash_pct * ONE / 100)",
+    "test": "the_flash_is_red_on_the_part_weaker_on_the_body_and_exactly_nothing_after_its_ticks"
+  },
+  {
+    "name": "M7 wounds: a part comes off one unit late",
+    "file": "crates/core/src/wounds.rs",
+    "find": "dmg >= sp.take_off(s, kind)",
+    "replace": "dmg > sp.take_off(s, kind)",
+    "test": "a_part_comes_off_at_its_take_off_and_not_one_unit_before"
+  },
+  {
+    "name": "M7 wounds: one very fast cut does not take a part off",
+    "file": "crates/core/src/wounds.rs",
+    "find": "h.speed >= sp.one_cut(s, kind)",
+    "replace": "h.speed > sp.one_cut(s, kind)",
+    "test": "one_very_fast_cut_takes_a_limb_off_at_once"
+  },
+  {
+    "name": "M7 wounds: a blow on a stump counts on the trunk",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            3 | 5 | 7 | 9 => s - 1,",
+    "replace": "            3 | 5 | 7 | 9 => TORSO,",
+    "test": "a_blow_on_a_stump_counts_on_the_part_above"
+  },
+  {
+    "name": "M7 wounds: a piece rests only when time runs out",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        if (pc.landed && quiet && pc.age > 10) || pc.age >= ps.rest_by {",
+    "replace": "        if pc.age >= ps.rest_by {",
+    "test": "a_part_taken_off_falls_and_comes_to_rest_exactly_within_its_bound"
+  },
+  {
+    "name": "M7 wounds: a piece sinks into the ground",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                    pc.p[k].y = floor;",
+    "replace": "                    pc.p[k].y = floor - ONE / 2;",
+    "test": "a_part_taken_off_falls_and_comes_to_rest_exactly_within_its_bound"
+  },
+  {
+    "name": "M7 wounds: a dropped weapon never settles",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                l.settled = true;",
+    "replace": "                l.settled = false;",
+    "test": "the_dropped_weapon_settles_and_lies_still"
+  },
+  {
+    "name": "M7 wounds: a one-legged body walks at a walk",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        want.clamp_len(walk * sp.hop_pct / 100)",
+    "replace": "        want",
+    "test": "a_one_legged_orc_hops_at_its_share_of_a_walk_through_its_input_record_alone"
+  },
+  {
+    "name": "M7 wounds: a pilot moves a wounded body itself",
+    "file": "crates/core/src/pilot.rs",
+    "find": "        w.foes[k].brain = brain;",
+    "replace": "        w.foes[k].brain = brain;\n        if matches!(w.foes[k].brain.control, Control::Tree) && w.foes[k].fighter.health.limbs.lost != 0 {\n            w.foes[k].body.pos.x += 100;\n        }",
+    "test": "a_one_legged_orc_hops_at_its_share_of_a_walk_through_its_input_record_alone"
+  },
+  {
+    "name": "M7 wounds: a crawl goes at a hop",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        want.clamp_len(walk * sp.crawl_pct / 100)",
+    "replace": "        want.clamp_len(walk * sp.hop_pct / 100)",
+    "test": "with_both_legs_gone_a_body_lies_on_its_front_and_crawls_slower_than_a_hop"
+  },
+  {
+    "name": "M7 wounds: no legs and still upright",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            l.prone = legs == 2;",
+    "replace": "            l.prone = false;",
+    "test": "with_both_legs_gone_a_body_lies_on_its_front_and_crawls_slower_than_a_hop"
+  },
+  {
+    "name": "M7 wounds: drops pass their cap",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        if w.wounds.drops.len() >= d.most {",
+    "replace": "        if w.wounds.drops.len() >= d.most + 40 {",
+    "test": "blood_never_passes_its_caps"
+  },
+  {
+    "name": "M7 wounds: splats pass their cap",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    if w.wounds.splats.len() >= room {",
+    "replace": "    if w.wounds.splats.len() >= room + 40 {",
+    "test": "blood_never_passes_its_caps"
+  },
+  {
+    "name": "M7 wounds: overlapping marks share a height",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    let Some(layer) = heights.into_iter().find(|l| !used.contains(l)) else {",
+    "replace": "    let Some(layer) = heights.into_iter().next() else {",
+    "test": "overlapping_marks_never_lie_at_one_height"
+  },
+  {
+    "name": "M7 wounds: blood off still sheds drops",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    cue(w, CueKind::Cut, h.at, h.speed);\n    if blood_on(w) {",
+    "replace": "    cue(w, CueKind::Cut, h.at, h.speed);\n    if true {",
+    "test": "with_blood_off_nothing_of_blood_is_made_or_drawn"
+  },
+  {
+    "name": "M7 wounds: blood changes with something outside the world",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    w.wounds.made = w.wounds.made.wrapping_add(1);",
+    "replace": "    static MADE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);\n    w.wounds.made = MADE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);",
+    "test": "a_recorded_duel_with_a_part_taken_off_hashes_the_same_every_run"
+  },
+  {
+    "name": "M7 wounds: the dream keeps the lost parts",
+    "file": "crates/core/src/story.rs",
+    "find": "    *w = fresh;\n    arrive(w);\n}",
+    "replace": "    let limbs = w.me.health.limbs;\n    *w = fresh;\n    arrive(w);\n    w.me.health.limbs = limbs;\n}",
+    "test": "the_dream_wakes_the_player_with_every_part"
+  },
+  {
+    "name": "M7 wounds: the weapon never changes hands",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                swap(f);",
+    "replace": "",
+    "test": "the_leader_takes_its_sword_up_in_the_other_hand_and_a_bandit_runs"
+  },
+  {
+    "name": "M7 wounds: the leader backs off instead of taking up its sword",
+    "file": "data/pilots.json",
+    "find": "{ \"if\": [\"can_take_up\", { \"weapon_within\": 900 }], \"do\": \"take_up\", \"interrupt\": true },",
+    "replace": "{ \"if\": [\"can_take_up\", { \"weapon_within\": 900 }], \"do\": \"back_off\", \"interrupt\": true },",
+    "test": "the_leader_takes_its_sword_up_in_the_other_hand_and_a_bandit_runs"
+  },
+  {
+    "name": "M7 wounds: a bandit without its sword arm fights on",
+    "file": "data/pilots.json",
+    "find": "      { \"if\": [\"lost_sword_arm\"], \"do\": \"run_away\", \"interrupt\": true },\n      { \"if\": [\"unarmed\"], \"do\": \"run_away\", \"interrupt\": true },",
+    "replace": "      { \"if\": [\"lost_sword_arm\"], \"do\": \"circle\", \"interrupt\": true },\n      { \"if\": [\"unarmed\"], \"do\": \"circle\", \"interrupt\": true },",
+    "test": "the_leader_takes_its_sword_up_in_the_other_hand_and_a_bandit_runs"
+  },
+  {
+    "name": "M7 wounds: the left hand is as strong as the right",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        g.strength[1] = g.strength[1] * pct / 100;",
+    "replace": "",
+    "test": "the_player_without_a_sword_hand_takes_the_sword_up_in_the_other_and_is_weaker"
+  },
+  {
+    "name": "M7 wounds: every model part is labelled the torso",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            best.1\n",
+    "replace": "            1\n",
+    "test": "every_kind_s_parts_are_labelled_on_any_pose"
+  },
+  {
+    "name": "M7 wounds: a knee flinches without buckling",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            p.knee[side] = p.knee[side].add(d.scale(ONE * 3 / 4)).sub(v3(0, k / 2, 0));",
+    "replace": "            p.knee[side] = p.knee[side].add(d.scale(ONE * 3 / 4));",
+    "test": "a_struck_part_flinches_as_drawn_and_eases_back"
+  },
+  {
+    "name": "M7 wounds: a blow names the head's capsule wherever it lands",
+    "file": "crates/core/src/blade.rs",
+    "find": "            seg: index[y] as u8,",
+    "replace": "            seg: 0,",
+    "test": "a_blade_s_contact_names_the_capsule_it_struck"
+  },
+  {
+    "name": "M7 wounds: a pool lies at a drop's height",
+    "file": "crates/core/src/wounds.rs",
+    "find": "        lay(w, v3(at.x, ground, at.z), mm(sp.pool.mm), true);",
+    "replace": "        lay(w, v3(at.x, ground, at.z), mm(sp.pool.mm), false);",
+    "test": "a_fallen_body_bleeds_a_pool_that_spreads_to_its_size_and_no_more"
+  },
+  {
+    "name": "M7 wounds: a pool spreads past its size",
+    "file": "crates/core/src/wounds.rs",
+    "find": "                s.r = (s.r + s.goal / sp.pool.grow_ticks.max(1) as i32 + 1).min(s.goal);",
+    "replace": "                s.r += s.goal / sp.pool.grow_ticks.max(1) as i32 + 1;",
+    "test": "a_fallen_body_bleeds_a_pool_that_spreads_to_its_size_and_no_more"
+  },
+  {
+    "name": "M7 wounds: pieces pass their cap",
+    "file": "crates/core/src/wounds.rs",
+    "find": "    if w.wounds.pieces.len() >= most {",
+    "replace": "    if w.wounds.pieces.len() >= most + 8 {",
+    "test": "pieces_never_pass_their_cap_and_the_oldest_fade_out"
+  },
+  {
+    "name": "M7 wounds: the blood setting is not offered",
+    "file": "crates/core/src/ui.rs",
+    "find": "            // M7 (P4): blood on or off\n            Control {",
+    "replace": "            // M7 (P4): blood on or off\n            #[cfg(any())]\n            Control {",
+    "test": "settings_open_from_the_title_and_the_pause_and_go_back_there"
+  },
+  {
+    "name": "M7 wounds: the player's parts come off at a foe's cut",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            cms * self.player_pct / 100\n",
+    "replace": "            cms\n",
+    "test": "one_very_fast_cut_takes_a_limb_off_at_once"
   }
 ]

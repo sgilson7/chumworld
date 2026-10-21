@@ -85,6 +85,12 @@ pub struct Gait {
     /// M7 (R9.177): how far a thrust has the body lunging forward, `ONE`
     /// fully (`swing::LUNGE_LEAN`), set by the cut, eased in and out
     pub lunge: Fx,
+    /// M7 (P4): bent down to take up a weapon, `ONE` fully (`wounds::bend`);
+    /// a hop on one leg: ticks into the hop, and how high the body is off
+    /// the ground
+    pub stoop: Fx,
+    pub hop: u16,
+    pub lift: Fx,
 }
 
 /// Grip with `n` speedster pieces: bare feet's `GRIP_BASE` times M4's
@@ -168,7 +174,8 @@ pub fn step_body(
     b.prev_pos = b.pos;
     b.prev_facing = b.facing;
     b.prev_vel = b.vel;
-    let drawn = f.drawn();
+    // (M7: a fighter whose weapon has dropped moves as one with it put away)
+    let drawn = f.drawn() && !f.health.limbs.loose;
     let down = f.health.down();
     let mut want = if down {
         V3::ZERO
@@ -193,6 +200,8 @@ pub fn step_body(
         g.dodge -= 1;
         want = g.dodge_way.scale(per_tick(DODGE_SPEED, n));
     }
+    // M7 (P4): toppled, hopping on one leg or crawling with none
+    want = crate::wounds::gait_want(f, want, n);
     b.vel = approach(b.vel, want, grip(n));
     if b.vel.len() <= 1 {
         b.vel = V3::ZERO;
@@ -221,6 +230,33 @@ pub fn step_body(
     // body goes: a body sliding on ice with nothing held glides on still feet
     let asked = if want.len() < b.vel.len() { want } else { b.vel };
     stride(&mut f.gait, asked, b.vel);
+    hop(&mut f.gait, f.health.limbs.hopping(), b.vel);
+}
+
+/// M7 (P4): the limping gait on one leg. Moving, the body hops: each hop
+/// lasts `hop_ticks`, lifting it up to `hop_mm` and down again; standing, it
+/// finishes the hop it is in and stays down. (Its speed is a hop's share of
+/// a walk, `wounds::gait_want`; the standing leg is set under the body in
+/// `wounds::shape_pose`.)
+pub fn hop(g: &mut Gait, hopping: bool, vel: V3) {
+    let sp = crate::wounds::spec();
+    if !hopping {
+        g.hop = 0;
+        g.lift = 0;
+        return;
+    }
+    let n = sp.hop_ticks;
+    if g.hop > 0 || vel.len_xz() > 0 {
+        g.hop = (g.hop + 1) % n;
+    }
+    // half a sine over the hop, in the air two thirds of it
+    let air = n * 2 / 3;
+    g.lift = if g.hop < air {
+        let a = g.hop as i32 * fx::HALF_TURN / air as i32;
+        (sp.hop_mm as i64 * ONE as i64 / 1000 * fx::sin(a) as i64 / ONE as i64) as Fx
+    } else {
+        0
+    };
 }
 
 /// The gait follows the distance the feet cover: half a turn of phase per
