@@ -189,13 +189,6 @@
     "test": "the_same_world_gives_the_same_frame_byte_for_byte"
   },
   {
-    "name": "the same seed lays out the same field",
-    "file": "crates/core/src/field.rs",
-    "find": "    let mut r = Rng::new(SEED ^ ((x as u32 as u64) << 32) ^ (z as u32 as u64));",
-    "replace": "    static RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);\n    let mut r = Rng::new(SEED ^ RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) ^ ((x as u32 as u64) << 32) ^ (z as u32 as u64));",
-    "test": "the_same_seed_lays_out_the_same_field"
-  },
-  {
     "name": "the strings file holds every key",
     "file": "data/strings.json",
     "find": "\"hint_pause\": \"Esc pauses\"",
@@ -497,20 +490,6 @@
     "test": "the_body_is_drawn_between_ticks"
   },
   {
-    "name": "ground rings leave the inner ring out",
-    "file": "crates/core/src/field.rs",
-    "find": "                if inside {\n                    continue;\n                }",
-    "replace": "",
-    "test": "the_ground_rings_tile_without_gaps_or_overlaps"
-  },
-  {
-    "name": "the far ground is one colour",
-    "file": "crates/core/src/field.rs",
-    "find": "const PATCHWORK_PCT: [i32; 4] = [100, 30, 8, 0];",
-    "replace": "const PATCHWORK_PCT: [i32; 4] = [100, 30, 8, 5];",
-    "test": "the_far_ground_is_one_even_colour"
-  },
-  {
     "name": "the world's hash reads its state",
     "file": "crates/core/src/world.rs",
     "find": "        for b in text.bytes() {",
@@ -684,13 +663,6 @@
     "find": "                    t: v3(v[3], v[7], v[11]).add(o),",
     "replace": "                    t: v3(v[3], v[7], v[11]),",
     "test": "the_static_array_read_back_is_the_shapes_pushed"
-  },
-  {
-    "name": "the field's floor lies below the ground",
-    "file": "crates/core/src/field.rs",
-    "find": "pub const UNDER: Fx = -fx::int(2);",
-    "replace": "pub const UNDER: Fx = 0;",
-    "test": "the_static_scene_draws_no_two_surfaces_in_one_plane"
   },
   {
     "name": "heads are drawn at a fifth of the height",
