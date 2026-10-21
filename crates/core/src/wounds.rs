@@ -273,12 +273,19 @@ impl Spec {
         }
     }
 
-    /// The speed of one blow that takes part `s` off at once, m/s.
-    pub fn one_cut(&self, s: usize) -> Fx {
+    /// The speed of one blow that takes part `s` off a body of `kind` at
+    /// once, m/s: the player's is `player_pct` of a foe's, as its take-off is
+    /// (R9.139: a fast cut to the head no longer ends a duel at a blow).
+    pub fn one_cut(&self, s: usize, kind: Kind) -> Fx {
         let cms = match s {
             TORSO => return Fx::MAX,
             HEAD => self.one_cut_cms.head,
             _ => self.one_cut_cms.limb,
+        };
+        let cms = if kind == Kind::Player {
+            cms * self.player_pct / 100
+        } else {
+            cms
         };
         cms * ONE / 100
     }
@@ -606,7 +613,7 @@ pub fn mark(w: &mut World, h: &Hit, k: usize, cuts: bool) {
         return;
     }
     let dmg = player::fighter(w, id).health.limbs.dmg[s];
-    if s != TORSO && (dmg >= sp.take_off(s, kind) || h.speed >= sp.one_cut(s)) {
+    if s != TORSO && (dmg >= sp.take_off(s, kind) || h.speed >= sp.one_cut(s, kind)) {
         take_off(w, id, s, h.vel, h.speed);
     }
 }

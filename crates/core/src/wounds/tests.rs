@@ -147,6 +147,17 @@ fn one_very_fast_cut_takes_a_limb_off_at_once() {
     let mut w = duel("bandit");
     stage(&mut w, hit(1, 7, ONE * 25 / 2 - 1));
     assert_eq!(w.foes[0].fighter.health.limbs.lost, 0);
+    // the player's is 160% of it: 12.5 × 1.6 = 20 m/s; a head's 16 × 1.6 = 25.6
+    assert_eq!(spec().one_cut(7, Kind::Player), fx::int(20));
+    assert_eq!(spec().one_cut(HEAD, Kind::Player), fx::int(256) / 10);
+    let mut w = duel("bandit");
+    let mut at = hit(0, 7, fx::int(20) - 1);
+    at.by = 1;
+    stage(&mut w, at);
+    assert_eq!(
+        w.me.health.limbs.lost, 0,
+        "under 20 m/s the player's shin stays on"
+    );
 }
 
 #[test]

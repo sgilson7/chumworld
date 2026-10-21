@@ -3054,8 +3054,8 @@
   {
     "name": "M7 wounds: one very fast cut does not take a part off",
     "file": "crates/core/src/wounds.rs",
-    "find": "h.speed >= sp.one_cut(s)",
-    "replace": "h.speed > sp.one_cut(s)",
+    "find": "h.speed >= sp.one_cut(s, kind)",
+    "replace": "h.speed > sp.one_cut(s, kind)",
     "test": "one_very_fast_cut_takes_a_limb_off_at_once"
   },
   {
@@ -3232,5 +3232,12 @@
     "find": "            // M7 (P4): blood on or off\n            Control {",
     "replace": "            // M7 (P4): blood on or off\n            #[cfg(any())]\n            Control {",
     "test": "settings_open_from_the_title_and_the_pause_and_go_back_there"
+  },
+  {
+    "name": "M7 wounds: the player's parts come off at a foe's cut",
+    "file": "crates/core/src/wounds.rs",
+    "find": "            cms * self.player_pct / 100\n",
+    "replace": "            cms\n",
+    "test": "one_very_fast_cut_takes_a_limb_off_at_once"
   }
 ]

@@ -1018,6 +1018,12 @@ mod tests {
                     keys,
                     ..Input::default()
                 });
+                // a player who never goes down: since M7 (R9.139) a head
+                // taken off is down whatever the health, so a player cut is
+                // made whole again at once, with health it cannot lose
+                if w.me.health.limbs.lost != 0 || w.me.health.down() {
+                    w.me.health = crate::health::Health::new(100_000);
+                }
                 let gap = (w.foes[0].body.pos.sub(w.player.pos).len_xz() as i64 * 100 / ONE as i64) as i32;
                 let now = w.foes[0].brain.current.map(|(m, _)| m);
                 let attacking = |m: Option<Move>| m.is_some_and(Move::committed);
