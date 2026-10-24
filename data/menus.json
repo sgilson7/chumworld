@@ -1,0 +1,49 @@
+{
+  "_note": "Presentation numbers for the map menu's parchment, which the core draws into pixels (crates/core/src/ui.rs, map_pixels; compiled in). Colours are 0 to 255; shares are percent. The parchment and ink follow Protection of the Spheres' warm haze and plum ink (data/look.json: horizon, ink); land takes a share of the palette's far grass, water a share of the zenith blue.",
+  "map": {
+    "paper": [248, 238, 212],
+    "unseen": [201, 183, 148],
+    "hatch": [189, 170, 135],
+    "edge": [150, 116, 82],
+    "ink": [92, 70, 84],
+    "water": [126, 170, 204],
+    "land_tint_pct": 24,
+    "relief_pct": 7,
+    "grain": 7,
+    "edge_px": 9,
+    "edge_pct": 42,
+    "hatch_every": 6,
+    "_m7": "M7 (R9.48): the land's own colours where walked, as Ocarina of Time's and Majora's Mask's maps draw them: land_pct of the ground's colour over the paper, the forest's green with a dot for its trees every forest_dot_every pixels, relief lit from the north-west in shade_steps flat steps of shade_pct, a contour every contour_m metres, water with a darker shore line, roads and buildings in their colours",
+    "land_pct": 72,
+    "forest": [70, 116, 72],
+    "forest_dot": [48, 86, 54],
+    "forest_dot_every": 4,
+    "shade_pct": 18,
+    "shade_steps": 3,
+    "contour_m": 10,
+    "contour_pct": 22,
+    "shore": [70, 112, 160],
+    "road": [190, 150, 102],
+    "roof": [170, 82, 64]
+  },
+  "figure": {
+    "_note": "M7: the Equipment screen's figure (crates/core/src/stage.rs): its background, one turn's length, the turn it starts from (degrees from facing the camera), the camera's field of view and where it stands and looks, mm from the figure's feet",
+    "clear": [244, 234, 214],
+    "turn_seconds": 16,
+    "start_deg": -25,
+    "fov_deg": 24,
+    "eye_mm": [0, 1250, 5700],
+    "look_mm": [0, 960, 0]
+  },
+  "map_label": {
+    "_note": "M7 (R9.410): the room a map label takes, in hundredths of a percent of the map's side at its smallest (419 px across, a 1280 x 720 window): its height with a margin, each letter's width and the padding (12 px bold type); and each kind of mark's rank, the higher keeping its label when two would meet (a kind not named is 0, and its label shows while its pin is pointed at)",
+    "height": 450,
+    "char": 180,
+    "pad": 320,
+    "rank": {"village": 3, "camp": 3, "shrine": 3, "hut": 2, "bridge": 2, "tree": 2, "scarecrow": 2, "waystone_village": 1, "waystone_bridge": 1, "waystone_hill": 1, "waystone_shrine": 1, "waystone_camp": 1, "waystone_crown": 1}
+  },
+  "map_zoom": [1, 2, 4],
+  "map_wheel_step": 80,
+  "_map_zoom": "T24: the map's zoom levels, times; + and − (or the wheel, a step each map_wheel_step of the browser's deltaY) step through them on the map, the first the whole map",
+  "place_icons": ["village", "camp", "hut", "shrine", "bridge", "tree", "scarecrow", "chest", "waystone_village", "waystone_bridge", "waystone_hill", "waystone_shrine", "waystone_camp", "waystone_crown", "save_crossroads", "save_trail"]
+}

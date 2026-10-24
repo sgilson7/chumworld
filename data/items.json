@@ -1,0 +1,218 @@
+{
+  "_note": "Every item in the MVP: its one route (how it is acquired), its one mechanic, and the numbers the rules read. crates/core/src/items.rs reads this file (compiled in) and its tests hold CW-6, CW-7 and CW-8 over it. Names and descriptions are in data/strings.json under item_<id> and item_<id>_about. Routes and mechanics are ids the story (M5) and the duel (M1) act on, not reader text. 'value' is in coins: the merchant sells at it and buys at merchant.buys_at_pct of it. 'grid' places a free-hand item in Select Item's grid (6 across, 3 down); 'slot' places an armour piece; 'quick' says it can go on 1, 2 or 3.",
+  "items": [
+    {
+      "id": "short_sword",
+      "kind": "weapon",
+      "hand": "sword",
+      "routes": ["start"],
+      "mechanic": "baseline",
+      "_mechanic": "the plain sword every other item is felt against (CW-7); the named exception to CW-6's own-mechanic rule",
+      "start": true,
+      "blade_cm": 70,
+      "value": 20,
+      "stack": 1
+    },
+    {
+      "id": "sword",
+      "kind": "weapon",
+      "hand": "sword",
+      "routes": ["leader_duel"],
+      "_routes": "won from the bandit leader in a duel, or knocked from the leader's grip",
+      "mechanic": "knock_loose",
+      "_mechanic": "heavy: a hard blade-on-blade hit can knock a weapon from a foe's hands (M1)",
+      "blade_cm": 100,
+      "value": 80,
+      "stack": 1
+    },
+    {
+      "id": "boomerang",
+      "kind": "weapon",
+      "hand": "free",
+      "routes": ["camp_chest"],
+      "_routes": "in the chest at the bandit camp, opened with the chest key the leader drops (M5)",
+      "mechanic": "arc_return",
+      "_mechanic": "thrown from the free hand, it flies an arc and comes back to the thrower (M5's boomerang.rs)",
+      "reach_m": 18,
+      "flight_ticks": 150,
+      "grid": 0,
+      "quick": true,
+      "value": 70,
+      "stack": 1
+    },
+    {
+      "id": "rock",
+      "kind": "throwable",
+      "routes": ["ground", "merchant", "roadside", "wanderers", "dungeon"],
+      "mechanic": "thrown",
+      "grid": 1,
+      "quick": true,
+      "sold": true,
+      "value": 2,
+      "stack": 20
+    },
+    {
+      "id": "knife",
+      "kind": "throwable",
+      "routes": ["bandits", "merchant", "roadside", "wanderers"],
+      "mechanic": "thrown_blade",
+      "grid": 2,
+      "quick": true,
+      "sold": true,
+      "value": 6,
+      "stack": 10
+    },
+    {
+      "id": "bandage",
+      "kind": "supply",
+      "routes": ["village", "merchant", "roadside", "wanderers"],
+      "mechanic": "heal",
+      "heals": 40,
+      "grid": 3,
+      "quick": true,
+      "sold": true,
+      "value": 10,
+      "stack": 5
+    },
+    {
+      "id": "chest_key",
+      "kind": "key",
+      "routes": ["leader_drop"],
+      "_routes": "dropped by the bandit leader once the camp is cleared",
+      "mechanic": "opens_chest",
+      "grid": 5,
+      "keep": true,
+      "_keep": "the merchant does not buy it: it is the only way to the boomerang (CW-6)",
+      "value": 0,
+      "stack": 1
+    },
+    {
+      "id": "hood",
+      "kind": "armour",
+      "slot": "head",
+      "set": "speedster",
+      "routes": ["merchant"],
+      "mechanic": "speedster",
+      "sold": true,
+      "value": 60,
+      "stack": 1
+    },
+    {
+      "id": "jacket",
+      "kind": "armour",
+      "slot": "body",
+      "set": "speedster",
+      "routes": ["scarecrow"],
+      "_routes": "on the scarecrow in the field south-west of the village",
+      "mechanic": "speedster",
+      "value": 60,
+      "stack": 1
+    },
+    {
+      "id": "gloves",
+      "kind": "armour",
+      "slot": "hands",
+      "set": "speedster",
+      "routes": ["lookout"],
+      "_routes": "worn by the bandit lookout",
+      "mechanic": "speedster",
+      "value": 60,
+      "stack": 1
+    },
+    {
+      "id": "trousers",
+      "kind": "armour",
+      "slot": "legs",
+      "set": "speedster",
+      "routes": ["hollow_tree"],
+      "_routes": "in a hollow tree at the forest's east edge",
+      "mechanic": "speedster",
+      "value": 60,
+      "stack": 1
+    },
+    {
+      "id": "boots",
+      "kind": "armour",
+      "slot": "feet",
+      "set": "speedster",
+      "routes": ["river_shrine"],
+      "_routes": "at the river shrine, north of the bridge",
+      "mechanic": "speedster",
+      "value": 60,
+      "stack": 1
+    },
+    {
+      "id": "flute",
+      "kind": "instrument",
+      "routes": ["trainer_gift"],
+      "_routes": "given by the trainer once the practice is passed, with the travel song taught in the same talk (M7 travel, T11; SECOND-ORDER.md R9.190)",
+      "mechanic": "songs",
+      "_mechanic": "played from a quick key or Select Item: five notes on a staff; the travel song takes you to a waystone you have woken (travel.rs)",
+      "grid": 4,
+      "quick": true,
+      "keep": true,
+      "_keep": "the merchant does not buy it: the trainer's gift is the only way to it (CW-6)",
+      "value": 0,
+      "stack": 1
+    },
+    {
+      "id": "hookshot",
+      "kind": "tool",
+      "routes": ["hook_shrine"],
+      "_routes": "the small chest in the great tree's hook shrine, behind the centre door's two padlocks (T21, phase D)",
+      "mechanic": "hook",
+      "_mechanic": "held on its quick key: aim at a hook plate (a green line and a tick; red and a cross on anything else), click to fire, and it pulls you there to hang until you let the key go (hookshot.rs)",
+      "reach_m": 12,
+      "grid": 6,
+      "quick": true,
+      "keep": true,
+      "_keep": "the merchant does not buy it: the shrine is the only way to it (CW-6)",
+      "value": 0,
+      "stack": 1
+    },
+    {
+      "id": "chitin_shield",
+      "kind": "armour",
+      "slot": "shield",
+      "routes": ["ant_den_chest"],
+      "_routes": "T21 (phase E): the chest on the shield ant's den's high ledge, reached only by the hookshot",
+      "mechanic": "block",
+      "_mechanic": "worn on the left arm: hold C to raise it, and blows and orbs from within 70° of your front are stopped; raised, you walk and cannot swing (shield.rs)",
+      "keep": true,
+      "value": 0,
+      "stack": 1
+    },
+    {
+      "id": "vine_circlet",
+      "kind": "armour",
+      "slot": "head",
+      "routes": ["vine_den_chest"],
+      "_routes": "T21 (phase E): the chest on the vine's den's high ledge, reached only by the hookshot",
+      "mechanic": "hook_foes",
+      "_mechanic": "worn, the hookshot takes hold of a foe as of a plate: it pulls you to them, and they stand stunned while it does and a second after; then 20 s before it will again (hookshot.rs); and (T31) with the boomerang ready, the middle button locks the boomerang on a foe and it flies to them (boomerang.rs): one mechanic, taking hold of a foe",
+      "keep": true,
+      "value": 0,
+      "stack": 1
+    }
+  ],
+  "slots": ["head", "body", "hands", "legs", "feet"],
+  "sets": {
+    "speedster": {
+      "speed_pct_per_piece": 20,
+      "grip_pct_per_piece": 55,
+      "_note": "CW-8: speed × (1 + 0.2 n), grip × 0.55ⁿ for n pieces worn"
+    }
+  },
+  "imbue": {
+    "routes": ["trainer"],
+    "_routes": "taught by the trainer in the hut on the hill west of the river, after the practice round (T2)",
+    "mechanic": "deflect",
+    "lasts_ticks": 600,
+    "cooldown_ticks": 1200,
+    "_cooldown_ticks": "CW-9: counted from the cast"
+  },
+  "merchant": {
+    "buys_at_pct": 50
+  },
+  "grid": { "across": 6, "down": 3 }
+}

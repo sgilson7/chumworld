@@ -1,0 +1,781 @@
+{
+  "_note": "The MVP region's layout (M2, crates/core/src/places.rs and terrain.rs). World metres: x east, z south, the walkable square from (0, 0) to (4000, 4000); a map point (x, y) from the journal's world map is the world point (x, 4000 - y). Positions are the journal's first placements (2026-10-20-world), read off its map at 150 px a km. Names stay descriptive (CW-20). Each place has a centre; its props stand at metres east and south of it, turned by yaw_deg (positive turns left, seen from above). Footprints are flattened under every building.",
+  "footprints_m": {
+    "house": [6, 5],
+    "barn": [8, 6],
+    "hut": [6, 5],
+    "tent": [3, 3],
+    "well": [2, 2],
+    "shrine": [3, 3],
+    "campfire": [2, 2],
+    "chest": [1, 1],
+    "scarecrow": [1, 1],
+    "signpost": [1, 1],
+    "hollow_tree": [3, 3],
+    "bed": [1, 2],
+    "waystone": [1, 1],
+    "save_post": [1, 1], "flagpole": [1, 1],
+    "stall": [3, 2], "stall_cloth": [3, 2], "hall": [14, 9], "inn": [10, 7], "mill": [7, 6],
+    "watchtower": [4, 4], "notice_board": [3, 1]
+  },
+  "flatten": {
+    "_note": "How a footprint meets the ground round it: flat this far past its edge, then blending back to the land over the falloff.",
+    "margin_m": 2,
+    "falloff_m": 6
+  },
+  "places": [
+    {
+      "kind": "village",
+      "centre": [2000, 2800],
+      "flat_m": [90, 150],
+      "_flat_m": "the plateau: level within the first radius, back to the land by the second",
+      "props": [
+        { "prop": "house", "at": [-34, 6], "yaw_deg": 90, "moving": true, "_": "the player's house; its door faces west, onto the meadow (M5 draws it, cut away while the player is in it)" },
+        { "prop": "bed", "at": [-33, 8], "yaw_deg": 90, "inside": true, "moving": true, "_": "its head to the back wall, room at its foot to stand (M5)" },
+        { "prop": "house", "at": [-46, -10], "yaw_deg": 70 },
+        { "prop": "house", "at": [-44, 32], "yaw_deg": 125 },
+        { "prop": "house", "at": [-8, 46], "yaw_deg": 180 },
+        { "prop": "house", "at": [24, 54], "yaw_deg": 200 },
+        { "prop": "house", "at": [58, 16], "yaw_deg": 260 },
+        { "prop": "house", "at": [50, -26], "yaw_deg": 300 },
+        { "prop": "house", "at": [44, -44], "yaw_deg": 315 },
+        { "prop": "house", "at": [-26, 62], "yaw_deg": 160 },
+        { "prop": "barn", "at": [84, -6], "yaw_deg": 270 },
+        { "prop": "well", "at": [7, -5], "yaw_deg": 0 },
+        { "prop": "signpost", "at": [-6, -60], "yaw_deg": 0 }
+      ],
+      "fences": [
+        { "from": [72, -24], "to": [102, -24] },
+        { "from": [102, -24], "to": [102, 14] },
+        { "from": [102, 14], "to": [72, 14] },
+        { "from": [-60, 22], "to": [-60, 44] },
+        { "from": [-60, 44], "to": [-30, 52] },
+        { "from": [8, 62], "to": [40, 66] }
+      ],
+      "pond": { "at": [30, 26], "radius_m": 10, "depth_cm": 90, "level_cm": -35 }
+    },
+    {
+      "kind": "camp",
+      "centre": [3213, 987],
+      "flat_m": [16, 30],
+      "clearing_m": 26,
+      "props": [
+        { "prop": "tent", "at": [-8, -6], "yaw_deg": 300 },
+        { "prop": "tent", "at": [7, -8], "yaw_deg": 30 },
+        { "prop": "tent", "at": [-3, 9], "yaw_deg": 180 },
+        { "prop": "campfire", "at": [0, 0], "yaw_deg": 0 },
+        { "prop": "chest", "at": [11, 5], "yaw_deg": 240, "moving": true },
+        { "prop": "flagpole", "at": [1, -13], "yaw_deg": 0, "_": "M7 forest (T19): the bandits' flag, its top over the canopy, seen from the trail's end" }
+      ]
+    },
+    {
+      "kind": "hut",
+      "centre": [330, 1750],
+      "flat_m": [10, 22],
+      "props": [
+        { "prop": "hut", "at": [0, 0], "yaw_deg": 60 },
+        { "prop": "signpost", "at": [9, 8], "yaw_deg": 45 }
+      ]
+    },
+    {
+      "kind": "shrine",
+      "centre": [738, 1000],
+      "props": [{ "prop": "shrine", "at": [0, 0], "yaw_deg": 90 }]
+    },
+    {
+      "kind": "hollow_tree",
+      "centre": [3600, 1400],
+      "clearing_m": 7,
+      "props": [{ "prop": "hollow_tree", "at": [0, 0], "yaw_deg": 200 }]
+    },
+    {
+      "kind": "hamlet_west",
+      "_kind": "T29: a hamlet of farms west of the river, south of the merchant's road: four houses, a barn and a well round a yard; two of its people talk (rumours.json's tellers)",
+      "centre": [200, 2700],
+      "flat_m": [40, 70],
+      "props": [
+        { "prop": "house", "at": [-18, -10], "yaw_deg": 80 },
+        { "prop": "house", "at": [14, -20], "yaw_deg": 170 },
+        { "prop": "house", "at": [22, 10], "yaw_deg": 250 },
+        { "prop": "house", "at": [-12, 22], "yaw_deg": 20 },
+        { "prop": "barn", "at": [-34, 8], "yaw_deg": 90 },
+        { "prop": "well", "at": [2, 2], "yaw_deg": 0 },
+        { "prop": "signpost", "at": [6, -34], "yaw_deg": 0 }
+      ],
+      "fences": [{ "from": [-44, -4], "to": [-44, 22] }, { "from": [-44, 22], "to": [-26, 30] }]
+    },
+    {
+      "kind": "hamlet_east",
+      "_kind": "T29: a hamlet of farms on the south-east plains, between the low hills: three houses, two barns and a well; two of its people talk",
+      "centre": [3350, 3250],
+      "flat_m": [40, 70],
+      "props": [
+        { "prop": "house", "at": [-16, -14], "yaw_deg": 120 },
+        { "prop": "house", "at": [18, -8], "yaw_deg": 220 },
+        { "prop": "house", "at": [4, 20], "yaw_deg": 350 },
+        { "prop": "barn", "at": [-30, 14], "yaw_deg": 60 },
+        { "prop": "barn", "at": [32, 22], "yaw_deg": 300 },
+        { "prop": "well", "at": [0, 0], "yaw_deg": 0 },
+        { "prop": "signpost", "at": [-8, -36], "yaw_deg": 0 }
+      ],
+      "fences": [{ "from": [24, 34], "to": [44, 30] }, { "from": [-40, 4], "to": [-40, 26] }]
+    },
+    {
+      "kind": "bowl_town",
+      "_kind": "T29 (TB, a first pass): the town in the bowl, 1.4 km past the square's north-west corner, on the bowl's floor (bowls): a market of houses facing the pond, two rings of houses out across the floor, the council's hall and the inn (barns until their own models), two mills on the outflow, the river's way out to the south-east kept clear; the end of the way the bandits' camps line (wanderers.json). T32 (TB): the hall, the inn, the mills and the market's stalls in their own models; houses on the terraces; a save post on the market; a lane to the north-west, where the ravine's gate will stand",
+      "centre": [-1000, -1000],
+      "clearing_m": 250,
+      "props": [
+        {"prop": "house", "at": [0, 50], "yaw_deg": 0},
+        {"prop": "house", "at": [-25, 43], "yaw_deg": 330},
+        {"prop": "house", "at": [-43, 25], "yaw_deg": 300},
+        {"prop": "house", "at": [-43, -25], "yaw_deg": 240},
+        {"prop": "house", "at": [-25, -43], "yaw_deg": 210},
+        {"prop": "house", "at": [25, -43], "yaw_deg": 150},
+        {"prop": "house", "at": [43, -25], "yaw_deg": 120},
+        {"prop": "house", "at": [30, 147], "yaw_deg": 12},
+        {"prop": "house", "at": [-29, 147], "yaw_deg": 349},
+        {"prop": "house", "at": [-83, 125], "yaw_deg": 326},
+        {"prop": "house", "at": [-124, 84], "yaw_deg": 304},
+        {"prop": "house", "at": [-147, 30], "yaw_deg": 282},
+        {"prop": "house", "at": [-147, -29], "yaw_deg": 259},
+        {"prop": "house", "at": [-125, -83], "yaw_deg": 236},
+        {"prop": "house", "at": [-84, -124], "yaw_deg": 214},
+        {"prop": "house", "at": [-30, -147], "yaw_deg": 192},
+        {"prop": "house", "at": [29, -147], "yaw_deg": 169},
+        {"prop": "house", "at": [83, -125], "yaw_deg": 146},
+        {"prop": "house", "at": [124, -84], "yaw_deg": 124},
+        {"prop": "house", "at": [147, -30], "yaw_deg": 102},
+        {"prop": "house", "at": [229, 16], "yaw_deg": 86},
+        {"prop": "house", "at": [122, 195], "yaw_deg": 32},
+        {"prop": "house", "at": [56, 223], "yaw_deg": 14},
+        {"prop": "house", "at": [-16, 229], "yaw_deg": 356},
+        {"prop": "house", "at": [-86, 213], "yaw_deg": 338},
+        {"prop": "house", "at": [-148, 176], "yaw_deg": 320},
+        {"prop": "house", "at": [-195, 122], "yaw_deg": 302},
+        {"prop": "house", "at": [-223, 56], "yaw_deg": 284},
+        {"prop": "house", "at": [-229, -16], "yaw_deg": 266},
+        {"prop": "house", "at": [-213, -86], "yaw_deg": 248},
+        {"prop": "house", "at": [-176, -148], "yaw_deg": 230},
+        {"prop": "house", "at": [-122, -195], "yaw_deg": 212},
+        {"prop": "house", "at": [-56, -223], "yaw_deg": 194},
+        {"prop": "house", "at": [16, -229], "yaw_deg": 176},
+        {"prop": "house", "at": [86, -213], "yaw_deg": 158},
+        {"prop": "house", "at": [148, -176], "yaw_deg": 140},
+        {"prop": "house", "at": [195, -122], "yaw_deg": 122},
+        {"prop": "house", "at": [223, -56], "yaw_deg": 104},
+        {"prop": "well", "at": [-30, -30], "yaw_deg": 0},
+        {"prop": "signpost", "at": [125, 32], "yaw_deg": 300, "_": "by the outflow, where the trade road will come in (TD)"},
+        {"prop": "gate_shut", "at": [-283, -283], "yaw_deg": 225, "_": "T32 (TB): the ravine's gate, shut and barred, in the pass through the rim to the north-west, its front to the town and its wing walls into the pass's sides"},
+        {"prop": "hall", "at": [0, -60], "yaw_deg": 180, "_": "T32 (TB): the council's hall on the market's north side, its steps down to the market"},
+        {"prop": "notice_board", "at": [12, -48], "yaw_deg": 180, "_": "T33 (TC): the notice board by the hall's steps, its notices to the market (data/town.json)"},
+        {"prop": "inn", "at": [-60, 0], "yaw_deg": 270, "_": "T32 (TB): the inn on the market's west side, its porch onto the market"},
+        {"prop": "mill", "at": [103, 39], "yaw_deg": 264, "_": "T32 (TB): a mill on the outflow's north bank, 27 m off the river, its wheel toward the water, its flume back toward the pond"},
+        {"prop": "mill", "at": [67, 84], "yaw_deg": 55, "_": "T32 (TB): a mill on the south bank, 30 m off, its wheel toward the water"},
+        {"prop": "stall", "at": [3, 37], "yaw_deg": 5, "_": "T32 (TB): the market's stalls, 37 m round the pond, each facing it, the outflow's side left open"},
+        {"prop": "stall_cloth", "at": [-10, 36], "yaw_deg": 344},
+        {"prop": "stall", "at": [-21, 30], "yaw_deg": 325},
+        {"prop": "stall_cloth", "at": [-30, 21], "yaw_deg": 305},
+        {"prop": "stall", "at": [-36, 10], "yaw_deg": 286},
+        {"prop": "stall_cloth", "at": [-36, -10], "yaw_deg": 254},
+        {"prop": "stall", "at": [-32, -19], "yaw_deg": 239},
+        {"prop": "stall_cloth", "at": [-19, -32], "yaw_deg": 211},
+        {"prop": "stall", "at": [-10, -36], "yaw_deg": 196},
+        {"prop": "stall_cloth", "at": [10, -36], "yaw_deg": 164},
+        {"prop": "stall", "at": [21, -30], "yaw_deg": 145},
+        {"prop": "stall_cloth", "at": [30, -21], "yaw_deg": 125},
+        {"prop": "stall", "at": [36, -10], "yaw_deg": 106},
+        {"prop": "house", "at": [-251, 145], "yaw_deg": 300, "_": "T32 (TB): houses on the terraces up the bowl's west and north sides, 290 m out, facing the pond; the north-west left open for the ravine's lane"},
+        {"prop": "house", "at": [-279, 80], "yaw_deg": 286},
+        {"prop": "house", "at": [-290, 10], "yaw_deg": 272},
+        {"prop": "house", "at": [-284, -60], "yaw_deg": 258},
+        {"prop": "house", "at": [-261, -127], "yaw_deg": 244},
+        {"prop": "house", "at": [-109, -269], "yaw_deg": 202},
+        {"prop": "house", "at": [-40, -287], "yaw_deg": 188},
+        {"prop": "house", "at": [30, -288], "yaw_deg": 174},
+        {"prop": "house", "at": [99, -273], "yaw_deg": 160},
+        {"prop": "house", "at": [162, -240], "yaw_deg": 146},
+        {"prop": "house", "at": [216, -194], "yaw_deg": 132},
+        {"prop": "house", "at": [256, -136], "yaw_deg": 118},
+        {"prop": "house", "at": [281, -70], "yaw_deg": 104},
+        {"prop": "house", "at": [290, 0], "yaw_deg": 90}
+      ]
+    },
+    {
+      "kind": "orc_village",
+      "_kind": "T29 (OB, a first pass): the orcs' village on the low southern hills past the square, round its great well, which is dry: a palisade (the fence, until a palisade of its own) with one gate to the north-north-west toward the old south road and a tower either side of it, huts facing the well, the chief's longhouse, a forge, tents, empty pens",
+      "centre": [
+        1150,
+        5450
+      ],
+      "flat_m": [
+        85,
+        130
+      ],
+      "props": [
+        {
+          "prop": "hut",
+          "at": [
+            46,
+            15
+          ],
+          "yaw_deg": 72
+        },
+        {
+          "prop": "hut",
+          "at": [
+            28,
+            39
+          ],
+          "yaw_deg": 36
+        },
+        {
+          "prop": "hut",
+          "at": [
+            0,
+            48
+          ],
+          "yaw_deg": 0
+        },
+        {
+          "prop": "hut",
+          "at": [
+            -28,
+            39
+          ],
+          "yaw_deg": 324
+        },
+        {
+          "prop": "hut",
+          "at": [
+            -46,
+            15
+          ],
+          "yaw_deg": 288
+        },
+        {
+          "prop": "hut",
+          "at": [
+            -46,
+            -15
+          ],
+          "yaw_deg": 252
+        },
+        {
+          "prop": "hut",
+          "at": [
+            28,
+            -39
+          ],
+          "yaw_deg": 144
+        },
+        {
+          "prop": "hut",
+          "at": [
+            46,
+            -15
+          ],
+          "yaw_deg": 108
+        },
+        {
+          "prop": "well",
+          "at": [
+            0,
+            0
+          ],
+          "yaw_deg": 0,
+          "_": "the great well, dry; the well's dungeon (OE) is under it"
+        },
+        {
+          "prop": "barn",
+          "at": [
+            0,
+            28
+          ],
+          "yaw_deg": 0,
+          "_": "the chief's longhouse (a barn until its own model)"
+        },
+        {
+          "prop": "hut",
+          "at": [
+            -26,
+            12
+          ],
+          "yaw_deg": 60,
+          "_": "the forge"
+        },
+        {
+          "prop": "campfire",
+          "at": [
+            -14,
+            22
+          ],
+          "yaw_deg": 0
+        },
+        {
+          "prop": "tent",
+          "at": [
+            24,
+            14
+          ],
+          "yaw_deg": 300
+        },
+        {
+          "prop": "tent",
+          "at": [
+            28,
+            -6
+          ],
+          "yaw_deg": 270
+        },
+        {
+          "prop": "watchtower",
+          "at": [
+            -42,
+            -66
+          ],
+          "yaw_deg": 0,
+          "_": "the gate's towers, outside the palisade"
+        },
+        {
+          "prop": "watchtower",
+          "at": [
+            -10,
+            -77
+          ],
+          "yaw_deg": 0
+        }
+      ],
+      "fences": [
+        {
+          "from": [
+            70,
+            0
+          ],
+          "to": [
+            66,
+            24
+          ]
+        },
+        {
+          "from": [
+            66,
+            24
+          ],
+          "to": [
+            54,
+            45
+          ]
+        },
+        {
+          "from": [
+            54,
+            45
+          ],
+          "to": [
+            35,
+            61
+          ]
+        },
+        {
+          "from": [
+            35,
+            61
+          ],
+          "to": [
+            12,
+            69
+          ]
+        },
+        {
+          "from": [
+            12,
+            69
+          ],
+          "to": [
+            -12,
+            69
+          ]
+        },
+        {
+          "from": [
+            -12,
+            69
+          ],
+          "to": [
+            -35,
+            61
+          ]
+        },
+        {
+          "from": [
+            -35,
+            61
+          ],
+          "to": [
+            -54,
+            45
+          ]
+        },
+        {
+          "from": [
+            -54,
+            45
+          ],
+          "to": [
+            -66,
+            24
+          ]
+        },
+        {
+          "from": [
+            -66,
+            24
+          ],
+          "to": [
+            -70,
+            0
+          ]
+        },
+        {
+          "from": [
+            -70,
+            0
+          ],
+          "to": [
+            -66,
+            -24
+          ]
+        },
+        {
+          "from": [
+            -66,
+            -24
+          ],
+          "to": [
+            -54,
+            -45
+          ]
+        },
+        {
+          "from": [
+            -54,
+            -45
+          ],
+          "to": [
+            -35,
+            -61
+          ]
+        },
+        {
+          "from": [
+            -12,
+            -69
+          ],
+          "to": [
+            12,
+            -69
+          ]
+        },
+        {
+          "from": [
+            12,
+            -69
+          ],
+          "to": [
+            35,
+            -61
+          ]
+        },
+        {
+          "from": [
+            35,
+            -61
+          ],
+          "to": [
+            54,
+            -45
+          ]
+        },
+        {
+          "from": [
+            54,
+            -45
+          ],
+          "to": [
+            66,
+            -24
+          ]
+        },
+        {
+          "from": [
+            66,
+            -24
+          ],
+          "to": [
+            70,
+            0
+          ]
+        },
+        {
+          "from": [
+            30,
+            -30
+          ],
+          "to": [
+            50,
+            -30
+          ]
+        },
+        {
+          "from": [
+            50,
+            -30
+          ],
+          "to": [
+            50,
+            -14
+          ]
+        },
+        {
+          "from": [
+            50,
+            -14
+          ],
+          "to": [
+            30,
+            -14
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "great_tree",
+      "_kind": "T21: the first dungeon, the great tree in the forest's west half (data/dungeon.json's outside; journal: map.svg); its trunk, crown, roots and door are dungeon.rs's",
+      "centre": [2550, 850],
+      "flat_m": [14, 26],
+      "clearing_m": 24,
+      "props": []
+    },
+    {
+      "kind": "scarecrow",
+      "centre": [1400, 3300],
+      "props": [{ "prop": "scarecrow", "at": [0, 0], "yaw_deg": 20 }]
+    },
+    {
+      "kind": "bridge",
+      "centre": [627, 2248],
+      "props": [
+        { "prop": "bridge", "at": [0, 0], "yaw_deg": 90 },
+        { "prop": "signpost", "at": [16, 4], "yaw_deg": 90 }
+      ]
+    },
+    {
+      "kind": "crossroads",
+      "centre": [2000, 2250],
+      "props": [{ "prop": "signpost", "at": [5, 5], "yaw_deg": 0 }]
+    },
+    {
+      "kind": "waystone_village",
+      "_": "M7 travel (T11): the waystone beside the lane north of the village, 260 m from its centre, just outside the opening's 250 m boundary, where most players leave (T12: P7 'roadside' leaves a 20 m gap here); it faces north, up the lane",
+      "centre": [2000, 2540],
+      "clearing_m": 4,
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": 0 }]
+    },
+    {
+      "kind": "waystone_bridge",
+      "_": "north of the road just east of the bridge, facing east along the road",
+      "centre": [652, 2236],
+      "clearing_m": 4,
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": -90 }]
+    },
+    {
+      "kind": "waystone_hill",
+      "_": "on the trainer's hill beside the hut, facing east over the plains",
+      "centre": [324, 1764],
+      "clearing_m": 4,
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": -90 }]
+    },
+    {
+      "kind": "waystone_shrine",
+      "_": "on the shrine's islet, 3 m north-west of the shrine, facing east, so the arrival 4 m east is still on the islet; 'inside' keeps the islet's dome as it is (no footprint flattened under it, so no wall either: SECOND-ORDER.md R9.196)",
+      "centre": [735, 997],
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": -90, "inside": true }]
+    },
+    {
+      "kind": "waystone_camp",
+      "_": "beside the forest trail 141 m south of the camp's lookout (who sees 32 m), facing south-west down the trail",
+      "centre": [3157, 1140],
+      "clearing_m": 5,
+      "props": [{ "prop": "waystone", "at": [0, 0], "yaw_deg": 150 }]
+    },
+    {
+      "kind": "trail_end",
+      "centre": [2870, 1888],
+      "props": [{ "prop": "signpost", "at": [5, 4], "yaw_deg": 30 }]
+    },
+    {
+      "kind": "save_crossroads",
+      "_": "M7 save (P10, T16): a lantern post east of the lane at the crossroads, across from the traveller, facing west onto the lane",
+      "centre": [2007, 2245],
+      "clearing_m": 3,
+      "props": [{ "prop": "save_post", "at": [0, 0], "yaw_deg": 90 }]
+    },
+    {
+      "kind": "save_trail",
+      "_": "M7 save (P10, T16): a lantern post where the trail to the bandit camp leaves the road, beside the trail's signpost, facing back down the road toward the crossroads",
+      "centre": [2864, 1883],
+      "clearing_m": 3,
+      "props": [{ "prop": "save_post", "at": [0, 0], "yaw_deg": 110 }]
+    },
+    {
+      "kind": "save_town",
+      "_": "T32 (TB): the town's save point, a lantern post on the market in front of the council's hall, facing the pond",
+      "centre": [-1005, -1046],
+      "props": [{ "prop": "save_post", "at": [0, 0], "yaw_deg": 186 }]
+    }
+  ],
+  "fields": [
+    {
+      "_note": "the scarecrow's field: strips of crop and earth",
+      "centre": [1400, 3300],
+      "half_m": [90, 60],
+      "yaw_deg": 10,
+      "strip_m": 9
+    }
+  ],
+  "roads": [
+    {
+      "kind": "road",
+      "_note": "the merchant's road, west edge to east edge, through the bridge",
+      "half_cm": 250,
+      "line": [[-1500, 2420], [0, 2300], [400, 2266], [627, 2248], [900, 2226], [1200, 2200], [1600, 2214], [2000, 2250], [2400, 2090], [2800, 1900], [3400, 1790], [4000, 1700], [5500, 1520]]
+    },
+    {
+      "kind": "road",
+      "_note": "M7 (R9.41): out of the village's west side (bearing 296°, west-north-west, where villagers flee), over the meadow to the merchant's road by the bridge, for the bridge and the trainer's hill",
+      "half_cm": 225,
+      "line": [[1975, 2755], [1800, 2665], [1500, 2545], [1200, 2390], [900, 2226]]
+    },
+    {
+      "kind": "road",
+      "_note": "M7 (R9.41): out of the village's north-east side (bearing 45°), to the trail's end on the merchant's road, for the forest and the camp",
+      "half_cm": 225,
+      "line": [[2015, 2740], [2250, 2500], [2560, 2190], [2870, 1888]]
+    },
+    {
+      "kind": "lane",
+      "_note": "from the road to the village green",
+      "half_cm": 175,
+      "line": [[2000, 2250], [1992, 2450], [1996, 2640], [2000, 2775]]
+    },
+    {
+      "kind": "lane",
+      "_note": "T32 (TB): the town's lane from the market north-west between the rings of houses, to the floor's edge below the pass to the ravine (a lane's level is eased along it, so on the pass's rising floor its end would stand as a step)",
+      "half_cm": 200,
+      "line": [[-1026, -1026], [-1080, -1085], [-1140, -1142], [-1177, -1177]]
+    },
+    {
+      "kind": "trail",
+      "_note": "from the bridge's west end up the hill to the trainer's hut",
+      "half_cm": 125,
+      "line": [[606, 2250], [520, 2150], [420, 1980], [350, 1800], [336, 1760]]
+    },
+    {
+      "kind": "trail",
+      "_note": "from the road north through the forest to the camp",
+      "half_cm": 125,
+      "line": [[2870, 1888], [2960, 1600], [3080, 1300], [3180, 1060], [3205, 1000]]
+    },
+  {"kind": "trail", "_note": "T29 (OA): the old south road, from the village's south edge down to the orcs' gate, closed since the raids (a trail, so the wanderers' road ways keep to the roads they had)", "half_cm": 220, "line": [[1960, 2950], [1820, 3400], [1600, 3950], [1400, 4500], [1240, 5000], [1126, 5378]]}
+  ],
+  "bowls": [
+    {
+      "_note": "T29 (TA): the town's bowl, 1.4 km past the square's north-west corner (the journal's World tab, CW-Q35): a level floor 520 m across, terraces, a rim 150 m over the village, back into the ring by out_m. The river begins in its pond and leaves by a gorge cut through the rim to the south-east",
+      "at": [-1000, -1000],
+      "floor_m": 260,
+      "terrace_m": 330,
+      "rim_m": 460,
+      "out_m": 620,
+      "floor_cm": 2000,
+      "terrace_cm": 4500,
+      "rim_cm": 15000,
+      "cuts": [
+        {"_": "T32 (TB): the pass out toward the ravine, north-west through the rim (the journal's World tab, entry 13): a floor 16 m across rising from the terraces to a saddle 50 m up, where it meets the rim's outer slope 560 m out; its sides ease up over 30 m; the ravine's gate stands in it 400 m out. Past the saddle the land falls away outside the rim, toward the ring's mountains, where the ravine will be (TE)", "dir": [-1, -1], "from_m": 300, "to_m": 560, "half_m": 8, "side_m": 30, "floor_cm": [3500, 5000]}
+      ]
+    }
+  ],
+  "dry_beds": [
+    {
+      "_note": "T29 (OA): the river's old course past the swallow-hole to the orcs' great well, dry since the flow failed: a channel depth_cm deep in the middle and half_m across either side",
+      "line": [[820, 4900], [880, 5060], [980, 5220], [1080, 5360], [1150, 5450]],
+      "half_m": 5,
+      "depth_cm": 120
+    }
+  ],
+  "hills": [
+    { "_note": "the trainer's hill, west of the river", "at": [330, 1750], "radius_m": 330, "height_m": 38 },
+    { "at": [1300, 1250], "radius_m": 420, "height_m": 9 },
+    { "at": [2650, 3350], "radius_m": 360, "height_m": 6 },
+    { "at": [3500, 2600], "radius_m": 520, "height_m": 12 },
+    { "at": [1550, 650], "radius_m": 380, "height_m": 11 },
+    { "at": [200, 3300], "radius_m": 450, "height_m": 14 }
+  ],
+  "forest": {
+    "_note": "the north-east forest round the camp: an ellipse with a ragged edge",
+    "centre": [3100, 1000],
+    "radii_m": [930, 730],
+    "edge_m": 90,
+    "glades": {
+      "_note": "M7 forest (T19): the clearings in the forest, placed from the land's seed (terrain::Land::glades): between count[0] and count[1] of them, each radius_m across at most, deep_pct of the way into the forest at least, camp_m from the camp's centre, way_m past the edge of every road and trail, place_m from every place's centre and apart_m from each other, the first good one of tries draws each. Every foes_every-th holds foes (data/wanderers.json, kinds on 'glade'), the rest animals resting (data/animals.json). Each has a stump and a fallen log.",
+      "count": [4, 6],
+      "radius_m": [13, 18],
+      "deep_pct": 85,
+      "camp_m": 220,
+      "way_m": 70,
+      "place_m": 140,
+      "apart_m": 240,
+      "tries": 900,
+      "foes_every": 2
+    }
+  },
+  "river": {
+    "_note": "Its centreline from upstream (north) to downstream (south), through the journal map's curve (control points (600, 0), (1000, 1087), (400, 1753), (700, 4000)) and on beyond the square as scenery. The water is solved from top to bottom between solve_from_z and solve_to_z with the fishing game's step method (water.rs); its bed falls slope_per_1000 a metre except over the riffles. Widths blend between the given points along the river.",
+    "line": [[-1000, -1000], [-900, -930], [-760, -860], [-600, -790], [-430, -700], [-250, -590], [-60, -470], [130, -350], [300, -240], [450, -140], [560, -60], [600, 0], [653, 160], [692, 315], [719, 467], [735, 618], [742, 768], [741, 919], [734, 1072], [722, 1230], [706, 1394], [688, 1565], [669, 1745], [650, 1934], [634, 2136], [627, 2248], [622, 2351], [614, 2580], [613, 2826], [619, 3089], [635, 3371], [662, 3675], [700, 4000], [740, 4300], [820, 4900]],
+    "solve_from_z": -1000,
+    "solve_to_z": 4900,
+    "station_m": 2,
+    "half_cm": 700,
+    "wander_pct": 18,
+    "_wander_pct": "the width wanders this much either way over a few hundred metres, so the banks are not a canal's",
+    "widths": [
+      { "_note": "narrows for the bridge", "z": 2248, "half_cm": 430, "reach_m": 45 },
+      { "_note": "the shrine's ford: wide and shallow round an islet", "z": 1000, "half_cm": 1400, "reach_m": 70 },
+      { "_note": "M7 (R9.47): a second ford, wide and shallow over a riffle, on the way to the south-west hill", "z": 3300, "half_cm": 1800, "reach_m": 90 },
+      { "_note": "T29 (TA): the river's spring, the pond in the bowl's market", "z": -1000, "half_cm": 2400, "reach_m": 25 },
+      { "_note": "T29 (OA): the swallow-hole, where the river sinks short of the orcs' village", "z": 4900, "half_cm": 1400, "reach_m": 30 }
+    ],
+    "level_at": { "z": 2248, "cm": -400 },
+    "_level_at": "the bed is set so that the solved water stands this high where the river crosses this z, under the bridge (the village plateau is 0)",
+    "slope_per_1000": 3,
+    "riffles": [
+      { "from_z": 2320, "to_z": 2372, "slope_per_1000": 24 },
+      { "from_z": 875, "to_z": 915, "slope_per_1000": 20 },
+      { "from_z": 3240, "to_z": 3360, "slope_per_1000": 18 },
+      { "_note": "T29 (TA): down from the bowl's pond through the gorge in its rim to the square's north edge", "from_z": -980, "to_z": -60, "slope_per_1000": 9 }
+    ],
+    "boulder_every_m": 70,
+    "boulder_pct": 45,
+    "boulder_clear_m": 110,
+    "_boulders": "M7 (R9.47): a chance of a boulder every 70 m down the river through the square, 45% of them taken, none within 110 m of a pier, an islet or a ford (water.rs, River::boulders)",
+    "discharge_m3_s": 22,
+    "n_x1000": 35,
+    "n_riffle_x1000": 50,
+    "bank_cm": 200,
+    "valley_m": 260,
+    "piers": [
+      { "_note": "the bridge's two piers, metres across the river from its centreline (right bank positive, looking downstream)", "z": 2248, "across_cm": [-260, 260], "radius_cm": 45, "rise_cm": 300 }
+    ],
+    "islets": [{ "at": [738, 1000], "radius_cm": 550, "top_cm": 90 }]
+  }
+}

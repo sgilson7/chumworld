@@ -1,0 +1,49 @@
+{
+  "_note": "T33 (TC): the town in the bowl's people (crates/core/src/town.rs). Every place here is in centimetres east and south of the town's centre (data/places.json's bowl_town); a yaw turns left from facing north, as a prop's does. Each person is a teller of data/rumours.json (marked 'town'), so their first line, the rumours they know and who has been met go through the rumours' own record; after those, a person goes through their own 'says' in turn. Walkers go along a street of 'streets' to its end and back, at a walk; one stops and turns to the player who comes within pause_cm, and walks on once they are gone. People are drawn within draw_m of the player; walkers walk while the player is within wake_m of the town.",
+  "place": "bowl_town",
+  "talk_cm": 340,
+  "_talk_cm": "E reaches a person this far, feet to feet: a stall-keeper stands behind the stall's counter, 1.7 m from its middle, so from in front of the counter they are 3.05 m off",
+  "pause_cm": 350,
+  "draw_m": 260,
+  "wake_m": 700,
+  "streets": [
+    {"id": "market", "_": "round the pond inside the stalls, 32 m out, the outflow's side left open: the pond reaches out past 31 m from 335 to 50 degrees round from east", "line_m": [[-3, 32], [-13, 29], [-22, 24], [-28, 15], [-32, 6], [-32, -5], [-28, -15], [-22, -23], [-14, -29], [-3, -32], [7, -31], [17, -27], [25, -21]]},
+    {"id": "inner", "_": "between the market's houses and the first ring, 100 m out", "line_m": [[-17, 98], [-42, 91], [-64, 77], [-82, 57], [-94, 34], [-100, 9], [-98, -17], [-91, -42], [-77, -64], [-57, -82], [-34, -94], [-9, -100], [17, -98], [42, -91], [64, -77], [82, -57], [94, -34]]},
+    {"id": "outer", "_": "between the two rings of houses, 188 m out", "line_m": [[-33, 185], [-64, 177], [-94, 163], [-121, 144], [-144, 121], [-163, 94], [-177, 64], [-185, 33], [-188, 0], [-185, -33], [-177, -64], [-163, -94], [-144, -121], [-121, -144], [-94, -163], [-64, -177], [-33, -185], [0, -188], [33, -185], [64, -177], [94, -163], [121, -144], [144, -121], [163, -94], [177, -64]]},
+    {"id": "lane", "_": "the lane north-west from the market, past the well, to the floor's edge below the pass (data/places.json's lane)", "line_m": [[-38, -38], [-80, -85], [-140, -142], [-172, -172]]}
+  ],
+  "workers": [
+    {"id": "fruit_seller_south", "who": "fruit_seller", "at_cm": [310, 3870], "yaw_deg": 5, "look": 0, "says": ["town_fruit_says_1", "town_fruit_says_2"]},
+    {"id": "fruit_seller_south_west", "who": "fruit_seller", "at_cm": [-2200, 3140], "yaw_deg": 325, "look": 2, "says": ["town_fruit_says_2", "town_fruit_says_1"]},
+    {"id": "fruit_seller_west", "who": "fruit_seller", "at_cm": [-3760, 1050], "yaw_deg": 286, "look": 3, "says": ["town_fruit_says_1", "town_fruit_says_2"]},
+    {"id": "fruit_seller_north_east", "who": "fruit_seller", "at_cm": [2200, -3140], "yaw_deg": 145, "look": 1, "says": ["town_fruit_says_2", "town_fruit_says_1"]},
+    {"id": "cloth_seller_west", "who": "cloth_seller", "at_cm": [-3760, -1050], "yaw_deg": 254, "look": 1, "says": ["town_cloth_says_1", "town_cloth_says_2"]},
+    {"id": "cloth_seller_north_west", "who": "cloth_seller", "at_cm": [-1990, -3350], "yaw_deg": 211, "look": 0, "says": ["town_cloth_says_2", "town_cloth_says_1"]},
+    {"id": "cloth_seller_north", "who": "cloth_seller", "at_cm": [1050, -3760], "yaw_deg": 164, "look": 3, "says": ["town_cloth_says_1", "town_cloth_says_2"]},
+    {"id": "cloth_seller_east", "who": "cloth_seller", "at_cm": [3140, -2200], "yaw_deg": 125, "look": 2, "says": ["town_cloth_says_2", "town_cloth_says_1"]},
+    {"id": "innkeeper", "who": "innkeeper", "_": "in front of the inn's porch, facing the market", "at_cm": [-5300, 250], "yaw_deg": 270, "look": 2, "says": ["town_innkeeper_says_1", "town_innkeeper_says_2"]},
+    {"id": "councillor_west", "who": "councillor", "_": "below the hall's steps", "at_cm": [-450, -5100], "yaw_deg": 180, "look": 1, "says": ["town_councillor_says_1", "town_councillor_says_2"]},
+    {"id": "councillor_east", "who": "councillor", "at_cm": [450, -5100], "yaw_deg": 180, "look": 3, "says": ["town_councillor_says_2", "town_councillor_says_1"]},
+    {"id": "clerk", "who": "clerk", "_": "by the hall's steps, where the notice board stands", "at_cm": [900, -5000], "yaw_deg": 200, "look": 0, "says": ["town_clerk_says"]},
+    {"id": "miller_north", "who": "miller", "_": "at the north mill's door", "at_cm": [10750, 3950], "yaw_deg": 264, "look": 0, "says": ["town_miller_says"]},
+    {"id": "miller_south", "who": "miller", "_": "at the south mill's door", "at_cm": [6330, 8140], "yaw_deg": 55, "look": 1, "says": ["town_miller_says"]}
+  ],
+  "walkers": [
+    {"id": "walker_market_1", "street": "market", "from": 0, "toward": 1, "look": 1, "says": ["town_walker_says_1", "town_walker_says_2"]},
+    {"id": "walker_market_2", "street": "market", "from": 6, "toward": 5, "look": 2, "says": ["town_walker_says_3", "town_walker_says_1"]},
+    {"id": "walker_market_3", "street": "market", "from": 11, "toward": 10, "look": 3, "says": ["town_walker_says_2", "town_walker_says_4"]},
+    {"id": "walker_inner_1", "street": "inner", "from": 2, "toward": 3, "look": 0, "says": ["town_walker_says_4", "town_walker_says_3"]},
+    {"id": "walker_inner_2", "street": "inner", "from": 12, "toward": 11, "look": 2, "says": ["town_walker_says_1", "town_walker_says_4"]},
+    {"id": "walker_outer_1", "street": "outer", "from": 4, "toward": 5, "look": 3, "says": ["town_walker_says_2", "town_walker_says_3"]},
+    {"id": "walker_outer_2", "street": "outer", "from": 18, "toward": 17, "look": 1, "says": ["town_walker_says_3", "town_walker_says_2"]},
+    {"id": "walker_lane_1", "street": "lane", "from": 0, "toward": 1, "look": 0, "says": ["town_walker_says_5", "town_walker_says_1"]},
+    {"id": "walker_lane_2", "street": "lane", "from": 3, "toward": 2, "look": 2, "says": ["town_walker_says_5", "town_walker_says_4"]}
+  ],
+  "boards": [
+    {"id": "notice_board", "_": "the notice board, on the market by the hall's steps (data/places.json's bowl_town); E reads it", "prop": "notice_board"}
+  ],
+  "bounties": [
+    {"line": "bounty_camps", "_": "the notice board's bounty on the bandits' camps on the way north-west (data/wanderers.json's bandit_camp); the clerk pays it once every camp is beaten", "paid_by": "clerk", "coins": 60}
+  ],
+  "read_cm": 250
+}

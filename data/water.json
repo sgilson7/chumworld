@@ -1,0 +1,53 @@
+{
+  "_note": "The water's waves and look (M2, crates/core/src/water.rs; data/shaders/water.vert and water.frag). The waves are a Gerstner sum after Extremely Lifelike Fishing's sea.rs, their phases stepped by the core once a tick; toward_deg is a compass heading, 0 toward +z (south), 90 toward +x (east). The look is the fishing game's water look (its data/look.json, \"water\"), retuned for a green-brown river under this game's sky: thousandths unless the name says, colours 0 to 255. Every number reaches the shaders as a uniform (D3).",
+  "waves": [
+    { "toward_deg": 170, "length_cm": 360, "amp_mm": 20, "steep_pct": 50 },
+    { "toward_deg": 215, "length_cm": 230, "amp_mm": 13, "steep_pct": 45 },
+    { "toward_deg": 125, "length_cm": 150, "amp_mm": 8, "steep_pct": 40 },
+    { "toward_deg": 260, "length_cm": 95, "amp_mm": 5, "steep_pct": 30 }
+  ],
+  "mesh": {
+    "_note": "The river's mesh: rows every along_cm down the river (fine_along_cm near the piers and the islet), lanes every across_cm, reaching past each bank by under_m so the bank, not the mesh's edge, ends the water. The far strip draws the river past near_m with coarse rows, as wide as the coarse terrain's dip, handed over through the dither between near_m and its band.",
+    "along_cm": 200,
+    "fine_along_cm": 50,
+    "fine_reach_m": 40,
+    "across_cm": 100,
+    "under_m": 5,
+    "chunk_m": 128,
+    "near_m": 900,
+    "band_pct": 15,
+    "far_along_m": 24,
+    "far_half_m": 70,
+    "pond_cell_cm": 100
+  },
+  "look": {
+    "deep": [34, 74, 70],
+    "shallow": [70, 128, 112],
+    "crest": [120, 210, 180],
+    "foam": [238, 242, 236],
+    "fresnel_base": 30,
+    "fresnel_power": 5000,
+    "crest_power": 3000,
+    "glint": [380000, 4200, 40000, 140],
+    "body": [350, 900, 700, 380],
+    "crest_light": [700, 1400, 200, 550],
+    "foam_fold": [550, 1050, 1300, 2300],
+    "foam_edge": [350, 750, 900, 550],
+    "detail": [1300, 3100, 400, 260],
+    "detail_fade_m": 140,
+    "detail_px": [250, 500],
+    "_detail_px": "T34 (R9.563): each layer of the ripples fades out as one pixel comes to cover from the first to the second share (thousandths) of its noise's cell, so it is gone by half a cell a pixel, the finest the pixels can show without the ripples sparkling as the view turns (CW-18)",
+    "flow": [3000, 300, 1100, 4000],
+    "streak": [250, 4000, 700, 860],
+    "hash": [103, 1, 250, 33330],
+    "noise_period": 64,
+    "see_through": [1600, 120, 820],
+    "_see_through": "how much more opaque a metre of water makes it, the least opacity at the edge, the most it ever has (thousandths)",
+    "shore": [60, 220, 450],
+    "_shore": "foam where the water is shallower than the first (mm), gone by the second, at this strength (thousandths)",
+    "lod_waves": [200, 3, 2000, 5000],
+    "_lod_waves": "a wave fades out as its length falls from the last but one to the last share (thousandths) of the spacing the eye can see: the mesh's (cm) plus metres for every km away",
+    "calm_cm": 30,
+    "_calm_cm": "the waves die away in water shallower than this"
+  }
+}
