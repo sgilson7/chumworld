@@ -1,0 +1,31 @@
+{
+  "_note": "TE (the town in the bowl's fifth phase): the ravine past its gate. crates/core/src/fox.rs reads this file, compiled in: these are rules, not presentation. Places are millimetres in the gate's own frame: across the pass from its middle (x) and along it away from the town (z), as ravine.rs gives the cliffs; ticks are 1/60 s",
+  "foxes": {
+    "homes_mm": [[-3000, 14000], [3000, 18000]],
+    "_homes_mm": "TE2 (DECISIONS.md, 2026-10-24: 'on the first ledge behind it two rabid foxes dodge every cut until one is slowed'): two foxes on the pass's floor 14 and 18 m behind the gate, either side of its middle, where the drop from the wing walls lands (the pass is 17 m across between the cliffs, ravine.rs's CLIFF_IN_MM)",
+    "pace_cm": 250,
+    "_pace_cm": "unwary, each paces a ring this far round its home",
+    "sense_cm": 1600, "leave_cm": 6000,
+    "_sense_cm": "within sense_cm of the player a fox turns and runs at them; past leave_cm from both homes, or with the player down, the living go home whole",
+    "turn_deg_s": 360, "pace_cms": 120, "run_cms": 450,
+    "near_cm": 200, "arc_deg": 45,
+    "crouch_ticks": 24, "lunge_ticks": 12, "lunge_cms": 900, "reach_cm": 130,
+    "_lunge": "within near_cm and arc_deg of its front it crouches (crouch_ticks, the warning), then leaps at lunge_cms for lunge_ticks, stopping a body's width (body_r_cm each) short of the player; halfway through, a player within reach_cm and arc_deg of its front is bitten: hurt and a stagger, unless the raised shield covers that side",
+    "recover_ticks": 40, "back_cms": 200,
+    "_recover": "after a leap it backs off at back_cms for recover_ticks, then runs in again",
+    "hurt": 7, "stagger": 12,
+    "dodge_cm": 160, "dodge_ticks": 10,
+    "_dodge": "a cut that would meet a fox that is not slowed meets nothing: it hops dodge_cm aside, away from the blade, over dodge_ticks, and no cut reaches it while it hops. Slowed by the orb (spell.rs's slow_ticks, at slow_pct of its speed) it cannot",
+    "hits": 3, "hit_wait": 20,
+    "_hits": "a slowed fox's cut is a hit, one each hit_wait ticks; hits kill it",
+    "chest_cm": 45, "head_cm": 58, "head_ahead_cm": 45, "body_r_cm": 30, "head_r_cm": 18
+  },
+  "gate": {
+    "windlass_mm": [-4600, 3500],
+    "_windlass_mm": "TE3 (R9.585: the bar stays on the town's side; a windlass on the ravine side lifts it, so it is lifted from inside the pass): the windlass stands on the pass's floor behind the left tower (the tower runs to 2.2 m along the pass), clear of the leaves' swing (to 2.4 m) and the foxes' homes",
+    "use_cm": 120, "over_cm": 100,
+    "_use_cm": "E turns it from within use_cm of its middle (and story.rs's reach), the feet within over_cm of the ground it stands on, so not from the wing wall's walk above; only once the foxes are beaten",
+    "lift_ticks": 60, "swing_ticks": 120,
+    "_lift_ticks": "turned, the bar rises over lift_ticks, then the leaves swing open into the pass over swing_ticks; the leaves keep a body out until they are open"
+  }
+}

@@ -1,0 +1,386 @@
+{
+  "_note": "T21 (phase A): the first dungeon's rooms. crates/core/src/dungeon.rs reads this file, compiled in. Each room is a space of its own, built high over the land far north of the region (`origin_m`: x east, y up, z south), so nothing in the overworld is near it and it is drawn only from inside it (the places' 3 km fade). A room is a box: its floor at the origin's height, walls round it, a ceiling. Positions inside a room are centimetres from its centre, x east, z south, as on the journal's mockups. `ledges` and `pillars` are raised floors you stand on (their tops in centimetres over the room's floor); a `ramp` climbs from one height to another along x. A door stands in a wall (`wall`: n, s, e or w) `along_cm` from the wall's middle, on a sill `top_cm` up; it leads to another room's door, out to the world, or is closed with a line. Colours are the room's own (journal: rooms.svg), 0 to 255.",
+  "origin_m": [2000, 1900, -9000],
+  "_origin_m": "11 km north of the village, beyond the far ring of mountains, 1.9 km up: dungeon.rs's tests hold every room's floor at least 100 m over the land under it",
+  "outside": {
+    "at_m": [2550, 850], "yaw_deg": 180, "out_cm": 450, "trunk_cm": 600, "tree_cm": 5600,
+    "sockets": { "side_cm": 190, "up_cm": 260, "catch_cm": 110, "aim_deg": 60 },
+    "bulb": { "at_cm": [-800, 120, 350], "range_cm": 2200, "every": 150 }
+  },
+  "_outside": "the great tree in the forest (journal: map.svg, entrance.svg): its trunk's middle, its door facing south on the trunk's face (trunk_cm out), the tree tree_cm tall. Out of the dungeon the player stands out_cm in front of the door. Two sockets stand either side of the door (side_cm along the trunk's face, up_cm up); an orb from the roots' bulb, turned by the player's blade within aim_deg of a dark socket, flies straight to it, and lights it when it passes within catch_cm. Both lit, the door opens. The bulb sits at_cm from the trunk's middle (x east, y up, z south) and throws the trainer's single slow orb at the player every `every` ticks while they are within range_cm and the door is shut.",
+  "rooms": [
+    {
+      "id": "hub",
+      "centre_m": [0, 0],
+      "size_cm": [3200, 2100],
+      "height_cm": 1200,
+      "colours": { "floor": [118, 96, 70], "wall": [104, 76, 50], "ceiling": [62, 45, 30], "top": [132, 98, 64], "side": [112, 82, 54], "door": [34, 22, 13], "frame": [86, 60, 38], "root": [92, 64, 40], "mushroom": [232, 196, 120] },
+      "decor": { "seed": 7, "hanging": 46, "ridges": 22, "mushrooms": 16 },
+      "_decor": "the hub's roots: strands hanging from the ceiling (their ends at least 7.5 m up, over every hop), ridges up the walls, and glowing mushrooms at the feet of the walls and pillars, placed from the seed",
+      "pillars": [
+        [-450, 400, 120, 300], [-850, 150, 120, 300],
+        [0, 250, 140, 300], [0, -250, 120, 300],
+        [450, 400, 120, 300], [850, 150, 120, 300]
+      ],
+      "_pillars": "x, z, radius, top (cm): six-sided root pillars; the one at (0, 250) holds the healing spring",
+      "ledges": [
+        [-200, 600, 200, 1050, 300],
+        [-1600, -400, -1200, 0, 300],
+        [1200, -400, 1600, 0, 300],
+        [-200, -1050, 200, -620, 300]
+      ],
+      "_ledges": "x0, z0, x1, z1, top (cm): the entrance's ledge (south), the left door's (west), the right door's (east), the centre door's (north)",
+      "ramps": [[200, 850, 1000, 1050, 300, 0]],
+      "_ramps": "x0, z0, x1, z1, height at x0, height at x1 (cm): the slope back up from the floor to the entrance's ledge, along the south wall",
+      "doors": [
+        { "id": "entrance", "wall": "s", "along_cm": 0, "top_cm": 300, "to": { "world": "outside" } },
+        { "id": "left", "wall": "w", "along_cm": -200, "top_cm": 300, "to": { "room": { "room": "l1", "door": "l1_east" } } },
+        { "id": "right", "wall": "e", "along_cm": -200, "top_cm": 300, "to": { "room": { "room": "r1", "door": "r1_west" } } },
+        { "id": "centre", "wall": "n", "along_cm": 0, "top_cm": 300, "to": { "room": { "room": "hook_room", "door": "hook_south" } }, "locks": ["a", "b"] }
+      ],
+      "fountains": [{ "id": "great_tree", "at_cm": [-110, 820], "top_cm": 300 }],
+      "springs": [{ "at_cm": [0, 250], "top_cm": 300, "radius_cm": 90 }],
+      "ants": [[-600, -700], [600, -700], [-1000, 600], [1000, 500]],
+      "_ants": "where the floor's ants hatch (cm), on the floor between the pillars (critters.rs)",
+      "chests": [{ "id": "hub_song", "at_cm": [-1350, 800], "top_cm": 0, "gives": [], "song": "strafing" }],
+      "_chests": "T35 (phase G2): the side chest in the hub's south-west corner, the song of strafing written in its lid",
+      "thickets": [{ "id": "hub_song", "at_cm": [-1350, 800], "radius_cm": 110, "height_cm": 170 }],
+      "_thickets": "T35 (phase G2): the thicket of vine grown over it, which only the shears snip (dungeon/thicket.rs)"
+    },
+    {
+      "id": "l1",
+      "_id": "the left prong's first room, the root-pillar maze (journal: plan.svg, rooms.svg): in from the hub's left door on the east ledge, out by the west ledge's door. Two branches drop to lower pillars (2.2 m, then 1.4 m) that a hop cannot climb back from: a corner you are stuck in, with a small chest at its end, and the floor's ramp back up to the east ledge",
+      "centre_m": [-200, 0],
+      "size_cm": [3000, 2200],
+      "height_cm": 1000,
+      "colours": { "floor": [128, 104, 74], "wall": [112, 84, 56], "ceiling": [66, 48, 32], "top": [142, 108, 70], "side": [120, 90, 58], "door": [34, 22, 13], "frame": [90, 64, 40], "root": [102, 72, 44], "mushroom": [236, 206, 130] },
+      "decor": { "seed": 11, "hanging": 34, "ridges": 20, "mushrooms": 14 },
+      "pillars": [
+        [850, -200, 110, 300], [450, -200, 110, 300], [450, 250, 110, 300],
+        [0, 250, 110, 300], [-450, 250, 110, 300], [-850, 250, 110, 300],
+        [450, -650, 110, 220], [0, -650, 110, 140],
+        [-450, 700, 110, 220], [-850, 700, 110, 140]
+      ],
+      "ledges": [[1100, -500, 1500, 1000, 300], [-1500, 0, -1100, 600, 300]],
+      "ramps": [[300, 800, 1100, 1000, 0, 300]],
+      "doors": [
+        { "id": "l1_east", "wall": "e", "along_cm": -200, "top_cm": 300, "to": { "room": { "room": "hub", "door": "left" } } },
+        { "id": "l1_west", "wall": "w", "along_cm": 300, "top_cm": 300, "to": { "room": { "room": "l2", "door": "l2_east" } } }
+      ],
+      "fountains": [],
+      "springs": [],
+      "ants": [[-200, -200], [200, 620]],
+      "chests": [
+        { "id": "l1_north", "at_cm": [0, -650], "top_cm": 140, "gives": [{ "coins": 12 }] },
+        { "id": "l1_south", "at_cm": [-850, 700], "top_cm": 140, "gives": [{ "item": "rock", "count": 3 }, { "coins": 4 }] }
+      ],
+      "_chests": "small chests, on top of a pillar or a ledge (cm); E opens one once and takes what it holds (no bombs yet: CW-Q32)"
+    },
+    {
+      "id": "l2",
+      "_id": "the left prong's second room, the rotting roots: pillars again, grey and mouldy, with infected bulbs on the walls that throw slow orbs at the player while they are near. A blade imbued turns an orb, and an orb turned toward a bulb within the aim bursts it",
+      "centre_m": [-400, 0],
+      "size_cm": [2800, 2400],
+      "height_cm": 1100,
+      "colours": { "floor": [104, 104, 96], "wall": [92, 94, 88], "ceiling": [52, 54, 50], "top": [122, 124, 114], "side": [98, 100, 92], "door": [30, 28, 24], "frame": [78, 78, 70], "root": [96, 100, 88], "mushroom": [176, 214, 150] },
+      "decor": { "seed": 23, "hanging": 40, "ridges": 26, "mushrooms": 12 },
+      "pillars": [
+        [760, 100, 110, 300], [330, 100, 110, 300], [330, -330, 110, 300],
+        [-100, -330, 110, 300], [-530, -560, 110, 300],
+        [330, 550, 110, 220], [-100, 550, 110, 140]
+      ],
+      "ledges": [[1000, -300, 1400, 1200, 300], [-900, -1200, -300, -800, 300]],
+      "ramps": [[200, 900, 1000, 1100, 0, 300]],
+      "doors": [
+        { "id": "l2_east", "wall": "e", "along_cm": 100, "top_cm": 300, "to": { "room": { "room": "l1", "door": "l1_west" } } },
+        { "id": "l2_north", "wall": "n", "along_cm": -600, "top_cm": 300, "to": { "room": { "room": "den", "door": "den_south" } } }
+      ],
+      "fountains": [],
+      "springs": [],
+      "chests": [{ "id": "l2_south", "at_cm": [-100, 550], "top_cm": 140, "gives": [{ "coins": 20 }] }],
+      "bulbs": [[-1350, 500, -300], [0, 650, -1150], [700, 600, -1150], [-600, 550, 1150]],
+      "_bulbs": "infected bulbs on the walls (x, y up, z, cm)"
+    },
+    {
+      "id": "den",
+      "_id": "the vine's den: a ring of roots round one long vine (vine.rs). Its only door is the way back",
+      "centre_m": [-600, 0],
+      "size_cm": [2200, 2200],
+      "height_cm": 1100,
+      "colours": { "floor": [110, 112, 70], "wall": [84, 92, 56], "ceiling": [44, 52, 32], "top": [120, 124, 80], "side": [96, 104, 64], "door": [30, 26, 14], "frame": [72, 76, 44], "root": [86, 110, 52], "mushroom": [210, 230, 140] },
+      "decor": { "seed": 31, "hanging": 30, "ridges": 28, "mushrooms": 12 },
+      "pillars": [],
+      "ramps": [],
+      "doors": [
+        { "id": "den_south", "wall": "s", "along_cm": 0, "top_cm": 0, "to": { "room": { "room": "l2", "door": "l2_north" } } }
+      ],
+      "fountains": [],
+      "springs": [],
+      "ledges": [[600, -1100, 1100, -700, 400]],
+      "plates": [{ "wall": "n", "along_cm": 850, "up_cm": 700 }],
+      "chests": [{ "id": "den_ledge", "at_cm": [850, -960], "top_cm": 400, "gives": [{ "item": "vine_circlet" }] }],
+      "_chests": "phase E: a chest on a 4 m ledge reached only by hooking the plate over it and dropping"
+    },
+    {
+      "id": "hook_room",
+      "_id": "the hook shrine behind the centre door (phase D; journal: rooms.svg, 'a clean, lit shrine for the hookshot'): the hookshot in a small chest on a dais, and on the north wall, over a 3 m ledge no hop reaches, a hook plate low enough to aim at (the view looks up 34° at most, so a plate higher than its distance allows cannot be aimed at). From the ledge a door leads out onto the bark (phase E)",
+      "centre_m": [0, 200],
+      "size_cm": [2000, 2400],
+      "height_cm": 1400,
+      "colours": { "floor": [196, 186, 160], "wall": [170, 154, 122], "ceiling": [104, 92, 72], "top": [210, 200, 172], "side": [180, 168, 138], "door": [40, 30, 20], "frame": [130, 110, 80], "root": [150, 128, 96], "mushroom": [255, 236, 170] },
+      "decor": { "seed": 79, "hanging": 14, "ridges": 18, "mushrooms": 28 },
+      "pillars": [],
+      "ledges": [[-300, -100, 300, 500, 40], [-600, -1200, 600, -800, 300]],
+      "_ledges": "the dais (40 cm, stepped onto) and the 3 m ledge before the way out, past any hop (0.49 m)",
+      "ramps": [],
+      "doors": [
+        { "id": "hook_south", "wall": "s", "along_cm": 0, "top_cm": 0, "to": { "room": { "room": "hub", "door": "centre" } } },
+        { "id": "hook_north", "wall": "n", "along_cm": 0, "top_cm": 300, "to": { "bark": "bark_b0" } }
+      ],
+      "fountains": [],
+      "springs": [],
+      "chests": [{ "id": "hook_shrine", "at_cm": [0, 200], "top_cm": 40, "gives": [{ "item": "hookshot" }] }],
+      "plates": [{ "wall": "n", "along_cm": 0, "up_cm": 550 }],
+      "_plates": "hook plates, each in a wall (n, s, e or w) along_cm from its middle and up_cm over the floor"
+    },
+    {
+      "id": "arena1",
+      "_id": "phase E: the first arena inside the trunk, between branches b2 and b3: in by the south door, out by the north, sealed by roots until its foes are down (arenas.rs)",
+      "centre_m": [0, 400],
+      "size_cm": [1800, 1800],
+      "height_cm": 900,
+      "colours": { "floor": [124, 98, 70], "wall": [110, 80, 52], "ceiling": [60, 44, 30], "top": [136, 104, 70], "side": [116, 86, 56], "door": [34, 22, 13], "frame": [86, 60, 38], "root": [96, 68, 42], "mushroom": [240, 200, 120] },
+      "decor": { "seed": 89, "hanging": 18, "ridges": 20, "mushrooms": 10 },
+      "pillars": [], "ledges": [], "ramps": [],
+      "doors": [
+        { "id": "arena1_s", "wall": "s", "along_cm": 0, "top_cm": 0, "to": { "bark": "arena1_in" } },
+        { "id": "arena1_n", "wall": "n", "along_cm": 0, "top_cm": 0, "to": { "bark": "arena1_out" } }
+      ],
+      "fountains": [], "springs": [],
+      "foes": [{ "kind": "attack_ant", "at_cm": [0, -300] }]
+    },
+    {
+      "id": "arena2",
+      "_id": "phase E: the second arena, between branch b5 and the crown",
+      "centre_m": [200, 400],
+      "size_cm": [2000, 2000],
+      "height_cm": 1000,
+      "colours": { "floor": [118, 94, 68], "wall": [104, 76, 50], "ceiling": [58, 42, 28], "top": [132, 98, 64], "side": [112, 82, 54], "door": [34, 22, 13], "frame": [86, 60, 38], "root": [92, 64, 40], "mushroom": [236, 196, 120] },
+      "decor": { "seed": 97, "hanging": 22, "ridges": 24, "mushrooms": 12 },
+      "pillars": [], "ledges": [], "ramps": [],
+      "doors": [
+        { "id": "arena2_s", "wall": "s", "along_cm": 0, "top_cm": 0, "to": { "bark": "arena2_in" } },
+        { "id": "arena2_n", "wall": "n", "along_cm": 0, "top_cm": 0, "to": { "bark": "arena2_out" } }
+      ],
+      "fountains": [], "springs": [],
+      "foes": [{ "kind": "attack_ant", "at_cm": [-300, -300] }, { "kind": "attack_ant", "at_cm": [300, -300] }]
+    },
+    {
+      "id": "king",
+      "_id": "phase F: the Ant King's cone, behind the crown's gate. In on a balcony at the rim, 12 m up the south wall; the cone's platforms slide down its walls to the king at its foot (king.rs). Roots hold the door until the king is down",
+      "centre_m": [0, 600],
+      "size_cm": [3200, 3200],
+      "height_cm": 2600,
+      "colours": { "floor": [112, 86, 60], "wall": [92, 66, 44], "ceiling": [46, 32, 22], "top": [128, 96, 64], "side": [104, 76, 50], "door": [30, 20, 12], "frame": [84, 58, 36], "root": [88, 60, 38], "mushroom": [236, 196, 120] },
+      "decor": { "seed": 131, "hanging": 30, "ridges": 0, "mushrooms": 0 },
+      "pillars": [], "ramps": [],
+      "ledges": [[-400, 1300, 400, 1600, 1200]],
+      "doors": [
+        { "id": "king_s", "wall": "s", "along_cm": 0, "top_cm": 1200, "to": { "bark": "boss" } }
+      ],
+      "fountains": [], "springs": []
+    },
+    {
+      "id": "r1",
+      "_id": "the right prong's first room, the ants' roots: in from the hub's right door on a west ledge, a ramp down to the floor, three ants among clumps of root, out by the north door",
+      "centre_m": [200, 0],
+      "size_cm": [2600, 2200],
+      "height_cm": 900,
+      "colours": { "floor": [150, 104, 84], "wall": [128, 86, 68], "ceiling": [70, 46, 38], "top": [160, 114, 92], "side": [136, 94, 74], "door": [40, 24, 18], "frame": [100, 66, 52], "root": [112, 78, 58], "mushroom": [244, 214, 190] },
+      "decor": { "seed": 41, "hanging": 26, "ridges": 22, "mushrooms": 18 },
+      "pillars": [[0, 300, 150, 250], [500, -300, 130, 250], [-300, -500, 120, 250]],
+      "ledges": [[-1300, -600, -900, 200, 300]],
+      "ramps": [[-900, -300, -300, -100, 300, 0]],
+      "doors": [
+        { "id": "r1_west", "wall": "w", "along_cm": -200, "top_cm": 300, "to": { "room": { "room": "hub", "door": "right" } } },
+        { "id": "r1_north", "wall": "n", "along_cm": 700, "top_cm": 0, "to": { "room": { "room": "r2", "door": "r2_south" } } }
+      ],
+      "fountains": [],
+      "springs": [],
+      "ants": [[200, 600], [600, 200], [-100, -200]]
+    },
+    {
+      "id": "r2",
+      "_id": "the right prong's second room, the lashing vines: two walls of root make a path that winds west, east and west again, and a vine rooted in the middle of each stretch whips round over the floor, so the way through is timed between its passes (vine whips: lashers.rs)",
+      "centre_m": [400, 0],
+      "size_cm": [2400, 2600],
+      "height_cm": 1000,
+      "colours": { "floor": [96, 102, 70], "wall": [82, 90, 58], "ceiling": [44, 50, 32], "top": [106, 112, 76], "side": [90, 98, 62], "door": [30, 26, 14], "frame": [72, 76, 44], "root": [80, 108, 50], "mushroom": [220, 232, 150] },
+      "decor": { "seed": 53, "hanging": 30, "ridges": 24, "mushrooms": 10 },
+      "pillars": [],
+      "ledges": [[-400, 300, 1200, 500, 600], [-1200, -500, 400, -300, 600]],
+      "_ledges": "walls of root 6 m tall: the floor's three stretches, joined at the west end of the first wall and the east end of the second",
+      "ramps": [],
+      "doors": [
+        { "id": "r2_south", "wall": "s", "along_cm": 600, "top_cm": 0, "to": { "room": { "room": "r1", "door": "r1_north" } } },
+        { "id": "r2_north", "wall": "n", "along_cm": -500, "top_cm": 0, "to": { "room": { "room": "ant_den", "door": "ant_south" } } }
+      ],
+      "fountains": [],
+      "springs": [],
+      "lashers": [
+        { "at_cm": [-100, 900], "len_cm": 430, "period": 300, "phase": 0 },
+        { "at_cm": [100, 0], "len_cm": 340, "period": 260, "phase": 130 },
+        { "at_cm": [0, -900], "len_cm": 440, "period": 320, "phase": 60 }
+      ],
+      "_lashers": "vines rooted at_cm, each a whip len_cm long lying over the floor and turning round its root once every `period` ticks, `phase` ticks into its turn at the start (lashers.rs)"
+    },
+    {
+      "id": "ant_den",
+      "_id": "the shield ant's den (shield_ant.rs): a round of clay and egg clusters. Its only door is the way back",
+      "centre_m": [600, 0],
+      "size_cm": [2200, 2200],
+      "height_cm": 1100,
+      "colours": { "floor": [138, 92, 76], "wall": [112, 72, 58], "ceiling": [60, 38, 32], "top": [150, 102, 84], "side": [124, 82, 66], "door": [36, 22, 16], "frame": [94, 60, 46], "root": [104, 70, 52], "mushroom": [246, 222, 196] },
+      "decor": { "seed": 67, "hanging": 24, "ridges": 30, "mushrooms": 22 },
+      "pillars": [],
+      "ramps": [],
+      "doors": [
+        { "id": "ant_south", "wall": "s", "along_cm": 0, "top_cm": 0, "to": { "room": { "room": "r2", "door": "r2_north" } } }
+      ],
+      "fountains": [],
+      "springs": [],
+      "ledges": [[-1100, -1100, -600, -700, 400]],
+      "plates": [{ "wall": "n", "along_cm": -850, "up_cm": 700 }],
+      "chests": [{ "id": "ant_ledge", "at_cm": [-850, -960], "top_cm": 400, "gives": [{ "item": "chitin_shield" }] }]
+    }
+  ],
+  "climb": {
+    "branches": [
+      { "id": "b0", "yaw_deg": 0, "top_cm": 800, "plate": false },
+      { "id": "b1", "yaw_deg": 45, "top_cm": 1200, "plate": true },
+      { "id": "b2", "yaw_deg": 90, "top_cm": 1600, "plate": true },
+      { "id": "b3", "yaw_deg": 180, "top_cm": 2400, "plate": false },
+      { "id": "b4", "yaw_deg": 225, "top_cm": 2800, "plate": true },
+      { "id": "b5", "yaw_deg": 270, "top_cm": 3200, "plate": true }
+    ],
+    "_branches": "phase E (climb.rs; journal: climb.svg): branches out from the great tree's trunk, each yaw_deg round it (the way it points out, as a heading) with its top top_cm over the ground at the trunk. A branch with a plate is reached by a hook plate in the trunk over it (plate_up_cm over its top, so a hang drops onto it); one without is reached by a door. Each hooked branch is 45° on from the last and 4 m up: from a branch's tip the next plate is 7.8 m across and 5 m up, 9.2 m off and 33° up, inside the hookshot's reach and the view's 35°, and in sight round the trunk's curve (a 6 m trunk seen from 10.75 m out shows 56° of its face either side; at 60° the plate was behind the curve, R9.501)",
+    "branch_cm": [500, 260], "thick_cm": 80, "plate_up_cm": 250,
+    "crown": { "top_cm": 4000, "half_cm": 1300 },
+    "_crown": "the crown: the trunk's top, a platform half_cm each way from its middle, top_cm up; the save fountain, the healing pool and the boss door stand on it",
+    "fountain": { "id": "crown", "at_cm": [-700, 600] },
+    "spring": { "at_cm": [700, 600], "radius_cm": 120 },
+    "waystone": { "at_cm": [-650, -100], "yaw_deg": 324 },
+    "_waystone": "T34 (the person: \"there should be waystone at the boss door\"): a waystone on the crown before the boss's door, at_cm from the trunk's middle, west of the dais and clear of the braziers; it faces the door (36 degrees east of north), so travel and a fall to it leave the player 4 m in front of it, facing the door (data/travel.json's crown point)",
+    "doors": [
+      { "id": "bark_b0", "on": "b0", "to": { "room": { "room": "hook_room", "door": "hook_north" } } },
+      { "id": "arena1_in", "on": "b2", "to": { "room": { "room": "arena1", "door": "arena1_s" } } },
+      { "id": "arena1_out", "on": "b3", "to": { "room": { "room": "arena1", "door": "arena1_n" } } },
+      { "id": "arena2_in", "on": "b5", "to": { "room": { "room": "arena2", "door": "arena2_s" } } },
+      { "id": "arena2_out", "on": "crown", "at_cm": [0, 950], "to": { "room": { "room": "arena2", "door": "arena2_n" } } },
+      { "id": "boss", "on": "crown", "yaw_deg": 180, "at_cm": [0, -1000], "to": { "room": { "room": "king", "door": "king_s" } } }
+    ],
+    "gate": { "wall_cm": [1100, 900, 160], "door_cm": [320, 460], "tower_cm": [170, 1250], "brazier_cm": [220, 380] },
+    "_gate": "T31 (the person: \"the boss door needs to be made much more majestic and cool looking, and not just float there in free space\"): the boss's door stands at the crown's north edge (at_cm from the trunk's middle), facing in, set in a wall of bark wall_cm across, up and thick, crowned with points, between two towers tower_cm round and high with gold spires; its doorway is door_cm, two bronze leaves under a gold arch, with columns and the king's crest over it; two braziers stand brazier_cm out and aside. The wall, the towers and the braziers are solid (climb.rs, gate_parts)",
+    "_doors": "doors on the bark: each in the trunk at the root of its branch (or on the crown, facing yaw_deg, by default south), facing out",
+    "fall_cm": 400,
+    "_fall_cm": "landing this far below the last branch stood on, near the tree, the view fades and the player stands on that branch again (CW-Q31: no harm)"
+  },
+  "attack_ant": {
+    "sense_cm": 1400, "turn_deg_s": 120, "walk_cms": 160, "near_cm": 170,
+    "reach_cm": 200, "arc_deg": 60, "wind_ticks": 16, "slash_ticks": 8, "combo": 3, "recover_ticks": 45,
+    "hurt": 9, "stagger": 14, "hits": 4, "hit_wait": 20,
+    "chest_cm": 115, "head_cm": 175, "body_r_cm": 42, "head_r_cm": 28
+  },
+  "_attack_ant": "the arenas' enemy (attack_ant.rs): an ant on two legs with a blade in each of its two hands. Within sense_cm of the player it turns to them (turn_deg_s) and walks at them (walk_cms) until near_cm off; then winds a blade back (wind_ticks) and slashes it across its front (slash_ticks), left then right, `combo` slashes, then recovers (recover_ticks). Halfway through a slash a player within reach_cm and arc_deg of its front takes `hurt` and a stagger, unless the raised shield covers that side. A blade through its chest (chest_cm up, body_r_cm round) or head is a hit, one each hit_wait ticks; `hits` kill it",
+  "king": {
+    "room": "king",
+    "rim_cm": [1150, 1130],
+    "foot_cm": [650, 260],
+    "cone_cm": [550, 1580, 700],
+    "platforms": 12,
+    "platform_cm": 260,
+    "platform_thick_cm": 40,
+    "slide_ticks": 1440,
+    "height_cm": 900,
+    "body_r_cm": 200,
+    "plate_half_cm": 55,
+    "plates_cm": [[0, 640, 200], [-90, 520, 200], [90, 520, 200], [-70, 360, 200], [70, 360, 200]],
+    "_plates_cm": "T36: each plate across, up and out from the foot, on the front of the column the hook stops on (body_r_cm round), never inside it: the bottom two had sat 50 cm inside, so the body took every line to them",
+    "turn_deg_s": 30,
+    "slap_every": 400,
+    "slap_wind": 60,
+    "slap_arc_deg": 45,
+    "slap_reach_cm": 1500,
+    "slap_hurt": 12,
+    "slam_every": 600,
+    "slam_wind": 90,
+    "slam_r_cm": 400,
+    "slam_hurt": 18,
+    "hook_posts_deg": [15, 75, 135, 195, 255, 315],
+    "hook_post_r_cm": 1350,
+    "hook_ups_cm": [800, 1100, 1400],
+    "fall_hurt": 6,
+    "spells": {
+      "every": 400,
+      "brood_count": 3,
+      "brood_cms": 110,
+      "brood_reach_cm": 55,
+      "brood_bite": 3,
+      "brood_bite_every": 50,
+      "drop_count": 3,
+      "drop_spread_cm": 120,
+      "drop_high_cm": 450,
+      "drop_linger": 60,
+      "drop_cms": 1400,
+      "drop_r_cm": 70,
+      "drop_hurt": 10
+    },
+    "hold_keys": 12,
+    "hold_drain_ticks": 600,
+    "shake_every": 180,
+    "shake_pct": 10,
+    "shrink_ticks": 150,
+    "small_cm": 230,
+    "rewards": [
+      { "id": "heart", "item": "heart", "at_cm": [-200, 300], "up_cm": 0 },
+      { "id": "orb", "item": "slowing_orb", "at_cm": [0, 300], "up_cm": 110 },
+      { "id": "stick", "item": "chump_stick", "at_cm": [200, 300], "up_cm": 0 },
+      { "id": "shears", "item": "shears", "at_cm": [0, 450], "up_cm": 0 }
+    ],
+    "_rewards": "T35 (phase G): what the king leaves once it is cut down, each where it lies (cm east and south of the cone's foot, toward the balcony, and up from the floor); E takes one, and it is the save's the moment it is taken (reward.<id>); G2: the shears a metre and a half behind the orb"
+  },
+  "_king": "the Ant King's fight, phase 1 (king.rs; the journal's entry 22). The cone: its wall drawn from cone_cm's foot radius to its rim radius and top; `platforms` platforms (platform_cm a side, platform_thick_cm thick) evenly round the room, each sliding from the rim (rim_cm: radius, top) to the foot (foot_cm) over slide_ticks, the next a twelfth behind, then back at the rim. A fall to the floor puts you back on the platform you last stood on (the balcony if it is past three quarters of its slide), hurt fall_hurt. The king stands at the foot, height_cm tall and body_r_cm round, turning to you at turn_deg_s, with five gold plates (plates_cm: across, up, out from its middle, turned with it; plate_half_cm half a side) the hookshot takes. Hung on a plate, every key of W, A, S, D that differs from the last fills its hold by one of hold_keys; it drains in hold_drain_ticks, and each shake_every ticks the king shakes off shake_pct of it (T31: at six keys a second a plate tears off in under 3 s; the first numbers, 120, 90 and 25, needed more than eight a second to hold even). Full, the plate tears off and you fall. Every slap_every ticks it winds a slap for slap_wind ticks and sweeps slap_arc_deg either side of its front out to slap_reach_cm: on a platform there you take slap_hurt and are knocked off (its great right arm, drawn back and swept across). Each slam_every ticks, halfway, it slams: both arms over your spot for slam_wind ticks, a ring slam_r_cm round it; standing in it you take slam_hurt and are knocked off. The hook points save you: on posts of root at hook_posts_deg, hook_post_r_cm from the foot, a plate facing in to the foot at each of hook_ups_cm. Every spells.every ticks, halfway between, it casts a spell of its own (spells.rs), by turns: a brood of brood_count ants onto your platform, crawling at brood_cms and biting for brood_bite each brood_bite_every ticks from brood_reach_cm; or drop_count orbs over you (on your feet and drop_spread_cm ahead and behind), drop_high_cm up, hanging drop_linger ticks over rings where they land, then falling at drop_cms, drop_hurt each within drop_r_cm. Phase 2: all five plates off, the platforms are gone, the cone's wall sinks and the king shrinks to small_cm over shrink_ticks; then it is a fighter (pilots.json's ant_king, pose.rs's AntKing), and the duel is on the flat floor. Down, the door opens and the save keeps it",
+  "_locks": "a door's padlocks (phase D): E with a padlock's key opens it, and the door leads on only once each is open (dungeon.rs, use_door). A key opens its padlock and is kept",
+  "hook": { "fly_cms": 3000, "pull_cms": 1500, "hang_out_cm": 45, "hang_below_cm": 200, "plate_cm": 35, "eye_cm": 150 },
+  "_hook": "the hookshot (hookshot.rs): aimed from eye_cm over the feet along the view, it reaches items.json's reach_m; its hook flies at fly_cms and, caught in a hook plate (a square plate_cm half a side), pulls the player at pull_cms to hang with their feet hang_below_cm under the plate and hang_out_cm out from it",
+  "lash": { "hurt": 8, "stagger": 18, "every": 40, "width_cm": 14 },
+  "_lash": "a lashing vine's whip that passes within width_cm of a player's body on the floor takes `hurt` health and staggers them `stagger` ticks, no more than once every `every` ticks a vine",
+  "shield_ant": {
+    "room": "ant_den", "at_cm": [0, -300], "key": "b",
+    "sense_cm": 1500, "turn_deg_s": 40, "walk_cms": 90, "near_cm": 260,
+    "bash_cm": 250, "bash_arc_deg": 50, "wind_ticks": 36, "bash_ticks": 8, "recover_ticks": 45, "recover_turn_pct": 25,
+    "hurt": 14, "stagger": 24,
+    "belly_cm": 110, "belly_r_cm": 45, "head_cm": 205, "head_r_cm": 32,
+    "shield_top_cm": 165, "shield_arc_deg": 70, "hits": 3, "hit_wait": 30, "body_cm": 60
+  },
+  "_shield_ant": "the right prong's mini-boss (shield_ant.rs; journal: shield.svg): standing upright, a shield on its front arm. While the player is within sense_cm it turns its shield toward them at turn_deg_s, slower than they can circle it close in, and walks at them (walk_cms) until near_cm off. With them within bash_cm and within bash_arc_deg of its front it draws the shield back (wind_ticks: the warning) and bashes (bash_ticks): `hurt` and a stagger if they are still there. Then it recovers, turning at recover_turn_pct of its speed: the opening. A blade swept through its belly (belly_cm up, belly_r_cm round) or its head is a hit, unless it meets the shield: within shield_arc_deg of its front and under shield_top_cm. `hits` hits, no more than one each hit_wait ticks, kill it, and its key lies where it fell. Its body keeps others out within body_cm",
+  "bulb_range_cm": 1800,
+  "bulb_every": 180,
+  "_bulb_every": "a room's bulbs throw the trainer's single slow orb every `bulb_every` ticks each, in turn, at a player within `bulb_range_cm`; they come back whenever the player comes into the room, as the ants do",
+  "vine": {
+    "room": "den", "at_cm": [0, -450], "key": "a",
+    "sense_cm": 1300, "reach_cm": 1100, "rest_cm": 260, "beyond_cm": 120,
+    "coil_ticks": 90, "rear_ticks": 32, "lunge_ticks": 14, "out_ticks": 80, "back_ticks": 30,
+    "hurt": 18, "hit_cm": 70, "neck_cm": 26, "cut_gap_cm": 30, "cuts": 3
+  },
+  "_vine": "the vine mini-boss (vine.rs; journal: vine.svg): rooted at_cm from its room's middle. While the player is within sense_cm it coils (coil_ticks), rears back (rear_ticks: the warning), and lunges its head straight at where the player's chest was as the lunge began, beyond_cm past it, at most reach_cm from its root, over lunge_ticks. A head that passes within hit_cm of the player's chest takes `hurt` health, once a lunge. The neck then lies stretched out_ticks before it draws back (back_ticks). A blade swung across the neck (within neck_cm + cut_gap_cm of it) while it lunges or lies out cuts it, once a lunge, and it draws back at once; `cuts` cuts kill it, and its key lies where its root was. Nothing else hurts it",
+  "door_reach_cm": 170,
+  "_door_reach_cm": "E opens a door from this close to its middle",
+  "door_inside_cm": 220,
+  "_door_inside_cm": "through a door, the player stands this far in from it, facing into the room",
+  "dark_ticks": 24,
+  "hold_ticks": 18,
+  "_dark_ticks": "a door fades the view out over these ticks, moves the player, then holds the dark and fades back in",
+  "heal_per_tick": 1,
+  "_heal_per_tick": "standing in a healing spring restores this much health a tick (60 a second) up to full"
+}

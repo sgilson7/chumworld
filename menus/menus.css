@@ -1,0 +1,1106 @@
+/* The menus (M4): the HUD, the ring of four screens, dialogue, the shop,
+   settings, and the title and pause screens restyled. Colours follow
+   Protection of the Spheres' warm paper and plum ink (style.css, data/look.json);
+   the ring is Ocarina of Time's: four screens on the inside of a ring, the
+   one in front flat to the reader, its neighbours angled at the edges. */
+:root {
+  --ink: #2b2140;
+  --ink-soft: #5d5470;
+  --paper: #fbf5e9;
+  --paper-2: #f4ead6;
+  --paper-edge: #e3d3b4;
+  --rim: #c99a4e;
+  --gold: #f2bf55;
+  --gold-deep: #b97f2a;
+  --well: #ece0c6;
+  --well-deep: #d9c7a3;
+  --accent: #d9774a;
+  --accent-deep: #b65a33;
+  --sky: #5f97dc;
+  --sky-deep: #3f6db3;
+  --leaf: #6aa65a;
+  --glass-ink: rgba(36, 27, 54, 0.62);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-turn: cubic-bezier(0.45, 0.05, 0.2, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --shadow-card: 0 24px 60px rgba(30, 20, 48, 0.34), 0 3px 10px rgba(30, 20, 48, 0.22);
+}
+
+#menus { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+#menus > * { pointer-events: none; }
+#overlay { z-index: 5; }
+#message { z-index: 10; }
+
+kbd { font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- HUD */
+
+#play-hud {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+  color: var(--paper);
+  font-weight: 750;
+}
+#play-hud.shown { opacity: 1; visibility: visible; transition: opacity 0.3s ease; }
+
+.hud-vitals {
+  position: absolute;
+  top: 28px;
+  left: 32px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 28px 10px 10px;
+  border-radius: 999px;
+  background: var(--glass-ink);
+  box-shadow: 0 6px 18px rgba(20, 12, 32, 0.25);
+}
+.hud-bars { display: flex; flex-direction: column; gap: 6px; width: 260px; }
+
+.bar { display: flex; flex-direction: column; gap: 3px; }
+.bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.bar-label { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.9; }
+.bar-text { font-size: 14px; font-variant-numeric: tabular-nums; }
+.bar-track {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(20, 12, 32, 0.55);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 1.5px rgba(251, 245, 233, 0.55);
+  overflow: hidden;
+}
+.bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--pct, 0) * 1%);
+  border-radius: inherit;
+  background: linear-gradient(180deg, #ffb39a 0%, #e8643f 55%, #c84c2c 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transition: width 0.35s var(--ease-out);
+}
+/* health is a red-orange bar with a heart's notches; speed a blue one;
+   footing is pale and cut by hatching, read as ice (shape and pattern, not
+   colour alone) */
+.bar-health .bar-fill {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(20, 12, 32, 0.32) calc(10% - 2px) 10%),
+    linear-gradient(180deg, #ffb39a 0%, #e8643f 55%, #c84c2c 100%);
+}
+.bar-health { gap: 4px; }
+/* T35 (phase G): the mana, round pips filling from the bottom, blue, the
+   full ones ringed brighter (shape and fill, not colour alone) */
+.pips { display: flex; flex-direction: column; gap: 3px; }
+.pip-row { display: flex; gap: 6px; }
+.pip {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background:
+    linear-gradient(0deg, #7ab8ff 0 calc(var(--pct, 0) * 1%), rgba(20, 12, 32, 0.55) calc(var(--pct, 0) * 1%) 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 1.5px rgba(251, 245, 233, 0.55);
+}
+.pip.full { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 0 2px #e6f1ff; }
+.bar-health .bar-track { height: 14px; }
+.bar-speed .bar-fill { background: linear-gradient(180deg, #b8d6fb 0%, var(--sky) 55%, var(--sky-deep) 100%); }
+.bar-footing .bar-fill {
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.75) 0 3px, transparent 3px 7px),
+    linear-gradient(180deg, #f2fbff 0%, #a8dcef 100%);
+}
+/* M7 (T14): the sprint's build, a bar of chevrons that runs forward (a
+   pattern and its words, not colour alone) */
+.bar-sprint .bar-track { height: 8px; }
+.bar-sprint .bar-label { font-size: 11px; }
+.bar-sprint .bar-text { font-size: 12px; }
+.bar-sprint .bar-fill {
+  background:
+    repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.6) 0 3px, transparent 3px 9px),
+    linear-gradient(180deg, #ffe9a8 0%, #f2b84a 100%);
+  transition: width 0.15s linear;
+}
+/* T35 (phase G2): the song of strafing while it lasts, a violet bar of
+   notes' stripes running across (its name and seconds beside it) */
+.bar-song .bar-track { height: 8px; }
+.bar-song .bar-label { font-size: 11px; }
+.bar-song .bar-text { font-size: 12px; }
+.bar-song .bar-fill {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.55) 0 2px, transparent 2px 8px),
+    linear-gradient(180deg, #e6d6ff 0%, #9d7be0 100%);
+}
+.footing { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
+.footing .bar-track { height: 8px; }
+.footing .bar-label { font-size: 11px; }
+.footing .bar-text { font-size: 12px; }
+
+.imbue-ring { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 76px; }
+.imbue-ring .dial {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle, var(--paper) 0 62%, transparent 63%),
+    conic-gradient(var(--ring-fill, var(--gold)) calc(var(--pct, 0) * 1%), rgba(20, 12, 32, 0.6) 0);
+  box-shadow: 0 0 0 2px rgba(251, 245, 233, 0.7), 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.3s ease;
+}
+.imbue-ring .dial img { width: 44px; height: 44px; }
+.imbue-ring[data-state="cooling"] .dial img { opacity: 0.45; filter: grayscale(0.7); }
+.imbue-ring[data-state="on"] { --ring-fill: #ff9fd0; }
+.imbue-ring[data-state="on"] .dial { box-shadow: 0 0 0 2px #fff, 0 0 18px 4px rgba(255, 159, 208, 0.85); }
+.imbue-ring[data-state="ready"] .dial { box-shadow: 0 0 0 2px #fff, 0 0 12px 2px rgba(242, 191, 85, 0.75); }
+.ring-words { display: flex; flex-direction: column; align-items: center; line-height: 1.25; gap: 1px; }
+.ring-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; }
+.ring-text { font-size: 14px; font-variant-numeric: tabular-nums; }
+
+.hud-foe {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  width: 420px;
+  transform: translate(-50%, -8px);
+  padding: 10px 20px 12px;
+  border-radius: 18px;
+  background: var(--glass-ink);
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.3s var(--ease-out);
+}
+.hud-foe.shown { opacity: 1; transform: translate(-50%, 0); }
+.bar-foe .bar-fill { background: linear-gradient(180deg, #d7c3ff 0%, #8c6bd6 55%, #6a4cae 100%); }
+.bar-foe .bar-label { text-transform: none; letter-spacing: 0.02em; font-size: 15px; }
+
+.hud-quick {
+  position: absolute;
+  top: 26px;
+  right: 34px;
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 10px;
+  align-items: start;
+}
+.hud-quick .quick:nth-child(2) { margin-top: 30px; }
+.quick { position: relative; display: grid; justify-items: center; }
+.quick .well {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 35%, #fffaf0 0%, var(--well) 70%, var(--well-deep) 100%);
+  box-shadow: inset 0 3px 6px rgba(43, 33, 64, 0.28), 0 0 0 3px var(--gold), 0 0 0 5px rgba(43, 33, 64, 0.55), 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.18s var(--ease-pop), box-shadow 0.18s ease;
+}
+.quick .well img { width: 46px; height: 46px; }
+.quick.empty .well { background: rgba(251, 245, 233, 0.22); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(242, 191, 85, 0.7), 0 0 0 5px rgba(43, 33, 64, 0.4); }
+.quick .count {
+  position: absolute;
+  right: 0;
+  bottom: -4px;
+  min-width: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.quick .count:empty { display: none; }
+.quick-key {
+  position: absolute;
+  top: -10px;
+  left: -2px;
+  min-width: 24px;
+  padding: 1px 6px;
+  font-size: 13px;
+  color: var(--ink);
+}
+/* the item the free hand holds: lifted, and marked with a notch under it */
+.quick.ready .well { transform: translateY(-4px) scale(1.06); box-shadow: inset 0 3px 6px rgba(43, 33, 64, 0.28), 0 0 0 4px #fff, 0 0 0 7px var(--accent), 0 8px 18px rgba(0, 0, 0, 0.35); }
+.quick.ready::after {
+  content: "";
+  position: absolute;
+  bottom: -14px;
+  border: 7px solid transparent;
+  border-bottom-color: var(--paper);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+}
+
+.count-box { display: flex; align-items: center; gap: 8px; }
+.count-box img { width: 34px; height: 34px; }
+.count-value { font-size: 24px; font-variant-numeric: tabular-nums; }
+.count-label { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; }
+.hud-coins {
+  position: absolute;
+  left: 32px;
+  bottom: 30px;
+  padding: 6px 18px 6px 8px;
+  border-radius: 999px;
+  background: var(--glass-ink);
+}
+
+.hud-toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(5vh + 64px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 22px 8px 10px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 18px;
+  box-shadow: 0 0 0 3px var(--gold), var(--shadow-card);
+  opacity: 0;
+  transform: translate(-50%, 16px) scale(0.96);
+  transition: opacity 0.35s ease, transform 0.45s var(--ease-out);
+}
+.hud-toast img { width: 40px; height: 40px; }
+.hud-toast.shown { opacity: 1; transform: translate(-50%, 0) scale(1); }
+/* a toast waits out a dialogue rather than showing through its box */
+body[data-screen="dialogue"] .hud-toast { opacity: 0; }
+
+/* ------------------------------------------------------------ the ring */
+
+#menu {
+  /* M7: room each side for the turn buttons, so they never cover a card */
+  --W: min(1060px, 86vw, calc(100vw - 340px));
+  --H: min(668px, 72vh);
+  --R: calc(var(--W) * 0.7);
+  --C: calc(var(--W) * 1.8);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+#menu.shown { opacity: 1; visibility: visible; transition: opacity 0.22s ease; pointer-events: auto; }
+#menu.shown * { pointer-events: auto; }
+.menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, rgba(30, 20, 48, 0.35) 0%, rgba(22, 14, 36, 0.72) 75%);
+  backdrop-filter: blur(3px) saturate(0.8);
+}
+.ring-stage {
+  position: absolute;
+  inset: 0;
+  perspective: calc(var(--C) + var(--R));
+  perspective-origin: 50% 46%;
+  overflow: hidden;
+}
+#menu.shown .ring-stage { animation: ring-in 0.42s var(--ease-out); }
+@keyframes ring-in { from { transform: scale(0.92); opacity: 0; } to { transform: none; opacity: 1; } }
+.ring {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  /* the ring's centre sits R in front of the screen's plane, so the face
+     in front lies on the plane at its own size, and the viewer is C from
+     the centre (the perspective is C + R) */
+  transform: translateZ(var(--R)) rotateY(calc(var(--turn, 0) * 90deg));
+  transition: transform 0.56s var(--ease-turn);
+}
+.ring.still { transition: none; }
+.face {
+  position: absolute;
+  left: calc(var(--W) / -2);
+  top: calc(var(--H) / -2);
+  width: var(--W);
+  height: var(--H);
+  display: flex;
+  flex-direction: column;
+  transform: rotateY(calc(var(--i) * -90deg)) translateZ(calc(-1 * var(--R)));
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 30px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  box-shadow: inset 0 0 0 2px var(--rim), inset 0 0 0 7px var(--paper), inset 0 0 0 8.5px rgba(201, 154, 78, 0.55), var(--shadow-card);
+  color: var(--ink);
+  filter: brightness(0.74) saturate(0.8);
+  transition: filter 0.45s ease;
+}
+.face.front { filter: none; }
+.face:not(.front) * { pointer-events: none; }
+.face-head { display: flex; justify-content: center; padding: 26px 0 8px; }
+.face-heading {
+  position: relative;
+  margin: 0;
+  padding: 0 26px;
+  font-size: 26px;
+  font-weight: 850;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.face-heading::before, .face-heading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 110px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--rim));
+}
+.face-heading::before { right: 100%; }
+.face-heading::after { left: 100%; transform: scaleX(-1); }
+.face-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px 40px; }
+
+/* slots */
+.slot {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  outline: none;
+}
+.slot .well {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 30%, #fbf3e2 0%, var(--well) 62%, var(--well-deep) 100%);
+  box-shadow: inset 0 4px 9px rgba(43, 33, 64, 0.26), inset 0 -2px 0 rgba(255, 255, 255, 0.6), 0 0 0 2px rgba(201, 154, 78, 0.65);
+  transition: transform 0.2s var(--ease-pop), box-shadow 0.2s ease;
+}
+.slot .well img { width: 62px; height: 62px; grid-area: 1 / 1; filter: drop-shadow(0 2px 1px rgba(43, 33, 64, 0.2)); }
+.slot-label { grid-area: 1 / 1; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(93, 84, 112, 0.7); }
+.slot:not(.filled) .well { background: radial-gradient(circle at 50% 30%, #f4ead6 0%, #e6d8bb 100%); }
+/* the cursor: a gold ring, lifted, with a soft pulse (still when motion is reduced) */
+.slot.chosen .well {
+  transform: scale(1.08);
+  box-shadow: inset 0 4px 9px rgba(43, 33, 64, 0.2), 0 0 0 4px #fffaf0, 0 0 0 8px var(--gold), 0 0 0 9.5px var(--gold-deep), 0 10px 22px rgba(43, 33, 64, 0.28);
+}
+.slot.chosen::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px dashed rgba(185, 127, 42, 0.75);
+  animation: cursor-spin 9s linear infinite;
+}
+@keyframes cursor-spin { to { transform: rotate(1turn); } }
+.slot .count {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 30px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 21px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.slot .count:empty, .slot .badge:empty { display: none; }
+.slot .badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 26px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  border-color: var(--accent-deep);
+  box-shadow: 0 2px 0 var(--accent-deep);
+  color: #fffaf0;
+  font-size: 13px;
+}
+.slot.worn .well::after {
+  content: "";
+  grid-area: 1 / 1;
+  align-self: end;
+  justify-self: end;
+  width: 22px;
+  height: 22px;
+  margin: 0 2px 2px 0;
+  border-radius: 50%;
+  background: var(--leaf) center / 14px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5 6.5 12 13 4.5' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  box-shadow: 0 0 0 2px #fffaf0, 0 0 0 3.5px var(--ink);
+}
+
+/* Select Item */
+.grid { display: grid; grid-template-columns: repeat(6, 104px); gap: 14px 22px; justify-content: center; }
+.grid .slot { width: 104px; height: 104px; }
+.grid .slot .well { width: 90px; height: 90px; }
+
+/* the line under each screen naming what is chosen; it keeps its height
+   so nothing moves as the cursor does */
+.info {
+  margin: 0 34px 30px;
+  min-height: 116px;
+  padding: 14px 24px 12px;
+  border-radius: 18px;
+  background: rgba(43, 33, 64, 0.06);
+  box-shadow: inset 0 0 0 1.5px rgba(201, 154, 78, 0.55);
+}
+.info-name { margin: 0 0 4px; font-size: 21px; font-weight: 850; letter-spacing: 0.02em; }
+.info-about { margin: 0 0 6px; font-size: 16px; line-height: 1.4; color: var(--ink); }
+.info-notes { margin: 0; font-size: 14px; font-weight: 700; color: var(--accent-deep); }
+.info.blank { box-shadow: inset 0 0 0 1.5px rgba(201, 154, 78, 0.3); }
+
+/* Equipment */
+.equip { width: 100%; height: 100%; display: grid; grid-template-columns: 1fr 360px 1fr; align-items: center; gap: 12px; }
+.equip h3, .equip-set h3 { margin: 0 0 12px; font-size: 13px; font-weight: 850; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); }
+.equip-hand { display: flex; flex-direction: column; align-items: center; }
+.hand-slots { display: grid; grid-template-columns: repeat(2, auto); justify-items: center; gap: 16px; }
+/* T21 (phase E): the shield's slot under the two swords; T35 (G2): the shears beside it */
+.equip-figure { position: relative; height: 100%; max-height: 430px; aspect-ratio: 360 / 430; justify-self: center; }
+/* M7: the player's own model on its canvas, a soft lit stage */
+.equip-figure .figure { position: absolute; left: 50%; top: 1%; width: 64%; height: 98%; transform: translateX(-50%); border-radius: 46% 46% 22px 22px / 30% 30% 22px 22px; box-shadow: 0 0 0 2px rgba(201, 154, 78, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
+.equip-figure .slot { position: absolute; transform: translate(-50%, -50%); }
+.equip-figure .slot[data-place="head"] { left: 80%; top: 13%; }
+.equip-figure .slot[data-place="body"] { left: 18%; top: 36%; }
+.equip-figure .slot[data-place="hands"] { left: 84%; top: 55%; }
+.equip-figure .slot[data-place="legs"] { left: 18%; top: 72%; }
+.equip-figure .slot[data-place="feet"] { left: 80%; top: 90%; }
+.equip-set { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border-radius: 18px; background: rgba(95, 151, 220, 0.1); box-shadow: inset 0 0 0 1.5px rgba(63, 109, 179, 0.35); }
+.set-title { display: flex; align-items: center; gap: 10px; }
+.set-title h3 { margin: 0; color: var(--sky-deep); }
+.set-icon { width: 38px; height: 38px; }
+.set-count { margin: 0; font-size: 17px; font-weight: 800; }
+.equip-set .bar-label { color: var(--ink-soft); }
+.equip-set .bar-text { color: var(--ink); font-weight: 800; }
+.equip-set .bar-track { background: rgba(43, 33, 64, 0.14); box-shadow: inset 0 1px 2px rgba(43, 33, 64, 0.3); height: 14px; }
+
+/* Map */
+.map-wrap { display: grid; grid-template-columns: auto 230px; gap: 28px; align-items: center; height: 100%; }
+.parchment {
+  position: relative;
+  height: min(100%, calc(var(--H) - 128px));
+  aspect-ratio: 1;
+  border-radius: 10px;
+  box-shadow: 0 0 0 2px #a07c4f, 0 0 0 6px #e8d6b2, 0 0 0 7.5px #a07c4f, 0 10px 24px rgba(43, 33, 64, 0.3);
+  transform: rotate(-0.6deg);
+}
+/* T24: the map on a sheet, zoom times the parchment's size, its window's
+   corner (the core's left and top, shares of the whole map) at the frame's */
+.parchment { overflow: hidden; }
+/* T34: the map is dragged with the pointer (the core moves its window) */
+.map-wrap .parchment { cursor: grab; touch-action: none; user-select: none; }
+.map-wrap .parchment.dragging { cursor: grabbing; }
+.map-wrap .parchment img { -webkit-user-drag: none; }
+.parchment .sheet {
+  position: absolute;
+  width: calc(var(--zoom, 1) * 100%);
+  height: calc(var(--zoom, 1) * 100%);
+  left: calc(var(--x, 0%) * var(--zoom, 1) * -1);
+  top: calc(var(--y, 0%) * var(--zoom, 1) * -1);
+}
+.parchment canvas { width: 100%; height: 100%; display: block; border-radius: 10px; image-rendering: pixelated; }
+.map-zoom { margin: 0; font-size: 13px; font-weight: 750; color: var(--ink-soft); }
+.mark, .you { position: absolute; transform: translate(-50%, -50%); }
+/* M7: a mark stands on its place like a pin, its label over its icon and
+   a short stem down to the point, so the arrow at the player's point never
+   covers the icon or the name */
+.mark { display: flex; flex-direction: column-reverse; align-items: center; transform: translate(-50%, -100%); z-index: 1; }
+.mark::before { content: ""; width: 2px; height: 16px; border-radius: 1px; background: rgba(43, 33, 64, 0.6); }
+.mark .mark-label { margin: 0 0 2px; }
+/* M7 (R9.410): a label the core marks quiet (a higher mark holds its room)
+   shows only while its pin is pointed at; the list beside names every mark */
+.mark.quiet .mark-label { visibility: hidden; }
+.mark.quiet:hover .mark-label { visibility: visible; }
+/* every shown label over every pin: the map's mark is an anchor of no size
+   and no stacking of its own, so its icon, stem and label each stand among
+   all the others' and the labels go on top */
+.face-map .mark { display: block; width: 0; height: 0; transform: none; z-index: auto; }
+.face-map .mark::before { position: absolute; left: -1px; top: -16px; z-index: 1; }
+.face-map .mark img { position: absolute; left: -13px; top: -42px; z-index: 1; }
+.face-map .mark .mark-label { position: absolute; left: 0; bottom: 44px; margin: 0; transform: translateX(-50%); z-index: 3; }
+.you { z-index: 2; }
+.mark img { width: 26px; height: 26px; filter: drop-shadow(0 1px 1px rgba(43, 33, 64, 0.35)); }
+.mark-label { margin-top: 2px; padding: 0 6px; border-radius: 6px; background: rgba(251, 245, 233, 0.85); font-size: 12px; font-weight: 800; white-space: nowrap; }
+.you-arrow {
+  display: block;
+  width: 26px;
+  height: 26px;
+  transform: rotate(var(--heading, 0deg));
+  background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Cpath d='M13 2 22 23 13 18 4 23Z' fill='%23d9774a' stroke='%232b2140' stroke-width='2.2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 0 3px rgba(251, 245, 233, 0.95));
+}
+.you-label { display: none; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); font-size: 12px; font-weight: 850; white-space: nowrap; text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper); }
+#menu.shown .you-arrow { animation: you-bob 1.6s ease-in-out infinite; }
+@keyframes you-bob { 50% { filter: drop-shadow(0 0 6px rgba(255, 214, 140, 1)); } }
+/* T38: the side keeps to the map's height; the marks' list scrolls in it once
+   the larger map's marks are many */
+.map-side { display: flex; flex-direction: column; gap: 10px; align-self: stretch; min-height: 0; max-height: 100%; overflow: hidden; }
+.map-side > .map-list:last-child { overflow-y: auto; min-height: 0; flex: 1 1 auto; padding-right: 6px; scrollbar-gutter: stable; }
+.map-legend { margin: 0; font-size: 16px; font-weight: 700; }
+.map-walked { margin: 0; font-size: 14px; font-weight: 800; color: var(--accent-deep); }
+.map-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.map-list li { display: flex; align-items: center; gap: 8px; font-weight: 750; font-size: 15px; }
+.map-list img { width: 26px; height: 26px; }
+.map-list .you-arrow { width: 26px; height: 26px; transform: none; }
+
+/* Quest */
+/* T25: the quest screen fits its box and scrolls as one (it overflowed
+   above and below once the quest lines grew) */
+.quest { width: 100%; display: grid; grid-template-columns: 1.4fr 1fr; grid-template-rows: auto auto; gap: 22px; align-self: stretch; max-height: 100%; overflow-y: auto; padding: 4px 8px 4px 2px; box-sizing: border-box; scrollbar-gutter: stable; }
+.quest-card { padding: 22px 26px; border-radius: 20px; background: rgba(43, 33, 64, 0.05); box-shadow: inset 0 0 0 1.5px rgba(201, 154, 78, 0.55); }
+.quest-card h3 { margin: 0 0 6px; font-size: 20px; font-weight: 850; }
+.quest-card p { margin: 0; font-size: 16px; line-height: 1.45; }
+.quest-imbue { display: flex; gap: 22px; align-items: center; }
+.quest-imbue .well {
+  flex: none;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 30%, #fbf3e2 0%, var(--well) 62%, var(--well-deep) 100%);
+  box-shadow: inset 0 4px 9px rgba(43, 33, 64, 0.26), 0 0 0 3px var(--gold), 0 0 16px 2px rgba(242, 191, 85, 0.5);
+}
+.quest-imbue .well img { width: 74px; height: 74px; }
+.quest-imbue .well.dim { box-shadow: inset 0 4px 9px rgba(43, 33, 64, 0.26), 0 0 0 2px rgba(201, 154, 78, 0.6); }
+.quest-imbue .well.dim img { opacity: 0.35; filter: grayscale(1); }
+.quest-coins { flex-direction: column; justify-content: center; gap: 4px; }
+.quest-coins img { width: 64px; height: 64px; }
+.quest-coins .count-value { font-size: 40px; font-weight: 850; line-height: 1; }
+.quest-coins .count-label { color: var(--ink-soft); }
+.quest-task { grid-column: 1 / -1; }
+/* M7 rumours (T17): the quest lines */
+.quest-lines { grid-column: 1 / -1; }
+.quest-lines .lines-none[hidden] { display: none; }
+.line-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px; }
+.line-list li { padding: 8px 12px; border-radius: 12px; background: rgba(251, 245, 233, 0.6); }
+.line-list .line-head { display: flex; justify-content: space-between; gap: 12px; font-weight: 850; font-size: 16px; }
+.line-list .line-progress { color: var(--accent-deep); white-space: nowrap; }
+.line-list .line-text { margin: 2px 0 0; font-size: 14px; line-height: 1.35; }
+.line-list li.done { opacity: 0.62; }
+.line-list li.done .line-progress::before { content: "\2713  "; }
+
+/* the turns either side, Ocarina of Time's Z and R */
+.turn {
+  position: absolute;
+  top: 46%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 0 2px var(--rim), 0 8px 20px rgba(20, 12, 32, 0.4);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease;
+}
+/* M7: while the ring turns the side names fade, and come back naming the
+   new neighbours once it stops */
+.turn span { transition: opacity 0.16s ease; }
+#menu.turning .turn span { opacity: 0; }
+.turn-left { left: 26px; }
+.turn-right { right: 26px; }
+.turn:hover { transform: translateY(-50%) scale(1.05); }
+.turn:active { transform: translateY(-50%) scale(0.97); }
+.turn:focus-visible, .menu-close:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+.turn kbd, .menu-close kbd { color: var(--ink); }
+
+.menu-foot {
+  position: absolute;
+  left: 50%;
+  bottom: 3.2vh;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 14px 10px 22px;
+  border-radius: 999px;
+  background: rgba(251, 245, 233, 0.96);
+  box-shadow: 0 0 0 2px var(--rim), 0 10px 26px rgba(20, 12, 32, 0.4);
+  color: var(--ink);
+}
+.menu-assign { display: flex; align-items: center; gap: 14px; }
+.assign-label { font-size: 13px; font-weight: 850; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); }
+.quick-row { display: flex; gap: 12px; }
+.quick-row .quick .well { width: 46px; height: 46px; box-shadow: inset 0 2px 5px rgba(43, 33, 64, 0.28), 0 0 0 2.5px var(--gold), 0 0 0 4px rgba(43, 33, 64, 0.5); }
+.quick-row .quick.empty .well { background: var(--well); }
+.quick-row .quick .well img { width: 34px; height: 34px; }
+.quick-row .quick-key { top: -6px; left: -8px; font-size: 11px; min-width: 20px; padding: 0 5px; }
+.quick-row .quick .count { font-size: 11px; line-height: 17px; min-width: 20px; bottom: -4px; right: -6px; }
+.quick-row .quick.ready .well { transform: none; }
+.quick-row .quick.ready::after { display: none; }
+#menu:not([data-face="select"]) .menu-assign { opacity: 0.55; }
+/* M7: the quick keys answer the pointer and the keyboard, and the one
+   pointed at is described in a card over the foot */
+.quick-row .quick { cursor: default; border-radius: 50%; outline: none; }
+.quick-row .quick .well { transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease; }
+.quick-row .quick:hover .well, .quick-row .quick:focus-visible .well { transform: translateY(-3px) scale(1.08); box-shadow: inset 0 2px 5px rgba(43, 33, 64, 0.28), 0 0 0 3px #fff, 0 0 0 6px var(--sky); }
+#menu:not([data-face="select"]) .menu-assign:hover, #menu:not([data-face="select"]) .menu-assign:focus-within { opacity: 1; }
+/* while a quick key is described, the screen's own line steps aside */
+#menu:has(.quick-info:not([hidden])) .face.front .info { visibility: hidden; }
+.quick-info {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 14px);
+  transform: translateX(-50%);
+  width: min(560px, 86vw);
+  min-height: 0;
+  margin: 0;
+  background: rgba(251, 245, 233, 0.98);
+  box-shadow: 0 0 0 2px var(--rim), 0 10px 26px rgba(20, 12, 32, 0.4);
+  pointer-events: none;
+}
+.menu-close {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fffaf0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 850;
+  box-shadow: 0 3px 0 var(--accent-deep);
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------ dialogue */
+
+#talk {
+  position: absolute;
+  left: 50%;
+  bottom: 5vh;
+  width: min(1000px, 90vw);
+  transform: translate(-50%, 24px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s ease, transform 0.35s var(--ease-out), visibility 0s linear 0.22s;
+}
+#talk.shown { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity 0.22s ease, transform 0.35s var(--ease-out); }
+#talk.shown * { pointer-events: auto; }
+.talk-box {
+  position: relative;
+  display: flex;
+  gap: 26px;
+  min-height: 176px;
+  padding: 26px 34px 22px 26px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(40, 30, 60, 0.94) 0%, rgba(28, 20, 44, 0.96) 100%);
+  box-shadow: inset 0 0 0 2px rgba(242, 191, 85, 0.85), inset 0 0 0 6px rgba(28, 20, 44, 0.9), inset 0 0 0 7.5px rgba(242, 191, 85, 0.35), var(--shadow-card);
+  color: var(--paper);
+  cursor: pointer;
+}
+.portrait {
+  flex: none;
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 30%, #fffaf0 0%, var(--well) 70%);
+  box-shadow: 0 0 0 3px var(--gold), 0 0 0 6px rgba(28, 20, 44, 0.9);
+  overflow: hidden;
+}
+.portrait img { width: 112px; height: 112px; }
+.talk-main { flex: 1; display: flex; flex-direction: column; }
+.talk-name {
+  align-self: flex-start;
+  margin: -44px 0 10px;
+  padding: 5px 18px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  box-shadow: 0 3px 0 var(--gold-deep);
+}
+.talk-text { margin: 0; flex: 1; font-size: 23px; line-height: 1.5; font-weight: 650; }
+.unsaid { visibility: hidden; }
+.talk-next { display: flex; align-items: center; justify-content: flex-end; gap: 8px; font-size: 14px; font-weight: 800; opacity: 0; transition: opacity 0.2s ease; }
+.talk-next.done { opacity: 1; }
+.talk-next kbd { color: var(--ink); }
+.caret { width: 0; height: 0; border: 8px solid transparent; border-top: 10px solid var(--gold); margin-top: 8px; }
+.talk-next.done .caret { animation: caret 0.9s ease-in-out infinite; }
+@keyframes caret { 50% { transform: translateY(4px); } }
+
+/* -------------------------------------------------- shop and settings */
+
+#shop, #settings {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 45%, rgba(30, 20, 48, 0.25) 0%, rgba(22, 14, 36, 0.62) 80%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+#shop.shown, #settings.shown { opacity: 1; visibility: visible; transition: opacity 0.22s ease; }
+#shop.shown *, #settings.shown * { pointer-events: auto; }
+.card {
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  box-shadow: inset 0 0 0 2px var(--rim), inset 0 0 0 7px var(--paper), inset 0 0 0 8.5px rgba(201, 154, 78, 0.55), var(--shadow-card);
+  color: var(--ink);
+}
+#shop.shown .card, #settings.shown .card { animation: card-in 0.36s var(--ease-out); }
+@keyframes card-in { from { transform: translateY(18px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+.card h1 { margin: 0; font-size: 28px; font-weight: 850; letter-spacing: 0.06em; }
+.card h2 { margin: 0 0 10px; font-size: 13px; font-weight: 850; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); }
+.card button:focus-visible, .card input:focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
+
+.shop-card { width: min(940px, 92vw); padding: 30px 38px 28px; display: flex; flex-direction: column; gap: 20px; }
+.shop-head { display: flex; justify-content: space-between; align-items: center; }
+.shop-head .count-box { padding: 6px 16px 6px 8px; border-radius: 999px; background: rgba(43, 33, 64, 0.07); box-shadow: inset 0 0 0 1.5px rgba(201, 154, 78, 0.55); }
+.shop-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+.shop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; }
+.shop-row { display: grid; grid-template-columns: 52px 1fr auto auto 88px; align-items: center; gap: 12px; padding: 6px 8px 6px 6px; border-radius: 16px; background: rgba(43, 33, 64, 0.04); }
+.shop-row .well { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, #fbf3e2 0%, var(--well) 70%); box-shadow: inset 0 2px 5px rgba(43, 33, 64, 0.25), 0 0 0 2px rgba(201, 154, 78, 0.6); }
+.shop-row .well img { width: 36px; height: 36px; }
+.row-name { font-size: 16px; font-weight: 800; }
+.shop-row .count { font-size: 13px; font-weight: 800; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.shop-row .count:not(:empty)::before { content: "× "; }
+.row-price { font-size: 15px; font-weight: 800; color: var(--gold-deep); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row-button, .leave, .back {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fffaf0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 850;
+  box-shadow: 0 3px 0 var(--accent-deep);
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+.row-button:hover:not(:disabled), .leave:hover, .back:hover { filter: brightness(1.06); }
+.row-button:active:not(:disabled), .leave:active, .back:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--accent-deep); }
+.row-button:disabled { background: #cfc3ad; box-shadow: 0 3px 0 #b3a68e; color: rgba(43, 33, 64, 0.55); cursor: default; }
+/* M7: an item the merchant will not buy: listed, its price place saying
+   why, its button giving the refusal line */
+.shop-row.kept { background: rgba(43, 33, 64, 0.02); }
+.shop-row.kept .row-price { color: var(--ink-soft); font-weight: 700; font-style: italic; }
+.shop-row.kept .well img { opacity: 0.75; }
+.shop-row.kept .row-button { background: #cfc3ad; box-shadow: 0 3px 0 #b3a68e; color: rgba(43, 33, 64, 0.6); }
+.shop-empty { margin: 0; font-weight: 700; color: var(--ink-soft); }
+.shop-empty:empty, .shop-note:empty { display: none; }
+.shop-note { margin: 0; padding: 10px 16px; border-radius: 14px; background: rgba(217, 119, 74, 0.12); font-weight: 800; color: var(--accent-deep); }
+.leave, .back { align-self: center; min-width: 180px; padding: 12px 26px; font-size: 18px; }
+
+.settings-card { width: min(600px, 92vw); padding: 32px 40px 30px; display: flex; flex-direction: column; gap: 22px; }
+.controls-list { display: flex; flex-direction: column; gap: 6px; }
+.control { display: grid; grid-template-columns: 190px 1fr 64px; align-items: center; gap: 18px; padding: 12px 6px; border-bottom: 1.5px solid rgba(201, 154, 78, 0.35); }
+.control-label { font-size: 17px; font-weight: 800; }
+.control-value { font-size: 16px; font-weight: 850; text-align: right; font-variant-numeric: tabular-nums; }
+.control input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 26px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  --fill: calc((var(--value) - var(--min)) / (var(--max) - var(--min)) * 100%);
+}
+.control input[type="range"]::-webkit-slider-runnable-track { height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--accent) var(--fill), rgba(43, 33, 64, 0.16) var(--fill)); box-shadow: inset 0 1px 2px rgba(43, 33, 64, 0.3); }
+.control input[type="range"]::-moz-range-track { height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--accent) var(--fill), rgba(43, 33, 64, 0.16) var(--fill)); box-shadow: inset 0 1px 2px rgba(43, 33, 64, 0.3); }
+.control input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -7px; border-radius: 50%; background: var(--paper); box-shadow: 0 0 0 3px var(--accent-deep), 0 2px 5px rgba(0, 0, 0, 0.3); }
+.control input[type="range"]::-moz-range-thumb { width: 24px; height: 24px; border: 0; border-radius: 50%; background: var(--paper); box-shadow: 0 0 0 3px var(--accent-deep), 0 2px 5px rgba(0, 0, 0, 0.3); }
+.switch {
+  justify-self: start;
+  position: relative;
+  width: 58px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(43, 33, 64, 0.2);
+  box-shadow: inset 0 1px 3px rgba(43, 33, 64, 0.35);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.switch .knob { position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: var(--paper); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); transition: transform 0.22s var(--ease-pop); }
+.switch.on { background: var(--accent); }
+.switch.on .knob { transform: translateX(26px); }
+.settings-note { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink-soft); }
+
+/* ------------------------------------------- the title and the pause */
+
+body[data-screen="title"] #overlay {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  padding: 0 0 0 8vw;
+  background: linear-gradient(90deg, rgba(30, 20, 48, 0.55) 0%, rgba(30, 20, 48, 0.25) 34%, rgba(30, 20, 48, 0) 60%);
+}
+body[data-screen="title"] #overlay > .panel { display: contents; }
+#title h1 {
+  order: 1;
+  margin: 0 0 34px;
+  font-size: clamp(56px, 7.4vw, 124px);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 0.95;
+  color: var(--paper);
+  text-shadow: 0 4px 0 var(--ink), 0 -2px 0 var(--ink), 3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 10px 0 rgba(43, 33, 64, 0.55), 0 18px 38px rgba(20, 12, 32, 0.5);
+  animation: title-in 0.8s var(--ease-out) both;
+}
+@keyframes title-in { from { transform: translateY(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
+#title > button, #title-more > button {
+  width: 300px;
+  margin: 0 0 14px;
+  animation: title-in 0.7s var(--ease-out) both;
+  animation-delay: 0.12s;
+}
+#title > button { order: 2; }
+#title-more > button {
+  order: 3;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 4px 0 var(--paper-edge), 0 8px 18px rgba(20, 12, 32, 0.3);
+  animation-delay: 0.18s;
+}
+#title-more > button:active { box-shadow: 0 1px 0 var(--paper-edge); }
+#title h2 { order: 4; margin: 26px 0 6px; color: rgba(251, 245, 233, 0.85); }
+#title table.controls, #title-more table.controls { width: 300px; color: var(--paper); font-weight: 700; text-shadow: 0 1px 2px rgba(20, 12, 32, 0.6); }
+#title table.controls { order: 5; }
+#title-more table.controls { order: 6; }
+#title table.controls td, #title-more table.controls td { padding: 3px 0; }
+#title kbd, #title-more kbd { text-shadow: none; color: var(--ink); }
+.panel button:focus-visible { outline: 3px solid #fffaf0; outline-offset: 3px; box-shadow: 0 0 0 7px rgba(95, 151, 220, 0.85), 0 4px 0 var(--accent-deep); }
+
+/* the pause: one card holding both panels, in the order heading, Resume,
+   Settings, then every key; the overlay is the card, a backdrop dims the game */
+body[data-screen="paused"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  background: radial-gradient(ellipse at center, rgba(43, 33, 64, 0.08) 0%, rgba(30, 20, 48, 0.42) 100%);
+}
+body[data-screen="paused"] #overlay {
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  max-width: 92vw;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 30px 34px 26px;
+  border-radius: 26px;
+  background: var(--glass);
+  border: 2px solid var(--paper-edge);
+  box-shadow: var(--shadow);
+  animation: rise 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+body[data-screen="paused"] #overlay > .panel { display: contents; }
+#paused h1 { order: 1; text-align: center; letter-spacing: 0.08em; }
+#paused > button { order: 2; }
+#paused-more > button { order: 3; margin-top: 12px; background: var(--paper); color: var(--ink); box-shadow: 0 0 0 2px var(--paper-edge), 0 4px 0 var(--paper-edge); }
+#paused-more > button:active { box-shadow: 0 0 0 2px var(--paper-edge), 0 1px 0 var(--paper-edge); }
+#paused h2 { order: 4; }
+#paused table.controls { order: 5; }
+#paused-more table.controls { order: 6; }
+
+/* M7 (R9.86): the keys in two columns, each row a key cap and what it
+   does, so the title and the pause fit a 1280 x 720 window at the same size
+   of type; a key cap never wraps, and its words never touch the words
+   beside it. Both lists share one column layout, so their rows line up. */
+#title table.controls, #title-more table.controls, #paused table.controls, #paused-more table.controls {
+  display: block;
+  columns: 2;
+  column-gap: 30px;
+}
+#title table.controls tbody, #title-more table.controls tbody, #paused table.controls tbody, #paused-more table.controls tbody { display: contents; }
+#title table.controls tr, #title-more table.controls tr, #paused table.controls tr, #paused-more table.controls tr {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  margin-bottom: 7px;
+  break-inside: avoid;
+}
+#title table.controls td, #title-more table.controls td, #paused table.controls td, #paused-more table.controls td { width: auto; padding: 0; }
+#overlay kbd { white-space: nowrap; }
+#title table.controls, #title-more table.controls { width: min(720px, 84vw); box-sizing: border-box; padding: 12px 18px 5px; background: rgba(30, 20, 48, 0.5); backdrop-filter: blur(2px); }
+/* on the title the two lists read as one card over the world */
+#title table.controls { border-radius: 16px 16px 0 0; padding-top: 14px; }
+#title-more table.controls { border-radius: 0 0 16px 16px; padding-bottom: 8px; margin-top: 0; }
+
+/* M7 (R9.410): the title in two columns, so it fits a 1280 x 720 window
+   and up: the name and the buttons on the left, and on the right one card
+   holding the how-to line and every key. The column wraps at the overlay's
+   height, and the empty item after the buttons (::after, a column of its
+   own) starts the card's column. */
+body[data-screen="title"] #overlay {
+  flex-wrap: wrap;
+  align-content: flex-start;
+  column-gap: 32px;
+  padding: 0 0 0 5vw;
+}
+body[data-screen="title"] #overlay::after { content: ""; order: 4; flex-basis: 100%; width: 0; }
+#title h1 { font-size: clamp(48px, 5.2vw, 124px); }
+#title h2 { order: 5; margin-top: 0; }
+#title > p {
+  order: 6;
+  width: min(720px, 50vw);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 14px 18px 4px;
+  border-radius: 16px 16px 0 0;
+  background: rgba(30, 20, 48, 0.5);
+  backdrop-filter: blur(2px);
+  color: var(--paper);
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(20, 12, 32, 0.6);
+}
+#title table.controls { order: 7; border-radius: 0; padding-top: 6px; }
+#title-more table.controls { order: 8; }
+#title table.controls, #title-more table.controls { width: min(720px, 50vw); column-gap: 26px; }
+#title table.controls tr, #title-more table.controls tr { grid-template-columns: 168px minmax(0, 1fr); column-gap: 8px; }
+
+/* the pause: the heading and its two buttons on the left, the keys on the
+   right, in one card */
+body[data-screen="paused"] #overlay {
+  display: grid;
+  width: min(1040px, 94vw);
+  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-areas: "head keysh" "resume keys" "set keys" ". keys" ". more";
+  column-gap: 34px;
+  align-items: start;
+}
+#paused h1 { grid-area: head; margin-bottom: 18px; }
+/* M7 (R9.322): the card rises into its centre; the shared rise ended at
+   transform: none and left it off centre, running off a short window */
+body[data-screen="paused"] #overlay { animation-name: rise-centred; }
+@keyframes rise-centred { from { transform: translate(-50%, calc(-50% + 14px)) scale(0.98); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
+#paused > button { grid-area: resume; }
+#paused-more > button { grid-area: set; }
+#paused h2 { grid-area: keysh; margin: 10px 0 12px; }
+#paused table.controls { grid-area: keys; }
+#paused-more table.controls { grid-area: more; margin-top: 6px; }
+
+/* ----------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .ring { transition: transform 0.01s linear; }
+  #menu.shown .ring-stage, #shop.shown .card, #settings.shown .card, #title h1, #title > button, #title-more > button { animation: none; }
+  .slot.chosen::before, #menu.shown .you-arrow, .talk-next.done .caret { animation: none; }
+  .hud-toast, #talk, .hud-foe, .face { transition-property: opacity; }
+}
+
+/* a shorter window: the ring and its cards keep inside it */
+@media (max-height: 760px) {
+  #menu { --H: min(600px, 76vh); }
+  .grid { gap: 8px 18px; }
+  .grid .slot { width: 88px; height: 88px; }
+  .grid .slot .well { width: 76px; height: 76px; }
+  .grid .slot .well img { width: 52px; height: 52px; }
+  .info { min-height: 98px; margin-bottom: 20px; }
+}
+
+/* ------------------------------------------- M7 travel: the song screen */
+/* The flute's staff (Ocarina of Time's: five lines, the notes played sitting
+   on them, a wrong phrase fading away, the right one glowing) and the
+   traveller's list on the map. Places on the staff and the map come from the
+   core as percentages (travel.rs). */
+
+#song {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 55%, rgba(30, 20, 48, 0.12) 0%, rgba(22, 14, 36, 0.55) 85%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+#song.shown { opacity: 1; visibility: visible; transition: opacity 0.22s ease; }
+#song.shown * { pointer-events: auto; }
+#song.shown .card { animation: card-in 0.36s var(--ease-out); }
+.song-card { width: min(980px, 94vw); padding: 26px 36px 24px; display: flex; flex-direction: column; gap: 16px; }
+#song[data-phase="notes"] .song-card { width: min(760px, 94vw); background: linear-gradient(180deg, rgba(40, 30, 60, 0.95) 0%, rgba(28, 20, 44, 0.97) 100%); color: var(--paper); box-shadow: inset 0 0 0 2px rgba(242, 191, 85, 0.85), inset 0 0 0 6px rgba(28, 20, 44, 0.9), inset 0 0 0 7.5px rgba(242, 191, 85, 0.35), var(--shadow-card); }
+.song-heading { text-align: center; }
+.song-notes { display: flex; flex-direction: column; gap: 14px; }
+.song-notes[hidden], .song-pick[hidden], .song-known[hidden] { display: none; }
+.staff { position: relative; height: 190px; margin: 4px 10px; border-radius: 16px; background: rgba(251, 245, 233, 0.05); }
+.staff-line { position: absolute; left: 6%; right: 6%; height: 2px; margin-top: -1px; border-radius: 1px; background: rgba(242, 191, 85, 0.55); }
+.staff-notes { position: absolute; inset: 0; transition: opacity 0.7s ease, filter 0.3s ease; }
+.staff-note { position: absolute; width: 46px; height: 46px; transform: translate(-50%, -50%); animation: note-in 0.18s var(--ease-pop); filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
+@keyframes note-in { from { transform: translate(-50%, -50%) scale(0.4); opacity: 0; } }
+.staff[data-state="wrong"] .staff-notes { opacity: 0; }
+.staff[data-state="right"] .staff-notes { filter: drop-shadow(0 0 10px rgba(255, 226, 154, 0.95)); }
+.song-said { margin: 0; min-height: 1.4em; text-align: center; font-size: 19px; font-weight: 800; color: var(--gold); }
+.song-keys { display: flex; justify-content: center; gap: 18px; }
+.song-key { display: flex; align-items: center; gap: 6px; font-weight: 800; }
+.song-key kbd { min-width: 1.6em; padding: 2px 8px; border-radius: 8px; background: var(--paper); color: var(--ink); text-align: center; box-shadow: 0 2px 0 var(--paper-edge); }
+.note-icon { width: 30px; height: 30px; }
+.note-row { display: flex; gap: 6px; align-items: center; }
+.note-row[hidden] { display: none; }
+.song-known-list { display: flex; flex-direction: column; gap: 6px; }
+.song-known-list[hidden] { display: none; }
+.song-list { display: flex; flex-direction: column; gap: 10px; }
+.song-known { display: flex; justify-content: center; align-items: center; gap: 12px; font-size: 15px; font-weight: 800; color: rgba(251, 245, 233, 0.8); }
+.song-known .note-icon { width: 24px; height: 24px; }
+.song-hint { margin: 0; text-align: center; font-size: 15px; font-weight: 700; opacity: 0.85; }
+#song .leave { min-width: 220px; }
+
+.song-pick { display: flex; flex-direction: column; gap: 12px; }
+.pick-heading { text-align: center; }
+.pick-body { display: grid; grid-template-columns: auto 300px; gap: 26px; align-items: start; }
+.pick-map { height: min(56vh, 520px); }
+.pick-mark { padding: 0; border: 0; background: none; cursor: pointer; font: inherit; color: var(--ink); }
+.pick-dot { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f4f8ff 0%, #c4d8ff 55%, #7d9ce0 100%); box-shadow: 0 0 0 2px var(--ink), 0 0 10px 3px rgba(196, 216, 255, 0.9); }
+.pick-mark.chosen .pick-dot { box-shadow: 0 0 0 3px var(--gold), 0 0 14px 5px rgba(255, 226, 154, 0.95); }
+.pick-mark.chosen .mark-label { background: var(--gold); }
+.pick-side { display: flex; flex-direction: column; gap: 10px; }
+.pick-coins { margin: 0; font-size: 17px; font-weight: 850; color: var(--gold-deep); }
+.pick-coins[hidden] { display: none; }
+.pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pick-button { width: 100%; display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 0; border-radius: 14px; background: rgba(43, 33, 64, 0.06); box-shadow: inset 0 0 0 1.5px rgba(201, 154, 78, 0.55); font: inherit; font-size: 16px; font-weight: 800; color: var(--ink); text-align: left; cursor: pointer; }
+.pick-row.chosen .pick-button { background: rgba(242, 191, 85, 0.3); box-shadow: inset 0 0 0 2.5px var(--gold-deep); }
+.pick-row.short .pick-price { color: var(--accent-deep); }
+.pick-price { color: var(--gold-deep); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pick-empty, .pick-note { margin: 0; font-weight: 750; }
+.pick-empty:empty, .pick-note:empty { display: none; }
+.pick-note { padding: 10px 14px; border-radius: 14px; background: rgba(217, 119, 74, 0.12); color: var(--accent-deep); }
+
+/* the song in the dialogue that teaches it, and on the Quest screen */
+.talk-song { margin: 6px 0 4px; gap: 8px; }
+.talk-song .note-icon { width: 38px; height: 38px; }
+.quest-songs .note-row { margin: 8px 0; }
+.quest-songs .song-name { font-weight: 850; }
+.quest-songs[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-note { animation: none; }
+  #song.shown .card { animation: none; }
+}

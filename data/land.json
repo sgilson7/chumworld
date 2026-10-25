@@ -1,0 +1,413 @@
+{
+  "_note": "The land's shape and colours (M2, crates/core/src/terrain.rs, lod.rs, scatter.rs). Heights are cm, distances m, colours 0 to 255, shares percent. The village plateau is height 0, so the game opens with its feet on the ground (world::START).",
+  "seed": 2026,
+  "noise": [
+    {
+      "wave_m": 700,
+      "amp_cm": 560
+    },
+    {
+      "wave_m": 190,
+      "amp_cm": 170
+    },
+    {
+      "wave_m": 47,
+      "amp_cm": 34
+    },
+    {
+      "wave_m": 13,
+      "amp_cm": 7
+    }
+  ],
+  "_noise": "value noise, octave by octave: the plains' long swells, then smaller rises, then the facets' unevenness",
+  "tilt_cm_per_km": [
+    0,
+    -150
+  ],
+  "_tilt_cm_per_km": "the land falls gently toward the south, where the orcs come from (east, south)",
+  "forest_rise_cm": 260,
+  "jumps": {
+    "_note": "T37 (the person: 'add more ramps and bumps to the plains areas so that you can hit cool jumps and crazy airtime when youre at max sprint speed'): kickers (a ramp curving up to a lip, then a short steep back) and bumps (smooth mounds) placed from the seed across the square's open land (terrain.rs, Land::place_jumps), clear of the roads, the places, the river, the forest, the fields and each other. A kicker leaves at lip_slope_pct (16: 9 degrees), so at the top sprint, 70 m/s, it throws a body 11 m/s up, 6 m over the lip at most, for 2.4 s and 160 m: under the fall that hurts (jump.rs, 8 m). A bump is no steeper than about 9 degrees either (1.54 times its height over its radius).",
+    "salt": 37,
+    "kickers": 60,
+    "kicker_height_cm": [120, 180],
+    "lip_slope_pct": 16,
+    "kicker_half_width_m": 4,
+    "kicker_back_m": 3,
+    "bumps": 140,
+    "bump_height_cm": [80, 160],
+    "bump_radius_m": [12, 18],
+    "clear_road_m": 18,
+    "clear_place_m": 60,
+    "clear_river_m": 50,
+    "apart_m": 60,
+    "tries": 4000
+  },
+  "mountains": {
+    "_note": "Beyond the square the land rises into ridges, as scenery to the 16 km horizon (CW-Q14). They start rising this far past the square's edge and are whole by the second distance; each side has its own height. The river's valley cuts through them.",
+    "rise_m": [
+      500,
+      5600
+    ],
+    "base_m": 160,
+    "ridge_m": {
+      "north": 1150,
+      "west": 880,
+      "east": 760,
+      "south": 380
+    },
+    "waves_m": [
+      3300,
+      1350,
+      540
+    ],
+    "gap_m": [
+      350,
+      2200
+    ]
+  },
+  "colour": {
+    "grass": [
+      [
+        150,
+        186,
+        104
+      ],
+      [
+        163,
+        195,
+        116
+      ],
+      [
+        141,
+        176,
+        97
+      ],
+      [
+        175,
+        201,
+        125
+      ]
+    ],
+    "dry": [
+      192,
+      190,
+      124
+    ],
+    "floor": [
+      102,
+      138,
+      78
+    ],
+    "canopy": [
+      70,
+      112,
+      64
+    ],
+    "road": [
+      198,
+      168,
+      122
+    ],
+    "road_dark": [
+      174,
+      142,
+      102
+    ],
+    "earth": [
+      182,
+      160,
+      120
+    ],
+    "sand": [
+      210,
+      194,
+      152
+    ],
+    "bed": [
+      126,
+      120,
+      94
+    ],
+    "crop": [
+      224,
+      198,
+      116
+    ],
+    "furrow": [
+      152,
+      120,
+      84
+    ],
+    "rock": [
+      152,
+      142,
+      130
+    ],
+    "mountain": [
+      132,
+      126,
+      128
+    ],
+    "upland": [
+      124,
+      154,
+      98
+    ],
+    "snow": [
+      238,
+      240,
+      242
+    ],
+    "gravel": [
+      190,
+      182,
+      164
+    ]
+  },
+  "shading": {
+    "_note": "Protection of the Spheres' faceted ground: each corner's seeded unevenness shades it, each facet a little more, steep faces turn to rock. The patchwork of tones is whole on the finest level and fades level by level, because a colour that changes from one tiny far facet to the next shimmers as the view moves (CW-18).",
+    "patch_m": 38,
+    "meadow_m": 420,
+    "dry_pct": 38,
+    "corner_pct": 5,
+    "facet_pct": 3,
+    "steep_pct": 80,
+    "patchwork_pct": [
+      100,
+      80,
+      55,
+      30,
+      12,
+      0,
+      0
+    ],
+    "village_earth_pct": 60,
+    "upland_from_m": 140,
+    "rock_from_m": [
+      260,
+      520
+    ],
+    "snow_from_m": [
+      860,
+      1060
+    ]
+  },
+  "lod": {
+    "_note": "Terrain in tiles round the camera (lod.rs): level 0 has 2 m cells, each level twice as coarse, to 128 m cells (PLAN.md, render::rings). A tile is split into four of the level below while the camera is inside the ring of that level, measured to the tile's middle; the outer band_pct of the ring hands over with the ordered dither. Tiles are built ahead of need inside prefetch_pct of a ring, at most builds_per_frame a frame, and forgotten outside evict_pct.",
+    "tile_cells": 32,
+    "levels": 7,
+    "band_pct": 15,
+    "prefetch_pct": 115,
+    "evict_pct": 140,
+    "builds_per_frame": 2,
+    "skirt_cm": 30,
+    "river_dip_from_level": 3,
+    "river_dip_cm": 200,
+    "extent_m": [
+      -16384,
+      20480
+    ]
+  },
+  "scatter": {
+    "_note": "Trees, rocks, grass and flowers (scatter.rs), placed from the land's seed in chunks. A tree is whole (trunk and three cones, inked) near, one cone further, and in the forest one big cone a cluster further still, then the forest floor's colour (terrain.rs). Each change is a dithered hand-over between distances measured to the chunk's middle (m). Densities are percent of the cells of a jittered grid that hold one.",
+    "chunk_m": 128,
+    "grass_chunk_m": 18,
+    "full_m": [
+      128,
+      150
+    ],
+    "cone_m": [
+      760,
+      900
+    ],
+    "cluster_m": [
+      3500,
+      4200
+    ],
+    "rock_m": [
+      260,
+      300
+    ],
+    "grass_m": [
+      28,
+      38
+    ],
+    "tuft_m": [
+      20,
+      28,
+      62,
+      78
+    ],
+    "tuft_chunk_m": 36,
+    "tuft_cell_cm": 120,
+    "tuft_pct": 65,
+    "road_m": [
+      80,
+      110
+    ],
+    "road_chunk_m": 64,
+    "meadow_m": [
+      55,
+      75,
+      200,
+      260
+    ],
+    "meadow_chunk_m": 96,
+    "meadow_cell_cm": 300,
+    "meadow_pct": 55,
+    "extent_m": [
+      -300,
+      4300
+    ],
+    "_extra_m": "T29 (TA): the bowl and its climb, past the square's north-west corner, dressed as the square is",
+    "extra_m": [[-1700, -1700, -300, -300]],
+    "forest_cell_m": 9,
+    "forest_pct": 82,
+    "plains_cell_m": 16,
+    "plains_pct": 5,
+    "clump_m": 260,
+    "cluster_cell_m": 24,
+    "rock_cell_m": 22,
+    "rock_pct": 9,
+    "grass_cell_cm": 150,
+    "grass_pct": 70,
+    "flower_pct": 9,
+    "steep_pct": 45,
+    "pine": [
+      [
+        63,
+        128,
+        74
+      ],
+      [
+        74,
+        143,
+        80
+      ],
+      [
+        56,
+        116,
+        68
+      ],
+      [
+        86,
+        152,
+        84
+      ]
+    ],
+    "_far_cone_pct": "R9.513: a far cone (cone_m) takes far_cone_mix_pct of the ground's colour under it and is lit far_cone_up_pct as the ground is, so the forest seen from the great tree's crown does not sparkle as the view pans",
+    "far_cone_mix_pct": 40,
+    "far_cone_up_pct": 80,
+    "leafy": [
+      [
+        111,
+        185,
+        92
+      ],
+      [
+        96,
+        170,
+        84
+      ],
+      [
+        124,
+        192,
+        98
+      ]
+    ],
+    "trunk": [
+      154,
+      106,
+      67
+    ],
+    "rock": [
+      [
+        158,
+        148,
+        134
+      ],
+      [
+        176,
+        168,
+        154
+      ],
+      [
+        140,
+        132,
+        122
+      ]
+    ],
+    "blade": [
+      [
+        152,
+        190,
+        100
+      ],
+      [
+        166,
+        200,
+        112
+      ],
+      [
+        140,
+        180,
+        92
+      ]
+    ],
+    "flower": [
+      [
+        255,
+        241,
+        168
+      ],
+      [
+        255,
+        190,
+        206
+      ],
+      [
+        250,
+        250,
+        246
+      ],
+      [
+        196,
+        170,
+        255
+      ]
+    ],
+    "tree_size_pct": [
+      85,
+      175
+    ],
+    "plains_size_pct": [
+      90,
+      140
+    ],
+    "forest": {
+      "_note": "M7 forest (T19, scatter::forest_kind, scatter::floor): of every hundred forest trees about kinds_pct broadleaves, birches and snags, the rest pines, the broadleaves and birches in stands a slow noise patch_m across draws; fallen logs and stumps on a log_cell_m grid; bushes drawn with the whole trees (to full_m), ferns and mushrooms with the grass (to grass_m). Colours are 0 to 255.",
+      "kinds_pct": [18, 14, 6],
+      "patch_m": 140,
+      "broadleaf": [[78, 130, 66], [92, 142, 70], [70, 118, 62]],
+      "birch": [[150, 190, 92], [168, 198, 102], [138, 180, 86]],
+      "birch_bark": [232, 226, 212],
+      "snag": [138, 126, 114],
+      "log_cell_m": 16,
+      "log_pct": 9,
+      "stump_pct": 8,
+      "bark": [120, 86, 60],
+      "moss": [104, 140, 70],
+      "bush_cell_m": 7,
+      "bush_pct": 28,
+      "bush": [[70, 120, 64], [82, 132, 70], [62, 110, 60]],
+      "fern_cell_cm": 210,
+      "fern_pct": 42,
+      "mushroom_pct": 9,
+      "fern": [[96, 150, 72], [108, 160, 80], [86, 140, 66]],
+      "mushroom": [[196, 70, 52], [214, 170, 112], [176, 126, 84]],
+      "stem": [236, 228, 210]
+    },
+    "_grass_m": "M7 (R9.44): every blade, tuft, rock and tree fades by its own distance in the shader (scatter::band, the uniforms uBands and uBands2), not its chunk's, so nothing near pops: grass whole to 28 m and gone by 38; then the chunkier tufts, coming in from 20 to 28 m and gone from 62 to 78 m; then the meadow's colour. A 9 cm blade is 0.75 px wide at 36 m at 640 x 360, a 28 cm tuft a pixel at 78 m: none thinner than about 0.4 px, which blinks as the view pans (R4.25)"
+  }
+}

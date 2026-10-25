@@ -1,0 +1,37 @@
+{
+  "_about": "Magic (M6, crates/core/src/orbs.rs): the kinds of orb and the patterns cast in the MVP (M7: the practice begins with practice_one, a single orb, then practice_few, three, before the practice pattern itself, trainer.rs), after Long Time Comin's data/patterns.json. A kind is a shape (sphere, tetra, octa, cube, star, torus; no two kinds share one, CW-10), a colour (0-255) for its body and its halo, a radius in cm, the health a hit takes, whether an imbued blade can turn it, and what turning or landing it does: none; knock (turning it jars the sword arm: both arms weakened for knock_ticks); shove (turning it pushes the player back at shove_cms); stun (turned back, it weakens both of what it hits's arms in full). A pattern is a list of volleys, each fired from before the caster's chest at the player's chest. Forms: fan (count orbs spread_deg wide in all, flat across the line to the player), ring (count orbs on a circle radius_cm round the line, in the plane facing the player, hanging hold ticks before they fly: launch aim, each at the chest then, or along the line), wave (a row of count orbs spacing_cm apart across the line, a hole gap orbs wide that moves left, middle, right as the volley repeats). Every volley: kind, speed_cms (cm a second), delay (ticks after the cast before the first repeat), repeat (how many), every (ticks between repeats), spin_deg (a ring turns this far each repeat: a spiral), sweep_deg (a fan turns from one side to the other over its repeats), curl_degs (each orb turns this many degrees a second as it flies; alternate turns every other one the other way). turned is the colour every turned orb takes, body and halo.",
+  "turned": {"colour": [255, 246, 214], "halo": [166, 240, 255]},
+  "imbue": {"colour": [232, 251, 255], "halo": [166, 240, 255]},
+  "knock_ticks": 45,
+  "shove_cms": 260,
+  "kinds": [
+    {"id": "sphere", "shape": "sphere", "colour": [79, 179, 201], "halo": [120, 220, 240], "radius_cm": 13, "damage": 4, "turnable": true, "effect": "none"},
+    {"id": "dart", "shape": "tetra", "colour": [222, 84, 140], "halo": [255, 120, 180], "radius_cm": 13, "damage": 3, "turnable": true, "effect": "knock"},
+    {"id": "gem", "shape": "octa", "colour": [120, 214, 92], "halo": [170, 255, 130], "radius_cm": 17, "damage": 8, "turnable": true, "effect": "shove"},
+    {"id": "ward", "shape": "cube", "colour": [222, 214, 240], "halo": [200, 180, 255], "radius_cm": 14, "damage": 5, "turnable": false, "effect": "none"},
+    {"id": "star", "shape": "star", "colour": [240, 186, 64], "halo": [255, 214, 110], "radius_cm": 17, "damage": 7, "turnable": true, "effect": "stun"},
+    {"id": "mote", "shape": "torus", "colour": [120, 226, 196], "halo": [150, 255, 220], "radius_cm": 15, "damage": 0, "turnable": true, "effect": "none"}
+  ],
+  "patterns": {
+    "leader": [
+      {"form": "fan", "kind": "sphere", "count": 5, "spread_deg": 20, "speed_cms": 650, "delay": 40, "repeat": 3, "every": 36, "sweep_deg": 10},
+      {"form": "ring", "kind": "dart", "count": 4, "radius_cm": 120, "hold": 50, "launch": "aim", "speed_cms": 800, "delay": 210, "repeat": 2, "every": 70, "spin_deg": 30},
+      {"form": "wave", "kind": "ward", "count": 9, "spacing_cm": 55, "gap": 2, "speed_cms": 550, "delay": 400, "repeat": 3, "every": 55},
+      {"form": "ring", "kind": "sphere", "count": 1, "radius_cm": 35, "hold": 0, "launch": "along", "speed_cms": 700, "delay": 590, "repeat": 6, "every": 8, "spin_deg": 36},
+      {"form": "fan", "kind": "gem", "count": 2, "spread_deg": 12, "speed_cms": 450, "delay": 720, "repeat": 2, "every": 40},
+      {"form": "fan", "kind": "dart", "count": 7, "spread_deg": 70, "speed_cms": 600, "delay": 790, "repeat": 1, "every": 1, "curl_degs": 20, "alternate": true},
+      {"form": "fan", "kind": "star", "count": 1, "speed_cms": 600, "delay": 870, "repeat": 1, "every": 1}
+    ],
+    "practice": [
+      {"form": "fan", "kind": "mote", "count": 1, "speed_cms": 300, "delay": 60, "repeat": 4, "every": 90},
+      {"form": "fan", "kind": "mote", "count": 3, "spread_deg": 16, "speed_cms": 300, "delay": 480, "repeat": 2, "every": 120},
+      {"form": "ring", "kind": "mote", "count": 5, "radius_cm": 80, "hold": 60, "launch": "aim", "speed_cms": 300, "delay": 840, "repeat": 1, "every": 1}
+    ],
+    "practice_one": [
+      {"form": "fan", "kind": "mote", "count": 1, "speed_cms": 300, "delay": 50, "repeat": 1, "every": 1}
+    ],
+    "practice_few": [
+      {"form": "fan", "kind": "mote", "count": 3, "spread_deg": 14, "speed_cms": 300, "delay": 50, "repeat": 1, "every": 1}
+    ]
+  }
+}
